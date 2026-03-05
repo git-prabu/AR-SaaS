@@ -1,6 +1,6 @@
 // pages/restaurant/[subdomain]/index.js
 import Head from 'next/head';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, trackVisit, incrementItemView, incrementARView } from '../../../lib/db';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
@@ -15,60 +15,38 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [activeCategory, setActiveCategory] = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showAR, setShowAR] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const sheetRef = useRef(null);
-
-  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!restaurant?.id) return;
     trackVisit(restaurant.id, getSessionId()).catch(() => {});
   }, [restaurant?.id]);
 
-  // Lock body scroll when modal open
   useEffect(() => {
-    if (selectedItem) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = selectedItem ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [selectedItem]);
 
   const categories = ['All', ...new Set((menuItems || []).map(i => i.category).filter(Boolean))];
   const filtered = activeCategory === 'All' ? menuItems : menuItems.filter(i => i.category === activeCategory);
+  const arCount = (menuItems || []).filter(i => i.modelURL).length;
 
   const openItem = useCallback(async (item) => {
-    setSelectedItem(item);
-    setShowAR(false);
+    setSelectedItem(item); setShowAR(false);
     if (restaurant?.id) await incrementItemView(restaurant.id, item.id).catch(() => {});
   }, [restaurant?.id]);
 
-  const closeItem = useCallback(() => {
-    setSelectedItem(null);
-    setShowAR(false);
-  }, []);
+  const closeItem = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
 
   const handleARLaunch = useCallback(async () => {
-    if (restaurant?.id && selectedItem?.id) {
+    if (restaurant?.id && selectedItem?.id)
       await incrementARView(restaurant.id, selectedItem.id).catch(() => {});
-    }
   }, [restaurant?.id, selectedItem?.id]);
 
-  if (error || !restaurant) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0A0A0B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ textAlign: 'center', padding: '0 24px' }}>
-          <div style={{ fontSize: 64, marginBottom: 16 }}>🍽️</div>
-          <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Restaurant not found</h1>
-          <p style={{ color: '#888' }}>This page doesn't exist or the restaurant is currently inactive.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const activeOffer = offers?.[0];
-  const arItems = (menuItems || []).filter(i => i.modelURL).length;
+  if (error || !restaurant) return (
+    <div style={{minHeight:'100vh',background:'#0D0D0F',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'sans-serif'}}>
+      <div style={{textAlign:'center',color:'#fff'}}><div style={{fontSize:64,marginBottom:16}}>🍽️</div><h1>Restaurant not found</h1></div>
+    </div>
+  );
 
   return (
     <>
@@ -76,353 +54,402 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         <title>{restaurant.name} — AR Menu</title>
         <meta name="description" content={`View ${restaurant.name}'s menu in augmented reality`} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Satoshi:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+        body{background:#0D0D0F;overflow-x:hidden}
 
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body { background: #0A0A0B; }
+        .page{
+          min-height:100vh;
+          background:#0D0D0F;
+          font-family:'Satoshi','DM Sans',sans-serif;
+          color:#F5F5F0;
+          position:relative;
+          overflow-x:hidden;
+        }
 
-        .menu-page { min-height: 100vh; background: #0A0A0B; font-family: 'DM Sans', sans-serif; color: #F0F0F0; }
+        /* Ambient background orbs */
+        .bg-orb{
+          position:fixed;
+          border-radius:50%;
+          filter:blur(80px);
+          pointer-events:none;
+          z-index:0;
+        }
+        .orb1{width:400px;height:400px;background:rgba(255,107,53,0.12);top:-100px;right:-100px;}
+        .orb2{width:300px;height:300px;background:rgba(255,180,80,0.07);bottom:20%;left:-80px;}
+        .orb3{width:200px;height:200px;background:rgba(255,107,53,0.06);top:40%;right:10%;}
 
         /* Offer banner */
-        .offer-banner {
-          background: linear-gradient(90deg, #FF6B35, #FFB347);
-          padding: 10px 16px;
-          text-align: center;
-          font-size: 13px;
-          font-weight: 600;
-          letter-spacing: 0.01em;
+        .offer-banner{
+          position:relative;z-index:10;
+          background:linear-gradient(90deg,#FF6B35,#FFB347);
+          padding:10px 20px;text-align:center;
+          font-size:13px;font-weight:600;letter-spacing:0.02em;
         }
 
         /* Header */
-        .header {
-          position: sticky;
-          top: 0;
-          z-index: 40;
-          background: rgba(10, 10, 11, 0.92);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-          padding: 16px 20px 0;
+        .header{
+          position:sticky;top:0;z-index:40;
+          padding:20px 20px 0;
+          background:rgba(13,13,15,0.8);
+          backdrop-filter:blur(24px);
+          -webkit-backdrop-filter:blur(24px);
+          border-bottom:1px solid rgba(255,255,255,0.05);
         }
-        .header-top {
-          max-width: 680px;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding-bottom: 14px;
-        }
-        .restaurant-avatar {
-          width: 48px; height: 48px;
-          border-radius: 14px;
-          background: linear-gradient(135deg, #FF6B35 0%, #FFB347 100%);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 22px;
-          flex-shrink: 0;
-          box-shadow: 0 4px 16px rgba(255,107,53,0.3);
-        }
-        .restaurant-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; line-height: 1.2; }
-        .restaurant-sub { font-size: 12px; color: #888; margin-top: 2px; }
-        .ar-badge {
-          margin-left: auto;
-          display: flex; align-items: center; gap: 6px;
-          padding: 6px 12px;
-          border-radius: 20px;
-          background: rgba(255,107,53,0.1);
-          border: 1px solid rgba(255,107,53,0.25);
-          font-size: 11px;
-          font-weight: 600;
-          color: #FF6B35;
-          white-space: nowrap;
-        }
-        .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #FF6B35; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(1.3); } }
+        .header-inner{max-width:680px;margin:0 auto;}
+        .header-top{display:flex;align-items:center;gap:14px;padding-bottom:16px;}
 
-        /* Category tabs */
-        .cat-scroll {
-          max-width: 680px; margin: 0 auto;
-          display: flex; gap: 8px;
-          overflow-x: auto; padding-bottom: 14px;
-          scrollbar-width: none;
+        .resto-logo{
+          width:52px;height:52px;border-radius:16px;
+          background:linear-gradient(135deg,#FF6B35,#FFB347);
+          display:flex;align-items:center;justify-content:center;
+          font-size:24px;flex-shrink:0;
+          box-shadow:0 8px 24px rgba(255,107,53,0.35);
         }
-        .cat-scroll::-webkit-scrollbar { display: none; }
-        .cat-btn {
-          flex-shrink: 0;
-          padding: 7px 16px;
-          border-radius: 20px;
-          font-size: 13px;
-          font-weight: 500;
-          border: 1px solid rgba(255,255,255,0.1);
-          background: transparent;
-          color: #888;
-          cursor: pointer;
-          transition: all 0.2s;
-          font-family: 'DM Sans', sans-serif;
+        .resto-name{
+          font-family:'Clash Display','Syne',sans-serif;
+          font-weight:700;font-size:20px;line-height:1.1;
+          background:linear-gradient(135deg,#F5F5F0,#BBBBAA);
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;
         }
-        .cat-btn.active {
-          background: #FF6B35;
-          border-color: #FF6B35;
-          color: white;
-          font-weight: 600;
+        .resto-sub{font-size:12px;color:#666;margin-top:3px;}
+        .ar-pill{
+          margin-left:auto;flex-shrink:0;
+          display:flex;align-items:center;gap:6px;
+          padding:7px 14px;border-radius:30px;
+          background:rgba(255,107,53,0.12);
+          border:1px solid rgba(255,107,53,0.3);
+          font-size:11px;font-weight:700;color:#FF6B35;
+          letter-spacing:0.04em;text-transform:uppercase;
+        }
+        .ar-pulse{width:6px;height:6px;border-radius:50%;background:#FF6B35;animation:glow 2s infinite;}
+        @keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(255,107,53,0.6)}50%{box-shadow:0 0 0 4px rgba(255,107,53,0)}}
+
+        /* Categories */
+        .cats{
+          display:flex;gap:8px;overflow-x:auto;padding-bottom:16px;
+          scrollbar-width:none;
+        }
+        .cats::-webkit-scrollbar{display:none}
+        .cat{
+          flex-shrink:0;padding:8px 18px;border-radius:30px;
+          font-size:13px;font-weight:500;
+          border:1px solid rgba(255,255,255,0.08);
+          background:rgba(255,255,255,0.03);
+          color:#888;cursor:pointer;
+          font-family:'Satoshi',sans-serif;
+          transition:all 0.2s;
+        }
+        .cat.on{
+          background:linear-gradient(135deg,#FF6B35,#FFB347);
+          border-color:transparent;color:#fff;font-weight:700;
+          box-shadow:0 4px 16px rgba(255,107,53,0.3);
         }
 
-        /* Main content */
-        .main { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; }
+        /* Main */
+        .main{max-width:680px;margin:0 auto;padding:24px 16px 60px;position:relative;z-index:1;}
 
-        /* AR items count strip */
-        .ar-strip {
-          display: flex; align-items: center; gap: 8px;
-          padding: 10px 14px; margin-bottom: 20px;
-          background: rgba(255,107,53,0.06);
-          border: 1px solid rgba(255,107,53,0.15);
-          border-radius: 12px;
-          font-size: 12px; color: #FF6B35; font-weight: 500;
+        /* AR strip */
+        .ar-strip{
+          display:flex;align-items:center;gap:10px;
+          padding:12px 16px;margin-bottom:24px;
+          background:rgba(255,107,53,0.06);
+          border:1px solid rgba(255,107,53,0.15);
+          border-radius:14px;
+          font-size:12px;color:#FF8050;font-weight:500;
         }
 
         /* Grid */
-        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 
         /* Card */
-        .menu-card {
-          background: #141416;
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 18px;
-          overflow: hidden;
-          cursor: pointer;
-          transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-          text-align: left;
-          display: block;
-          width: 100%;
+        .card{
+          background:rgba(255,255,255,0.04);
+          border:1px solid rgba(255,255,255,0.07);
+          border-radius:22px;overflow:hidden;
+          cursor:pointer;text-align:left;
+          transition:transform 0.2s,box-shadow 0.2s,border-color 0.2s;
+          backdrop-filter:blur(10px);
+          -webkit-backdrop-filter:blur(10px);
+          position:relative;
         }
-        .menu-card:active { transform: scale(0.97); }
-        .menu-card.has-ar { border-color: rgba(255,107,53,0.2); }
+        .card.ar-card{
+          border-color:rgba(255,107,53,0.2);
+          background:rgba(255,107,53,0.04);
+        }
+        .card:active{transform:scale(0.97);}
 
-        .card-image {
-          width: 100%; height: 140px;
-          background: #1C1C1F;
-          overflow: hidden;
-          position: relative;
+        /* Card image — circular dish style */
+        .card-img-wrap{
+          width:100%;padding:16px 16px 0;
+          display:flex;justify-content:center;
         }
-        .card-image img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s; }
-        .card-image .placeholder {
-          width: 100%; height: 100%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 40px;
-          background: linear-gradient(135deg, #1C1C1F 0%, #141416 100%);
+        .card-img{
+          width:110px;height:110px;border-radius:50%;
+          overflow:hidden;background:#1C1C1F;
+          border:3px solid rgba(255,255,255,0.06);
+          box-shadow:0 8px 32px rgba(0,0,0,0.4);
+          flex-shrink:0;
         }
-
-        /* AR badge on card */
-        .card-ar-badge {
-          position: absolute; top: 8px; right: 8px;
-          background: rgba(255,107,53,0.9);
-          backdrop-filter: blur(8px);
-          color: white; font-size: 9px; font-weight: 700;
-          padding: 3px 8px; border-radius: 10px;
-          letter-spacing: 0.05em; text-transform: uppercase;
+        .card-img img{width:100%;height:100%;object-fit:cover;display:block;}
+        .card-img .noimg{
+          width:100%;height:100%;
+          display:flex;align-items:center;justify-content:center;
+          font-size:36px;
+          background:radial-gradient(circle,#2A2A2E,#1C1C1F);
         }
 
-        /* Veg/Non-veg indicator */
-        .veg-dot {
-          position: absolute; top: 8px; left: 8px;
-          width: 16px; height: 16px;
-          border-radius: 3px;
-          border: 1.5px solid;
-          display: flex; align-items: center; justify-content: center;
+        /* AR glow ring on image */
+        .card.ar-card .card-img{
+          border-color:rgba(255,107,53,0.4);
+          box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 0 2px rgba(255,107,53,0.15);
         }
-        .veg-dot.veg { border-color: #22c55e; }
-        .veg-dot.veg::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
-        .veg-dot.nonveg { border-color: #ef4444; }
-        .veg-dot.nonveg::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; }
 
-        .card-body { padding: 12px; }
-        .card-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; line-height: 1.3; margin-bottom: 4px; color: #F0F0F0; }
-        .card-meta { display: flex; align-items: center; justify-content: space-between; }
-        .card-cal { font-size: 11px; color: #666; }
-        .card-price { font-size: 13px; font-weight: 700; color: #FF6B35; font-family: 'Syne', sans-serif; }
-        .card-ar-text { font-size: 10px; color: #FF6B35; font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: 6px; letter-spacing: 0.03em; text-transform: uppercase; }
+        /* AR badge */
+        .ar-badge{
+          position:absolute;top:10px;right:10px;
+          background:linear-gradient(135deg,#FF6B35,#FFB347);
+          color:#fff;font-size:9px;font-weight:800;
+          padding:3px 8px;border-radius:10px;
+          letter-spacing:0.06em;text-transform:uppercase;
+          box-shadow:0 2px 8px rgba(255,107,53,0.4);
+        }
+
+        /* Veg indicator */
+        .veg-ind{
+          position:absolute;top:10px;left:10px;
+          width:18px;height:18px;border-radius:4px;
+          border:2px solid;
+          display:flex;align-items:center;justify-content:center;
+        }
+        .veg-ind.v{border-color:#22c55e;}
+        .veg-ind.v::after{content:'';width:8px;height:8px;border-radius:50%;background:#22c55e;}
+        .veg-ind.nv{border-color:#ef4444;}
+        .veg-ind.nv::after{content:'';width:8px;height:8px;border-radius:50%;background:#ef4444;}
+
+        .card-body{padding:12px 14px 14px;text-align:center;}
+        .card-name{
+          font-family:'Clash Display','Syne',sans-serif;
+          font-weight:600;font-size:13px;line-height:1.25;
+          color:#F0F0EC;margin-bottom:6px;
+        }
+        .card-row{display:flex;align-items:center;justify-content:center;gap:8px;}
+        .card-cal{font-size:11px;color:#555;}
+        .card-price{
+          font-family:'Clash Display',sans-serif;
+          font-size:14px;font-weight:700;color:#FF8050;
+        }
+        .card-ar-label{
+          font-size:10px;color:#FF8050;font-weight:600;
+          display:flex;align-items:center;justify-content:center;gap:3px;
+          margin-top:6px;letter-spacing:0.04em;text-transform:uppercase;
+        }
+
+        /* Empty */
+        .empty{text-align:center;padding:60px 20px;color:#444;}
+        .empty-icon{font-size:48px;margin-bottom:12px;}
 
         /* MODAL */
-        .modal-overlay {
-          position: fixed; inset: 0; z-index: 50;
-          display: flex; align-items: flex-end; justify-content: center;
-          background: rgba(0,0,0,0.75);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          animation: fadeIn 0.2s ease;
+        .overlay{
+          position:fixed;inset:0;z-index:50;
+          display:flex;align-items:flex-end;justify-content:center;
+          background:rgba(0,0,0,0.8);
+          backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+          animation:fadeIn 0.25s ease;
         }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
-        .modal-sheet {
-          position: relative;
-          width: 100%; max-width: 520px;
-          background: #111113;
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 28px 28px 0 0;
-          overflow-y: auto;
-          max-height: 93vh;
-          animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+        .sheet{
+          position:relative;
+          width:100%;max-width:520px;
+          background:rgba(18,18,20,0.98);
+          border:1px solid rgba(255,255,255,0.08);
+          border-radius:32px 32px 0 0;
+          overflow-y:auto;max-height:93vh;
+          animation:up 0.35s cubic-bezier(0.32,0.72,0,1);
         }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
-        .modal-handle { display: flex; justify-content: center; padding: 14px 0 4px; }
-        .modal-handle-bar { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.12); }
+        .handle-wrap{display:flex;justify-content:center;padding:14px 0 6px;}
+        .handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.1);}
 
-        .modal-close {
-          position: absolute; top: 14px; right: 16px;
-          width: 32px; height: 32px; border-radius: 50%;
-          background: rgba(255,255,255,0.08);
-          border: none; color: #888; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 16px; transition: background 0.2s;
+        .close-btn{
+          position:absolute;top:16px;right:18px;
+          width:34px;height:34px;border-radius:50%;
+          background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.08);
+          color:#888;cursor:pointer;font-size:15px;
+          display:flex;align-items:center;justify-content:center;
+          transition:background 0.2s;
         }
-        .modal-close:hover { background: rgba(255,255,255,0.14); }
+        .close-btn:hover{background:rgba(255,255,255,0.12);}
 
-        .modal-body { padding: 4px 20px 32px; }
+        .sheet-body{padding:0 20px 36px;}
 
-        .modal-cover {
-          width: 100%; height: 220px;
-          border-radius: 18px; overflow: hidden;
-          background: #1C1C1F; margin-bottom: 20px;
+        /* Hero image in modal — large circle */
+        .modal-hero{
+          display:flex;justify-content:center;
+          padding:8px 0 20px;
         }
-        .modal-cover img { width: 100%; height: 100%; object-fit: cover; }
-        .modal-cover .placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 72px; }
+        .modal-img{
+          width:180px;height:180px;border-radius:50%;
+          overflow:hidden;background:#1C1C1F;
+          border:4px solid rgba(255,255,255,0.06);
+          box-shadow:0 16px 48px rgba(0,0,0,0.5),0 0 0 8px rgba(255,107,53,0.06);
+        }
+        .modal-img img{width:100%;height:100%;object-fit:cover;}
+        .modal-img .noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:72px;background:radial-gradient(circle,#2A2A2E,#1C1C1F);}
 
-        .modal-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; line-height: 1.15; margin-bottom: 8px; }
-        .modal-tags { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-        .modal-category { padding: 4px 12px; border-radius: 20px; background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2); color: #FF6B35; font-size: 12px; font-weight: 600; }
-        .modal-veg-label { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-        .modal-veg-label.veg { background: rgba(34,197,94,0.1); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
-        .modal-veg-label.nonveg { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+        .modal-title{
+          font-family:'Clash Display','Syne',sans-serif;
+          font-weight:700;font-size:28px;line-height:1.15;
+          text-align:center;margin-bottom:10px;
+          background:linear-gradient(135deg,#F5F5F0 30%,#CCCCBB);
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+        }
+        .modal-tags{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+        .tag-cat{
+          padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;
+          background:rgba(255,107,53,0.1);border:1px solid rgba(255,107,53,0.2);color:#FF8050;
+        }
+        .tag-veg{
+          padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;
+        }
+        .tag-veg.v{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:#22c55e;}
+        .tag-veg.nv{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#ef4444;}
 
-        .modal-desc { font-size: 14px; color: #999; line-height: 1.6; margin-bottom: 20px; }
+        .modal-price{
+          text-align:center;
+          font-family:'Clash Display',sans-serif;
+          font-size:36px;font-weight:700;
+          color:#FF8050;margin-bottom:6px;
+          text-shadow:0 0 30px rgba(255,107,53,0.3);
+        }
+        .modal-price-sub{text-align:center;font-size:11px;color:#555;margin-bottom:20px;}
 
-        /* Price row */
-        .modal-price-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-        .modal-price { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: #FF6B35; }
-        .modal-price-sub { font-size: 12px; color: #555; }
+        .modal-desc{
+          font-size:14px;color:#888;line-height:1.65;
+          margin-bottom:22px;text-align:center;
+        }
 
-        /* Nutrition grid */
-        .nutr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
-        .nutr-card { background: #1A1A1D; border-radius: 14px; padding: 12px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
-        .nutr-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #FF6B35; }
-        .nutr-unit { font-size: 10px; color: #555; margin-top: 2px; }
-        .nutr-label { font-size: 10px; color: #777; }
+        /* Glass divider */
+        .divider{height:1px;background:rgba(255,255,255,0.06);margin:20px 0;}
+
+        /* Nutrition */
+        .sec-label{
+          font-size:10px;font-weight:700;color:#444;
+          letter-spacing:0.12em;text-transform:uppercase;
+          margin-bottom:12px;
+        }
+        .nutr{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px;}
+        .nutr-card{
+          background:rgba(255,255,255,0.04);
+          border:1px solid rgba(255,255,255,0.06);
+          border-radius:16px;padding:14px 8px;text-align:center;
+        }
+        .nutr-val{
+          font-family:'Clash Display',sans-serif;
+          font-size:20px;font-weight:700;color:#FF8050;
+        }
+        .nutr-unit{font-size:10px;color:#555;margin-top:1px;}
+        .nutr-lbl{font-size:10px;color:#666;margin-top:2px;}
 
         /* Ingredients */
-        .section-label { font-size: 10px; font-weight: 700; color: #555; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
-        .ing-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; }
-        .ing-chip { padding: 6px 12px; border-radius: 20px; background: #1A1A1D; border: 1px solid rgba(255,255,255,0.07); font-size: 12px; color: #aaa; }
+        .ings{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px;}
+        .ing{
+          padding:6px 14px;border-radius:20px;font-size:12px;color:#999;
+          background:rgba(255,255,255,0.04);
+          border:1px solid rgba(255,255,255,0.06);
+        }
 
         /* AR Button */
-        .ar-btn {
-          width: 100%; padding: 16px;
-          border-radius: 16px; border: none;
-          background: linear-gradient(135deg, #FF6B35 0%, #FFB347 100%);
-          color: white; font-family: 'Syne', sans-serif;
-          font-weight: 700; font-size: 16px;
-          cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-          box-shadow: 0 8px 32px rgba(255,107,53,0.35);
-          transition: transform 0.15s, box-shadow 0.15s;
-          letter-spacing: 0.02em;
+        .ar-btn{
+          width:100%;padding:17px;border-radius:18px;border:none;
+          background:linear-gradient(135deg,#FF6B35,#FFB347);
+          color:#fff;
+          font-family:'Clash Display','Syne',sans-serif;
+          font-weight:700;font-size:17px;letter-spacing:0.02em;
+          cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:10px;
+          box-shadow:0 8px 36px rgba(255,107,53,0.4),0 0 0 1px rgba(255,200,100,0.1) inset;
+          transition:transform 0.15s,box-shadow 0.15s;
         }
-        .ar-btn:active { transform: scale(0.98); box-shadow: 0 4px 16px rgba(255,107,53,0.3); }
-
-        .ar-hint { text-align: center; font-size: 11px; color: #555; margin-top: 8px; }
-
-        /* Divider */
-        .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 20px 0; }
-
-        /* Empty state */
-        .empty { text-align: center; padding: 60px 20px; color: #555; }
-        .empty-icon { font-size: 48px; margin-bottom: 12px; }
+        .ar-btn:active{transform:scale(0.98);box-shadow:0 4px 16px rgba(255,107,53,0.3);}
+        .ar-hint{text-align:center;font-size:11px;color:#444;margin-top:8px;}
       `}</style>
 
-      <div className="menu-page">
+      <div className="page">
+        <div className="bg-orb orb1" />
+        <div className="bg-orb orb2" />
+        <div className="bg-orb orb3" />
 
-        {/* OFFER BANNER */}
-        {activeOffer && (
-          <div className="offer-banner">
-            🎉 {activeOffer.title} — {activeOffer.description}
-          </div>
+        {offers?.[0] && (
+          <div className="offer-banner">🎉 {offers[0].title} — {offers[0].description}</div>
         )}
 
-        {/* HEADER */}
         <header className="header">
-          <div className="header-top">
-            <div className="restaurant-avatar">🍽️</div>
-            <div>
-              <div className="restaurant-name">{restaurant.name}</div>
-              <div className="restaurant-sub">Scan any item to view it in AR</div>
+          <div className="header-inner">
+            <div className="header-top">
+              <div className="resto-logo">🍽️</div>
+              <div>
+                <div className="resto-name">{restaurant.name}</div>
+                <div className="resto-sub">Point your phone at your table</div>
+              </div>
+              <div className="ar-pill">
+                <span className="ar-pulse" />
+                AR Live
+              </div>
             </div>
-            <div className="ar-badge">
-              <span className="ar-dot" />
-              AR Enabled
+            <div className="cats">
+              {categories.map(cat => (
+                <button key={cat} className={`cat${activeCategory===cat?' on':''}`} onClick={()=>setActiveCategory(cat)}>
+                  {cat}
+                </button>
+              ))}
             </div>
-          </div>
-
-          {/* Category tabs */}
-          <div className="cat-scroll">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`cat-btn${activeCategory === cat ? ' active' : ''}`}
-              >
-                {cat}
-              </button>
-            ))}
           </div>
         </header>
 
-        {/* MAIN */}
         <main className="main">
-
-          {/* AR strip */}
-          {arItems > 0 && (
+          {arCount > 0 && (
             <div className="ar-strip">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
               </svg>
-              {arItems} item{arItems !== 1 ? 's' : ''} available in AR — tap to view in your space
+              {arCount} dish{arCount!==1?'es':''} available in AR — tap to view in your space
             </div>
           )}
 
-          {filtered.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon">🥢</div>
-              <p>No items in this category yet</p>
-            </div>
+          {filtered.length===0 ? (
+            <div className="empty"><div className="empty-icon">🥢</div><p>No items in this category</p></div>
           ) : (
-            <div className="menu-grid">
-              {filtered.map((item, i) => (
-                <button key={item.id} className={`menu-card${item.modelURL ? ' has-ar' : ''}`} onClick={() => openItem(item)}>
-                  <div className="card-image">
-                    {item.imageURL
-                      ? <img src={item.imageURL} alt={item.name} loading="lazy" />
-                      : <div className="placeholder">🍽️</div>
-                    }
-                    {item.modelURL && <span className="card-ar-badge">AR</span>}
-                    {typeof item.isVeg === 'boolean' && (
-                      <div className={`veg-dot ${item.isVeg ? 'veg' : 'nonveg'}`} />
-                    )}
+            <div className="grid">
+              {filtered.map(item => (
+                <button key={item.id} className={`card${item.modelURL?' ar-card':''}`} onClick={()=>openItem(item)}>
+                  {item.modelURL && <span className="ar-badge">AR</span>}
+                  {typeof item.isVeg==='boolean' && (
+                    <span className={`veg-ind ${item.isVeg?'v':'nv'}`} />
+                  )}
+                  <div className="card-img-wrap">
+                    <div className="card-img">
+                      {item.imageURL
+                        ? <img src={item.imageURL} alt={item.name} loading="lazy"/>
+                        : <div className="noimg">🍽️</div>
+                      }
+                    </div>
                   </div>
                   <div className="card-body">
                     <div className="card-name">{item.name}</div>
-                    <div className="card-meta">
+                    <div className="card-row">
                       {item.calories && <span className="card-cal">{item.calories} kcal</span>}
                       {item.price && <span className="card-price">₹{item.price}</span>}
                     </div>
                     {item.modelURL && (
-                      <div className="card-ar-text">
+                      <div className="card-ar-label">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                          <path d="M2 17l10 5 10-5"/>
-                          <path d="M2 12l10 5 10-5"/>
+                          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                         </svg>
                         View in AR
                       </div>
@@ -434,105 +461,81 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           )}
         </main>
 
-        {/* ITEM MODAL */}
         {selectedItem && (
-          <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeItem(); }}>
-            <div className="modal-sheet" ref={sheetRef}>
-              <div className="modal-handle"><div className="modal-handle-bar" /></div>
-              <button className="modal-close" onClick={closeItem}>✕</button>
-
-              <div className="modal-body">
-                {/* Cover image */}
+          <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)closeItem();}}>
+            <div className="sheet">
+              <div className="handle-wrap"><div className="handle"/></div>
+              <button className="close-btn" onClick={closeItem}>✕</button>
+              <div className="sheet-body">
                 {!showAR && (
-                  <div className="modal-cover">
-                    {selectedItem.imageURL
-                      ? <img src={selectedItem.imageURL} alt={selectedItem.name} />
-                      : <div className="placeholder">🍽️</div>
-                    }
-                  </div>
-                )}
-
-                {/* Title + tags */}
-                <h2 className="modal-title">{selectedItem.name}</h2>
-                <div className="modal-tags">
-                  {selectedItem.category && <span className="modal-category">{selectedItem.category}</span>}
-                  {typeof selectedItem.isVeg === 'boolean' && (
-                    <span className={`modal-veg-label ${selectedItem.isVeg ? 'veg' : 'nonveg'}`}>
-                      {selectedItem.isVeg ? '● Veg' : '● Non-Veg'}
-                    </span>
-                  )}
-                </div>
-
-                {/* Price */}
-                {selectedItem.price && (
-                  <div className="modal-price-row">
-                    <div>
-                      <div className="modal-price">₹{selectedItem.price}</div>
-                      <div className="modal-price-sub">per serving</div>
+                  <div className="modal-hero">
+                    <div className="modal-img">
+                      {selectedItem.imageURL
+                        ? <img src={selectedItem.imageURL} alt={selectedItem.name}/>
+                        : <div className="noimg">🍽️</div>
+                      }
                     </div>
                   </div>
                 )}
-
-                {/* Description */}
-                {selectedItem.description && (
-                  <p className="modal-desc">{selectedItem.description}</p>
-                )}
-
-                {/* Nutrition */}
-                {(selectedItem.calories || selectedItem.protein || selectedItem.carbs || selectedItem.fats) && (
+                <h2 className="modal-title">{selectedItem.name}</h2>
+                <div className="modal-tags">
+                  {selectedItem.category && <span className="tag-cat">{selectedItem.category}</span>}
+                  {typeof selectedItem.isVeg==='boolean' && (
+                    <span className={`tag-veg ${selectedItem.isVeg?'v':'nv'}`}>
+                      {selectedItem.isVeg?'● Veg':'● Non-Veg'}
+                    </span>
+                  )}
+                </div>
+                {selectedItem.price && (
                   <>
-                    <div className="section-label">Nutrition per serving</div>
-                    <div className="nutr-grid">
-                      {[
-                        { label: 'Calories', val: selectedItem.calories, unit: 'kcal' },
-                        { label: 'Protein',  val: selectedItem.protein,  unit: 'g'    },
-                        { label: 'Carbs',    val: selectedItem.carbs,    unit: 'g'    },
-                        { label: 'Fats',     val: selectedItem.fats,     unit: 'g'    },
-                      ].filter(n => n.val).map(n => (
-                        <div key={n.label} className="nutr-card">
-                          <div className="nutr-val">{n.val}</div>
-                          <div className="nutr-unit">{n.unit}</div>
-                          <div className="nutr-label">{n.label}</div>
+                    <div className="modal-price">₹{selectedItem.price}</div>
+                    <div className="modal-price-sub">per serving</div>
+                  </>
+                )}
+                {selectedItem.description && <p className="modal-desc">{selectedItem.description}</p>}
+
+                {(selectedItem.calories||selectedItem.protein||selectedItem.carbs||selectedItem.fats) && (
+                  <>
+                    <div className="sec-label">Nutrition per serving</div>
+                    <div className="nutr">
+                      {[{l:'Calories',v:selectedItem.calories,u:'kcal'},{l:'Protein',v:selectedItem.protein,u:'g'},{l:'Carbs',v:selectedItem.carbs,u:'g'},{l:'Fats',v:selectedItem.fats,u:'g'}]
+                        .filter(n=>n.v).map(n=>(
+                        <div key={n.l} className="nutr-card">
+                          <div className="nutr-val">{n.v}</div>
+                          <div className="nutr-unit">{n.u}</div>
+                          <div className="nutr-lbl">{n.l}</div>
                         </div>
                       ))}
                     </div>
                   </>
                 )}
 
-                {/* Ingredients */}
-                {selectedItem.ingredients?.length > 0 && (
+                {selectedItem.ingredients?.length>0 && (
                   <>
-                    <div className="section-label">Ingredients</div>
-                    <div className="ing-wrap">
-                      {selectedItem.ingredients.map(ing => (
-                        <span key={ing} className="ing-chip">{ing}</span>
+                    <div className="sec-label">Ingredients</div>
+                    <div className="ings">
+                      {selectedItem.ingredients.map(ing=>(
+                        <span key={ing} className="ing">{ing}</span>
                       ))}
                     </div>
                   </>
                 )}
 
-                {/* AR */}
                 {!showAR && selectedItem.modelURL && (
                   <>
-                    <div className="divider" />
-                    <button className="ar-btn" onClick={() => setShowAR(true)}>
+                    <div className="divider"/>
+                    <button className="ar-btn" onClick={()=>setShowAR(true)}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 17l10 5 10-5"/>
-                        <path d="M2 12l10 5 10-5"/>
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                       </svg>
-                      View in AR — Point at your table
+                      View in AR
                     </button>
-                    <div className="ar-hint">No app needed · Works on Android & iOS</div>
+                    <div className="ar-hint">No app needed · Android Chrome &amp; iOS Safari/Chrome</div>
                   </>
                 )}
 
                 {showAR && (
-                  <ARViewerEmbed
-                    modelURL={selectedItem.modelURL}
-                    itemName={selectedItem.name}
-                    onARLaunch={handleARLaunch}
-                  />
+                  <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch}/>
                 )}
               </div>
             </div>
