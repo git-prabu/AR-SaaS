@@ -1,16 +1,15 @@
-// components/layout/AdminLayout.jsx
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import { useEffect } from 'react';
 
 const navItems = [
-  { href: '/admin',              label: 'Overview',     icon: '⊞' },
-  { href: '/admin/requests',     label: 'Requests',     icon: '📋' },
-  { href: '/admin/analytics',    label: 'Analytics',    icon: '📊' },
-  { href: '/admin/qrcode',       label: 'QR Code',      icon: '⬡' },
-  { href: '/admin/offers',       label: 'Offers',       icon: '🎁' },
-  { href: '/admin/subscription', label: 'Subscription', icon: '💳' },
+  { href: '/admin',              label: 'Overview',     emoji: '▦' },
+  { href: '/admin/requests',     label: 'Requests',     emoji: '◈' },
+  { href: '/admin/analytics',    label: 'Analytics',    emoji: '◎' },
+  { href: '/admin/qrcode',       label: 'QR Code',      emoji: '⬡' },
+  { href: '/admin/offers',       label: 'Offers',       emoji: '◇' },
+  { href: '/admin/subscription', label: 'Subscription', emoji: '◉' },
 ];
 
 export default function AdminLayout({ children }) {
@@ -18,70 +17,64 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/admin/login');
-    }
+    if (!loading && !user) router.push('/admin/login');
   }, [user, loading, router]);
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-bg-base flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading || !user) return (
+    <div style={{minHeight:'100vh',background:'#F5F4F0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{width:32,height:32,border:'2.5px solid #FF6B35',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
-  const isActive = (href) =>
-    href === '/admin'
-      ? router.pathname === '/admin'
-      : router.pathname.startsWith(href);
+  const isActive = (href) => href === '/admin' ? router.pathname === '/admin' : router.pathname.startsWith(href);
 
   return (
-    <div className="min-h-screen bg-bg-base font-body text-text-primary flex">
+    <div style={{minHeight:'100vh',background:'#F5F4F0',fontFamily:'Inter,sans-serif',color:'#1C1917',display:'flex'}}>
+      <style>{`
+        .nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13.5px;font-weight:500;text-decoration:none;color:#6B6460;transition:all 0.15s;margin-bottom:2px;}
+        .nav-link:hover{background:#F0EDE8;color:#1C1917;}
+        .nav-link.active{background:#FF6B35;color:#fff;font-weight:600;box-shadow:0 4px 12px rgba(255,107,53,0.25);}
+        .nav-emoji{font-size:15px;width:20px;text-align:center;}
+        @keyframes spin{to{transform:rotate(360deg)}}
+      `}</style>
+
       {/* Sidebar */}
-      <aside className="w-56 flex-shrink-0 border-r border-bg-border bg-bg-surface flex flex-col fixed inset-y-0 left-0 z-20">
-        <div className="px-5 py-5 border-b border-bg-border">
-          <Link href="/" className="font-display font-bold text-base">
-            Advert <span className="gradient-text">Radical</span>
+      <aside style={{width:220,flexShrink:0,background:'#fff',borderRight:'1px solid #E2DED8',display:'flex',flexDirection:'column',position:'fixed',inset:'0 auto 0 0',zIndex:20,boxShadow:'2px 0 12px rgba(0,0,0,0.04)'}}>
+        <div style={{padding:'22px 20px 18px',borderBottom:'1px solid #E2DED8'}}>
+          <Link href="/" style={{textDecoration:'none'}}>
+            <div style={{fontFamily:'"Plus Jakarta Sans",sans-serif',fontWeight:800,fontSize:17,color:'#1C1917'}}>
+              Advert <span style={{background:'linear-gradient(135deg,#FF6B35,#FFB347)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Radical</span>
+            </div>
           </Link>
-          <div className="text-xs text-text-muted mt-0.5">Restaurant Portal</div>
+          <div style={{fontSize:11,color:'#A09890',marginTop:3,fontWeight:500,letterSpacing:'0.04em',textTransform:'uppercase'}}>Restaurant Portal</div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <nav style={{flex:1,padding:'12px 10px',overflowY:'auto'}}>
           {navItems.map(item => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-1 transition-all ${
-                isActive(item.href)
-                  ? 'bg-brand/10 text-brand font-medium border border-brand/20'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-raised'
-              }`}
-            >
-              <span className="text-base">{item.icon}</span>
+            <Link key={item.href} href={item.href} className={`nav-link${isActive(item.href)?' active':''}`}>
+              <span className="nav-emoji">{item.emoji}</span>
               {item.label}
             </Link>
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t border-bg-border">
-          <div className="px-3 py-2 mb-2">
-            <div className="text-xs font-medium text-text-primary truncate">
+        <div style={{padding:'12px 10px',borderTop:'1px solid #E2DED8'}}>
+          <div style={{padding:'10px 12px',marginBottom:4,background:'#F5F4F0',borderRadius:10}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#1C1917',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
               {userData?.restaurantName || userData?.email || user.email}
             </div>
-            <div className="text-xs text-text-muted">Restaurant Admin</div>
+            <div style={{fontSize:11,color:'#A09890',marginTop:1}}>Restaurant Admin</div>
           </div>
-          <button
-            onClick={signOut}
-            className="w-full px-3 py-2 rounded-lg text-xs text-text-secondary hover:text-red-400 hover:bg-red-400/10 transition-all text-left"
-          >
+          <button onClick={signOut} style={{width:'100%',padding:'9px 12px',borderRadius:10,border:'none',background:'transparent',fontSize:13,color:'#A09890',cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}
+            onMouseOver={e=>{e.currentTarget.style.background='#FEE9E2';e.currentTarget.style.color='#FF6B35'}}
+            onMouseOut={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='#A09890'}}>
             Sign out →
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 ml-56 min-h-screen overflow-y-auto">
+      <main style={{flex:1,marginLeft:220,minHeight:'100vh',overflowY:'auto'}}>
         {children}
       </main>
     </div>

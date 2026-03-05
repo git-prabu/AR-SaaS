@@ -1,4 +1,3 @@
-// pages/admin/index.js — Restaurant Admin Overview
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
@@ -17,187 +16,132 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!userData?.restaurantId) return;
     const rid = userData.restaurantId;
-    Promise.all([
-      getRestaurantById(rid),
-      getMenuItems(rid),
-      getRequests(rid),
-      getAnalytics(rid, 7),
-    ]).then(([r, items, reqs, anal]) => {
-      setRestaurant(r);
-      setMenuItems(items);
-      setRequests(reqs);
-      setAnalytics(anal);
-      setLoading(false);
-    });
+    Promise.all([getRestaurantById(rid), getMenuItems(rid), getRequests(rid), getAnalytics(rid, 7)])
+      .then(([r, items, reqs, anal]) => { setRestaurant(r); setMenuItems(items); setRequests(reqs); setAnalytics(anal); setLoading(false); });
   }, [userData]);
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-        </div>
-      </AdminLayout>
-    );
-  }
+  if (loading) return (
+    <AdminLayout>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:300}}>
+        <div style={{width:32,height:32,border:'2.5px solid #FF6B35',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    </AdminLayout>
+  );
 
-  const totalVisits   = analytics.reduce((s, d) => s + (d.totalVisits || 0), 0);
-  const pendingCount  = requests.filter(r => r.status === 'pending').length;
-  const storageUsedPct = restaurant
-    ? Math.round(((restaurant.storageUsedMB || 0) / (restaurant.maxStorageMB || 500)) * 100)
-    : 0;
-  const itemsPct = restaurant
-    ? Math.round(((restaurant.itemsUsed || 0) / (restaurant.maxItems || 10)) * 100)
-    : 0;
+  const totalVisits    = analytics.reduce((s, d) => s + (d.totalVisits || 0), 0);
+  const pendingCount   = requests.filter(r => r.status === 'pending').length;
+  const storageUsedPct = restaurant ? Math.round(((restaurant.storageUsedMB||0)/(restaurant.maxStorageMB||500))*100) : 0;
+  const itemsPct       = restaurant ? Math.round(((restaurant.itemsUsed||0)/(restaurant.maxItems||10))*100) : 0;
+  const planColors     = { basic:'#6B6460', pro:'#FF6B35', premium:'#FFB347' };
+  const planColor      = planColors[restaurant?.plan] || '#6B6460';
 
-  const planColors = { basic: '#8E8E9A', pro: '#FF6B35', premium: '#FFB347' };
-  const planColor  = planColors[restaurant?.plan] || '#8E8E9A';
+  const stats = [
+    { label:'Visits (7 days)',    value: totalVisits,                            icon:'👁', color:'#FF6B35' },
+    { label:'Menu Items',         value: restaurant?.itemsUsed || menuItems.length, icon:'🍽️', color:'#22C55E' },
+    { label:'Pending Requests',   value: pendingCount,                           icon:'📋', color:'#F59E0B' },
+    { label:'Plan',               value: (restaurant?.plan||'basic').toUpperCase(), icon:'💳', color: planColor },
+  ];
+
+  const actions = [
+    { href:'/admin/requests',  icon:'➕', label:'Add Menu Item',    sub:'Submit a new item request' },
+    { href:'/admin/analytics', icon:'📈', label:'View Analytics',   sub:'Visits & AR interactions' },
+    { href:'/admin/qrcode',    icon:'⬡',  label:'Download QR Code', sub:'Print for tables & menus' },
+    { href:'/admin/offers',    icon:'🎁', label:'Create Offer',     sub:'Add a promo banner' },
+  ];
 
   return (
     <AdminLayout>
       <Head><title>Dashboard — Advert Radical</title></Head>
+      <div style={{padding:'32px',maxWidth:960,margin:'0 auto'}}>
+        <style>{`
+          .stat-card{background:#fff;border-radius:16px;padding:20px;border:1px solid #E2DED8;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+          .action-card{background:#fff;border-radius:16px;padding:20px;border:1px solid #E2DED8;text-decoration:none;color:#1C1917;display:block;transition:all 0.2s;}
+          .action-card:hover{border-color:#FF6B35;box-shadow:0 4px 16px rgba(255,107,53,0.12);transform:translateY(-1px);}
+          .progress-bar{height:6px;border-radius:3px;overflow:hidden;background:#F0EDE8;}
+          .progress-fill{height:100%;border-radius:3px;transition:width 0.5s;}
+          .req-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #F0EDE8;}
+          .req-row:last-child{border-bottom:none;}
+        `}</style>
 
-      <div className="p-8">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:28,flexWrap:'wrap',gap:12}}>
           <div>
-            <h1 className="font-display font-bold text-2xl">
+            <h1 style={{fontFamily:'"Plus Jakarta Sans",sans-serif',fontWeight:800,fontSize:24,color:'#1C1917',margin:0}}>
               {restaurant?.name || 'Your Restaurant'}
             </h1>
-            <p className="text-text-secondary text-sm mt-1">
-              {restaurant?.subdomain}.advertradical.com
-            </p>
+            <p style={{fontSize:13,color:'#A09890',marginTop:4}}>{restaurant?.subdomain}.advertradical.com</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className="px-3 py-1 rounded-full text-xs font-semibold capitalize"
-              style={{ background: planColor + '20', color: planColor, border: `1px solid ${planColor}40` }}
-            >
-              {restaurant?.plan || 'basic'} plan
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <span style={{padding:'5px 12px',borderRadius:20,fontSize:12,fontWeight:600,textTransform:'capitalize',background:`${planColor}18`,color:planColor,border:`1px solid ${planColor}30`}}>
+              {restaurant?.plan||'basic'} plan
             </span>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              restaurant?.isActive
-                ? 'bg-green-400/10 text-green-400 border border-green-400/20'
-                : 'bg-red-400/10 text-red-400 border border-red-400/20'
-            }`}>
-              {restaurant?.isActive ? 'Active' : 'Inactive'}
+            <span style={{padding:'5px 12px',borderRadius:20,fontSize:12,fontWeight:600,background:restaurant?.isActive?'#DCFCE7':'#F0EDE8',color:restaurant?.isActive?'#16A34A':'#A09890',border:`1px solid ${restaurant?.isActive?'#BBF7D0':'#E2DED8'}`}}>
+              {restaurant?.isActive ? '● Active' : '○ Inactive'}
             </span>
           </div>
         </div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Visits (7d)',  value: totalVisits,          icon: '👁' },
-            { label: 'Menu Items',   value: restaurant?.itemsUsed || menuItems.length, icon: '🍽️' },
-            { label: 'Pending Requests', value: pendingCount, icon: '📋' },
-            { label: 'Plan',         value: (restaurant?.plan || 'basic').toUpperCase(), icon: '💳' },
-          ].map(s => (
-            <div key={s.label} className="bg-bg-surface border border-bg-border rounded-2xl p-5">
-              <div className="text-2xl mb-2">{s.icon}</div>
-              <div className="font-display font-bold text-2xl">{s.value}</div>
-              <div className="text-text-muted text-xs mt-0.5">{s.label}</div>
+        {/* Stats */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:24}}>
+          {stats.map(s => (
+            <div key={s.label} className="stat-card">
+              <div style={{fontSize:22,marginBottom:8}}>{s.icon}</div>
+              <div style={{fontFamily:'"Plus Jakarta Sans",sans-serif',fontWeight:800,fontSize:28,color:s.color}}>{s.value}</div>
+              <div style={{fontSize:12,color:'#A09890',marginTop:2}}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Usage bars */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <div className="bg-bg-surface border border-bg-border rounded-2xl p-5">
-            <div className="flex justify-between text-sm mb-3">
-              <span className="font-medium">Storage Used</span>
-              <span className="text-text-secondary">
-                {restaurant?.storageUsedMB || 0} / {restaurant?.maxStorageMB || 500} MB
-              </span>
+        {/* Usage */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:24}}>
+          {[
+            { label:'Storage Used', used:restaurant?.storageUsedMB||0, max:restaurant?.maxStorageMB||500, unit:'MB', pct:storageUsedPct },
+            { label:'AR Items Used', used:restaurant?.itemsUsed||0, max:restaurant?.maxItems||10, unit:'items', pct:itemsPct },
+          ].map(u => (
+            <div key={u.label} style={{background:'#fff',borderRadius:16,padding:20,border:'1px solid #E2DED8',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:12}}>
+                <span style={{fontWeight:600,color:'#1C1917'}}>{u.label}</span>
+                <span style={{color:'#A09890'}}>{u.used} / {u.max} {u.unit}</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{width:`${u.pct}%`,background:u.pct>80?'#EF4444':'linear-gradient(90deg,#FF6B35,#FFB347)'}} />
+              </div>
+              <div style={{fontSize:11,color:'#A09890',marginTop:6}}>{u.pct}% used</div>
             </div>
-            <div className="w-full h-2 bg-bg-raised rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${storageUsedPct}%`,
-                  background: storageUsedPct > 80 ? '#EF4444' : 'linear-gradient(90deg, #FF6B35, #FFB347)',
-                }}
-              />
-            </div>
-            <div className="text-xs text-text-muted mt-1.5">{storageUsedPct}% used</div>
-          </div>
-
-          <div className="bg-bg-surface border border-bg-border rounded-2xl p-5">
-            <div className="flex justify-between text-sm mb-3">
-              <span className="font-medium">AR Items Used</span>
-              <span className="text-text-secondary">
-                {restaurant?.itemsUsed || 0} / {restaurant?.maxItems || 10} items
-              </span>
-            </div>
-            <div className="w-full h-2 bg-bg-raised rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${itemsPct}%`,
-                  background: itemsPct > 80 ? '#EF4444' : 'linear-gradient(90deg, #FF6B35, #FFB347)',
-                }}
-              />
-            </div>
-            <div className="text-xs text-text-muted mt-1.5">{itemsPct}% used</div>
-          </div>
+          ))}
         </div>
 
         {/* Quick actions */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Link href="/admin/requests"
-            className="bg-bg-surface border border-bg-border rounded-2xl p-5 hover:border-brand/30 transition-all card-lift block">
-            <div className="text-2xl mb-2">➕</div>
-            <div className="font-semibold text-sm">Add Menu Item</div>
-            <div className="text-xs text-text-muted mt-1">Submit a new item request</div>
-          </Link>
-          <Link href="/admin/analytics"
-            className="bg-bg-surface border border-bg-border rounded-2xl p-5 hover:border-brand/30 transition-all card-lift block">
-            <div className="text-2xl mb-2">📈</div>
-            <div className="font-semibold text-sm">View Analytics</div>
-            <div className="text-xs text-text-muted mt-1">Visits, views, AR interactions</div>
-          </Link>
-          <Link href="/admin/qrcode"
-            className="bg-bg-surface border border-bg-border rounded-2xl p-5 hover:border-brand/30 transition-all card-lift block">
-            <div className="text-2xl mb-2">⬡</div>
-            <div className="font-semibold text-sm">Download QR Code</div>
-            <div className="text-xs text-text-muted mt-1">Print for tables and menus</div>
-          </Link>
-          <Link href="/admin/offers"
-            className="bg-bg-surface border border-bg-border rounded-2xl p-5 hover:border-brand/30 transition-all card-lift block">
-            <div className="text-2xl mb-2">🎁</div>
-            <div className="font-semibold text-sm">Create Offer</div>
-            <div className="text-xs text-text-muted mt-1">Add a promo banner</div>
-          </Link>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:24}}>
+          {actions.map(a => (
+            <Link key={a.href} href={a.href} className="action-card">
+              <div style={{fontSize:22,marginBottom:10}}>{a.icon}</div>
+              <div style={{fontWeight:600,fontSize:14,color:'#1C1917',marginBottom:3}}>{a.label}</div>
+              <div style={{fontSize:12,color:'#A09890'}}>{a.sub}</div>
+            </Link>
+          ))}
         </div>
 
         {/* Recent requests */}
         {requests.length > 0 && (
-          <div className="bg-bg-surface border border-bg-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display font-semibold">Recent Requests</h2>
-              <Link href="/admin/requests" className="text-xs text-brand hover:underline">View all →</Link>
+          <div style={{background:'#fff',borderRadius:16,padding:24,border:'1px solid #E2DED8',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+              <h2 style={{fontFamily:'"Plus Jakarta Sans",sans-serif',fontWeight:700,fontSize:16,color:'#1C1917',margin:0}}>Recent Requests</h2>
+              <Link href="/admin/requests" style={{fontSize:12,color:'#FF6B35',textDecoration:'none',fontWeight:600}}>View all →</Link>
             </div>
-            <div className="space-y-3">
-              {requests.slice(0, 4).map(req => (
-                <div key={req.id} className="flex items-center gap-4 py-2 border-b border-bg-border last:border-0">
-                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-bg-raised flex-shrink-0">
-                    {req.imageURL
-                      ? <img src={req.imageURL} alt={req.name} className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center text-sm">🍽️</div>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{req.name}</div>
-                    <div className="text-xs text-text-muted">
-                      {req.createdAt?.seconds
-                        ? new Date(req.createdAt.seconds * 1000).toLocaleDateString()
-                        : 'Just now'}
-                    </div>
-                  </div>
-                  <StatusBadge status={req.status} />
+            {requests.slice(0, 5).map(req => (
+              <div key={req.id} className="req-row">
+                <div style={{width:36,height:36,borderRadius:10,overflow:'hidden',background:'#F0EDE8',flexShrink:0}}>
+                  {req.imageURL ? <img src={req.imageURL} alt={req.name} style={{width:'100%',height:'100%',objectFit:'cover'}} /> : <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🍽️</div>}
                 </div>
-              ))}
-            </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:'#1C1917',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{req.name}</div>
+                  <div style={{fontSize:11,color:'#A09890'}}>{req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleDateString() : 'Just now'}</div>
+                </div>
+                <StatusBadge status={req.status} />
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -208,14 +152,7 @@ export default function AdminDashboard() {
 AdminDashboard.getLayout = (page) => page;
 
 function StatusBadge({ status }) {
-  const styles = {
-    pending:  'bg-yellow-400/10 text-yellow-400 border-yellow-400/20',
-    approved: 'bg-green-400/10  text-green-400  border-green-400/20',
-    rejected: 'bg-red-400/10    text-red-400    border-red-400/20',
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.pending} capitalize`}>
-      {status}
-    </span>
-  );
+  const s = { pending:{bg:'#FEF9C3',color:'#854D0E',border:'#FDE68A'}, approved:{bg:'#DCFCE7',color:'#166534',border:'#BBF7D0'}, rejected:{bg:'#FEE2E2',color:'#991B1B',border:'#FECACA'} };
+  const c = s[status] || s.pending;
+  return <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:c.bg,color:c.color,border:`1px solid ${c.border}`,textTransform:'capitalize'}}>{status}</span>;
 }
