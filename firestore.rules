@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuth() && getUserData().role == 'superadmin';
+    }
+
+    function isRestaurantAdmin(restaurantId) {
+      return isAuth() &&
+        getUserData().role == 'restaurant' &&
+        getUserData().restaurantId == restaurantId;
+    }
+
+    // ── Restaurants ──────────────────────────────────────────────
+    match /restaurants/{restaurantId} {
+      // Public: can read active restaurants (for subdomain routing)
+      allow read: if resource.data.isActive == true;
+      // Restaurant admin: read their own
+      allow read: if isRestaurantAdmin(restaurantId);
+      // Super admin: full access
+      allow read, write: if isSuperAdmin();
+      // No public write
+      allow write: if false;
+
+      // ── Menu Items ──────────────────────────────────────────────
+      match /menuItems/{itemId} {
+        // Public read for active items
+        allow read: if resource.data.isActive == true;
+        // Restaurant admin can read all their items
+        allow read: if isRestaurantAdmin(restaurantId);
+        // Only super admin can write menu items (after approval)
+        allow write: if isSuperAdmin();
+        // Allow increment view/arViews without auth (analytics tracking)
+        allow update: if request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['views', 'arViews']);
+      }
+
+      // ── Requests ────────────────────────────────────────────────
+      match /requests/{requestId} {
+        // Restaurant admin: read & create their own
+        allow read, create: if isRestaurantAdmin(restaurantId);
+        // Super admin: read & update (approve/reject)
+        allow read, write: if isSuperAdmin();
+      }
+
+      // ── Analytics ───────────────────────────────────────────────
+      match /analytics/{docId} {
+        // Public write for visit tracking (no sensitive data)
+        allow read, write: if true;
+        // Note: In production, restrict writes to specific fields only
+      }
+
+      // ── Offers ──────────────────────────────────────────────────
+      match /offers/{offerId} {
+        // Public read for active offers
+        allow read: if true;
+        // Restaurant admin: manage their offers
+        allow write: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow write: if isSuperAdmin();
+      }
+    }
+
+    // ── Users ────────────────────────────────────────────────────
+    match /users/{userId} {
+      // User can read their own document
+      allow read: if isAuth() && request.auth.uid == userId;
+      // Super admin can read all
+      allow read: if isSuperAdmin();
+      // Allow creation (during restaurant onboarding)
+      allow create: if isAuth();
+      // No self-modification of role
+      allow update: if isSuperAdmin();
+    }
+  }
+}
