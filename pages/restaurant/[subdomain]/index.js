@@ -56,51 +56,101 @@ function catIcon(name) {
 }
 
 // ── Smart Menu Assistant ─────────────────────────────────────────
-const QUESTIONS = [
-  { id:'diet',   emoji:'🌿', q:'Any dietary preference?', sub:'We\'ll only show dishes that match',
+
+// SOLO questions
+const SOLO_QUESTIONS = [
+  { id:'diet',   emoji:'🌿', q:'Any dietary preference?',    sub:'We\'ll only show dishes that match',
     opts:[{l:'Vegetarian',v:'veg',e:'🌿'},{l:'Non-Vegetarian',v:'nonveg',e:'🍗'},{l:'No Preference',v:'any',e:'✌️'}] },
-  { id:'mood',   emoji:'✨', q:'What\'s your mood today?', sub:'Pick what sounds good right now',
+  { id:'mood',   emoji:'✨', q:'What\'s your mood today?',    sub:'Pick what sounds good right now',
     opts:[{l:'Comfort Food',v:'comfort',e:'🍲'},{l:'Something Healthy',v:'healthy',e:'🥦'},{l:'Most Popular',v:'popular',e:'🔥'},{l:'Try Something New',v:'new',e:'🌟'}] },
-  { id:'spice',  emoji:'🌶️', q:'How spicy do you like it?', sub:'We\'ll match your spice tolerance',
+  { id:'spice',  emoji:'🌶️', q:'How spicy do you like it?',  sub:'We\'ll match your spice tolerance',
     opts:[{l:'Mild / No Spice',v:'mild',e:'😌'},{l:'Medium',v:'medium',e:'😄'},{l:'Spicy',v:'spicy',e:'🥵'},{l:'Any Level',v:'any',e:'🤷'}] },
-  { id:'size',   emoji:'🍽️', q:'How hungry are you?', sub:'Choose your meal size',
+  { id:'size',   emoji:'🍽️', q:'How hungry are you?',        sub:'Choose your meal size',
     opts:[{l:'Light Bite',v:'light',e:'🥗'},{l:'Regular Meal',v:'regular',e:'🍛'},{l:'Feast Mode',v:'heavy',e:'🤤'},{l:'Anything',v:'any',e:'👌'}] },
-  { id:'budget', emoji:'💰', q:'Budget per dish?', sub:'Pick a price range',
+  { id:'budget', emoji:'💰', q:'Budget per dish?',            sub:'Pick a price range',
     opts:[{l:'Under ₹200',v:'budget',e:'💵'},{l:'₹200–₹500',v:'mid',e:'💳'},{l:'₹500+',v:'premium',e:'💎'},{l:'No Limit',v:'any',e:'🤑'}] },
 ];
-const LIGHT_CATS = ['starter','salad','soup','snack','drink','beverage','dessert'];
-const HEAVY_CATS = ['main','burger','pasta','pizza','biryani','thali','grill','rice'];
-const HEALTHY_KW = ['salad','grilled','steamed','healthy','light','vegan','fresh','oat','quinoa','fruit'];
-const COMFORT_KW = ['butter','cheese','cream','fried','crispy','masala','curry','rich','loaded','classic','special'];
-function scoreItem(item, ans) {
+
+// GROUP questions — reframed for the whole table
+const GROUP_QUESTIONS = [
+  { id:'diet',   emoji:'🌿', q:'Anyone at the table vegetarian?', sub:'We\'ll make sure no one is left out',
+    opts:[{l:'Yes — keep it veg friendly',v:'veg',e:'🌿'},{l:'No, we eat everything',v:'any',e:'🍗'},{l:'Mix — include both options',v:'mixed',e:'✌️'}] },
+  { id:'spice',  emoji:'🌶️', q:'What\'s the group\'s spice limit?', sub:'Pick the lowest tolerance in the group',
+    opts:[{l:'Keep it mild for everyone',v:'mild',e:'😌'},{l:'Medium is fine',v:'medium',e:'😄'},{l:'We all love it spicy',v:'spicy',e:'🥵'},{l:'No limit',v:'any',e:'🤷'}] },
+  { id:'style',  emoji:'🤝', q:'How is the group ordering?',       sub:'Helps us suggest the right portions',
+    opts:[{l:'Everyone orders their own',v:'individual',e:'🍽️'},{l:'Sharing dishes together',v:'sharing',e:'🤲'},{l:'Mix of both',v:'mix',e:'🔄'}] },
+  { id:'mood',   emoji:'✨', q:'What\'s the vibe today?',          sub:'Pick the general mood of the group',
+    opts:[{l:'Comfort & classics',v:'comfort',e:'🍲'},{l:'Light & healthy',v:'healthy',e:'🥦'},{l:'Go with what\'s popular',v:'popular',e:'🔥'},{l:'Explore something new',v:'new',e:'🌟'}] },
+  { id:'budget', emoji:'💰', q:'Budget per person?',               sub:'Per head, not total',
+    opts:[{l:'Under ₹200 per head',v:'budget',e:'💵'},{l:'₹200–₹500 per head',v:'mid',e:'💳'},{l:'₹500+ per head',v:'premium',e:'💎'},{l:'No limit',v:'any',e:'🤑'}] },
+];
+
+const GROUP_SIZES = [
+  {n:2,e:'👫'},{n:3,e:'👨‍👩‍👦'},{n:4,e:'👨‍👩‍👧‍👦'},{n:5,e:'🧑‍🤝‍🧑'},{n:'6+',e:'🎉'},
+];
+
+const LIGHT_CATS  = ['starter','salad','soup','snack','drink','beverage','dessert'];
+const HEAVY_CATS  = ['main','burger','pasta','pizza','biryani','thali','grill','rice'];
+const SHARING_KW  = ['platter','sharing','family','large','combo','bucket','plate','thali','spread','feast'];
+const HEALTHY_KW  = ['salad','grilled','steamed','healthy','light','vegan','fresh','oat','quinoa','fruit'];
+const COMFORT_KW  = ['butter','cheese','cream','fried','crispy','masala','curry','rich','loaded','classic','special'];
+
+function isShareable(item) {
+  const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
+  return SHARING_KW.some(k => txt.includes(k));
+}
+
+function scoreItem(item, ans, groupSize=1) {
   let s = 0;
   const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
-  const cat  = (item.category||'').toLowerCase();
-  const sp   = item.spiceLevel || 'None';
-  const pr   = item.price ? Number(item.price) : null;
+  const cat = (item.category||'').toLowerCase();
+  const sp  = item.spiceLevel || 'None';
+  const pr  = item.price ? Number(item.price) : null;
+  const big = typeof groupSize === 'number' ? groupSize >= 4 : true; // 6+ counts as big
+
+  // ── diet ──
   if (ans.diet==='veg'   && item.isVeg===false) return -999;
   if (ans.diet==='veg'   && item.isVeg===true)  s+=20;
+  if (ans.diet==='mixed') { /* allow both, slight boost to veg items for inclusivity */ if (item.isVeg===true) s+=8; }
   if (ans.diet==='nonveg'&& item.isVeg===true)  s-=10;
+
+  // ── spice ──
   if (ans.spice==='mild'   && ['Spicy','Very Spicy'].includes(sp)) return -999;
   if (ans.spice==='mild'   && ['None','Mild'].includes(sp)) s+=15;
-  if (ans.spice==='medium' && sp==='Medium')  s+=20;
+  if (ans.spice==='medium' && sp==='Medium') s+=20;
   if (ans.spice==='spicy'  && ['Spicy','Very Spicy'].includes(sp)) s+=25;
-  if (pr!==null) {
-    if (ans.budget==='budget'  && pr<200)  s+=20; else if (ans.budget==='budget')  s-=15;
-    if (ans.budget==='mid'     && pr>=200&&pr<=500) s+=20; else if (ans.budget==='mid') s-=8;
-    if (ans.budget==='premium' && pr>500)  s+=20; else if (ans.budget==='premium'&&pr<200) s-=10;
+
+  // ── budget ──
+  if (pr !== null) {
+    if (ans.budget==='budget'  && pr<200)           s+=20; else if (ans.budget==='budget')  s-=15;
+    if (ans.budget==='mid'     && pr>=200&&pr<=500) s+=20; else if (ans.budget==='mid')     s-=8;
+    if (ans.budget==='premium' && pr>500)           s+=20; else if (ans.budget==='premium'&&pr<200) s-=10;
   }
+
+  // ── size / style ──
   if (ans.size==='light') { if (LIGHT_CATS.some(l=>cat.includes(l))) s+=18; if (HEAVY_CATS.some(h=>cat.includes(h))) s-=15; }
   if (ans.size==='heavy') { if (HEAVY_CATS.some(h=>cat.includes(h))) s+=18; }
+
+  // Group style: sharing dishes get a boost for groups that want to share or for large groups
+  if (ans.style==='sharing' && isShareable(item)) s+=25;
+  if (ans.style==='sharing' && HEAVY_CATS.some(h=>cat.includes(h))) s+=10;
+  if (big && isShareable(item)) s+=15; // large groups always benefit from shareable dishes
+
+  // ── mood ──
   if (ans.mood==='popular') { if (item.isPopular||item.isFeatured) s+=30; }
-  if (ans.mood==='healthy') { if (HEALTHY_KW.some(k=>txt.includes(k))) s+=20; }
+  if (ans.mood==='healthy') { if (HEALTHY_KW.some(k=>txt.includes(k))) s+=20; if (item.calories&&item.calories<400) s+=10; }
   if (ans.mood==='comfort') { if (COMFORT_KW.some(k=>txt.includes(k))) s+=20; }
   if (ans.mood==='new')     { if (item.isFeatured) s+=25; s+=Math.floor(Math.random()*12); }
+
   s += Math.min((item.views||0)+(item.arViews||0)*2, 20)*0.3;
   return s;
 }
-function filterItems(items, ans) {
-  return items.map(i=>({item:i,score:scoreItem(i,ans)})).filter(({score})=>score>-999).sort((a,b)=>b.score-a.score);
+
+function filterItems(items, ans, groupSize=1) {
+  return items
+    .map(i => ({ item:i, score:scoreItem(i, ans, groupSize) }))
+    .filter(({score}) => score > -999)
+    .sort((a,b) => b.score - a.score);
 }
 
 export default function RestaurantMenu({ restaurant, menuItems, offers, error }) {
@@ -109,6 +159,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [showAR,       setShowAR]       = useState(false);
   const [imgErr,       setImgErr]       = useState({});
   const [smaOpen,      setSmaOpen]      = useState(false);
+  const [smaMode,      setSmaMode]      = useState(null);    // null | 'solo' | 'group'
+  const [groupSize,    setGroupSize]    = useState(null);    // 2|3|4|5|'6+'
   const [smaStep,      setSmaStep]      = useState(0);
   const [smaAnswers,   setSmaAnswers]   = useState({});
   const [smaResults,   setSmaResults]   = useState([]);
@@ -136,14 +188,15 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   }, [restaurant?.id, selectedItem?.id]);
   const imgSrc = (item) => (!imgErr[item.id] && item.imageURL) ? item.imageURL : getPlaceholder(item.id);
 
-  const openSMA    = () => { setSmaOpen(true); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
+  const openSMA    = () => { setSmaOpen(true); setSmaMode(null); setGroupSize(null); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
   const closeSMA   = () => setSmaOpen(false);
-  const restartSMA = () => { setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
+  const restartSMA = () => { setSmaMode(null); setGroupSize(null); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
+  const activeQs   = smaMode === 'group' ? GROUP_QUESTIONS : SOLO_QUESTIONS;
   const pickAnswer = (qId, val) => {
     const ans = { ...smaAnswers, [qId]: val };
     setSmaAnswers(ans);
-    if (smaStep < QUESTIONS.length-1) setSmaStep(smaStep+1);
-    else { setSmaResults(filterItems(menuItems||[], ans)); setSmaStep(QUESTIONS.length); }
+    if (smaStep < activeQs.length - 1) setSmaStep(smaStep + 1);
+    else { setSmaResults(filterItems(menuItems||[], ans, groupSize)); setSmaStep(activeQs.length); }
   };
 
   if (error || !restaurant) return (
@@ -574,6 +627,50 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .sma-btn-light { flex:1; padding:14px; border-radius:12px; border:1px solid rgba(0,0,0,0.12); background:transparent; color:#3A3A3C; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer; }
         .sma-btn-light:hover { background:#F2F2F7; }
         .sma-no-match { text-align:center; padding:36px 20px; color:#AEAEB2; font-size:14px; }
+
+        /* ── Mode picker (Solo / Group) ── */
+        .sma-mode-wrap { padding:28px 22px 36px; }
+        .sma-mode-title { font-size:22px; font-weight:800; color:#1C1C1E; text-align:center; margin-bottom:6px; letter-spacing:-0.4px; }
+        .sma-mode-sub   { font-size:13px; color:#AEAEB2; text-align:center; margin-bottom:28px; }
+        .sma-mode-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+        .sma-mode-card {
+          padding:22px 16px; border-radius:18px;
+          border:1.5px solid rgba(0,0,0,0.08); background:#FAFAFA;
+          cursor:pointer; text-align:center; transition:all 0.18s ease;
+          font-family:'Inter',sans-serif;
+        }
+        .sma-mode-card:hover { background:#fff; border-color:#1C1C1E; transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.1); }
+        .sma-mode-card-emoji { font-size:36px; margin-bottom:10px; }
+        .sma-mode-card-name  { font-size:15px; font-weight:800; color:#1C1C1E; margin-bottom:4px; letter-spacing:-0.2px; }
+        .sma-mode-card-desc  { font-size:11px; color:#AEAEB2; line-height:1.5; }
+
+        /* ── Group size picker ── */
+        .sma-size-wrap  { padding:26px 22px 36px; }
+        .sma-size-title { font-size:22px; font-weight:800; color:#1C1C1E; text-align:center; margin-bottom:6px; letter-spacing:-0.4px; }
+        .sma-size-sub   { font-size:13px; color:#AEAEB2; text-align:center; margin-bottom:26px; }
+        .sma-size-grid  { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; }
+        .sma-size-btn {
+          padding:14px 6px; border-radius:14px;
+          border:1.5px solid rgba(0,0,0,0.08); background:#FAFAFA;
+          cursor:pointer; text-align:center; transition:all 0.18s ease;
+          font-family:'Inter',sans-serif;
+        }
+        .sma-size-btn:hover { background:#fff; border-color:#1C1C1E; transform:translateY(-2px); }
+        .sma-size-btn-emoji { font-size:22px; display:block; margin-bottom:6px; }
+        .sma-size-btn-num   { font-size:15px; font-weight:800; color:#1C1C1E; }
+        .sma-size-btn-lbl   { font-size:10px; color:#AEAEB2; margin-top:2px; }
+
+        /* ── Group mode banner in results ── */
+        .sma-group-banner {
+          display:flex; align-items:center; gap:10px;
+          padding:12px 16px; border-radius:12px; margin-bottom:18px;
+          background:#F0F7F2; border:1px solid #C8E8D4;
+        }
+        .sma-group-banner-text { font-size:12px; font-weight:600; color:#1A6A38; }
+        .sma-group-banner-sub  { font-size:11px; color:#5A9A6A; margin-top:1px; }
+
+        /* ── Shareable tag on result items ── */
+        .sma-chip-share { background:#EEF4FF; color:#3060B0; }
       `}</style>
 
       {/* ─── HEADER ─── */}
@@ -769,23 +866,72 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           <div className="sma-sheet">
             <div className="handle-row"><div className="handle"/></div>
 
-            {smaStep < QUESTIONS.length && (<>
+            {/* ── SCREEN 1: Solo vs Group picker ── */}
+            {!smaMode && (
+              <div className="sma-mode-wrap">
+                <div style={{fontSize:40,textAlign:'center',marginBottom:12}}>✨</div>
+                <div className="sma-mode-title">Help Me Choose</div>
+                <div className="sma-mode-sub">Are you ordering just for yourself or for a group?</div>
+                <div className="sma-mode-cards">
+                  <button className="sma-mode-card" onClick={()=>{ setSmaMode('solo'); setSmaStep(0); }}>
+                    <div className="sma-mode-card-emoji">🙋</div>
+                    <div className="sma-mode-card-name">Just Me</div>
+                    <div className="sma-mode-card-desc">Personalised picks for your taste</div>
+                  </button>
+                  <button className="sma-mode-card" onClick={()=>setSmaMode('group')}>
+                    <div className="sma-mode-card-emoji">👥</div>
+                    <div className="sma-mode-card-name">Group</div>
+                    <div className="sma-mode-card-desc">Dishes that work for everyone at the table</div>
+                  </button>
+                </div>
+                <button className="sma-dismiss" onClick={closeSMA}>Dismiss</button>
+              </div>
+            )}
+
+            {/* ── SCREEN 2 (Group only): How many people? ── */}
+            {smaMode === 'group' && !groupSize && (
+              <div className="sma-size-wrap">
+                <div style={{fontSize:36,textAlign:'center',marginBottom:12}}>👥</div>
+                <div className="sma-size-title">How many people?</div>
+                <div className="sma-size-sub">We'll suggest the right portions and shareable dishes</div>
+                <div className="sma-size-grid">
+                  {GROUP_SIZES.map(({n,e})=>(
+                    <button key={n} className="sma-size-btn" onClick={()=>{ setGroupSize(n); setSmaStep(0); }}>
+                      <span className="sma-size-btn-emoji">{e}</span>
+                      <div className="sma-size-btn-num">{n}</div>
+                      <div className="sma-size-btn-lbl">{n==='6+' ? 'people' : n===1 ? 'person' : 'people'}</div>
+                    </button>
+                  ))}
+                </div>
+                <button className="sma-dismiss" style={{marginTop:22}} onClick={()=>setSmaMode(null)}>← Back</button>
+              </div>
+            )}
+
+            {/* ── SCREENS 3–7: Questions ── */}
+            {smaMode && (smaMode==='solo' || groupSize) && smaStep < activeQs.length && (<>
               <div className="sma-prog-wrap">
                 <div className="sma-prog-row">
-                  <span className="sma-prog-txt">{smaStep+1} / {QUESTIONS.length}</span>
-                  {smaStep>0 && <button className="sma-back" onClick={()=>setSmaStep(s=>s-1)}>← Back</button>}
+                  <span className="sma-prog-txt">
+                    {smaMode==='group' && <span style={{marginRight:8,fontSize:11,background:'#F0F7F2',color:'#1A6A38',padding:'2px 8px',borderRadius:6,fontWeight:700}}>👥 Group of {groupSize}</span>}
+                    {smaStep+1} / {activeQs.length}
+                  </span>
+                  <button className="sma-back" onClick={()=>{
+                    if (smaStep > 0) setSmaStep(s=>s-1);
+                    else if (smaMode==='group') setGroupSize(null);
+                    else setSmaMode(null);
+                  }}>← Back</button>
                 </div>
                 <div className="sma-prog-bar">
-                  <div className="sma-prog-fill" style={{width:`${((smaStep+1)/QUESTIONS.length)*100}%`}}/>
+                  <div className="sma-prog-fill" style={{width:`${((smaStep+1)/activeQs.length)*100}%`}}/>
                 </div>
               </div>
               <div className="sma-q-wrap">
-                <div className="sma-q-emoji">{QUESTIONS[smaStep].emoji}</div>
-                <div className="sma-q-text">{QUESTIONS[smaStep].q}</div>
-                <div className="sma-q-sub">{QUESTIONS[smaStep].sub}</div>
+                <div className="sma-q-emoji">{activeQs[smaStep].emoji}</div>
+                <div className="sma-q-text">{activeQs[smaStep].q}</div>
+                <div className="sma-q-sub">{activeQs[smaStep].sub}</div>
                 <div className="sma-opts">
-                  {QUESTIONS[smaStep].opts.map(o=>(
-                    <button key={o.v} className="sma-opt" onClick={()=>pickAnswer(QUESTIONS[smaStep].id, o.v)}>
+                  {activeQs[smaStep].opts.map(o=>(
+                    <button key={o.v} className="sma-opt" onClick={()=>pickAnswer(activeQs[smaStep].id, o.v)}>
                       <span className="sma-opt-emoji">{o.e}</span>
                       <span className="sma-opt-label">{o.l}</span>
                     </button>
@@ -795,46 +941,75 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
               </div>
             </>)}
 
-            {smaStep === QUESTIONS.length && (()=>{
-              const top = smaResults.slice(0,12);
-              const groups = {};
-              top.forEach(({item})=>{ const c=item.category||'Other'; if(!groups[c]) groups[c]=[]; groups[c].push(item); });
+            {/* ── RESULTS ── */}
+            {smaMode && (smaMode==='solo' || groupSize) && smaStep === activeQs.length && (()=>{
+              const top = smaResults.slice(0, 12);
+              const cats = {};
+              top.forEach(({item})=>{ const c=item.category||'Other'; if(!cats[c]) cats[c]=[]; cats[c].push(item); });
+              const isGroup = smaMode === 'group';
+              const bigGroup = groupSize === '6+' || (typeof groupSize === 'number' && groupSize >= 4);
               return (
                 <div className="sma-res-wrap">
                   <div className="sma-res-hdr">
-                    <div className="sma-res-emoji">🎯</div>
-                    <div className="sma-res-title">{top.length>0?`${top.length} dishes for you`:'No matches'}</div>
-                    <div className="sma-res-sub">{top.length>0?'Based on your preferences — tap to see details':'Try again with different preferences'}</div>
+                    <div className="sma-res-emoji">{isGroup ? '🎯' : '🎯'}</div>
+                    <div className="sma-res-title">
+                      {top.length > 0
+                        ? isGroup ? `${top.length} dishes for the table` : `${top.length} dishes for you`
+                        : 'No matches'}
+                    </div>
+                    <div className="sma-res-sub">
+                      {top.length > 0
+                        ? isGroup ? 'Works for everyone — tap any dish to see details' : 'Based on your preferences — tap to see details'
+                        : 'Try again with different preferences'}
+                    </div>
                   </div>
-                  {top.length===0 ? (
+
+                  {/* Group context banner */}
+                  {isGroup && top.length > 0 && (
+                    <div className="sma-group-banner">
+                      <span style={{fontSize:20}}>👥</span>
+                      <div>
+                        <div className="sma-group-banner-text">Group of {groupSize} · {bigGroup ? 'Shareable dishes highlighted' : 'Individual portions'}</div>
+                        <div className="sma-group-banner-sub">
+                          {bigGroup ? 'Look for 🤲 tags — great for the whole table to share' : 'Each person can order their own'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {top.length === 0 ? (
                     <div className="sma-no-match">
-                      <p>No dishes matched all your filters.</p>
+                      <p>No dishes matched your filters.<br/>Try relaxing some preferences.</p>
                       <button className="sma-btn-dark" style={{marginTop:14,width:'100%'}} onClick={restartSMA}>Try Again</button>
                     </div>
                   ) : (<>
-                    {Object.entries(groups).map(([cat,items])=>(
+                    {Object.entries(cats).map(([cat, items])=>(
                       <div key={cat}>
                         <div className="sma-cat-lbl">{cat}</div>
-                        {items.map(item=>(
-                          <button key={item.id} className="sma-item" onClick={()=>{closeSMA();openItem(item);}}>
-                            <img className="sma-item-img" src={imgSrc(item)} alt={item.name}
-                              onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div className="sma-item-name">{item.name}</div>
-                              <div className="sma-item-meta">
-                                {item.price    && <span className="sma-item-price">₹{item.price}</span>}
-                                {item.isPopular && <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
-                                {item.modelURL  && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
-                                {item.prepTime  && <span style={{fontSize:11,color:'#AEAEB2'}}>⏱ {item.prepTime}</span>}
+                        {items.map(item=>{
+                          const shareable = isGroup && isShareable(item);
+                          return (
+                            <button key={item.id} className="sma-item" onClick={()=>{closeSMA();openItem(item);}}>
+                              <img className="sma-item-img" src={imgSrc(item)} alt={item.name}
+                                onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div className="sma-item-name">{item.name}</div>
+                                <div className="sma-item-meta">
+                                  {item.price    && <span className="sma-item-price">₹{item.price}</span>}
+                                  {shareable     && <span className="sma-item-chip sma-chip-share">🤲 Shareable</span>}
+                                  {item.isPopular&& <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
+                                  {item.modelURL && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
+                                  {item.prepTime && <span style={{fontSize:11,color:'#AEAEB2'}}>⏱ {item.prepTime}</span>}
+                                </div>
                               </div>
-                            </div>
-                            <span style={{fontSize:16,color:'#D1D1D6',flexShrink:0}}>›</span>
-                          </button>
-                        ))}
+                              <span style={{fontSize:16,color:'#D1D1D6',flexShrink:0}}>›</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     ))}
                     <div className="sma-actions">
-                      <button className="sma-btn-light" onClick={restartSMA}>↺ Redo</button>
+                      <button className="sma-btn-light" onClick={restartSMA}>↺ Start Over</button>
                       <button className="sma-btn-dark"  onClick={closeSMA}>Browse Menu →</button>
                     </div>
                   </>)}
