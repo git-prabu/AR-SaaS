@@ -1,4 +1,3 @@
-// pages/admin/offers.js
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
@@ -6,15 +5,24 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { getAllOffers, createOffer, deleteOffer } from '../../lib/db';
 import toast from 'react-hot-toast';
 
-export default function AdminOffers() {
-  const { userData }              = useAuth();
-  const [offers, setOffers]       = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [showForm, setShowForm]   = useState(false);
-  const [form, setForm]           = useState({ title: '', description: '', startDate: '', endDate: '' });
-  const [saving, setSaving]       = useState(false);
+const S = {
+  card:  { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
+  h1:    { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
+  sub:   { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
+  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
+  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(42,31,16,0.09)', borderRadius:12, fontSize:14, color:'#1E1B18', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box' },
+  btn:   { padding:'11px 22px', borderRadius:12, fontSize:14, fontWeight:600, fontFamily:'Poppins,sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
+};
 
+export default function AdminOffers() {
+  const { userData } = useAuth();
+  const [offers, setOffers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title:'', description:'', startDate:'', endDate:'' });
+  const [saving, setSaving] = useState(false);
   const rid = userData?.restaurantId;
+  const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     if (!rid) return;
@@ -28,15 +36,11 @@ export default function AdminOffers() {
     try {
       await createOffer(rid, form);
       toast.success('Offer created!');
-      setForm({ title: '', description: '', startDate: '', endDate: '' });
+      setForm({ title:'', description:'', startDate:'', endDate:'' });
       setShowForm(false);
-      const updated = await getAllOffers(rid);
-      setOffers(updated);
-    } catch {
-      toast.error('Failed to create offer');
-    } finally {
-      setSaving(false);
-    }
+      setOffers(await getAllOffers(rid));
+    } catch { toast.error('Failed to create offer'); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
@@ -46,130 +50,103 @@ export default function AdminOffers() {
     toast.success('Offer deleted');
   };
 
-  const today = new Date().toISOString().split('T')[0];
-
   return (
     <AdminLayout>
       <Head><title>Offers — Advert Radical</title></Head>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="font-display font-bold text-2xl">Offers & Promotions</h1>
-            <p className="text-text-secondary text-sm mt-1">Active offers display as banners on your menu page.</p>
-          </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-5 py-2.5 rounded-xl font-medium text-sm text-white"
-            style={{ background: 'linear-gradient(135deg, #FF6B35, #FFB347)' }}
-          >
-            {showForm ? '✕ Cancel' : '+ New Offer'}
-          </button>
-        </div>
+      <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
+        <div style={{ maxWidth:860, margin:'0 auto' }}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}} .inp:focus{border-color:rgba(224,90,58,0.5)!important} .inp::placeholder{color:rgba(42,31,16,0.3)}`}</style>
 
-        {showForm && (
-          <form onSubmit={handleSubmit} className="bg-bg-surface border border-brand/20 rounded-2xl p-6 mb-8 space-y-4">
-            <h2 className="font-display font-semibold text-lg">Create Offer</h2>
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">Title *</label>
-              <input
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="Weekend Special — 20% Off"
-                required
-                className="w-full px-4 py-3 bg-bg-raised border border-bg-border rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand/50 transition-all"
-              />
+              <h1 style={S.h1}>Offers & Promotions</h1>
+              <p style={S.sub}>Active offers display as banners on your live menu page.</p>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1.5">Description</label>
-              <input
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Show this banner to avail the offer at checkout"
-                className="w-full px-4 py-3 bg-bg-raised border border-bg-border rounded-xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand/50 transition-all"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Start Date</label>
-                <input
-                  type="date"
-                  value={form.startDate}
-                  min={today}
-                  onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-                  className="w-full px-4 py-3 bg-bg-raised border border-bg-border rounded-xl text-sm text-text-primary focus:outline-none focus:border-brand/50 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">End Date *</label>
-                <input
-                  type="date"
-                  value={form.endDate}
-                  min={form.startDate || today}
-                  onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
-                  required
-                  className="w-full px-4 py-3 bg-bg-raised border border-bg-border rounded-xl text-sm text-text-primary focus:outline-none focus:border-brand/50 transition-all"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-2.5 rounded-xl font-medium text-sm text-white disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #FF6B35, #FFB347)' }}
-            >
-              {saving ? 'Saving…' : 'Create Offer'}
+            <button onClick={()=>setShowForm(!showForm)} style={{ ...S.btn, background:showForm?'#F2F0EC':'#1E1B18', color:showForm?'#1E1B18':'#FFF5E8', border:showForm?'1.5px solid rgba(42,31,16,0.12)':'none' }}>
+              {showForm ? '✕ Cancel' : '+ New Offer'}
             </button>
-          </form>
-        )}
-
-        {loading ? (
-          <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 skeleton" />)}</div>
-        ) : offers.length === 0 ? (
-          <div className="text-center py-16 text-text-muted">
-            <div className="text-4xl mb-3">🎁</div>
-            <p>No offers yet. Create one to appear as a banner on your menu.</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {offers.map(offer => {
-              const isActive = offer.endDate >= today && (!offer.startDate || offer.startDate <= today);
-              return (
-                <div key={offer.id} className="bg-bg-surface border border-bg-border rounded-2xl p-5 flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">🎉</div>
-                    <div>
-                      <div className="font-medium text-sm">{offer.title}</div>
-                      {offer.description && (
-                        <div className="text-xs text-text-secondary mt-0.5">{offer.description}</div>
-                      )}
-                      <div className="text-xs text-text-muted mt-1.5">
-                        {offer.startDate && `${offer.startDate} → `}{offer.endDate}
-                      </div>
-                    </div>
+
+          {/* Form */}
+          {showForm && (
+            <div style={{ ...S.card, padding:28, marginBottom:24 }}>
+              <h2 style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', marginBottom:22 }}>Create Offer</h2>
+              {/* Preview banner */}
+              {form.title && (
+                <div style={{ background:'linear-gradient(135deg,#E05A3A,#F07050)', borderRadius:12, padding:'12px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontSize:20 }}>🎉</span>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:14, color:'#fff' }}>{form.title}</div>
+                    {form.description && <div style={{ fontSize:12, color:'rgba(255,255,255,0.8)', marginTop:2 }}>{form.description}</div>}
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                      isActive
-                        ? 'bg-green-400/10 text-green-400 border-green-400/20'
-                        : 'bg-bg-raised text-text-muted border-bg-border'
-                    }`}>
-                      {isActive ? 'Active' : 'Expired'}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(offer.id)}
-                      className="text-text-muted hover:text-red-400 transition-colors text-sm"
-                    >
-                      ✕
-                    </button>
+                  <span style={{ marginLeft:'auto', fontSize:11, color:'rgba(255,255,255,0.7)' }}>Preview</span>
+                </div>
+              )}
+              <form onSubmit={handleSubmit}>
+                <div style={{ marginBottom:14 }}>
+                  <label style={S.label}>Title *</label>
+                  <input className="inp" style={S.input} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Weekend Special — 20% Off" required />
+                </div>
+                <div style={{ marginBottom:14 }}>
+                  <label style={S.label}>Description</label>
+                  <input className="inp" style={S.input} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Show this banner to avail the offer at checkout" />
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20 }}>
+                  <div>
+                    <label style={S.label}>Start Date</label>
+                    <input className="inp" style={S.input} type="date" value={form.startDate} min={today} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))} />
+                  </div>
+                  <div>
+                    <label style={S.label}>End Date *</label>
+                    <input className="inp" style={S.input} type="date" value={form.endDate} min={form.startDate||today} onChange={e=>setForm(f=>({...f,endDate:e.target.value}))} required />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <button type="submit" disabled={saving} style={{ ...S.btn, background:'#1E1B18', color:'#FFF5E8', padding:'13px 28px', opacity:saving?0.6:1 }}>
+                  {saving ? 'Saving…' : 'Create Offer'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* List */}
+          {loading ? (
+            <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
+              <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+            </div>
+          ) : offers.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>🎁</div>
+              <p style={{ fontSize:14 }}>No offers yet. Create one to display as a banner on your menu.</p>
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {offers.map(offer => {
+                const isActive = offer.endDate >= today && (!offer.startDate || offer.startDate <= today);
+                return (
+                  <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16 }}>
+                    <div style={{ width:44, height:44, borderRadius:14, background:'rgba(224,90,58,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:600, fontSize:14, color:'#1E1B18' }}>{offer.title}</div>
+                      {offer.description && <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)', marginTop:3 }}>{offer.description}</div>}
+                      <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:6 }}>
+                        {offer.startDate ? `${offer.startDate} → ${offer.endDate}` : `Ends ${offer.endDate}`}
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+                      <span style={{ padding:'4px 12px', borderRadius:30, fontSize:11, fontWeight:700, background:isActive?'rgba(143,196,168,0.2)':'rgba(42,31,16,0.06)', color:isActive?'#1A5A38':'rgba(42,31,16,0.4)', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(42,31,16,0.1)'}` }}>
+                        {isActive ? 'Active' : 'Expired'}
+                      </span>
+                      <button onClick={()=>handleDelete(offer.id)} style={{ width:30, height:30, borderRadius:8, border:'none', background:'rgba(224,90,58,0.08)', color:'#E05A3A', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );
 }
-
 AdminOffers.getLayout = (page) => page;

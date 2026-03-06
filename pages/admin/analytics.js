@@ -1,190 +1,136 @@
-// pages/admin/analytics.js
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getAnalytics, getAllMenuItems } from '../../lib/db';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar,
-} from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+
+const S = {
+  card: { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
+  h1:   { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
+  sub:  { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
+};
 
 export default function AdminAnalytics() {
-  const { userData }           = useAuth();
+  const { userData } = useAuth();
   const [analytics, setAnalytics] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [range, setRange]         = useState(30);
-
+  const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState(30);
   const rid = userData?.restaurantId;
 
   useEffect(() => {
     if (!rid) return;
     Promise.all([getAnalytics(rid, range), getAllMenuItems(rid)]).then(([anal, items]) => {
-      setAnalytics(anal);
-      setMenuItems(items);
-      setLoading(false);
+      setAnalytics(anal); setMenuItems(items); setLoading(false);
     });
   }, [rid, range]);
 
-  const totalVisits   = analytics.reduce((s, d) => s + (d.totalVisits   || 0), 0);
-  const uniqueVisits  = analytics.reduce((s, d) => s + (d.uniqueVisitors || 0), 0);
-  const repeatVisits  = analytics.reduce((s, d) => s + (d.repeatVisitors || 0), 0);
+  const totalVisits  = analytics.reduce((s,d)=>s+(d.totalVisits||0),0);
+  const uniqueVisits = analytics.reduce((s,d)=>s+(d.uniqueVisitors||0),0);
+  const repeatVisits = analytics.reduce((s,d)=>s+(d.repeatVisitors||0),0);
+  const chartData    = analytics.map(d=>({ date:d.date?.slice(5)||'', visits:d.totalVisits||0, unique:d.uniqueVisitors||0 }));
+  const topItems     = [...menuItems].sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,8);
+  const itemChart    = topItems.map(i=>({ name:i.name.length>12?i.name.slice(0,12)+'…':i.name, views:i.views||0, arViews:i.arViews||0 }));
 
-  const chartData = analytics.map(d => ({
-    date:    d.date?.slice(5) || '', // MM-DD
-    visits:  d.totalVisits   || 0,
-    unique:  d.uniqueVisitors || 0,
-    repeats: d.repeatVisitors || 0,
-  }));
-
-  // Sort items by views
-  const topItems = [...menuItems]
-    .sort((a, b) => (b.views || 0) - (a.views || 0))
-    .slice(0, 8);
-
-  const itemChartData = topItems.map(i => ({
-    name:   i.name.length > 12 ? i.name.slice(0, 12) + '…' : i.name,
-    views:  i.views   || 0,
-    arViews: i.arViews || 0,
-  }));
-
-  const tooltipStyle = {
-    backgroundColor: '#18181D',
-    border: '1px solid #27272E',
-    borderRadius: '10px',
-    color: '#F2F2EE',
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 12,
-  };
+  const tip = { backgroundColor:'#1E1B18', border:'none', borderRadius:10, color:'#FFF5E8', fontSize:12, fontFamily:'Inter,sans-serif' };
+  const stats = [
+    { label:'Total Visits',    value:totalVisits,  accent:'#E05A3A', bg:'rgba(224,90,58,0.07)',    icon:'👁' },
+    { label:'Unique Visitors', value:uniqueVisits, accent:'#5A9A78', bg:'rgba(143,196,168,0.12)',  icon:'👤' },
+    { label:'Repeat Visitors', value:repeatVisits, accent:'#8A70B0', bg:'rgba(196,181,212,0.15)', icon:'🔄' },
+  ];
 
   return (
     <AdminLayout>
       <Head><title>Analytics — Advert Radical</title></Head>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="font-display font-bold text-2xl">Analytics</h1>
-            <p className="text-text-secondary text-sm mt-1">Customer engagement and menu performance</p>
-          </div>
-          <div className="flex gap-2">
-            {[7, 30, 90].map(d => (
-              <button
-                key={d}
-                onClick={() => setRange(d)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  range === d
-                    ? 'bg-brand text-white'
-                    : 'bg-bg-surface border border-bg-border text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-        </div>
+      <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32 }}>
+        <div style={{ maxWidth:920, margin:'0 auto', fontFamily:'Inter,sans-serif' }}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-        {loading ? (
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            {[1,2,3].map(i => <div key={i} className="h-28 skeleton" />)}
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
+            <div>
+              <h1 style={S.h1}>Analytics</h1>
+              <p style={S.sub}>Customer engagement and menu performance</p>
+            </div>
+            <div style={{ display:'flex', gap:6 }}>
+              {[7,30,90].map(d=>(
+                <button key={d} onClick={()=>setRange(d)} style={{ padding:'8px 18px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', background:range===d?'#1E1B18':'#fff', color:range===d?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow:range===d?'0 2px 8px rgba(30,27,24,0.2)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
+                  {d}d
+                </button>
+              ))}
+            </div>
           </div>
-        ) : (
-          <>
-            {/* Summary stats */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <StatCard label="Total Visits"    value={totalVisits}  color="#FF6B35" icon="👁" />
-              <StatCard label="Unique Visitors" value={uniqueVisits} color="#FFB347" icon="🧑" />
-              <StatCard label="Repeat Visitors" value={repeatVisits} color="#8B5CF6" icon="🔄" />
+
+          {loading ? (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200 }}>
+              <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+            </div>
+          ) : (<>
+            {/* Stats */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:20 }}>
+              {stats.map(s=>(
+                <div key={s.label} style={{ ...S.card, padding:24, background:s.bg }}>
+                  <div style={{ fontSize:22, marginBottom:8 }}>{s.icon}</div>
+                  <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:30, color:s.accent, marginBottom:4 }}>{s.value.toLocaleString()}</div>
+                  <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)', fontWeight:500 }}>{s.label}</div>
+                </div>
+              ))}
             </div>
 
             {/* Visits chart */}
-            <div className="bg-bg-surface border border-bg-border rounded-2xl p-6 mb-6">
-              <h2 className="font-display font-semibold mb-5">Visits Over Time</h2>
-              <ResponsiveContainer width="100%" height={220}>
+            <div style={{ ...S.card, padding:28, marginBottom:16 }}>
+              <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:15, color:'#1E1B18', marginBottom:22 }}>Visits Over Time</div>
+              <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartData}>
                   <defs>
-                    <linearGradient id="brandGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"   stopColor="#FF6B35" stopOpacity={0.3} />
-                      <stop offset="95%"  stopColor="#FF6B35" stopOpacity={0}   />
+                    <linearGradient id="ag1" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#E05A3A" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#E05A3A" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272E" />
-                  <XAxis dataKey="date" tick={{ fill: '#55555F', fontSize: 11 }} />
-                  <YAxis tick={{ fill: '#55555F', fontSize: 11 }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Area
-                    type="monotone"
-                    dataKey="visits"
-                    stroke="#FF6B35"
-                    strokeWidth={2}
-                    fill="url(#brandGrad)"
-                    name="Total Visits"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="unique"
-                    stroke="#FFB347"
-                    strokeWidth={2}
-                    fill="transparent"
-                    name="Unique"
-                    strokeDasharray="4 2"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)"/>
+                  <XAxis dataKey="date" tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={tip}/>
+                  <Area type="monotone" dataKey="visits" stroke="#E05A3A" strokeWidth={2.5} fill="url(#ag1)" name="Total Visits"/>
+                  <Area type="monotone" dataKey="unique" stroke="#8FC4A8" strokeWidth={2} fill="transparent" name="Unique" strokeDasharray="5 3"/>
                 </AreaChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Top items chart */}
-            {itemChartData.length > 0 && (
-              <div className="bg-bg-surface border border-bg-border rounded-2xl p-6">
-                <h2 className="font-display font-semibold mb-5">Top Menu Items</h2>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={itemChartData} barGap={4}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272E" />
-                    <XAxis dataKey="name" tick={{ fill: '#55555F', fontSize: 10 }} />
-                    <YAxis tick={{ fill: '#55555F', fontSize: 11 }} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="views"   name="Item Views"    fill="#FF6B35" radius={[4,4,0,0]} />
-                    <Bar dataKey="arViews" name="AR Launches"   fill="#FFB347" radius={[4,4,0,0]} />
+            {/* Items chart */}
+            {itemChart.length > 0 && (
+              <div style={{ ...S.card, padding:28 }}>
+                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:15, color:'#1E1B18', marginBottom:22 }}>Top Menu Items</div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={itemChart} barGap={4}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)"/>
+                    <XAxis dataKey="name" tick={{ fill:'rgba(42,31,16,0.35)', fontSize:10 }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
+                    <Tooltip contentStyle={tip}/>
+                    <Bar dataKey="views"   name="Views"    fill="#E05A3A" radius={[6,6,0,0]}/>
+                    <Bar dataKey="arViews" name="AR Views" fill="#8FC4A8" radius={[6,6,0,0]}/>
                   </BarChart>
                 </ResponsiveContainer>
-
-                {/* Items table */}
-                <div className="mt-5 space-y-2">
-                  {topItems.map((item, i) => (
-                    <div key={item.id} className="flex items-center gap-3 py-2 border-b border-bg-border last:border-0">
-                      <span className="text-text-muted text-xs w-5 text-right">#{i+1}</span>
-                      <div className="w-7 h-7 rounded-lg overflow-hidden bg-bg-raised flex-shrink-0">
-                        {item.imageURL
-                          ? <img src={item.imageURL} alt={item.name} className="w-full h-full object-cover" />
-                          : <span className="w-full h-full flex items-center justify-center text-xs">🍽️</span>
-                        }
+                <div style={{ marginTop:20 }}>
+                  {topItems.map((item,i)=>(
+                    <div key={item.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:'1px solid rgba(42,31,16,0.05)' }}>
+                      <span style={{ fontSize:11, color:'rgba(42,31,16,0.3)', width:20, textAlign:'right', flexShrink:0 }}>#{i+1}</span>
+                      <div style={{ width:32, height:32, borderRadius:10, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                        {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🍽️</div>}
                       </div>
-                      <div className="flex-1 text-sm font-medium truncate">{item.name}</div>
-                      <div className="text-xs text-text-secondary">{item.views || 0} views</div>
-                      <div className="text-xs text-brand">{item.arViews || 0} AR</div>
+                      <div style={{ flex:1, fontSize:13, fontWeight:500, color:'#1E1B18', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</div>
+                      <span style={{ fontSize:12, color:'rgba(42,31,16,0.4)' }}>{item.views||0} views</span>
+                      <span style={{ fontSize:12, color:'#E05A3A', fontWeight:700 }}>{item.arViews||0} AR</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </>
-        )}
+          </>)}
+        </div>
       </div>
     </AdminLayout>
   );
 }
-
 AdminAnalytics.getLayout = (page) => page;
-
-function StatCard({ label, value, color, icon }) {
-  return (
-    <div className="bg-bg-surface border border-bg-border rounded-2xl p-5">
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-xl">{icon}</span>
-        <div className="w-2 h-2 rounded-full mt-1" style={{ background: color }} />
-      </div>
-      <div className="font-display font-bold text-3xl" style={{ color }}>{value}</div>
-      <div className="text-text-muted text-xs mt-1">{label}</div>
-    </div>
-  );
-}

@@ -1,4 +1,3 @@
-// pages/admin/requests.js
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
@@ -7,23 +6,29 @@ import { getRequests, submitRequest } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
-const BLANK = {
-  name: '', description: '', category: '',
-  ingredients: '', calories: '', protein: '', carbs: '', fats: '',
+const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'' };
+
+const S = {
+  page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
+  card:  { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
+  h1:    { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
+  sub:   { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
+  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
+  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(42,31,16,0.09)', borderRadius:12, fontSize:14, color:'#1E1B18', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
+  btn:   { padding:'11px 22px', borderRadius:12, fontSize:14, fontWeight:600, fontFamily:'Poppins,sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
 };
 
 export default function AdminRequests() {
-  const { userData }          = useAuth();
+  const { userData } = useAuth();
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm]         = useState(BLANK);
+  const [form, setForm] = useState(BLANK);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [submitting, setSubmitting]     = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filter, setFilter] = useState('all');
-
   const rid = userData?.restaurantId;
 
   useEffect(() => {
@@ -41,279 +46,158 @@ export default function AdminRequests() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!rid) return;
-    if (!form.name.trim()) { toast.error('Item name is required'); return; }
-
+    if (!rid || !form.name.trim()) { toast.error('Item name is required'); return; }
     setSubmitting(true);
     try {
       let imageURL = null;
       if (imageFile) {
         const path = buildImagePath(rid, imageFile.name);
-        imageURL   = await uploadFile(imageFile, path, setUploadProgress);
+        imageURL = await uploadFile(imageFile, path, setUploadProgress);
       }
-
-      const ingredients = form.ingredients
-        ? form.ingredients.split(',').map(s => s.trim()).filter(Boolean)
-        : [];
-
+      const ingredients = form.ingredients ? form.ingredients.split(',').map(s => s.trim()).filter(Boolean) : [];
       await submitRequest(rid, {
-        name:        form.name.trim(),
-        description: form.description.trim(),
-        category:    form.category.trim(),
-        ingredients,
-        nutritionalData: {
-          calories: Number(form.calories) || null,
-          protein:  Number(form.protein)  || null,
-          carbs:    Number(form.carbs)    || null,
-          fats:     Number(form.fats)     || null,
-        },
+        name: form.name.trim(), description: form.description.trim(), category: form.category.trim(), ingredients,
+        nutritionalData: { calories: Number(form.calories)||null, protein: Number(form.protein)||null, carbs: Number(form.carbs)||null, fats: Number(form.fats)||null },
         imageURL,
       });
-
       toast.success("Request submitted! We'll review it shortly.");
-      setForm(BLANK);
-      setImageFile(null);
-      setImagePreview(null);
-      setShowForm(false);
-      // Refresh
+      setForm(BLANK); setImageFile(null); setImagePreview(null); setShowForm(false);
       const updated = await getRequests(rid);
       setRequests(updated);
-    } catch (err) {
-      toast.error('Failed to submit request. Try again.');
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-      setUploadProgress(0);
-    }
+    } catch { toast.error('Failed to submit request. Try again.'); }
+    finally { setSubmitting(false); setUploadProgress(0); }
   };
 
   const filtered = filter === 'all' ? requests : requests.filter(r => r.status === filter);
 
   return (
     <AdminLayout>
-      <Head><title>Requests — Advert Radical</title></Head>
-      <div className="p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="font-display font-bold text-2xl">Menu Requests</h1>
-            <p className="text-text-secondary text-sm mt-1">
-              Submit items for AR listing. Our team will 3D-scan and publish them.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-5 py-2.5 rounded-xl font-medium text-sm text-white transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #FF6B35, #FFB347)' }}
-          >
-            {showForm ? '✕ Cancel' : '+ New Request'}
-          </button>
-        </div>
+      <Head><title>Menu Requests — Advert Radical</title></Head>
+      <div style={{ background:'#F2F0EC', minHeight:'100vh' }}>
+        <div style={S.page}>
+          <style>{`
+            @keyframes spin{to{transform:rotate(360deg)}}
+            .inp:focus{border-color:rgba(224,90,58,0.5)!important;box-shadow:0 0 0 3px rgba(224,90,58,0.08)}
+            .inp::placeholder{color:rgba(42,31,16,0.3)}
+            .upload-zone:hover{border-color:rgba(224,90,58,0.4)!important;background:#FFF8F5!important}
+          `}</style>
 
-        {/* Form */}
-        {showForm && (
-          <div className="bg-bg-surface border border-brand/20 rounded-2xl p-6 mb-8">
-            <h2 className="font-display font-semibold text-lg mb-5">New Item Request</h2>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid md:grid-cols-2 gap-4">
-                <Field label="Item Name *" required>
-                  <input
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="e.g. Butter Chicken"
-                    required
-                    className="input-field"
-                  />
-                </Field>
-                <Field label="Category">
-                  <input
-                    value={form.category}
-                    onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                    placeholder="e.g. Main Course"
-                    className="input-field"
-                  />
-                </Field>
-              </div>
-
-              <Field label="Description">
-                <textarea
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="Brief description of the dish…"
-                  rows={2}
-                  className="input-field resize-none"
-                />
-              </Field>
-
-              <Field label="Ingredients (comma-separated)">
-                <input
-                  value={form.ingredients}
-                  onChange={e => setForm(f => ({ ...f, ingredients: e.target.value }))}
-                  placeholder="Chicken, Butter, Cream, Tomato, Spices"
-                  className="input-field"
-                />
-              </Field>
-
-              <div className="grid grid-cols-4 gap-3">
-                {['calories', 'protein', 'carbs', 'fats'].map(n => (
-                  <Field key={n} label={n.charAt(0).toUpperCase() + n.slice(1)}>
-                    <input
-                      type="number"
-                      value={form[n]}
-                      onChange={e => setForm(f => ({ ...f, [n]: e.target.value }))}
-                      placeholder="0"
-                      min="0"
-                      className="input-field"
-                    />
-                  </Field>
-                ))}
-              </div>
-
-              <Field label="Food Photo">
-                <div
-                  onClick={() => document.getElementById('img-upload').click()}
-                  className="border-2 border-dashed border-bg-border rounded-xl p-6 text-center cursor-pointer hover:border-brand/40 transition-all"
-                >
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="max-h-32 mx-auto rounded-lg object-cover" />
-                  ) : (
-                    <>
-                      <div className="text-3xl mb-2">📷</div>
-                      <div className="text-sm text-text-secondary">Click to upload image (max 5MB)</div>
-                    </>
-                  )}
-                  <input id="img-upload" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                </div>
-              </Field>
-
-              {uploadProgress > 0 && uploadProgress < 100 && (
-                <div className="w-full h-1.5 bg-bg-raised rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${uploadProgress}%`, background: 'linear-gradient(90deg, #FF6B35, #FFB347)' }}
-                  />
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #FF6B35, #FFB347)' }}
-              >
-                {submitting ? 'Submitting…' : 'Submit Request'}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Filter tabs */}
-        <div className="flex gap-2 mb-5">
-          {['all', 'pending', 'approved', 'rejected'].map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-                filter === s
-                  ? 'bg-brand text-white'
-                  : 'bg-bg-surface border border-bg-border text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {s} {s === 'all' ? `(${requests.length})` : `(${requests.filter(r => r.status === s).length})`}
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
+            <div>
+              <h1 style={S.h1}>Menu Requests</h1>
+              <p style={S.sub}>Submit dishes for AR listing. Our team 3D-scans and publishes them.</p>
+            </div>
+            <button onClick={() => setShowForm(!showForm)} style={{ ...S.btn, background: showForm ? '#F2F0EC' : '#1E1B18', color: showForm ? '#1E1B18' : '#FFF5E8', border: showForm ? '1.5px solid rgba(42,31,16,0.12)' : 'none' }}>
+              {showForm ? '✕ Cancel' : '+ New Request'}
             </button>
-          ))}
-        </div>
+          </div>
 
-        {/* Requests list */}
-        {loading ? (
-          <div className="space-y-3">
-            {[1,2,3].map(i => <div key={i} className="h-20 skeleton" />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-text-muted">
-            <div className="text-4xl mb-3">📭</div>
-            <p>No requests yet. Add your first menu item above!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map(req => (
-              <div key={req.id} className="bg-bg-surface border border-bg-border rounded-2xl p-4 flex items-start gap-4">
-                <div className="w-14 h-14 rounded-xl overflow-hidden bg-bg-raised flex-shrink-0">
-                  {req.imageURL
-                    ? <img src={req.imageURL} alt={req.name} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-xl">🍽️</div>
-                  }
+          {/* Form */}
+          {showForm && (
+            <div style={{ ...S.card, padding:28, marginBottom:24 }}>
+              <h2 style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', marginBottom:22 }}>New Item Request</h2>
+              <form onSubmit={handleSubmit}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+                  <div>
+                    <label style={S.label}>Item Name *</label>
+                    <input className="inp" style={S.input} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Butter Chicken" required />
+                  </div>
+                  <div>
+                    <label style={S.label}>Category</label>
+                    <input className="inp" style={S.input} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} placeholder="e.g. Main Course" />
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-medium text-sm">{req.name}</div>
-                      {req.category && (
-                        <div className="text-xs text-text-muted mt-0.5">{req.category}</div>
-                      )}
+                <div style={{ marginBottom:16 }}>
+                  <label style={S.label}>Description</label>
+                  <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Brief description of the dish…" />
+                </div>
+                <div style={{ marginBottom:16 }}>
+                  <label style={S.label}>Ingredients (comma-separated)</label>
+                  <input className="inp" style={S.input} value={form.ingredients} onChange={e=>setForm(f=>({...f,ingredients:e.target.value}))} placeholder="Chicken, Butter, Cream, Tomato, Spices" />
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
+                  {['calories','protein','carbs','fats'].map(n=>(
+                    <div key={n}>
+                      <label style={S.label}>{n.charAt(0).toUpperCase()+n.slice(1)}</label>
+                      <input className="inp" style={S.input} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
                     </div>
-                    <StatusBadge status={req.status} />
-                  </div>
-                  {req.description && (
-                    <p className="text-xs text-text-secondary mt-1 line-clamp-2">{req.description}</p>
-                  )}
-                  <div className="text-xs text-text-muted mt-1.5">
-                    Submitted {req.createdAt?.seconds
-                      ? new Date(req.createdAt.seconds * 1000).toLocaleDateString()
-                      : 'recently'}
+                  ))}
+                </div>
+                <div style={{ marginBottom:20 }}>
+                  <label style={S.label}>Food Photo</label>
+                  <div className="upload-zone" onClick={()=>document.getElementById('img-upload').click()} style={{ border:'2px dashed rgba(42,31,16,0.15)', borderRadius:14, padding:24, textAlign:'center', cursor:'pointer', background:'#F7F5F2', transition:'all 0.15s' }}>
+                    {imagePreview
+                      ? <img src={imagePreview} alt="Preview" style={{ maxHeight:120, margin:'0 auto', borderRadius:10, objectFit:'cover', display:'block' }} />
+                      : <div><div style={{ fontSize:28, marginBottom:8 }}>📷</div><div style={{ fontSize:13, color:'rgba(42,31,16,0.4)' }}>Click to upload image (max 5MB)</div></div>
+                    }
+                    <input id="img-upload" type="file" accept="image/*" onChange={handleImageChange} style={{ display:'none' }} />
                   </div>
                 </div>
-              </div>
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div style={{ height:4, background:'rgba(42,31,16,0.08)', borderRadius:99, overflow:'hidden', marginBottom:16 }}>
+                    <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#E05A3A,#F07050)', width:`${uploadProgress}%`, transition:'width 0.3s' }} />
+                  </div>
+                )}
+                <button type="submit" disabled={submitting} style={{ ...S.btn, background:'#1E1B18', color:'#FFF5E8', width:'100%', padding:'13px', opacity:submitting?0.6:1 }}>
+                  {submitting ? 'Submitting…' : 'Submit Request'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Filter tabs */}
+          <div style={{ display:'flex', gap:6, marginBottom:20 }}>
+            {['all','pending','approved','rejected'].map(s => (
+              <button key={s} onClick={()=>setFilter(s)} style={{ padding:'7px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background: filter===s?'#1E1B18':'#fff', color: filter===s?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow: filter===s?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
+                {s} ({s==='all'?requests.length:requests.filter(r=>r.status===s).length})
+              </button>
             ))}
           </div>
-        )}
-      </div>
 
-      <style jsx>{`
-        .input-field {
-          width: 100%;
-          padding: 10px 14px;
-          background: #18181D;
-          border: 1px solid #27272E;
-          border-radius: 10px;
-          color: #F2F2EE;
-          font-size: 14px;
-          font-family: 'DM Sans', sans-serif;
-          transition: border-color 0.2s;
-          outline: none;
-        }
-        .input-field:focus {
-          border-color: rgba(255,107,53,0.5);
-          box-shadow: 0 0 0 3px rgba(255,107,53,0.08);
-        }
-        .input-field::placeholder { color: #55555F; }
-      `}</style>
+          {/* List */}
+          {loading ? (
+            <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
+              <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>📭</div>
+              <p style={{ fontSize:14 }}>No requests yet. Add your first menu item above!</p>
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {filtered.map(req => (
+                <div key={req.id} style={{ ...S.card, padding:18, display:'flex', alignItems:'flex-start', gap:16 }}>
+                  <div style={{ width:56, height:56, borderRadius:14, overflow:'hidden', background:'#F7F5F2', flexShrink:0 }}>
+                    {req.imageURL ? <img src={req.imageURL} alt={req.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🍽️</div>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
+                      <div>
+                        <div style={{ fontWeight:600, fontSize:14, color:'#1E1B18' }}>{req.name}</div>
+                        {req.category && <div style={{ fontSize:12, color:'rgba(42,31,16,0.45)', marginTop:2 }}>{req.category}</div>}
+                      </div>
+                      <StatusBadge status={req.status} />
+                    </div>
+                    {req.description && <p style={{ fontSize:12, color:'rgba(42,31,16,0.5)', marginTop:6, lineHeight:1.5 }}>{req.description}</p>}
+                    <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:8 }}>
+                      Submitted {req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleDateString() : 'recently'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </AdminLayout>
   );
 }
-
 AdminRequests.getLayout = (page) => page;
 
-function Field({ label, children, required }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-text-secondary mb-1.5">
-        {label}{required && <span className="text-brand ml-0.5">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
 function StatusBadge({ status }) {
-  const styles = {
-    pending:  'bg-yellow-400/10 text-yellow-400 border-yellow-400/20',
-    approved: 'bg-green-400/10  text-green-400  border-green-400/20',
-    rejected: 'bg-red-400/10    text-red-400    border-red-400/20',
-  };
-  return (
-    <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.pending} capitalize`}>
-      {status}
-    </span>
-  );
+  const map = { pending:['#F4D070','#8B6020'], approved:['#8FC4A8','#1A5A38'], rejected:['#F4A0B0','#8B1A2A'] };
+  const [bg, color] = map[status] || map.pending;
+  return <span style={{ padding:'4px 12px', borderRadius:30, fontSize:11, fontWeight:700, background:bg+'33', color, border:`1px solid ${bg}66`, textTransform:'capitalize', flexShrink:0 }}>{status}</span>;
 }
