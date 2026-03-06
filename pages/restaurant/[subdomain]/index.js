@@ -27,20 +27,182 @@ function getPlaceholder(id) {
 }
 const SPICE = { Mild:'🌶', Medium:'🌶🌶', Spicy:'🌶🌶🌶', 'Very Spicy':'🌶🌶🌶🌶' };
 
+// ── Smart Menu Assistant ──────────────────────────────────────────
+const QUESTIONS = [
+  {
+    id: 'diet',
+    emoji: '🥗',
+    q: 'Any dietary preference?',
+    sub: 'We\'ll only show dishes that match',
+    opts: [
+      { label: 'Vegetarian',     value: 'veg',    emoji: '🌿' },
+      { label: 'Non-Vegetarian', value: 'nonveg', emoji: '🍗' },
+      { label: 'No Preference',  value: 'any',    emoji: '✌️' },
+    ],
+  },
+  {
+    id: 'mood',
+    emoji: '✨',
+    q: 'What\'s your mood right now?',
+    sub: 'Pick what sounds good today',
+    opts: [
+      { label: 'Comfort Food',       value: 'comfort',  emoji: '🍲' },
+      { label: 'Something Healthy',  value: 'healthy',  emoji: '🥦' },
+      { label: 'Popular Dishes',     value: 'popular',  emoji: '🔥' },
+      { label: 'Try Something New',  value: 'new',      emoji: '🌟' },
+    ],
+  },
+  {
+    id: 'spice',
+    emoji: '🌶',
+    q: 'How do you like your heat?',
+    sub: 'We\'ll match your spice tolerance',
+    opts: [
+      { label: 'Mild / No Spice',  value: 'mild',    emoji: '😌' },
+      { label: 'Medium',           value: 'medium',  emoji: '😄' },
+      { label: 'Spicy',            value: 'spicy',   emoji: '🥵' },
+      { label: 'Any Level',        value: 'any',     emoji: '🤷' },
+    ],
+  },
+  {
+    id: 'size',
+    emoji: '🍽️',
+    q: 'How hungry are you?',
+    sub: 'Choose your meal size',
+    opts: [
+      { label: 'Light Bite',     value: 'light',    emoji: '🥗' },
+      { label: 'Regular Meal',   value: 'regular',  emoji: '🍛' },
+      { label: 'Feast Mode',     value: 'heavy',    emoji: '🤤' },
+      { label: 'Anything Works', value: 'any',      emoji: '👌' },
+    ],
+  },
+  {
+    id: 'budget',
+    emoji: '💰',
+    q: 'What\'s your budget per dish?',
+    sub: 'Pick a price range',
+    opts: [
+      { label: 'Budget (under ₹200)', value: 'budget',  emoji: '💵' },
+      { label: 'Mid (₹200–₹500)',     value: 'mid',     emoji: '💳' },
+      { label: 'Premium (₹500+)',     value: 'premium', emoji: '💎' },
+      { label: 'Price doesn\'t matter', value: 'any',   emoji: '🤑' },
+    ],
+  },
+];
+
+// Light-bite categories hint words
+const LIGHT_CATS  = ['starter','starters','salad','salads','soup','soups','snack','snacks','drink','drinks','beverage','beverages','dessert','desserts'];
+const HEAVY_CATS  = ['main','mains','main course','burger','burgers','pasta','pizza','biryani','thali','grill','grills'];
+const HEALTHY_KW  = ['salad','grilled','steamed','healthy','light','low','vegan','fruit','fresh','oat','quinoa'];
+const COMFORT_KW  = ['butter','cheese','cream','fried','crispy','masala','curry','rich','loaded','classic','special','home'];
+
+function scoreItem(item, answers) {
+  let score = 0;
+  const name = (item.name||'').toLowerCase();
+  const desc = (item.description||'').toLowerCase();
+  const cat  = (item.category||'').toLowerCase();
+  const ings = (item.ingredients||[]).join(' ').toLowerCase();
+  const text = `${name} ${desc} ${cat} ${ings}`;
+  const price = item.price ? Number(item.price) : null;
+  const spice = item.spiceLevel || 'None';
+
+  // ── diet ──
+  if (answers.diet === 'veg')    { if (item.isVeg === false) return -999; if (item.isVeg === true) score += 20; }
+  if (answers.diet === 'nonveg') { if (item.isVeg === true)  score -= 10; if (item.isVeg === false) score += 15; }
+
+  // ── spice ──
+  if (answers.spice === 'mild')   { if (['Spicy','Very Spicy'].includes(spice)) return -999; if (['None','Mild'].includes(spice)) score += 15; }
+  if (answers.spice === 'medium') { if (spice === 'Medium') score += 20; if (['None','Mild'].includes(spice)) score += 5; }
+  if (answers.spice === 'spicy')  { if (['Spicy','Very Spicy'].includes(spice)) score += 25; if (spice === 'Medium') score += 10; }
+
+  // ── budget ──
+  if (price !== null) {
+    if (answers.budget === 'budget')  { if (price >= 200) score -= 15; else score += 20; }
+    if (answers.budget === 'mid')     { if (price >= 200 && price <= 500) score += 20; else score -= 8; }
+    if (answers.budget === 'premium') { if (price > 500) score += 20; else if (price < 200) score -= 10; }
+  }
+
+  // ── size ──
+  if (answers.size === 'light') {
+    if (LIGHT_CATS.some(lc => cat.includes(lc))) score += 18;
+    if (HEAVY_CATS.some(hc => cat.includes(hc))) score -= 15;
+    if (item.calories && item.calories < 350) score += 10;
+  }
+  if (answers.size === 'heavy') {
+    if (HEAVY_CATS.some(hc => cat.includes(hc))) score += 18;
+    if (LIGHT_CATS.some(lc => cat.includes(lc)) && !['main','mains'].some(m=>cat.includes(m))) score -= 8;
+    if (item.calories && item.calories > 500) score += 10;
+  }
+  if (answers.size === 'regular') { score += 5; } // neutral, slight boost
+
+  // ── mood ──
+  if (answers.mood === 'popular') { if (item.isPopular || item.isFeatured) score += 30; score += Math.min((item.views||0)/5, 15); }
+  if (answers.mood === 'healthy') {
+    if (HEALTHY_KW.some(k => text.includes(k))) score += 20;
+    if (item.calories && item.calories < 400) score += 15;
+    if (['Spicy','Very Spicy'].includes(spice)) score -= 5;
+  }
+  if (answers.mood === 'comfort') {
+    if (COMFORT_KW.some(k => text.includes(k))) score += 20;
+    if (HEAVY_CATS.some(hc => cat.includes(hc))) score += 10;
+  }
+  if (answers.mood === 'new') {
+    if (item.isFeatured) score += 25;
+    if (item.offerBadge && item.offerLabel) score += 15;
+    // Slight randomisation so "new" gives varied results
+    score += Math.floor(Math.random() * 10);
+  }
+
+  // Popularity boost for all
+  score += Math.min((item.views||0) + (item.arViews||0)*2, 20) * 0.3;
+
+  return score;
+}
+
+function filterItems(items, answers) {
+  return items
+    .map(item => ({ item, score: scoreItem(item, answers) }))
+    .filter(({ score }) => score > -999)
+    .sort((a, b) => b.score - a.score);
+}
+
 export default function RestaurantMenu({ restaurant, menuItems, offers, error }) {
   const [activeCat,    setActiveCat]    = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showAR,       setShowAR]       = useState(false);
   const [imgErr,       setImgErr]       = useState({});
 
+  // Smart Menu Assistant state
+  const [smaOpen,     setSmaOpen]     = useState(false);
+  const [smaStep,     setSmaStep]     = useState(0);   // 0..4 = questions, 5 = results
+  const [smaAnswers,  setSmaAnswers]  = useState({});
+  const [smaResults,  setSmaResults]  = useState([]);
+
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(() => {});
   }, [restaurant?.id]);
 
   useEffect(() => {
-    document.body.style.overflow = selectedItem ? 'hidden' : '';
+    document.body.style.overflow = (selectedItem || smaOpen) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [selectedItem]);
+  }, [selectedItem, smaOpen]);
+
+  // Smart Menu Assistant handlers
+  const openSMA  = () => { setSmaOpen(true); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
+  const closeSMA = () => { setSmaOpen(false); };
+  const pickAnswer = (questionId, value) => {
+    const newAnswers = { ...smaAnswers, [questionId]: value };
+    setSmaAnswers(newAnswers);
+    if (smaStep < QUESTIONS.length - 1) {
+      setSmaStep(smaStep + 1);
+    } else {
+      // Last question answered — compute results
+      const scored = filterItems(menuItems || [], newAnswers);
+      setSmaResults(scored);
+      setSmaStep(QUESTIONS.length); // show results screen
+    }
+  };
+  const restartSMA = () => { setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
 
   const cats     = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
   const filtered = activeCat === 'All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
@@ -380,6 +542,103 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .ar-btn:hover  { transform:translateY(-3px); box-shadow:0 18px 44px rgba(224,90,58,0.56); }
         .ar-btn:active { transform:scale(0.98); }
         .ar-hint { text-align:center; font-size:11px; color:rgba(100,55,20,0.4); margin-top:10px; font-weight:500; }
+
+        /* ── SMART MENU ASSISTANT ── */
+        .sma-fab {
+          position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+          z-index: 45;
+          display: flex; align-items: center; gap: 10px;
+          padding: 14px 26px; border-radius: 50px; border: none;
+          background: linear-gradient(135deg, #1E1B18, #3A3430);
+          color: #FFF5E8; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 15px;
+          cursor: pointer; white-space: nowrap;
+          box-shadow: 0 8px 32px rgba(20,10,3,0.35), 0 0 0 1.5px rgba(255,200,120,0.15) inset;
+          transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+          animation: fadeUp 0.6s 0.4s ease both;
+          letter-spacing: 0.01em;
+        }
+        .sma-fab:hover  { transform: translateX(-50%) translateY(-4px); box-shadow: 0 14px 40px rgba(20,10,3,0.45); }
+        .sma-fab:active { transform: translateX(-50%) scale(0.97); }
+        .sma-fab-spark  { font-size: 20px; animation: float1 3s ease-in-out infinite; }
+
+        /* Overlay */
+        .sma-overlay {
+          position: fixed; inset: 0; z-index: 55;
+          display: flex; align-items: flex-end; justify-content: center;
+          background: rgba(15,7,2,0.65);
+          backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          animation: fadeIn 0.2s ease;
+        }
+        .sma-sheet {
+          position: relative; width: 100%; max-width: 560px;
+          background: rgba(255,246,228,0.98);
+          border: 1.5px solid rgba(255,218,148,0.7);
+          border-radius: 32px 32px 0 0;
+          max-height: 92vh; overflow-y: auto;
+          animation: slideUp 0.34s cubic-bezier(0.32,0.72,0,1);
+          box-shadow: 0 -20px 70px rgba(60,20,5,0.28), inset 0 1px 0 rgba(255,255,255,0.9);
+          font-family: 'DM Sans', sans-serif;
+        }
+
+        /* Progress bar */
+        .sma-progress-wrap { padding: 20px 24px 0; }
+        .sma-progress-bar  { height: 4px; background: rgba(200,140,60,0.15); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+        .sma-progress-fill { height: 100%; background: linear-gradient(90deg,#E05A3A,#F07050); border-radius: 99px; transition: width 0.4s ease; }
+
+        /* Question screen */
+        .sma-q-wrap   { padding: 28px 24px 36px; }
+        .sma-q-emoji  { font-size: 48px; text-align: center; margin-bottom: 14px; }
+        .sma-q-text   { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 22px; color: #1A1008; text-align: center; line-height: 1.3; margin-bottom: 6px; }
+        .sma-q-sub    { font-size: 13px; color: rgba(42,31,16,0.5); text-align: center; margin-bottom: 26px; font-weight: 500; }
+        .sma-opts     { display: flex; flex-direction: column; gap: 10px; }
+        .sma-opt {
+          display: flex; align-items: center; gap: 14px;
+          padding: 16px 20px; border-radius: 18px; border: 2px solid rgba(200,140,60,0.18);
+          background: rgba(255,250,240,0.7); cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+          text-align: left; width: 100%; font-family: 'DM Sans', sans-serif;
+        }
+        .sma-opt:hover  { background: rgba(255,250,240,1); border-color: rgba(224,90,58,0.35); transform: translateX(4px); }
+        .sma-opt:active { transform: scale(0.98); }
+        .sma-opt-emoji  { font-size: 28px; flex-shrink: 0; }
+        .sma-opt-label  { font-size: 15px; font-weight: 600; color: #1A1008; }
+        .sma-step-row   { display: flex; align-items: center; justify-content: space-between; }
+        .sma-step-txt   { font-size: 12px; font-weight: 600; color: rgba(42,31,16,0.4); }
+        .sma-back-btn   { font-size: 12px; font-weight: 700; color: rgba(42,31,16,0.4); background: none; border: none; cursor: pointer; padding: 0; font-family: 'DM Sans', sans-serif; }
+        .sma-back-btn:hover { color: #E05A3A; }
+
+        /* Results screen */
+        .sma-res-wrap { padding: 20px 20px 40px; }
+        .sma-res-header { text-align: center; margin-bottom: 24px; }
+        .sma-res-emoji { font-size: 44px; margin-bottom: 10px; }
+        .sma-res-title { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 22px; color: #1A1008; margin-bottom: 6px; }
+        .sma-res-sub   { font-size: 13px; color: rgba(42,31,16,0.5); font-weight: 500; }
+
+        /* Result item card */
+        .sma-item {
+          display: flex; align-items: center; gap: 14px;
+          padding: 13px 16px; border-radius: 18px; margin-bottom: 8px;
+          background: rgba(255,250,240,0.85); border: 1.5px solid rgba(220,185,120,0.3);
+          cursor: pointer; transition: all 0.18s;
+          text-align: left; width: 100%; font-family: 'DM Sans', sans-serif;
+        }
+        .sma-item:hover { background: rgba(255,250,240,1); border-color: rgba(224,90,58,0.3); transform: translateX(3px); }
+        .sma-item-img  { width: 54px; height: 54px; border-radius: 14px; overflow: hidden; flex-shrink: 0; object-fit: cover; background: rgba(255,225,175,0.6); }
+        .sma-item-name { font-size: 14px; font-weight: 700; color: #1A1008; margin-bottom: 3px; font-family: 'Sora', sans-serif; }
+        .sma-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .sma-item-price { font-size: 14px; font-weight: 800; color: #C04A28; font-family: 'Sora', sans-serif; }
+        .sma-item-pill  { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: rgba(224,90,58,0.1); color: #C04A28; border: 1px solid rgba(224,90,58,0.2); }
+        .sma-item-ar    { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; background: rgba(42,120,72,0.1); color: #1A6A38; border: 1px solid rgba(42,120,72,0.2); }
+
+        /* Category label in results */
+        .sma-cat-label { font-size: 10px; font-weight: 800; color: rgba(100,55,20,0.45); letter-spacing: 0.12em; text-transform: uppercase; margin: 18px 0 10px 4px; }
+
+        /* Bottom actions */
+        .sma-actions { display: flex; gap: 10px; margin-top: 24px; }
+        .sma-btn-primary   { flex: 1; padding: 14px; border-radius: 16px; border: none; background: #1E1B18; color: #FFF5E8; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; transition: opacity 0.15s; }
+        .sma-btn-secondary { flex: 1; padding: 14px; border-radius: 16px; border: 1.5px solid rgba(42,31,16,0.15); background: transparent; color: rgba(42,31,16,0.6); font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+        .sma-btn-secondary:hover { background: rgba(42,31,16,0.05); }
+        .sma-no-results { text-align: center; padding: 40px 20px; color: rgba(42,31,16,0.45); }
       `}</style>
 
       {/* Background blobs */}
@@ -581,6 +840,130 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
               {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch}/>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SMART MENU ASSISTANT FAB ── */}
+      {!selectedItem && !smaOpen && (
+        <button className="sma-fab" onClick={openSMA}>
+          <span className="sma-fab-spark">✨</span>
+          Help Me Choose
+        </button>
+      )}
+
+      {/* ── SMART MENU ASSISTANT OVERLAY ── */}
+      {smaOpen && (
+        <div className="sma-overlay" onClick={e=>{ if(e.target===e.currentTarget) closeSMA(); }}>
+          <div className="sma-sheet">
+            <div className="handle-row"><div className="handle"/></div>
+
+            {/* Progress bar (questions phase only) */}
+            {smaStep < QUESTIONS.length && (
+              <div className="sma-progress-wrap">
+                <div className="sma-step-row">
+                  <span className="sma-step-txt">Question {smaStep+1} of {QUESTIONS.length}</span>
+                  {smaStep > 0 && (
+                    <button className="sma-back-btn" onClick={()=>setSmaStep(s=>s-1)}>← Back</button>
+                  )}
+                </div>
+                <div className="sma-progress-bar">
+                  <div className="sma-progress-fill" style={{ width:`${((smaStep+1)/QUESTIONS.length)*100}%` }}/>
+                </div>
+              </div>
+            )}
+
+            {/* ── QUESTION SCREEN ── */}
+            {smaStep < QUESTIONS.length && (() => {
+              const q = QUESTIONS[smaStep];
+              return (
+                <div className="sma-q-wrap">
+                  <div className="sma-q-emoji">{q.emoji}</div>
+                  <div className="sma-q-text">{q.q}</div>
+                  <div className="sma-q-sub">{q.sub}</div>
+                  <div className="sma-opts">
+                    {q.opts.map(opt => (
+                      <button key={opt.value} className="sma-opt" onClick={()=>pickAnswer(q.id, opt.value)}>
+                        <span className="sma-opt-emoji">{opt.emoji}</span>
+                        <span className="sma-opt-label">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{textAlign:'center',marginTop:20}}>
+                    <button className="sma-back-btn" onClick={closeSMA} style={{fontSize:13,color:'rgba(42,31,16,0.35)'}}>✕ Close</button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── RESULTS SCREEN ── */}
+            {smaStep === QUESTIONS.length && (() => {
+              // Group results by category, top 8 items total
+              const top = smaResults.slice(0, 12);
+              const groups = {};
+              top.forEach(({item}) => {
+                const cat = item.category || 'Other';
+                if (!groups[cat]) groups[cat] = [];
+                groups[cat].push(item);
+              });
+              const groupEntries = Object.entries(groups);
+
+              return (
+                <div className="sma-res-wrap">
+                  <div className="sma-res-header">
+                    <div className="sma-res-emoji">🎯</div>
+                    <div className="sma-res-title">
+                      {top.length > 0 ? `${top.length} dishes picked for you` : 'No matches found'}
+                    </div>
+                    <div className="sma-res-sub">
+                      {top.length > 0 ? 'Based on your preferences — tap any dish to see details' : 'Try again with different preferences'}
+                    </div>
+                  </div>
+
+                  {top.length === 0 ? (
+                    <div className="sma-no-results">
+                      <div style={{fontSize:40,marginBottom:10}}>🥢</div>
+                      <p>No dishes matched all your filters.<br/>Try relaxing some preferences.</p>
+                      <button className="sma-btn-primary" style={{marginTop:20,width:'100%'}} onClick={restartSMA}>Try Again</button>
+                    </div>
+                  ) : (
+                    <>
+                      {groupEntries.map(([cat, items]) => (
+                        <div key={cat}>
+                          <div className="sma-cat-label">{cat}</div>
+                          {items.map(item => (
+                            <button key={item.id} className="sma-item" onClick={()=>{ closeSMA(); openItem(item); }}>
+                              <img
+                                className="sma-item-img"
+                                src={(!imgErr[item.id] && item.imageURL) ? item.imageURL : getPlaceholder(item.id)}
+                                alt={item.name}
+                                onError={()=>setImgErr(e=>({...e,[item.id]:true}))}
+                              />
+                              <div style={{flex:1,minWidth:0}}>
+                                <div className="sma-item-name">{item.name}</div>
+                                <div className="sma-item-meta">
+                                  {item.price && <span className="sma-item-price">₹{item.price}</span>}
+                                  {item.isPopular && <span className="sma-item-pill">✦ Popular</span>}
+                                  {item.modelURL && <span className="sma-item-ar">🥽 AR</span>}
+                                  {item.spiceLevel && item.spiceLevel!=='None' && <span style={{fontSize:12}}>{SPICE[item.spiceLevel]}</span>}
+                                  {item.prepTime && <span style={{fontSize:11,color:'rgba(42,31,16,0.45)'}}>⏱ {item.prepTime}</span>}
+                                </div>
+                              </div>
+                              <span style={{fontSize:18,color:'rgba(42,31,16,0.2)',flexShrink:0}}>›</span>
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+
+                      <div className="sma-actions">
+                        <button className="sma-btn-secondary" onClick={restartSMA}>↺ Redo</button>
+                        <button className="sma-btn-primary" onClick={closeSMA}>Browse Full Menu →</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
