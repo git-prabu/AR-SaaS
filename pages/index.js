@@ -527,6 +527,7 @@ export default function HomePage() {
             <div style={{display:'flex',gap:24}}>
               {['Privacy','Terms'].map(l=><a key={l} href="#" style={{fontSize:13,color:'rgba(42,31,16,0.4)'}}>{l}</a>)}
               <Link href="/admin/login" style={{fontSize:13,color:'rgba(42,31,16,0.4)'}}>Sign in</Link>
+              <Link href="/superadmin/login" style={{fontSize:13,color:'rgba(42,31,16,0.3)'}}>Super Admin</Link>
             </div>
           </div>
         </footer>
