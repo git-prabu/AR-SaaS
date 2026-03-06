@@ -1,9 +1,10 @@
 // pages/admin/items.js
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getAllMenuItems, updateMenuItem, deleteMenuItem } from '../../lib/db';
+import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Very Spicy'];
@@ -36,6 +37,8 @@ export default function AdminItems() {
   const [saving,    setSaving]    = useState(false);
   const [deleting,  setDeleting]  = useState(null);
   const [customBadge, setCustomBadge] = useState('');
+  const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { progress, uploading } }
+  const imgInputRef = useRef({});
   const rid = userData?.restaurantId;
 
   const load = async () => {
@@ -82,6 +85,22 @@ export default function AdminItems() {
   };
 
   const cancelEdit = () => { setEditId(null); setEditData({}); };
+
+  const handleImageUpload = async (item, file) => {
+    if (!file) return;
+    if (fileSizeMB(file) > 5) { toast.error('Image must be under 5MB'); return; }
+    setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:0 } }));
+    try {
+      const path = buildImagePath(rid, file.name);
+      const url  = await uploadFile(file, path, (pct) =>
+        setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:pct } }))
+      );
+      await updateMenuItem(rid, item.id, { imageURL: url });
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url } : i));
+      toast.success('Cover image updated!');
+    } catch (e) { toast.error('Upload failed: ' + e.message); }
+    finally { setImgUpload(u => ({ ...u, [item.id]: { uploading:false, progress:0 } })); }
+  };
 
   const saveEdit = async () => {
     if (!editData.name?.trim()) { toast.error('Item name required'); return; }
@@ -268,6 +287,37 @@ export default function AdminItems() {
                     {isEdit && (
                       <div style={{ background:'#F7F5F2', borderBottom:'1px solid rgba(42,31,16,0.06)', padding:'20px 18px 24px' }}>
                         <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color:'#1E1B18', marginBottom:18 }}>✏️ Editing: {item.name}</div>
+
+                        {/* Cover image upload */}
+                        <div style={{ background:'#fff', borderRadius:14, padding:16, marginBottom:16, border:'1px solid rgba(42,31,16,0.07)' }}>
+                          <label style={{ ...S.label, marginBottom:10 }}>📸 Cover Image</label>
+                          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                            <div style={{ width:64, height:64, borderRadius:14, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                              {item.imageURL
+                                ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                                : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28 }}>🍽️</div>}
+                            </div>
+                            <div>
+                              <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginBottom:8 }}>JPG, PNG · Max 5MB · Shown on menu card</div>
+                              <input
+                                type="file" accept="image/*" style={{ display:'none' }}
+                                ref={el => { if(el) imgInputRef.current[item.id]=el; }}
+                                onChange={e => handleImageUpload(item, e.target.files[0])}
+                              />
+                              <button
+                                onClick={() => imgInputRef.current[item.id]?.click()}
+                                disabled={imgUpload[item.id]?.uploading}
+                                style={{ padding:'8px 16px', borderRadius:10, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer', opacity:imgUpload[item.id]?.uploading?0.6:1 }}>
+                                {imgUpload[item.id]?.uploading ? `Uploading ${imgUpload[item.id].progress}%…` : item.imageURL ? '↑ Replace Image' : '↑ Upload Image'}
+                              </button>
+                            </div>
+                          </div>
+                          {imgUpload[item.id]?.uploading && (
+                            <div style={{ height:4, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden', marginTop:10 }}>
+                              <div style={{ height:'100%', background:'#E05A3A', borderRadius:99, width:`${imgUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
+                            </div>
+                          )}
+                        </div>
                         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
                           <div>
                             <label style={S.label}>Item Name *</label>

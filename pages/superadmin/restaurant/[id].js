@@ -1,6 +1,6 @@
 // pages/superadmin/restaurant/[id].js
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import SuperAdminLayout from '../../../components/layout/SuperAdminLayout';
@@ -10,8 +10,16 @@ import {
   getRequests, updateRequestStatus,
   getAnalytics,
 } from '../../../lib/db';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { uploadFile, buildImagePath, buildModelPath, fileSizeMB, deleteFile } from '../../../lib/storage';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
+
+// ── Temp URL until domain is purchased & DNS configured ──────────
+// When you buy advertradical.com, change this to: 'https://{subdomain}.advertradical.com'
+const getMenuURL = (subdomain) =>
+  `${process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : 'https://ar-saa-s-kbzn.vercel.app'}/restaurant/${subdomain}`;
 
 const PLANS = [
   { id:'basic',   label:'Basic',   maxItems:10,  maxStorageMB:500  },
@@ -47,6 +55,10 @@ export default function RestaurantDetail() {
   const [itemEdit,   setItemEdit]   = useState(null);
   const [itemData,   setItemData]   = useState({});
   const [itemSaving, setItemSaving] = useState(false);
+  const [imgUpload,  setImgUpload]  = useState({}); // { [itemId]: { progress, uploading } }
+  const [arUpload,   setArUpload]   = useState({}); // { [itemId]: { progress, uploading } }
+  const imgInputRef = useRef({});
+  const arInputRef  = useRef({});
 
   // Analytics state
   const [analytics,  setAnalytics]  = useState([]);
@@ -150,6 +162,47 @@ export default function RestaurantDetail() {
     finally { setItemSaving(false); }
   };
 
+  const handleImageUpload = async (item, file) => {
+    if (!file) return;
+    if (fileSizeMB(file) > 5) { toast.error('Image must be under 5MB'); return; }
+    setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:0 } }));
+    try {
+      const path = buildImagePath(id, file.name);
+      const url  = await uploadFile(file, path, (pct) =>
+        setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:pct } }))
+      );
+      await updateMenuItem(id, item.id, { imageURL: url });
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url } : i));
+      if (itemEdit?.id === item.id) setItemData(d => ({ ...d, imageURL: url }));
+      toast.success('Cover image updated!');
+    } catch (e) { toast.error('Upload failed: ' + e.message); }
+    finally { setImgUpload(u => ({ ...u, [item.id]: { uploading:false, progress:0 } })); }
+  };
+
+  const handleARUpload = async (item, file) => {
+    if (!file) return;
+    if (!file.name.match(/\.(glb|gltf)$/i)) { toast.error('Only .glb or .gltf files'); return; }
+    if (fileSizeMB(file) > 20) { toast.error('AR model must be under 20MB'); return; }
+    setArUpload(u => ({ ...u, [item.id]: { uploading:true, progress:0 } }));
+    try {
+      const path = buildModelPath(id, file.name);
+      const url  = await uploadFile(file, path, (pct) =>
+        setArUpload(u => ({ ...u, [item.id]: { uploading:true, progress:pct } }))
+      );
+      await updateMenuItem(id, item.id, { modelURL: url });
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, modelURL: url } : i));
+      toast.success('AR model updated!');
+    } catch (e) { toast.error('Upload failed: ' + e.message); }
+    finally { setArUpload(u => ({ ...u, [item.id]: { uploading:false, progress:0 } })); }
+  };
+
+  const handleARDelete = async (item) => {
+    if (!confirm('Remove AR model from this item?')) return;
+    await updateMenuItem(id, item.id, { modelURL: null });
+    setItems(prev => prev.map(i => i.id === item.id ? { ...i, modelURL: null } : i));
+    toast.success('AR model removed');
+  };
+
   const deleteItem = async (item) => {
     if (!confirm(`Delete "${item.name}"?`)) return;
     await deleteMenuItem(id, item.id);
@@ -242,7 +295,7 @@ export default function RestaurantDetail() {
                 </div>
               </div>
               <div style={{ display:'flex', gap:10 }}>
-                <a href={`https://${restaurant.subdomain}.advertradical.com`} target="_blank" rel="noreferrer" style={{ padding:'9px 18px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.6)', textDecoration:'none', display:'flex', alignItems:'center', gap:6 }}>
+                <a href={getMenuURL(restaurant.subdomain)} target="_blank" rel="noreferrer" style={{ padding:'9px 18px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.6)', textDecoration:'none', display:'flex', alignItems:'center', gap:6 }}>
                   View Menu ↗
                 </a>
                 {!editing && (
@@ -479,6 +532,78 @@ export default function RestaurantDetail() {
                       {/* Inline edit panel */}
                       {isItemEdit && (
                         <div style={{ background:'#F7F5F2', borderBottom:'1px solid rgba(42,31,16,0.06)', padding:'18px 18px 22px' }}>
+                          
+                          {/* Image + AR media row */}
+                          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18 }}>
+                            
+                            {/* Cover Image */}
+                            <div style={{ background:'#fff', borderRadius:14, padding:16, border:'1px solid rgba(42,31,16,0.07)' }}>
+                              <label style={{ ...S.label, marginBottom:10 }}>📸 Cover Image</label>
+                              <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+                                <div style={{ width:60, height:60, borderRadius:12, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                                  {item.imageURL
+                                    ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                                    : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>🍽️</div>}
+                                </div>
+                                <div style={{ flex:1 }}>
+                                  <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginBottom:6 }}>JPG, PNG · Max 5MB</div>
+                                  <input
+                                    type="file" accept="image/*" style={{ display:'none' }}
+                                    ref={el => { if(el) imgInputRef.current[item.id]=el; }}
+                                    onChange={e => handleImageUpload(item, e.target.files[0])}
+                                  />
+                                  <button
+                                    onClick={() => imgInputRef.current[item.id]?.click()}
+                                    disabled={imgUpload[item.id]?.uploading}
+                                    style={{ padding:'8px 14px', borderRadius:10, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer', opacity: imgUpload[item.id]?.uploading?0.6:1 }}>
+                                    {imgUpload[item.id]?.uploading ? `Uploading ${imgUpload[item.id].progress}%…` : '↑ Upload New Image'}
+                                  </button>
+                                </div>
+                              </div>
+                              {imgUpload[item.id]?.uploading && (
+                                <div style={{ height:4, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
+                                  <div style={{ height:'100%', background:'#E05A3A', borderRadius:99, width:`${imgUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* AR Model */}
+                            <div style={{ background:'#fff', borderRadius:14, padding:16, border:'1px solid rgba(42,31,16,0.07)' }}>
+                              <label style={{ ...S.label, marginBottom:10 }}>🥽 AR Model (.glb / .gltf)</label>
+                              <div style={{ marginBottom:10 }}>
+                                {item.modelURL ? (
+                                  <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:10, background:'rgba(143,196,168,0.12)', border:'1px solid rgba(143,196,168,0.3)', marginBottom:10 }}>
+                                    <span style={{ fontSize:18 }}>✅</span>
+                                    <span style={{ fontSize:12, fontWeight:600, color:'#1A5A38', flex:1 }}>AR model active</span>
+                                    <button onClick={() => handleARDelete(item)} style={{ padding:'3px 10px', borderRadius:8, border:'1px solid rgba(192,48,32,0.3)', background:'rgba(244,160,176,0.1)', color:'#8B1A2A', fontSize:11, fontWeight:600, cursor:'pointer' }}>Remove</button>
+                                  </div>
+                                ) : (
+                                  <div style={{ padding:'8px 12px', borderRadius:10, background:'rgba(244,208,112,0.15)', border:'1px solid rgba(244,208,112,0.4)', fontSize:12, color:'#8B6020', marginBottom:10 }}>
+                                    ⚠️ No AR model — item shows without AR
+                                  </div>
+                                )}
+                                <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginBottom:8 }}>.glb or .gltf · Max 20MB</div>
+                                <input
+                                  type="file" accept=".glb,.gltf" style={{ display:'none' }}
+                                  ref={el => { if(el) arInputRef.current[item.id]=el; }}
+                                  onChange={e => handleARUpload(item, e.target.files[0])}
+                                />
+                                <button
+                                  onClick={() => arInputRef.current[item.id]?.click()}
+                                  disabled={arUpload[item.id]?.uploading}
+                                  style={{ padding:'8px 14px', borderRadius:10, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer', opacity:arUpload[item.id]?.uploading?0.6:1 }}>
+                                  {arUpload[item.id]?.uploading ? `Uploading ${arUpload[item.id].progress}%…` : item.modelURL ? '↑ Replace AR Model' : '↑ Upload AR Model'}
+                                </button>
+                              </div>
+                              {arUpload[item.id]?.uploading && (
+                                <div style={{ height:4, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
+                                  <div style={{ height:'100%', background:'#8FC4A8', borderRadius:99, width:`${arUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Fields grid */}
                           <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:12 }}>
                             {[['name','Name'],['category','Category'],['price','Price (₹)'],['prepTime','Prep Time'],['spiceLevel','Spice Level','select']].map(([k,lbl,type])=>(
                               <div key={k}>
