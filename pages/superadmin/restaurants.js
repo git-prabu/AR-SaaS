@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import { getAllRestaurants, createRestaurant, updateRestaurant } from '../../lib/db';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -121,8 +122,8 @@ export default function SuperAdminRestaurants() {
           ) : (
             <div style={{ ...S.card, overflow:'hidden' }}>
               {/* Table header */}
-              <div style={{ display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 80px', gap:0, padding:'12px 20px', borderBottom:'1px solid rgba(42,31,16,0.06)', background:'#FAFAF8' }}>
-                {['Restaurant','Subdomain','Plan','Items','Status',''].map(h=>(
+              <div style={{ display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 130px', gap:0, padding:'12px 20px', borderBottom:'1px solid rgba(42,31,16,0.06)', background:'#FAFAF8' }}>
+                {['Restaurant','Subdomain','Plan','Items','Status','Actions'].map(h=>(
                   <div key={h} style={{ fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.4)', letterSpacing:'0.05em', textTransform:'uppercase' }}>{h}</div>
                 ))}
               </div>
@@ -132,16 +133,23 @@ export default function SuperAdminRestaurants() {
                 const isEdit = editId === r.id;
                 return (
                   <div key={r.id} className="row" style={{ borderBottom: i<filtered.length-1?'1px solid rgba(42,31,16,0.05)':'none', transition:'background 0.12s', background:'#fff' }}>
-                    <div style={{ display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 80px', gap:0, padding:'14px 20px', alignItems:'center' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 130px', gap:0, padding:'14px 20px', alignItems:'center' }}>
                       <div>
-                        <div style={{ fontWeight:600, fontSize:13, color:'#1E1B18' }}>{r.name}</div>
+                        <Link href={`/superadmin/restaurant/${r.id}`} style={{ fontWeight:600, fontSize:13, color:'#1E1B18', textDecoration:'none' }}
+                          onMouseOver={e=>e.currentTarget.style.color='#E05A3A'}
+                          onMouseOut={e=>e.currentTarget.style.color='#1E1B18'}>
+                          {r.name}
+                        </Link>
                         <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:2 }}>ID: {r.id?.slice(0,8)}…</div>
                       </div>
                       <div style={{ fontSize:12, color:'rgba(42,31,16,0.55)', fontFamily:'monospace' }}>{r.subdomain}</div>
                       <div><span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:planBg+'33', color:planColor, border:`1px solid ${planBg}66`, textTransform:'capitalize' }}>{plan}</span></div>
                       <div style={{ fontSize:12, color:'rgba(42,31,16,0.55)' }}>{r.itemsUsed||0}/{r.maxItems||10}</div>
                       <div><span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:r.isActive?'rgba(143,196,168,0.2)':'rgba(42,31,16,0.06)', color:r.isActive?'#1A5A38':'rgba(42,31,16,0.4)', border:`1px solid ${r.isActive?'rgba(143,196,168,0.35)':'rgba(42,31,16,0.1)'}` }}>{r.isActive?'Active':'Inactive'}</span></div>
-                      <div>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <Link href={`/superadmin/restaurant/${r.id}`} style={{ padding:'5px 12px', borderRadius:8, border:'1.5px solid rgba(224,90,58,0.25)', background:'rgba(224,90,58,0.06)', fontSize:12, fontWeight:700, color:'#C04A28', cursor:'pointer', textDecoration:'none', whiteSpace:'nowrap' }}>
+                          View →
+                        </Link>
                         <button onClick={()=>{ setEditId(isEdit?null:r.id); setEditData({ plan:r.plan||'basic', isActive:r.isActive!==false, maxItems:r.maxItems||10 }); }} style={{ padding:'5px 12px', borderRadius:8, border:'1.5px solid rgba(42,31,16,0.1)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.55)', cursor:'pointer' }}>
                           {isEdit ? 'Cancel' : 'Edit'}
                         </button>

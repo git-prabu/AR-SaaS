@@ -84,7 +84,7 @@ export default function SuperAdminDashboard() {
             : restaurants.slice(0,7).map(r=>(
               <div key={r.id} className="rr">
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:600,color:'#2A1F10',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.name}</div>
+                  <Link href={`/superadmin/restaurant/${r.id}`} style={{fontSize:13,fontWeight:600,color:'#2A1F10',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'block',textDecoration:'none'}} onMouseOver={e=>e.currentTarget.style.color='#E05A3A'} onMouseOut={e=>e.currentTarget.style.color='#2A1F10'}>{r.name}</Link>
                   <div style={{fontSize:11,color:'rgba(42,31,16,0.4)'}}>{r.subdomain}.advertradical.com</div>
                 </div>
                 <span style={{fontSize:11,color:'rgba(42,31,16,0.4)',textTransform:'capitalize',marginRight:8}}>{r.plan}</span>
