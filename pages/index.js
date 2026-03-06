@@ -465,7 +465,7 @@ export default function HomePage() {
                 <div key={p.name} className={`pc${p.tag==='Popular'?' pop':''}`}>
                   {p.tag && <div style={{position:'absolute',top:-14,left:'50%',transform:'translateX(-50%)',padding:'5px 18px',background:'linear-gradient(135deg,#E05A3A,#F07050)',color:'#fff',fontSize:11,fontWeight:700,borderRadius:30,whiteSpace:'nowrap',boxShadow:'0 4px 14px rgba(224,90,58,0.32)'}}>✦ {p.tag}</div>}
                   {/* Mini illustration per plan */}
-                  <div style={{width:'100%',height:72,borderRadius:14,marginBottom:20,background:p.tag==='Popular'?'rgba(224,90,58,0.1)':'rgba(255,215,155,0.2)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+                  <div style={{width:'100%',height:88,borderRadius:14,marginBottom:20,background:p.tag==='Popular'?'rgba(224,90,58,0.08)':'rgba(255,215,155,0.18)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',padding:'0 8px'}}>
                     <PlanIllustration name={p.name}/>
                   </div>
                   <div style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:17,color:'#1E1B18',marginBottom:6}}>{p.name}</div>
@@ -709,35 +709,73 @@ function NoAppScene() {
 
 function PlanIllustration({ name }) {
   if (name === 'Basic') return (
-    <svg viewBox="0 0 200 72" style={{width:180,height:64}}>
-      <rect x="30" y="20" width="36" height="36" rx="10" fill="rgba(255,215,155,0.5)"/>
-      <text x="48" y="44" textAnchor="middle" fontSize="20">🍽️</text>
-      <text x="95" y="35" fill="#8B6040" fontSize="11" fontWeight="600" fontFamily="Poppins,sans-serif">Up to 10 items</text>
-      <text x="95" y="50" fill="rgba(100,60,30,0.5)" fontSize="10" fontFamily="Inter,sans-serif">500MB storage</text>
-      <circle cx="168" cy="36" r="16" fill="rgba(255,215,155,0.3)"/>
-      <text x="168" y="41" textAnchor="middle" fontSize="16">📱</text>
+    <svg viewBox="0 0 260 80" style={{width:'100%',height:'100%'}}>
+      {/* Single dish icon — plate with fork/knife */}
+      <rect x="18" y="16" width="48" height="48" rx="14" fill="rgba(224,168,80,0.2)"/>
+      {/* Plate */}
+      <circle cx="42" cy="40" r="16" fill="rgba(255,230,170,0.9)"/>
+      <circle cx="42" cy="40" r="10" fill="rgba(255,215,140,0.8)"/>
+      <circle cx="42" cy="40" r="5" fill="#E8A050" opacity="0.7"/>
+      {/* Fork left */}
+      <rect x="22" y="30" width="3" height="20" rx="1.5" fill="rgba(160,100,40,0.45)"/>
+      {/* Knife right */}
+      <rect x="60" y="30" width="3" height="20" rx="1.5" fill="rgba(160,100,40,0.45)"/>
+      {/* Divider */}
+      <rect x="82" y="20" width="1.5" height="40" rx="0.75" fill="rgba(160,100,40,0.12)"/>
+      {/* Text info */}
+      <text x="98" y="36" fill="#6B4A20" fontSize="13" fontWeight="700" fontFamily="Poppins,sans-serif">10 AR items</text>
+      <text x="98" y="54" fill="rgba(100,60,30,0.5)" fontSize="11" fontFamily="Inter,sans-serif">500MB storage</text>
     </svg>
   );
   if (name === 'Pro') return (
-    <svg viewBox="0 0 200 72" style={{width:180,height:64}}>
-      <rect x="15" y="20" width="36" height="36" rx="10" fill="rgba(224,90,58,0.15)"/>
-      <text x="33" y="44" textAnchor="middle" fontSize="20">🥗</text>
-      <rect x="58" y="20" width="36" height="36" rx="10" fill="rgba(224,90,58,0.12)"/>
-      <text x="76" y="44" textAnchor="middle" fontSize="20">🍛</text>
-      <text x="118" y="34" fill="#8B3020" fontSize="11" fontWeight="600" fontFamily="Poppins,sans-serif">Up to 40 items</text>
-      <text x="118" y="49" fill="rgba(100,60,30,0.5)" fontSize="10" fontFamily="Inter,sans-serif">2GB storage</text>
+    <svg viewBox="0 0 260 80" style={{width:'100%',height:'100%'}}>
+      {/* Two dish icons */}
+      <rect x="12" y="16" width="44" height="48" rx="13" fill="rgba(224,90,58,0.12)"/>
+      {/* Bowl 1 */}
+      <ellipse cx="34" cy="45" rx="14" ry="5" fill="#E8906A" opacity="0.6"/>
+      <path d="M20,32 C20,32 19,47 34,48 C49,47 48,32 48,32 C48,24 42,20 34,20 C26,20 20,24 20,32Z" fill="#F5AA7A"/>
+      <ellipse cx="34" cy="31" rx="14" ry="5.5" fill="#FFCCA0"/>
+      <ellipse cx="34" cy="28" rx="10" ry="4" fill="#F4D070" opacity="0.9"/>
+      {/* Bowl 2 (offset) */}
+      <rect x="60" y="18" width="40" height="44" rx="12" fill="rgba(224,90,58,0.09)"/>
+      <ellipse cx="80" cy="46" rx="12" ry="4.5" fill="#8FC4A8" opacity="0.6"/>
+      <path d="M68,34 C68,34 67,48 80,49 C93,48 92,34 92,34 C92,27 87,23 80,23 C73,23 68,27 68,34Z" fill="#AAD4BC"/>
+      <ellipse cx="80" cy="33" rx="12" ry="5" fill="#C4E8D4"/>
+      <ellipse cx="80" cy="30" rx="8" ry="3.5" fill="#6AB090" opacity="0.9"/>
+      {/* Divider */}
+      <rect x="114" y="18" width="1.5" height="44" rx="0.75" fill="rgba(160,100,40,0.12)"/>
+      {/* Text */}
+      <text x="128" y="36" fill="#8B3020" fontSize="13" fontWeight="700" fontFamily="Poppins,sans-serif">40 AR items</text>
+      <text x="128" y="54" fill="rgba(100,60,30,0.5)" fontSize="11" fontFamily="Inter,sans-serif">2GB storage</text>
     </svg>
   );
+  // Premium
   return (
-    <svg viewBox="0 0 200 72" style={{width:180,height:64}}>
-      <rect x="8" y="22" width="32" height="32" rx="9" fill="rgba(196,181,212,0.3)"/>
-      <text x="24" y="44" textAnchor="middle" fontSize="18">🍕</text>
-      <rect x="44" y="22" width="32" height="32" rx="9" fill="rgba(196,181,212,0.25)"/>
-      <text x="60" y="44" textAnchor="middle" fontSize="18">🍜</text>
-      <rect x="80" y="22" width="32" height="32" rx="9" fill="rgba(196,181,212,0.2)"/>
-      <text x="96" y="44" textAnchor="middle" fontSize="18">🍱</text>
-      <text x="148" y="32" fill="#6A4A8A" fontSize="11" fontWeight="600" fontFamily="Poppins,sans-serif">Unlimited*</text>
-      <text x="148" y="47" fill="rgba(100,60,30,0.5)" fontSize="10" fontFamily="Inter,sans-serif">5GB storage</text>
+    <svg viewBox="0 0 260 80" style={{width:'100%',height:'100%'}}>
+      {/* Three dish icons */}
+      <rect x="8" y="18" width="36" height="44" rx="11" fill="rgba(196,181,212,0.25)"/>
+      <ellipse cx="26" cy="44" rx="11" ry="4" fill="#E8906A" opacity="0.55"/>
+      <path d="M15,33 C15,33 14,46 26,47 C38,46 37,33 37,33 C37,26 32,22 26,22 C20,22 15,26 15,33Z" fill="#F5AA7A"/>
+      <ellipse cx="26" cy="32" rx="11" ry="4.5" fill="#FFCCA0"/>
+      <ellipse cx="26" cy="29" rx="7" ry="3" fill="#F4D070" opacity="0.9"/>
+
+      <rect x="48" y="18" width="36" height="44" rx="11" fill="rgba(196,181,212,0.2)"/>
+      <ellipse cx="66" cy="44" rx="11" ry="4" fill="#8FC4A8" opacity="0.55"/>
+      <path d="M55,33 C55,33 54,46 66,47 C78,46 77,33 77,33 C77,26 72,22 66,22 C60,22 55,26 55,33Z" fill="#AAD4BC"/>
+      <ellipse cx="66" cy="32" rx="11" ry="4.5" fill="#C4E8D4"/>
+      <ellipse cx="66" cy="29" rx="7" ry="3" fill="#6AB090" opacity="0.9"/>
+
+      <rect x="88" y="18" width="36" height="44" rx="11" fill="rgba(196,181,212,0.15)"/>
+      <ellipse cx="106" cy="44" rx="11" ry="4" fill="#F4A0B0" opacity="0.55"/>
+      <path d="M95,33 C95,33 94,46 106,47 C118,46 117,33 117,33 C117,26 112,22 106,22 C100,22 95,26 95,33Z" fill="#FFBCC8"/>
+      <ellipse cx="106" cy="32" rx="11" ry="4.5" fill="#FFD0DC"/>
+      <ellipse cx="106" cy="29" rx="7" ry="3" fill="#E8809C" opacity="0.9"/>
+
+      {/* Divider */}
+      <rect x="136" y="18" width="1.5" height="44" rx="0.75" fill="rgba(160,100,40,0.12)"/>
+      {/* Text */}
+      <text x="150" y="36" fill="#6A4A8A" fontSize="13" fontWeight="700" fontFamily="Poppins,sans-serif">100 AR items</text>
+      <text x="150" y="54" fill="rgba(100,60,30,0.5)" fontSize="11" fontFamily="Inter,sans-serif">5GB storage</text>
     </svg>
   );
 }
