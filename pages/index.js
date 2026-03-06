@@ -70,14 +70,20 @@ export default function HomePage() {
 
           .inner{max-width:1080px;margin:0 auto;padding:0 32px;}
           .section{padding:80px 0;position:relative;z-index:1;}
-
           /* Split layout */
           .split{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:56px;}
           .split.rev{direction:rtl;} .split.rev > *{direction:ltr;}
-          @media(max-width:860px){
+          .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+          .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:920px;margin:0 auto;}
+          @media(max-width:960px){
+            .feat-grid{grid-template-columns:repeat(2,1fr)!important;}
+            .plan-grid{grid-template-columns:repeat(2,1fr)!important;}
+          }
+          @media(max-width:680px){
             .split{grid-template-columns:1fr!important;gap:32px;}
             .split.rev{direction:ltr;}
-            .hide-mobile{display:none!important;}
+            .feat-grid{grid-template-columns:1fr!important;}
+            .plan-grid{grid-template-columns:1fr!important;}
           }
         `}</style>
 
@@ -425,24 +431,24 @@ export default function HomePage() {
               <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Everything you need</h2>
               <p style={{fontSize:16,color:'rgba(42,31,16,0.55)',maxWidth:480,margin:'0 auto'}}>One platform to manage your AR menu, track analytics, and grow your restaurant.</p>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+            <div className="feat-grid">
               {[
-                {title:'AR Menu Viewer',  desc:'Dishes appear life-size in 3D on your customers\' table. Powered by WebAR.',       bg:'rgba(224,90,58,0.1)',   scene:<ARScene/>},
-                {title:'Live Analytics',  desc:'Track scans, AR views, popular dishes, and repeat visitors in real time.',          bg:'rgba(143,196,168,0.15)',scene:<AnalyticsScene/>},
-                {title:'Instant QR Code', desc:'A unique QR code for your restaurant is generated the moment you sign up.',          bg:'rgba(196,181,212,0.2)', scene:<QRScene/>},
-                {title:'Your Subdomain',  desc:'Your restaurant gets its own URL — restaurantname.advertradical.com.',              bg:'rgba(244,208,112,0.18)',scene:<LinkScene/>},
-                {title:'Offers & Promos', desc:'Push time-limited promotional banners to your live menu in one click.',             bg:'rgba(244,160,176,0.15)',scene:<PromoScene/>},
-                {title:'No App Needed',   desc:'100% WebAR. Android Chrome and iOS Safari. Customers just scan and go.',           bg:'rgba(143,196,168,0.12)',scene:<NoAppScene/>},
+                {title:'AR Menu Viewer',  desc:'Dishes appear life-size in 3D on your customers\' table. Powered by WebAR.',       bg:'rgba(90,138,176,0.12)',  scene:<ARScene/>},
+                {title:'Live Analytics',  desc:'Track scans, AR views, popular dishes, and repeat visitors in real time.',          bg:'rgba(42,58,90,0.08)',    scene:<AnalyticsScene/>},
+                {title:'Instant QR Code', desc:'A unique QR code for your restaurant is generated the moment you sign up.',          bg:'rgba(196,181,212,0.18)', scene:<QRScene/>},
+                {title:'Your Subdomain',  desc:'Your restaurant gets its own URL — restaurantname.advertradical.com.',              bg:'rgba(244,208,112,0.15)', scene:<LinkScene/>},
+                {title:'Offers & Promos', desc:'Push time-limited promotional banners to your live menu in one click.',             bg:'rgba(224,90,58,0.08)',   scene:<PromoScene/>},
+                {title:'No App Needed',   desc:'100% WebAR. Android Chrome and iOS Safari. Customers just scan and go.',           bg:'rgba(143,196,168,0.12)', scene:<NoAppScene/>},
               ].map(f=>(
-                <div key={f.title} className="cc" style={{padding:'28px 24px',display:'flex',flexDirection:'column',gap:14}}>
-                  <div style={{width:'100%',height:90,borderRadius:14,background:f.bg,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+                <div key={f.title} className="cc" style={{padding:'24px 22px',display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{width:'100%',height:100,borderRadius:14,background:f.bg,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
                     {f.scene}
                   </div>
                   <h3 style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:'#1E1B18'}}>{f.title}</h3>
-                  <p style={{fontSize:13.5,color:'rgba(42,31,16,0.55)',lineHeight:1.65}}>{f.desc}</p>
+                  <p style={{fontSize:13.5,color:'rgba(42,31,16,0.55)',lineHeight:1.65,marginTop:-4}}>{f.desc}</p>
                 </div>
               ))}
-            </div>
+            </div>{/* feat-grid */}
           </div>
         </section>
 
@@ -454,7 +460,7 @@ export default function HomePage() {
               <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Simple, transparent pricing</h2>
               <p style={{fontSize:16,color:'rgba(42,31,16,0.55)'}}>6-month plans. No hidden fees.</p>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,maxWidth:920,margin:'0 auto'}}>
+            <div className="plan-grid">
               {plans.map(p=>(
                 <div key={p.name} className={`pc${p.tag==='Popular'?' pop':''}`}>
                   {p.tag && <div style={{position:'absolute',top:-14,left:'50%',transform:'translateX(-50%)',padding:'5px 18px',background:'linear-gradient(135deg,#E05A3A,#F07050)',color:'#fff',fontSize:11,fontWeight:700,borderRadius:30,whiteSpace:'nowrap',boxShadow:'0 4px 14px rgba(224,90,58,0.32)'}}>✦ {p.tag}</div>}
@@ -529,103 +535,174 @@ export default function HomePage() {
   );
 }
 
-/* ── Mini scene components for feature cards ── */
+/* ── Feature card illustrations — clean, bold, simple ── */
 function ARScene() {
   return (
-    <svg viewBox="0 0 160 90" style={{width:140,height:80}}>
-      <rect x="55" y="20" width="50" height="55" rx="8" fill="#1E1B18"/>
-      <rect x="60" y="26" width="40" height="38" rx="5" fill="#1A3050"/>
-      <ellipse cx="80" cy="38" rx="13" ry="9" fill="rgba(244,168,106,0.6)"/>
-      <rect x="67" y="29" width="26" height="9" rx="4.5" fill="rgba(224,90,58,0.55)"/>
-      <ellipse cx="80" cy="29" rx="13" ry="6" fill="rgba(255,210,140,0.75)"/>
-      <ellipse cx="80" cy="72" rx="18" ry="6" fill="rgba(100,210,255,0.12)" stroke="rgba(100,210,255,0.4)" strokeWidth="1"/>
-      <line x1="62" y1="72" x2="66" y2="52" stroke="rgba(100,210,255,0.3)" strokeWidth="0.8"/>
-      <line x1="98" y1="72" x2="94" y2="52" stroke="rgba(100,210,255,0.3)" strokeWidth="0.8"/>
-      <circle cx="30" cy="35" r="8" fill="#F4A0B0" opacity="0.7"/>
-      <circle cx="130" cy="40" r="6" fill="#8FC4A8" opacity="0.7"/>
-      <circle cx="22" cy="55" r="4" fill="#C4B5D4" opacity="0.6"/>
+    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
+      {/* Phone — lighter color so it's not a dark blob */}
+      <rect x="74" y="8" width="52" height="84" rx="11" fill="#3A506A"/>
+      <rect x="79" y="15" width="42" height="60" rx="7" fill="#5A8AB0"/>
+      {/* Hologram food above phone */}
+      <ellipse cx="100" cy="10" rx="20" ry="8" fill="rgba(255,210,120,0.9)"/>
+      <rect x="82" y="2" width="36" height="9" rx="4.5" fill="rgba(100,160,80,0.8)"/>
+      <ellipse cx="100" cy="2" rx="20" ry="8" fill="rgba(244,200,100,0.95)"/>
+      {/* Scan ring */}
+      <ellipse cx="100" cy="10" rx="24" ry="9" fill="none" stroke="rgba(100,210,255,0.6)" strokeWidth="1.5" strokeDasharray="4,3"/>
+      {/* Screen content — AR badge */}
+      <rect x="83" y="28" width="34" height="13" rx="4" fill="rgba(100,200,255,0.25)"/>
+      <rect x="86" y="31" width="6" height="6" rx="2" fill="rgba(100,200,255,0.5)"/>
+      <rect x="95" y="33" width="18" height="2.5" rx="1" fill="rgba(255,255,255,0.4)"/>
+      <rect x="95" y="37" width="12" height="2" rx="1" fill="rgba(255,255,255,0.25)"/>
+      {/* Screen lines */}
+      <rect x="83" y="46" width="34" height="2.5" rx="1" fill="rgba(255,255,255,0.12)"/>
+      <rect x="83" y="51" width="26" height="2.5" rx="1" fill="rgba(255,255,255,0.09)"/>
+      <rect x="83" y="56" width="20" height="2.5" rx="1" fill="rgba(255,255,255,0.07)"/>
+      {/* Home bar */}
+      <rect x="91" y="69" width="18" height="2.5" rx="1.25" fill="rgba(255,255,255,0.2)"/>
+      {/* Floating dots */}
+      <circle cx="44" cy="38" r="10" fill="#F4A0B0" opacity="0.7"/>
+      <circle cx="160" cy="45" r="8" fill="#8FC4A8" opacity="0.7"/>
+      <circle cx="38" cy="62" r="5" fill="#C4B5D4" opacity="0.6"/>
+      <circle cx="164" cy="28" r="5" fill="#F4D070" opacity="0.65"/>
     </svg>
   );
 }
+
 function AnalyticsScene() {
   return (
-    <svg viewBox="0 0 160 90" style={{width:140,height:80}}>
-      <rect x="25" y="15" width="110" height="62" rx="10" fill="#1A2A3A" opacity="0.85"/>
-      <rect x="31" y="38" width="12" height="28" rx="4" fill="#8FC4A8"/>
-      <rect x="47" y="30" width="12" height="36" rx="4" fill="#F4A0B0"/>
-      <rect x="63" y="22" width="12" height="44" rx="4" fill="#E05A3A"/>
-      <rect x="79" y="32" width="12" height="34" rx="4" fill="#F4D070"/>
-      <rect x="95" y="26" width="12" height="40" rx="4" fill="#C4B5D4"/>
-      <rect x="111" y="18" width="12" height="48" rx="4" fill="#E05A3A" opacity="0.8"/>
-      <line x1="25" y1="66" x2="135" y2="66" stroke="rgba(255,255,255,0.12)" strokeWidth="1"/>
-      <circle cx="50" cy="8" r="5" fill="#F4D070" opacity="0.65"/>
-      <circle cx="118" cy="82" r="4" fill="#F4A0B0" opacity="0.6"/>
+    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
+      {/* Chart background */}
+      <rect x="22" y="10" width="156" height="74" rx="12" fill="#2A3A5A" opacity="0.88"/>
+      {/* Top stat pills */}
+      <rect x="30" y="17" width="42" height="14" rx="5" fill="rgba(224,90,58,0.35)"/>
+      <rect x="76" y="17" width="38" height="14" rx="5" fill="rgba(143,196,168,0.3)"/>
+      <rect x="118" y="17" width="50" height="14" rx="5" fill="rgba(196,181,212,0.25)"/>
+      <rect x="32" y="21" width="10" height="5" rx="1.5" fill="#F07050" opacity="0.9"/>
+      <rect x="46" y="21" width="22" height="5" rx="1.5" fill="rgba(255,255,255,0.18)"/>
+      {/* Bar chart */}
+      <rect x="36"  y="58" width="14" height="22" rx="5" fill="#8FC4A8"/>
+      <rect x="56"  y="46" width="14" height="34" rx="5" fill="#F4A0B0"/>
+      <rect x="76"  y="36" width="14" height="44" rx="5" fill="#E05A3A"/>
+      <rect x="96"  y="50" width="14" height="30" rx="5" fill="#F4D070"/>
+      <rect x="116" y="40" width="14" height="40" rx="5" fill="#C4B5D4"/>
+      <rect x="136" y="28" width="14" height="52" rx="5" fill="#E05A3A" opacity="0.85"/>
+      {/* Floor line */}
+      <line x1="28" y1="80" x2="172" y2="80" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
+      {/* Floating dots outside */}
+      <circle cx="12" cy="55" r="5" fill="#F4D070" opacity="0.6"/>
+      <circle cx="190" cy="40" r="6" fill="#F4A0B0" opacity="0.55"/>
     </svg>
   );
 }
+
 function QRScene() {
   return (
-    <svg viewBox="0 0 160 90" style={{width:140,height:80}}>
-      <rect x="45" y="10" width="70" height="70" rx="14" fill="rgba(255,248,232,0.9)"/>
-      <rect x="54" y="19" width="22" height="22" rx="4" fill="#1E1B18"/>
-      <rect x="57" y="22" width="16" height="16" rx="2.5" fill="rgba(255,248,232,0.9)"/>
-      <rect x="60" y="25" width="10" height="10" rx="2" fill="#1E1B18"/>
-      <rect x="84" y="19" width="22" height="22" rx="4" fill="#1E1B18"/>
-      <rect x="87" y="22" width="16" height="16" rx="2.5" fill="rgba(255,248,232,0.9)"/>
-      <rect x="90" y="25" width="10" height="10" rx="2" fill="#1E1B18"/>
-      <rect x="54" y="47" width="22" height="22" rx="4" fill="#1E1B18"/>
-      <rect x="57" y="50" width="16" height="16" rx="2.5" fill="rgba(255,248,232,0.9)"/>
-      <rect x="60" y="53" width="10" height="10" rx="2" fill="#1E1B18"/>
-      <rect x="84" y="47" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="94" y="47" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="84" y="57" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="94" y="61" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <circle cx="24" cy="35" r="6" fill="#E05A3A" opacity="0.45"/>
-      <circle cx="140" cy="55" r="5" fill="#8FC4A8" opacity="0.5"/>
+    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
+      {/* Card bg */}
+      <rect x="60" y="5" width="80" height="86" rx="16" fill="rgba(255,248,232,0.95)"/>
+      {/* Top-left block */}
+      <rect x="71" y="16" width="24" height="24" rx="4" fill="#1E1B18"/>
+      <rect x="74" y="19" width="18" height="18" rx="3" fill="rgba(255,248,232,0.95)"/>
+      <rect x="77" y="22" width="12" height="12" rx="2" fill="#1E1B18"/>
+      {/* Top-right block */}
+      <rect x="105" y="16" width="24" height="24" rx="4" fill="#1E1B18"/>
+      <rect x="108" y="19" width="18" height="18" rx="3" fill="rgba(255,248,232,0.95)"/>
+      <rect x="111" y="22" width="12" height="12" rx="2" fill="#1E1B18"/>
+      {/* Bottom-left block */}
+      <rect x="71" y="50" width="24" height="24" rx="4" fill="#1E1B18"/>
+      <rect x="74" y="53" width="18" height="18" rx="3" fill="rgba(255,248,232,0.95)"/>
+      <rect x="77" y="56" width="12" height="12" rx="2" fill="#1E1B18"/>
+      {/* Data dots */}
+      <rect x="105" y="50" width="8" height="8" rx="2" fill="#1E1B18"/>
+      <rect x="115" y="50" width="8" height="8" rx="2" fill="#1E1B18"/>
+      <rect x="125" y="50" width="8" height="8" rx="2" fill="#1E1B18"/>
+      <rect x="105" y="60" width="8" height="8" rx="2" fill="#1E1B18"/>
+      <rect x="125" y="60" width="8" height="8" rx="2" fill="#1E1B18"/>
+      <rect x="115" y="70" width="8" height="8" rx="2" fill="#1E1B18"/>
+      {/* Label */}
+      <rect x="74" y="80" width="52" height="8" rx="4" fill="rgba(224,90,58,0.2)"/>
+      {/* Corner dots */}
+      <circle cx="38" cy="40" r="9" fill="#E05A3A" opacity="0.3"/>
+      <circle cx="166" cy="60" r="7" fill="#8FC4A8" opacity="0.35"/>
     </svg>
   );
 }
+
 function LinkScene() {
   return (
-    <svg viewBox="0 0 160 90" style={{width:140,height:80}}>
-      <rect x="20" y="28" width="120" height="34" rx="17" fill="rgba(255,248,232,0.88)"/>
-      <rect x="26" y="34" width="54" height="22" rx="11" fill="rgba(224,90,58,0.18)"/>
-      <text x="53" y="49" textAnchor="middle" fill="#C04A28" fontSize="10" fontWeight="700" fontFamily="Inter,sans-serif">spot</text>
-      <text x="103" y="49" textAnchor="middle" fill="rgba(42,31,16,0.5)" fontSize="9" fontFamily="Inter,sans-serif">.advertradical.com</text>
-      <circle cx="32" cy="56" r="4" fill="#E05A3A" opacity="0.35"/>
-      <circle cx="133" cy="30" r="5" fill="#C4B5D4" opacity="0.5"/>
-      <circle cx="18" cy="20" r="3.5" fill="#F4D070" opacity="0.55"/>
-      <circle cx="145" cy="68" r="4" fill="#8FC4A8" opacity="0.5"/>
+    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
+      {/* Browser bar */}
+      <rect x="18" y="30" width="164" height="40" rx="20" fill="rgba(255,248,232,0.92)"/>
+      {/* Highlight pill */}
+      <rect x="25" y="38" width="66" height="24" rx="12" fill="rgba(224,90,58,0.15)"/>
+      {/* Text labels — as blocks for clean look */}
+      <rect x="30" y="47" width="10" height="6" rx="2" fill="rgba(200,74,40,0.55)"/>
+      <rect x="44" y="47" width="40" height="6" rx="2" fill="rgba(200,74,40,0.4)"/>
+      <rect x="95" y="47" width="78" height="6" rx="2" fill="rgba(42,31,16,0.2)"/>
+      {/* Chain link icon */}
+      <rect x="87" y="43" width="12" height="12" rx="6" fill="none" stroke="rgba(42,31,16,0.25)" strokeWidth="2"/>
+      <rect x="101" y="43" width="12" height="12" rx="6" fill="none" stroke="rgba(42,31,16,0.25)" strokeWidth="2"/>
+      <line x1="93" y1="49" x2="101" y2="49" stroke="rgba(42,31,16,0.2)" strokeWidth="2"/>
+      {/* Floating spheres */}
+      <circle cx="14" cy="55" r="9" fill="#C4B5D4" opacity="0.55"/>
+      <circle cx="188" cy="38" r="7" fill="#F4D070" opacity="0.6"/>
+      <circle cx="180" cy="72" r="5" fill="#8FC4A8" opacity="0.5"/>
+      <circle cx="24" cy="20" r="5" fill="#F4A0B0" opacity="0.5"/>
     </svg>
   );
 }
+
 function PromoScene() {
   return (
-    <svg viewBox="0 0 160 90" style={{width:140,height:80}}>
-      <rect x="20" y="22" width="120" height="46" rx="14" fill="linear-gradient(90deg,#E05A3A,#F07050)" fill-opacity="0"/>
-      <rect x="20" y="22" width="120" height="46" rx="14" fill="#E05A3A" opacity="0.12"/>
-      <rect x="28" y="30" width="104" height="30" rx="10" fill="rgba(224,90,58,0.18)"/>
-      <text x="80" y="50" textAnchor="middle" fill="#C04A28" fontSize="10" fontWeight="700" fontFamily="Poppins,sans-serif">🎉 20% OFF TODAY!</text>
-      <circle cx="30" cy="72" r="5" fill="#F4D070" opacity="0.6"/>
-      <circle cx="135" cy="16" r="4" fill="#F4A0B0" opacity="0.55"/>
-      <g transform="translate(148,75)" fill="#F4D070" opacity="0.6"><polygon points="0,-4 1,-1 4,0 1,1 0,4 -1,1 -4,0 -1,-1"/></g>
+    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
+      {/* Banner */}
+      <rect x="18" y="22" width="164" height="56" rx="16" fill="rgba(224,90,58,0.15)"/>
+      <rect x="28" y="32" width="144" height="36" rx="10" fill="rgba(224,90,58,0.2)"/>
+      {/* Megaphone icon */}
+      <rect x="42" y="40" width="14" height="20" rx="3" fill="#E05A3A" opacity="0.7"/>
+      <polygon points="56,38 74,28 74,62 56,52" fill="#E05A3A" opacity="0.75"/>
+      <rect x="74" y="40" width="6" height="20" rx="3" fill="#E05A3A" opacity="0.55"/>
+      {/* Stars / sparkle */}
+      <circle cx="98" cy="44" r="4" fill="#F4D070" opacity="0.85"/>
+      <circle cx="110" cy="58" r="3" fill="#F4D070" opacity="0.7"/>
+      {/* 20% OFF label blocks */}
+      <rect x="120" y="38" width="40" height="10" rx="5" fill="#E05A3A" opacity="0.25)"/>
+      <rect x="122" y="40" width="36" height="7" rx="3" fill="rgba(224,90,58,0.35)"/>
+      <rect x="120" y="52" width="30" height="6" rx="3" fill="rgba(224,90,58,0.2)"/>
+      {/* Corner circles */}
+      <circle cx="14" cy="30" r="7" fill="#F4D070" opacity="0.55"/>
+      <circle cx="188" cy="72" r="8" fill="#F4A0B0" opacity="0.5"/>
     </svg>
   );
 }
+
 function NoAppScene() {
   return (
-    <svg viewBox="0 0 160 90" style={{width:140,height:80}}>
-      <rect x="60" y="10" width="40" height="70" rx="9" fill="#1E1B18"/>
-      <rect x="64" y="16" width="32" height="52" rx="6" fill="#1A3050"/>
-      <rect x="72" y="72" width="16" height="2.5" rx="1.25" fill="rgba(255,255,255,0.2)"/>
-      <text x="80" y="45" textAnchor="middle" fill="rgba(100,220,255,0.85)" fontSize="7" fontWeight="700" fontFamily="Inter,sans-serif">SCAN &amp;</text>
-      <text x="80" y="55" textAnchor="middle" fill="rgba(100,220,255,0.85)" fontSize="7" fontWeight="700" fontFamily="Inter,sans-serif">VIEW AR</text>
-      <line x1="26" y1="45" x2="55" y2="45" stroke="rgba(224,90,58,0.4)" strokeWidth="1.5" strokeDasharray="4,3"/>
-      <circle cx="20" cy="45" r="7" fill="rgba(224,90,58,0.15)" stroke="#E05A3A" strokeWidth="1.2"/>
-      <text x="20" y="49" textAnchor="middle" fill="#C04A28" fontSize="8" fontWeight="700">✕</text>
-      <text x="20" y="60" textAnchor="middle" fill="rgba(42,31,16,0.5)" fontSize="6.5" fontFamily="Inter,sans-serif">No app</text>
-      <circle cx="30" cy="20" r="5" fill="#8FC4A8" opacity="0.55"/>
-      <circle cx="138" cy="68" r="4.5" fill="#F4D070" opacity="0.6"/>
+    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
+      {/* Phone */}
+      <rect x="106" y="6" width="48" height="82" rx="11" fill="#3A506A"/>
+      <rect x="111" y="13" width="38" height="60" rx="7" fill="#5A8AB0"/>
+      <rect x="119" y="69" width="22" height="3" rx="1.5" fill="rgba(255,255,255,0.2)"/>
+      {/* Screen content */}
+      <rect x="116" y="20" width="28" height="18" rx="5" fill="rgba(100,200,255,0.2)"/>
+      <rect x="119" y="32" width="22" height="3" rx="1.5" fill="rgba(255,255,255,0.25)"/>
+      <rect x="119" y="37" width="16" height="2.5" rx="1" fill="rgba(255,255,255,0.18)"/>
+      <rect x="116" y="44" width="28" height="3" rx="1.5" fill="rgba(255,255,255,0.12)"/>
+      <rect x="116" y="50" width="20" height="2.5" rx="1" fill="rgba(255,255,255,0.09)"/>
+      {/* No download badge */}
+      <rect x="28" y="28" width="64" height="44" rx="14" fill="rgba(255,248,232,0.92)"/>
+      {/* Cross in circle */}
+      <circle cx="60" cy="42" r="12" fill="rgba(224,90,58,0.15)" stroke="#E05A3A" strokeWidth="1.5"/>
+      <line x1="55" y1="37" x2="65" y2="47" stroke="#E05A3A" strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="65" y1="37" x2="55" y2="47" stroke="#E05A3A" strokeWidth="2.2" strokeLinecap="round"/>
+      {/* "No App" label */}
+      <rect x="34" y="58" width="52" height="7" rx="3" fill="rgba(100,60,30,0.15)"/>
+      {/* Arrow */}
+      <line x1="94" y1="50" x2="104" y2="50" stroke="rgba(224,90,58,0.5)" strokeWidth="2" strokeDasharray="3,2"/>
+      <polygon points="104,46 110,50 104,54" fill="rgba(224,90,58,0.5)"/>
+      {/* Dots */}
+      <circle cx="18" cy="35" r="6" fill="#8FC4A8" opacity="0.55"/>
+      <circle cx="186" cy="30" r="7" fill="#F4D070" opacity="0.6"/>
     </svg>
   );
 }
