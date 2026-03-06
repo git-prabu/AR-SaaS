@@ -190,7 +190,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           -webkit-backdrop-filter: saturate(180%) blur(20px);
           border-bottom: 0.5px solid rgba(0,0,0,0.1);
         }
-        .hdr-inner { max-width: 680px; margin: 0 auto; padding: 0 18px; }
+        .hdr-inner { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
 
         .hdr-top {
           display: flex; align-items: center; gap: 13px;
@@ -220,17 +220,15 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* ─── CATEGORY TABS — bleeding pill design ─── */
         .cats-outer {
           padding: 4px 0 0;
-          position: relative;
         }
         .cats-scroll {
           display: flex; gap: 6px;
-          overflow-x: auto; scrollbar-width: none;
+          overflow-x: scroll; scrollbar-width: none;
           padding: 6px 0 16px;
           -webkit-overflow-scrolling: touch;
-          cursor: grab;
+          flex-wrap: nowrap;
         }
         .cats-scroll::-webkit-scrollbar { display: none; }
-        .cats-scroll:active { cursor: grabbing; }
 
         .cat-pill {
           flex-shrink: 0;
@@ -267,7 +265,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
         /* ─────────── MAIN ─────────── */
         .main {
-          max-width: 680px; margin: 0 auto;
+          max-width: 1080px; margin: 0 auto;
           padding: 20px 18px 110px;
           background: #F7F5F2;
         }
