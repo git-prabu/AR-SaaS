@@ -226,9 +226,11 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           display: flex; gap: 6px;
           overflow-x: auto; scrollbar-width: none;
           padding: 6px 0 16px;
-          /* allow pills to breathe a bit */
+          -webkit-overflow-scrolling: touch;
+          cursor: grab;
         }
         .cats-scroll::-webkit-scrollbar { display: none; }
+        .cats-scroll:active { cursor: grabbing; }
 
         .cat-pill {
           flex-shrink: 0;
@@ -303,8 +305,11 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
         /* ─────────── GRID ─────────── */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        @media (max-width: 480px) {
-          .grid { grid-template-columns: 1fr; }
+        @media (min-width: 600px) and (max-width: 899px) {
+          .grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (min-width: 900px) {
+          .grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
         }
 
         /* ─────────── CARD — Apple App Store level ─────────── */
