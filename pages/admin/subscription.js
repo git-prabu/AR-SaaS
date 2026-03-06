@@ -58,8 +58,16 @@ export default function AdminSubscription() {
 
   const currentPlan = PLANS.find(p => p.id === restaurant?.plan) || PLANS[0];
   const subEnd      = restaurant?.subscriptionEnd;
+  const subStart    = restaurant?.subscriptionStart;
   const isExpired   = subEnd && new Date(subEnd) < new Date();
   const isActive    = restaurant?.paymentStatus === 'active';
+
+  // Days remaining calculation
+  const daysRemaining = subEnd ? Math.max(0, Math.ceil((new Date(subEnd) - new Date()) / (1000*60*60*24))) : null;
+  const totalDays = (subStart && subEnd) ? Math.ceil((new Date(subEnd) - new Date(subStart)) / (1000*60*60*24)) : 180;
+  const usedDays  = totalDays - (daysRemaining || 0);
+  const timePct   = Math.min(100, Math.round((usedDays / totalDays) * 100));
+  const timeColor = daysRemaining === null ? '#8FC4A8' : daysRemaining <= 14 ? '#E05A3A' : daysRemaining <= 30 ? '#F4D070' : '#8FC4A8';
 
   return (
     <AdminLayout>
@@ -81,21 +89,56 @@ export default function AdminSubscription() {
             </div>
           ) : (<>
             {/* Current plan */}
-            <div style={{ ...S.card, padding:28, marginBottom:28, borderLeft:`4px solid ${isActive?'#8FC4A8':'#F4A0B0'}` }}>
+            <div style={{ ...S.card, padding:28, marginBottom:28, borderLeft:`4px solid ${isExpired?'#F4A0B0':timeColor}` }}>
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
                 <div>
                   <div style={{ fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.4)', letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:6 }}>Current Plan</div>
                   <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:26, color:'#1E1B18' }}>{currentPlan.name}</div>
                   {subEnd && (
                     <div style={{ fontSize:13, marginTop:4, color: isExpired?'#C04A28':'rgba(42,31,16,0.5)' }}>
-                      {isExpired ? '⚠️ Expired on ' : 'Active until '}{subEnd}
+                      {isExpired ? '⚠️ Expired on ' : 'Renews on '}{subEnd}
                     </div>
                   )}
                 </div>
-                <span style={{ padding:'6px 16px', borderRadius:30, fontSize:12, fontWeight:700, background:isActive?'rgba(143,196,168,0.2)':'rgba(244,160,176,0.2)', color:isActive?'#1A5A38':'#8B1A2A', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(244,160,176,0.4)'}` }}>
-                  {isActive ? 'Active' : 'Inactive'}
-                </span>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8 }}>
+                  <span style={{ padding:'6px 16px', borderRadius:30, fontSize:12, fontWeight:700, background:isActive?'rgba(143,196,168,0.2)':'rgba(244,160,176,0.2)', color:isActive?'#1A5A38':'#8B1A2A', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(244,160,176,0.4)'}` }}>
+                    {isActive ? '● Active' : '● Inactive'}
+                  </span>
+                  {daysRemaining !== null && !isExpired && (
+                    <div style={{ textAlign:'right' }}>
+                      <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:timeColor }}>{daysRemaining}</span>
+                      <span style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginLeft:4 }}>days left</span>
+                    </div>
+                  )}
+                  {isExpired && (
+                    <div style={{ padding:'6px 14px', borderRadius:10, background:'rgba(224,90,58,0.1)', border:'1px solid rgba(224,90,58,0.3)', fontSize:12, fontWeight:700, color:'#C04A28' }}>
+                      ⚠️ Plan Expired
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Time remaining bar */}
+              {subEnd && (
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                    <span style={{ fontSize:12, color:'rgba(42,31,16,0.5)', fontWeight:500 }}>Plan Duration</span>
+                    <span style={{ fontSize:12, color:'rgba(42,31,16,0.4)' }}>
+                      {isExpired ? 'Expired' : `${daysRemaining} of ${totalDays} days remaining`}
+                    </span>
+                  </div>
+                  <div style={{ height:8, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
+                    <div style={{ height:'100%', borderRadius:99, background:isExpired?'#F4A0B0':timeColor, width:`${timePct}%`, transition:'width 0.4s' }} />
+                  </div>
+                  {!isExpired && daysRemaining <= 30 && (
+                    <div style={{ marginTop:8, padding:'8px 14px', borderRadius:10, background: daysRemaining<=14?'rgba(224,90,58,0.08)':'rgba(244,208,112,0.15)', border:`1px solid ${daysRemaining<=14?'rgba(224,90,58,0.25)':'rgba(244,208,112,0.4)'}`, fontSize:12, color: daysRemaining<=14?'#C04A28':'#8B6020', fontWeight:600 }}>
+                      {daysRemaining <= 14 ? '⚠️ Renew soon — your plan expires in ' : '📅 Your plan expires in '}
+                      <strong>{daysRemaining} days</strong>. Upgrade below to continue uninterrupted access.
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
                 <UsageBar label="AR Items"  used={restaurant?.itemsUsed||0}      max={restaurant?.maxItems||currentPlan.items} />
                 <UsageBar label="Storage"   used={restaurant?.storageUsedMB||0}  max={restaurant?.maxStorageMB||currentPlan.storage} unit="MB" />

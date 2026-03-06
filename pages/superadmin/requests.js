@@ -56,7 +56,8 @@ export default function SuperAdminRequests() {
         imageURL:req.imageURL||null, modelURL,
         ingredients:req.ingredients||[], calories:req.nutritionalData?.calories||null,
         protein:req.nutritionalData?.protein||null, carbs:req.nutritionalData?.carbs||null,
-        fats:req.nutritionalData?.fats||null, views:0, arViews:0, isActive:true, createdAt:serverTimestamp(),
+        fats:req.nutritionalData?.fats||null, prepTime:req.prepTime||null,
+        views:0, arViews:0, isActive:true, createdAt:serverTimestamp(),
       });
       await updateRequestStatus(rid, req.id, 'approved', modelURL);
       await updateRestaurant(rid, { itemsUsed:(restaurant.itemsUsed||0)+1, storageUsedMB:(restaurant.storageUsedMB||0)+sizeMB });
@@ -134,7 +135,7 @@ export default function SuperAdminRequests() {
                         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
                           {/* Item info */}
                           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                            {[['Description',req.description],['Category',req.category],['Ingredients',req.ingredients?.join(', ')]].filter(([,v])=>v).map(([k,v])=>(
+                            {[['Description',req.description],['Category',req.category],['Prep Time',req.prepTime],['Ingredients',req.ingredients?.join(', ')]].filter(([,v])=>v).map(([k,v])=>(
                               <div key={k}>
                                 <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>{k}</div>
                                 <div style={{ fontSize:13, color:'rgba(42,31,16,0.7)', lineHeight:1.5 }}>{v}</div>

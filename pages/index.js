@@ -28,12 +28,12 @@ export default function HomePage() {
           .floatR{animation:floatR 6s ease-in-out 0.7s infinite}
 
           /* NAV */
-          .nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;
-            background:rgba(255,248,232,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+          .nav{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:50;
+            background:rgba(255,248,232,0.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
             border:1.5px solid rgba(255,220,160,0.55);border-radius:50px;
-            padding:9px 20px 9px 20px;display:flex;align-items:center;gap:6px;
+            padding:8px 10px 8px 20px;display:flex;align-items:center;gap:2px;
             box-shadow:0 6px 28px rgba(120,70,30,0.13),inset 0 1px 0 rgba(255,255,255,0.65);
-            width:calc(100% - 40px);max-width:820px;}
+            width:auto;white-space:nowrap;}
           .nlnk{font-size:14px;color:rgba(42,31,16,0.55);font-weight:500;transition:color 0.15s;padding:6px 14px;border-radius:30px;}
           .nlnk:hover{color:#2A1F10;background:rgba(255,255,255,0.3);}
 

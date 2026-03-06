@@ -6,7 +6,7 @@ import { getRequests, submitRequest } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
-const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'' };
+const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'' };
 
 const S = {
   page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
@@ -57,6 +57,7 @@ export default function AdminRequests() {
       const ingredients = form.ingredients ? form.ingredients.split(',').map(s => s.trim()).filter(Boolean) : [];
       await submitRequest(rid, {
         name: form.name.trim(), description: form.description.trim(), category: form.category.trim(), ingredients,
+        prepTime: form.prepTime.trim() || null,
         nutritionalData: { calories: Number(form.calories)||null, protein: Number(form.protein)||null, carbs: Number(form.carbs)||null, fats: Number(form.fats)||null },
         imageURL,
       });
@@ -115,6 +116,14 @@ export default function AdminRequests() {
                 <div style={{ marginBottom:16 }}>
                   <label style={S.label}>Ingredients (comma-separated)</label>
                   <input className="inp" style={S.input} value={form.ingredients} onChange={e=>setForm(f=>({...f,ingredients:e.target.value}))} placeholder="Chicken, Butter, Cream, Tomato, Spices" />
+                </div>
+                <div style={{ marginBottom:16 }}>
+                  <label style={S.label}>Preparation Time</label>
+                  <div style={{ position:'relative' }}>
+                    <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', fontSize:16 }}>⏱</span>
+                    <input className="inp" style={{ ...S.input, paddingLeft:40 }} value={form.prepTime} onChange={e=>setForm(f=>({...f,prepTime:e.target.value}))} placeholder="e.g. 10–15 minutes" />
+                  </div>
+                  <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:4 }}>Shown on menu card so customers know how long to wait</div>
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
                   {['calories','protein','carbs','fats'].map(n=>(
