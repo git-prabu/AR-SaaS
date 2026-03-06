@@ -196,6 +196,18 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .card-price { font-family:Poppins,sans-serif; font-size:13px; font-weight:700; color:#C04A28; }
         .card-ar-lbl { font-size:10px; color:#C04A28; font-weight:700; display:flex; align-items:center; justify-content:center; gap:3px; margin-top:6px; letter-spacing:0.04em; text-transform:uppercase; }
 
+        /* Popular & offer badges on card */
+        .card-badges { display:flex; justify-content:center; gap:5px; flex-wrap:wrap; margin-bottom:5px; }
+        .badge-popular { font-size:9px; font-weight:800; color:#E05A3A; background:rgba(224,90,58,0.1); border:1px solid rgba(224,90,58,0.25); border-radius:20px; padding:2px 8px; letter-spacing:0.03em; }
+        .badge-offer   { font-size:9px; font-weight:800; color:#fff; border-radius:20px; padding:2px 8px; }
+        .badge-feat    { font-size:9px; font-weight:800; color:#8A70B0; background:rgba(138,112,176,0.1); border:1px solid rgba(138,112,176,0.25); border-radius:20px; padding:2px 8px; }
+
+        /* Spice indicator */
+        .spice-row { display:flex; align-items:center; justify-content:center; gap:4px; margin-top:4px; font-size:10px; color:rgba(42,31,16,0.5); }
+
+        /* Prep time tag in modal */
+        .prep-tag { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:20px; background:rgba(255,230,190,0.6); border:1.5px solid rgba(200,150,80,0.3); font-size:12px; font-weight:600; color:rgba(42,31,16,0.65); margin-bottom:16px; }
+
         .empty { text-align:center; padding:60px 20px; color:rgba(42,31,16,0.4); }
 
         /* ---- MODAL ---- */
@@ -344,10 +356,29 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                 </div>
                 <div className="card-body">
                   <div className="card-name">{item.name}</div>
+                  {/* Popular / offer / featured badges */}
+                  {(item.isPopular || (item.offerBadge && item.offerLabel) || item.isFeatured) && (
+                    <div className="card-badges">
+                      {item.isFeatured  && <span className="badge-feat">⭐ Featured</span>}
+                      {item.isPopular   && <span className="badge-popular">✦ Popular</span>}
+                      {item.offerBadge && item.offerLabel && (
+                        <span className="badge-offer" style={{ background: item.offerColor || '#E05A3A' }}>🏷 {item.offerLabel}</span>
+                      )}
+                    </div>
+                  )}
                   <div className="card-row">
                     {item.calories && <span className="card-cal">{item.calories} kcal</span>}
                     {item.price    && <span className="card-price">₹{item.price}</span>}
                   </div>
+                  {item.spiceLevel && item.spiceLevel !== 'None' && (
+                    <div className="spice-row">
+                      {item.spiceLevel === 'Mild' && '🌶'}
+                      {item.spiceLevel === 'Medium' && '🌶🌶'}
+                      {item.spiceLevel === 'Spicy' && '🌶🌶🌶'}
+                      {item.spiceLevel === 'Very Spicy' && '🌶🌶🌶🌶'}
+                      <span>{item.spiceLevel}</span>
+                    </div>
+                  )}
                   {item.modelURL && (
                     <div className="card-ar-lbl">
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -384,7 +415,31 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                 {typeof selectedItem.isVeg === 'boolean' && (
                   <span className={`tag-veg ${selectedItem.isVeg ? 'v' : 'nv'}`}>{selectedItem.isVeg ? '● Veg' : '● Non-Veg'}</span>
                 )}
+                {selectedItem.isPopular && <span style={{ padding:'5px 13px', borderRadius:20, fontSize:12, fontWeight:700, background:'rgba(224,90,58,0.1)', border:'1.5px solid rgba(224,90,58,0.25)', color:'#C04A28' }}>✦ Popular</span>}
+                {selectedItem.offerBadge && selectedItem.offerLabel && (
+                  <span style={{ padding:'5px 13px', borderRadius:20, fontSize:12, fontWeight:700, color:'#fff', background: selectedItem.offerColor||'#E05A3A' }}>🏷 {selectedItem.offerLabel}</span>
+                )}
               </div>
+
+              {/* Prep time */}
+              {selectedItem.prepTime && (
+                <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
+                  <span className="prep-tag">⏱ Ready in {selectedItem.prepTime}</span>
+                </div>
+              )}
+
+              {/* Spice level */}
+              {selectedItem.spiceLevel && selectedItem.spiceLevel !== 'None' && (
+                <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
+                  <span style={{ padding:'5px 14px', borderRadius:20, fontSize:12, fontWeight:600, background:'rgba(224,90,58,0.08)', border:'1.5px solid rgba(224,90,58,0.2)', color:'#C04A28' }}>
+                    {selectedItem.spiceLevel === 'Mild' && '🌶'}
+                    {selectedItem.spiceLevel === 'Medium' && '🌶🌶'}
+                    {selectedItem.spiceLevel === 'Spicy' && '🌶🌶🌶'}
+                    {selectedItem.spiceLevel === 'Very Spicy' && '🌶🌶🌶🌶'}
+                    {' '}{selectedItem.spiceLevel}
+                  </span>
+                </div>
+              )}
               {selectedItem.price && <><div className="m-price">₹{selectedItem.price}</div><div className="m-price-sub">per serving</div></>}
               {selectedItem.description && <p className="m-desc">{selectedItem.description}</p>}
 
