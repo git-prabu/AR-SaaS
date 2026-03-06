@@ -11,14 +11,14 @@ function getSessionId() {
 }
 
 const FOOD_PLACEHOLDERS = [
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=75',
-  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=75',
-  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600&q=75',
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=75',
-  'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&q=75',
-  'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&q=75',
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=75',
-  'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&q=75',
+  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80',
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600&q=80',
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
+  'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&q=80',
+  'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&q=80',
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80',
+  'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&q=80',
 ];
 function getPlaceholder(id) {
   let h = 0;
@@ -26,46 +26,47 @@ function getPlaceholder(id) {
   return FOOD_PLACEHOLDERS[h % FOOD_PLACEHOLDERS.length];
 }
 
-const SPICE_LABEL = { Mild:'Mild', Medium:'Medium', Spicy:'Spicy', 'Very Spicy':'Very Spicy' };
-const SPICE_DOT   = { Mild:'🟡', Medium:'🟠', Spicy:'🔴', 'Very Spicy':'🔴' };
+const SPICE_MAP = {
+  Mild:      { label:'Mild',      color:'#D4820A', bg:'#FFF8EC', dot:'🟡' },
+  Medium:    { label:'Medium',    color:'#C45A18', bg:'#FFF2EB', dot:'🟠' },
+  Spicy:     { label:'Spicy',     color:'#B52020', bg:'#FFEAEA', dot:'🔴' },
+  'Very Spicy':{ label:'Very Spicy', color:'#8B0000', bg:'#FFE0E0', dot:'🔴' },
+};
 
-// Category icon hints — matches common category names to an emoji
 function catIcon(name) {
   const n = (name||'').toLowerCase();
-  if (n.includes('all'))        return '🍽️';
+  if (n==='all')              return '◈';
   if (n.includes('starter') || n.includes('appetizer')) return '🥗';
-  if (n.includes('main'))       return '🍛';
-  if (n.includes('burger'))     return '🍔';
-  if (n.includes('pizza'))      return '🍕';
-  if (n.includes('pasta') || n.includes('noodle')) return '🍝';
-  if (n.includes('dessert') || n.includes('sweet')) return '🍰';
+  if (n.includes('main'))    return '🍛';
+  if (n.includes('burger'))  return '🍔';
+  if (n.includes('pizza'))   return '🍕';
+  if (n.includes('pasta') || n.includes('noodle'))    return '🍝';
+  if (n.includes('dessert') || n.includes('sweet'))   return '🍰';
   if (n.includes('drink') || n.includes('beverage') || n.includes('juice')) return '🥤';
-  if (n.includes('coffee') || n.includes('tea'))    return '☕';
-  if (n.includes('breakfast'))  return '🥞';
-  if (n.includes('seafood') || n.includes('fish'))  return '🐟';
-  if (n.includes('chicken'))    return '🍗';
-  if (n.includes('rice') || n.includes('biryani'))  return '🍚';
-  if (n.includes('salad'))      return '🥙';
-  if (n.includes('soup'))       return '🍲';
-  if (n.includes('veg'))        return '🥦';
-  if (n.includes('snack'))      return '🍿';
-  if (n.includes('special') || n.includes('chef'))  return '⭐';
-  if (n.includes('cocktail') || n.includes('mocktail')) return '🍹';
+  if (n.includes('coffee') || n.includes('tea'))      return '☕';
+  if (n.includes('breakfast')) return '🥞';
+  if (n.includes('seafood') || n.includes('fish'))    return '🐟';
+  if (n.includes('chicken')) return '🍗';
+  if (n.includes('rice') || n.includes('biryani'))    return '🍚';
+  if (n.includes('salad'))   return '🥙';
+  if (n.includes('soup'))    return '🍲';
+  if (n.includes('snack'))   return '🍿';
+  if (n.includes('special') || n.includes('chef'))    return '⭐';
   return '🍽️';
 }
 
 // ── Smart Menu Assistant ─────────────────────────────────────────
 const QUESTIONS = [
-  { id:'diet',   emoji:'🌿', q:'Any dietary preference?',      sub:'We\'ll only show dishes that match',
-    opts:[{label:'Vegetarian',value:'veg',emoji:'🌿'},{label:'Non-Vegetarian',value:'nonveg',emoji:'🍗'},{label:'No Preference',value:'any',emoji:'✌️'}] },
-  { id:'mood',   emoji:'✨', q:'What\'s your mood today?',      sub:'Pick what sounds good right now',
-    opts:[{label:'Comfort Food',value:'comfort',emoji:'🍲'},{label:'Healthy',value:'healthy',emoji:'🥦'},{label:'Popular Dishes',value:'popular',emoji:'🔥'},{label:'Try Something New',value:'new',emoji:'🌟'}] },
-  { id:'spice',  emoji:'🌶️', q:'How do you like your heat?',    sub:'We\'ll match your spice tolerance',
-    opts:[{label:'Mild / No Spice',value:'mild',emoji:'😌'},{label:'Medium',value:'medium',emoji:'😄'},{label:'Spicy',value:'spicy',emoji:'🥵'},{label:'Any Level',value:'any',emoji:'🤷'}] },
-  { id:'size',   emoji:'🍽️', q:'How hungry are you?',           sub:'Choose your meal size',
-    opts:[{label:'Light Bite',value:'light',emoji:'🥗'},{label:'Regular Meal',value:'regular',emoji:'🍛'},{label:'Feast Mode',value:'heavy',emoji:'🤤'},{label:'Anything',value:'any',emoji:'👌'}] },
-  { id:'budget', emoji:'💰', q:'Budget per dish?',              sub:'Pick a price range',
-    opts:[{label:'Under ₹200',value:'budget',emoji:'💵'},{label:'₹200–₹500',value:'mid',emoji:'💳'},{label:'₹500+',value:'premium',emoji:'💎'},{label:'No Limit',value:'any',emoji:'🤑'}] },
+  { id:'diet',   emoji:'🌿', q:'Any dietary preference?', sub:'We\'ll only show dishes that match',
+    opts:[{l:'Vegetarian',v:'veg',e:'🌿'},{l:'Non-Vegetarian',v:'nonveg',e:'🍗'},{l:'No Preference',v:'any',e:'✌️'}] },
+  { id:'mood',   emoji:'✨', q:'What\'s your mood today?', sub:'Pick what sounds good right now',
+    opts:[{l:'Comfort Food',v:'comfort',e:'🍲'},{l:'Something Healthy',v:'healthy',e:'🥦'},{l:'Most Popular',v:'popular',e:'🔥'},{l:'Try Something New',v:'new',e:'🌟'}] },
+  { id:'spice',  emoji:'🌶️', q:'How spicy do you like it?', sub:'We\'ll match your spice tolerance',
+    opts:[{l:'Mild / No Spice',v:'mild',e:'😌'},{l:'Medium',v:'medium',e:'😄'},{l:'Spicy',v:'spicy',e:'🥵'},{l:'Any Level',v:'any',e:'🤷'}] },
+  { id:'size',   emoji:'🍽️', q:'How hungry are you?', sub:'Choose your meal size',
+    opts:[{l:'Light Bite',v:'light',e:'🥗'},{l:'Regular Meal',v:'regular',e:'🍛'},{l:'Feast Mode',v:'heavy',e:'🤤'},{l:'Anything',v:'any',e:'👌'}] },
+  { id:'budget', emoji:'💰', q:'Budget per dish?', sub:'Pick a price range',
+    opts:[{l:'Under ₹200',v:'budget',e:'💵'},{l:'₹200–₹500',v:'mid',e:'💳'},{l:'₹500+',v:'premium',e:'💎'},{l:'No Limit',v:'any',e:'🤑'}] },
 ];
 const LIGHT_CATS = ['starter','salad','soup','snack','drink','beverage','dessert'];
 const HEAVY_CATS = ['main','burger','pasta','pizza','biryani','thali','grill','rice'];
@@ -73,27 +74,29 @@ const HEALTHY_KW = ['salad','grilled','steamed','healthy','light','vegan','fresh
 const COMFORT_KW = ['butter','cheese','cream','fried','crispy','masala','curry','rich','loaded','classic','special'];
 function scoreItem(item, ans) {
   let s = 0;
-  const txt = `${item.name||''} ${item.description||''} ${item.category||''} ${(item.ingredients||[]).join(' ')}`.toLowerCase();
-  const cat = (item.category||'').toLowerCase();
-  const spice = item.spiceLevel || 'None';
-  const price = item.price ? Number(item.price) : null;
-  if (ans.diet==='veg')    { if (item.isVeg===false) return -999; if (item.isVeg===true) s+=20; }
-  if (ans.diet==='nonveg') { if (item.isVeg===true)  s-=10;       if (item.isVeg===false) s+=15; }
-  if (ans.spice==='mild')   { if (['Spicy','Very Spicy'].includes(spice)) return -999; if (['None','Mild'].includes(spice)) s+=15; }
-  if (ans.spice==='medium') { if (spice==='Medium') s+=20; }
-  if (ans.spice==='spicy')  { if (['Spicy','Very Spicy'].includes(spice)) s+=25; }
-  if (price!==null) {
-    if (ans.budget==='budget')  { if (price>=200) s-=15; else s+=20; }
-    if (ans.budget==='mid')     { if (price>=200&&price<=500) s+=20; else s-=8; }
-    if (ans.budget==='premium') { if (price>500) s+=20; else if (price<200) s-=10; }
+  const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
+  const cat  = (item.category||'').toLowerCase();
+  const sp   = item.spiceLevel || 'None';
+  const pr   = item.price ? Number(item.price) : null;
+  if (ans.diet==='veg'   && item.isVeg===false) return -999;
+  if (ans.diet==='veg'   && item.isVeg===true)  s+=20;
+  if (ans.diet==='nonveg'&& item.isVeg===true)  s-=10;
+  if (ans.spice==='mild'   && ['Spicy','Very Spicy'].includes(sp)) return -999;
+  if (ans.spice==='mild'   && ['None','Mild'].includes(sp)) s+=15;
+  if (ans.spice==='medium' && sp==='Medium')  s+=20;
+  if (ans.spice==='spicy'  && ['Spicy','Very Spicy'].includes(sp)) s+=25;
+  if (pr!==null) {
+    if (ans.budget==='budget'  && pr<200)  s+=20; else if (ans.budget==='budget')  s-=15;
+    if (ans.budget==='mid'     && pr>=200&&pr<=500) s+=20; else if (ans.budget==='mid') s-=8;
+    if (ans.budget==='premium' && pr>500)  s+=20; else if (ans.budget==='premium'&&pr<200) s-=10;
   }
   if (ans.size==='light') { if (LIGHT_CATS.some(l=>cat.includes(l))) s+=18; if (HEAVY_CATS.some(h=>cat.includes(h))) s-=15; }
-  if (ans.size==='heavy') { if (HEAVY_CATS.some(h=>cat.includes(h))) s+=18; if (LIGHT_CATS.some(l=>cat.includes(l))) s-=8; }
-  if (ans.mood==='popular') { if (item.isPopular||item.isFeatured) s+=30; s+=Math.min((item.views||0)/5,15); }
-  if (ans.mood==='healthy') { if (HEALTHY_KW.some(k=>txt.includes(k))) s+=20; if (item.calories&&item.calories<400) s+=15; }
-  if (ans.mood==='comfort') { if (COMFORT_KW.some(k=>txt.includes(k))) s+=20; if (HEAVY_CATS.some(h=>cat.includes(h))) s+=10; }
-  if (ans.mood==='new')     { if (item.isFeatured) s+=25; if (item.offerBadge) s+=15; s+=Math.floor(Math.random()*10); }
-  s += Math.min((item.views||0)+(item.arViews||0)*2,20)*0.3;
+  if (ans.size==='heavy') { if (HEAVY_CATS.some(h=>cat.includes(h))) s+=18; }
+  if (ans.mood==='popular') { if (item.isPopular||item.isFeatured) s+=30; }
+  if (ans.mood==='healthy') { if (HEALTHY_KW.some(k=>txt.includes(k))) s+=20; }
+  if (ans.mood==='comfort') { if (COMFORT_KW.some(k=>txt.includes(k))) s+=20; }
+  if (ans.mood==='new')     { if (item.isFeatured) s+=25; s+=Math.floor(Math.random()*12); }
+  s += Math.min((item.views||0)+(item.arViews||0)*2, 20)*0.3;
   return s;
 }
 function filterItems(items, ans) {
@@ -125,30 +128,30 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
   const openItem = useCallback(async (item) => {
     setSelectedItem(item); setShowAR(false);
-    if (restaurant?.id) await incrementItemView(restaurant.id, item.id).catch(()=>{});
+    if (restaurant?.id) incrementItemView(restaurant.id, item.id).catch(()=>{});
   }, [restaurant?.id]);
-  const closeItem = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
+  const closeItem     = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
   const handleARLaunch = useCallback(async () => {
-    if (restaurant?.id && selectedItem?.id)
-      await incrementARView(restaurant.id, selectedItem.id).catch(()=>{});
+    if (restaurant?.id && selectedItem?.id) incrementARView(restaurant.id, selectedItem.id).catch(()=>{});
   }, [restaurant?.id, selectedItem?.id]);
   const imgSrc = (item) => (!imgErr[item.id] && item.imageURL) ? item.imageURL : getPlaceholder(item.id);
 
-  const openSMA  = () => { setSmaOpen(true); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
-  const closeSMA = () => setSmaOpen(false);
+  const openSMA    = () => { setSmaOpen(true); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
+  const closeSMA   = () => setSmaOpen(false);
   const restartSMA = () => { setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
   const pickAnswer = (qId, val) => {
     const ans = { ...smaAnswers, [qId]: val };
     setSmaAnswers(ans);
-    if (smaStep < QUESTIONS.length-1) { setSmaStep(smaStep+1); }
+    if (smaStep < QUESTIONS.length-1) setSmaStep(smaStep+1);
     else { setSmaResults(filterItems(menuItems||[], ans)); setSmaStep(QUESTIONS.length); }
   };
 
   if (error || !restaurant) return (
-    <div style={{minHeight:'100vh',background:'#F5F0EB',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'sans-serif'}}>
+    <div style={{minHeight:'100vh',background:'#F7F5F2',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif'}}>
       <div style={{textAlign:'center'}}><div style={{fontSize:52,marginBottom:12}}>🍽️</div>
-        <h1 style={{fontSize:20,fontWeight:700,color:'#1A1008'}}>Restaurant not found</h1>
-        <p style={{color:'#888',marginTop:6}}>This page doesn't exist or is inactive.</p></div>
+        <h1 style={{fontSize:20,fontWeight:700,color:'#1C1C1E'}}>Restaurant not found</h1>
+        <p style={{color:'#8E8E93',marginTop:6,fontSize:14}}>This page doesn't exist or is inactive.</p>
+      </div>
     </div>
   );
 
@@ -158,419 +161,451 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         <title>{restaurant.name} — Menu</title>
         <meta name="description" content={`Explore ${restaurant.name}'s menu`} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
       </Head>
 
       <style>{`
-        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-        html { scroll-behavior:smooth; }
+        html, body { margin:0; padding:0; }
+        *, *::before, *::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
-        /* ── CLEAN WARM BACKGROUND ── */
         body {
-          background: #F2EDE6;
+          background: #F7F5F2 !important;
           min-height: 100vh;
           overflow-x: hidden;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
 
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-        @keyframes fadeUp  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
-        @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0.2} }
-        @keyframes spin    { to{transform:rotate(360deg)} }
+        @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0.15} }
 
-        /* ── HEADER ── */
+        /* ─────────── HEADER ─────────── */
         .hdr {
           position: sticky; top: 0; z-index: 40;
-          background: rgba(255,253,248,0.96);
-          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(0,0,0,0.07);
-          box-shadow: 0 1px 12px rgba(0,0,0,0.06);
+          background: rgba(247,245,242,0.94);
+          backdrop-filter: saturate(180%) blur(20px);
+          -webkit-backdrop-filter: saturate(180%) blur(20px);
+          border-bottom: 0.5px solid rgba(0,0,0,0.1);
         }
         .hdr-inner { max-width: 680px; margin: 0 auto; padding: 0 18px; }
 
         .hdr-top {
           display: flex; align-items: center; gap: 13px;
-          padding: 14px 0 13px;
+          padding: 15px 0 13px;
         }
-        .logo {
-          width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
-          background: linear-gradient(135deg,#C84B2A,#E06848);
-          display: flex; align-items: center; justify-content: center; font-size: 21px;
-          box-shadow: 0 4px 14px rgba(200,75,42,0.32);
+        .r-logo {
+          width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+          background: linear-gradient(145deg,#D44A2A,#E86848);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 20px;
+          box-shadow: 0 3px 12px rgba(212,74,42,0.35);
         }
-        .rname { font-family:'Playfair Display',serif; font-weight:800; font-size:18px; color:#1A1008; line-height:1.15; }
-        .rsub  { font-size:11px; color:#999; margin-top:2px; letter-spacing:0.01em; }
+        .r-name { font-size: 17px; font-weight: 700; color: #1C1C1E; letter-spacing: -0.3px; line-height: 1.2; }
+        .r-sub  { font-size: 12px; color: #8E8E93; margin-top: 2px; letter-spacing: -0.1px; }
 
-        .ar-live-badge {
+        .ar-badge {
           margin-left: auto; flex-shrink: 0;
-          display: flex; align-items: center; gap: 6px;
-          padding: 7px 14px; border-radius: 20px;
-          background: #FFF0EB; border: 1.5px solid #FFCFBE;
-          font-size: 11px; font-weight: 700; color: #C04A28;
+          display: flex; align-items: center; gap: 5px;
+          padding: 6px 13px; border-radius: 20px;
+          background: rgba(212,74,42,0.1);
+          border: 1px solid rgba(212,74,42,0.25);
+          font-size: 11px; font-weight: 600; color: #C04A28;
+          letter-spacing: 0.01em;
         }
-        .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #E05A3A; animation: blink 1.6s infinite; }
+        .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #D44A2A; animation: blink 1.8s infinite; }
 
-        /* ── CATEGORY TABS ── */
-        .cats-wrap {
-          padding: 2px 0 14px;
-          overflow-x: auto; scrollbar-width: none;
-          display: flex; gap: 8px;
+        /* ─── CATEGORY TABS — bleeding pill design ─── */
+        .cats-outer {
+          padding: 4px 0 0;
+          position: relative;
         }
-        .cats-wrap::-webkit-scrollbar { display: none; }
+        .cats-scroll {
+          display: flex; gap: 6px;
+          overflow-x: auto; scrollbar-width: none;
+          padding: 6px 0 16px;
+          /* allow pills to breathe a bit */
+        }
+        .cats-scroll::-webkit-scrollbar { display: none; }
 
         .cat-pill {
           flex-shrink: 0;
           display: flex; align-items: center; gap: 6px;
           padding: 9px 18px; border-radius: 30px;
-          font-size: 13px; font-weight: 600;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          cursor: pointer; white-space: nowrap; border: none;
-          background: #EDEBE6;
-          color: #5A5040;
-          transition: all 0.18s ease;
+          font-size: 13px; font-weight: 500;
+          font-family: 'Inter', sans-serif;
+          cursor: pointer; white-space: nowrap;
+          border: 1.5px solid transparent;
+          background: rgba(0,0,0,0.06);
+          color: #3A3A3C;
+          transition: all 0.2s ease;
+          letter-spacing: -0.1px;
+          position: relative;
         }
-        .cat-pill:hover:not(.on) { background: #E4E1DB; color: #2A2018; }
+        .cat-pill:hover:not(.on) {
+          background: rgba(0,0,0,0.09);
+          color: #1C1C1E;
+        }
+        /* ── Active "bleeding" pill ── */
         .cat-pill.on {
-          background: #2A2018;
-          color: #FFF5E8;
-          box-shadow: 0 4px 16px rgba(42,32,24,0.28);
+          background: #1C1C1E;
+          color: #FFFFFF;
+          font-weight: 700;
+          border-color: transparent;
+          box-shadow:
+            0 4px 16px rgba(28,28,30,0.28),
+            0 1px 4px rgba(28,28,30,0.12),
+            0 0 0 2px rgba(255,255,255,0.8);
+          transform: translateY(-2px);
+          letter-spacing: -0.15px;
         }
-        .cat-icon { font-size: 15px; line-height: 1; }
+        .cat-emoji { font-size: 14px; }
 
-        /* ── MAIN ── */
-        .main { max-width: 680px; margin: 0 auto; padding: 18px 18px 100px; }
+        /* ─────────── MAIN ─────────── */
+        .main {
+          max-width: 680px; margin: 0 auto;
+          padding: 20px 18px 110px;
+          background: #F7F5F2;
+        }
 
-        /* AR Strip — now a proper visible card */
+        /* AR strip */
         .ar-strip {
           display: flex; align-items: center; gap: 14px;
           padding: 14px 18px; margin-bottom: 20px;
-          background: #FFF5F2;
-          border: 1.5px solid #FFCFBE;
+          background: #ffffff;
+          border: 1px solid rgba(212,74,42,0.18);
           border-radius: 16px;
+          box-shadow: 0 1px 6px rgba(0,0,0,0.06);
           animation: fadeUp 0.4s ease both;
         }
-        .ar-strip-icon { font-size: 26px; flex-shrink: 0; }
-        .ar-strip-main { font-size: 13px; font-weight: 700; color: #C84B2A; }
-        .ar-strip-sub  { font-size: 11px; color: #B08070; margin-top: 2px; }
-        .ar-strip-badge {
+        .ar-strip-icon { font-size: 22px; flex-shrink: 0; }
+        .ar-strip-text { font-size: 13px; font-weight: 600; color: #1C1C1E; letter-spacing: -0.1px; }
+        .ar-strip-sub  { font-size: 11px; color: #8E8E93; margin-top: 2px; }
+        .ar-strip-chip {
           margin-left: auto; flex-shrink: 0;
           padding: 5px 12px; border-radius: 20px;
-          background: #C84B2A; color: #fff;
-          font-size: 11px; font-weight: 800;
+          background: #D44A2A; color: #fff;
+          font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
         }
 
-        /* Offer banner */
+        /* Offer */
         .offer-bar {
           display: flex; align-items: center; gap: 12px;
-          padding: 13px 18px; margin-bottom: 16px;
-          background: #FFFBF0; border: 1.5px solid #F0D890;
-          border-radius: 14px;
+          padding: 14px 18px; margin-bottom: 16px;
+          background: #fff; border: 1px solid #F0D890;
+          border-radius: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.04);
           animation: fadeUp 0.4s ease both;
         }
-        .offer-bar-icon { font-size: 22px; flex-shrink: 0; }
-        .offer-bar-title { font-size: 13px; font-weight: 700; color: #8B6A10; }
-        .offer-bar-desc  { font-size: 11px; color: #B08840; margin-top: 1px; }
+        .offer-bar-title { font-size: 13px; font-weight: 600; color: #8B6010; }
+        .offer-bar-desc  { font-size: 11px; color: #B09040; margin-top: 1px; }
 
-        /* ── GRID — 2 col desktop, 1 col mobile ── */
+        /* ─────────── GRID ─────────── */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        @media (max-width: 500px) {
-          .grid { grid-template-columns: 1fr; gap: 12px; }
+        @media (max-width: 480px) {
+          .grid { grid-template-columns: 1fr; }
         }
 
-        /* ── CARD ── */
+        /* ─────────── CARD — Apple App Store level ─────────── */
         .card {
           background: #FFFFFF;
-          border: 1px solid rgba(0,0,0,0.06);
-          border-radius: 20px; overflow: hidden;
+          border-radius: 18px; overflow: hidden;
           cursor: pointer; position: relative; text-align: left;
-          transition: transform 0.22s ease, box-shadow 0.22s ease;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
           animation: fadeUp 0.4s ease both;
-          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          box-shadow:
+            0 1px 3px rgba(0,0,0,0.06),
+            0 4px 16px rgba(0,0,0,0.07);
+          border: none;
         }
-        .card:hover  { transform: translateY(-5px); box-shadow: 0 12px 32px rgba(0,0,0,0.12); }
-        .card:active { transform: scale(0.98); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .card:hover  { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.13); }
+        .card:active { transform: scale(0.98); }
 
         /* Card image */
-        .c-img { position: relative; overflow: hidden; width: 100%; aspect-ratio: 4/3; }
+        .c-img { position: relative; overflow: hidden; width: 100%; aspect-ratio: 3/2; }
         .c-img img { width:100%; height:100%; object-fit:cover; display:block; transition: transform 0.3s ease; }
         .card:hover .c-img img { transform: scale(1.04); }
         .c-img-ph {
           width:100%; height:100%;
           display:flex; align-items:center; justify-content:center; font-size:48px;
-          background: linear-gradient(160deg,#FFF0E0,#FADDBD);
+          background: #F2EDE6;
         }
 
-        /* AR badge */
-        .c-ar-badge {
+        /* AR badge — top right, minimal */
+        .c-ar-pill {
           position: absolute; top: 10px; right: 10px;
           display: flex; align-items: center; gap: 4px;
-          background: #2A2018; color: #FFF5E8;
-          font-size: 10px; font-weight: 800;
-          padding: 4px 10px; border-radius: 8px;
-          letter-spacing: 0.04em;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+          background: rgba(28,28,30,0.78);
+          backdrop-filter: blur(8px);
+          color: #fff; font-size: 10px; font-weight: 700;
+          padding: 4px 9px; border-radius: 8px;
+          letter-spacing: 0.03em;
         }
 
         /* Veg indicator */
         .veg-ind {
           position: absolute; top: 10px; left: 10px;
           width: 20px; height: 20px; border-radius: 4px; border: 2px solid;
-          background: #fff; display: flex; align-items: center; justify-content: center;
+          background: rgba(255,255,255,0.92); display: flex; align-items: center; justify-content: center;
         }
-        .veg-ind.v  { border-color: #2A7A48; }
+        .veg-ind.v  { border-color: #2A8048; }
         .veg-ind.nv { border-color: #C03020; }
-        .veg-ind.v::after  { content:''; width:9px; height:9px; border-radius:50%; background:#2A7A48; }
-        .veg-ind.nv::after { content:''; width:9px; height:9px; border-radius:50%; background:#C03020; }
+        .veg-ind.v::after  { content:''; width:8px; height:8px; border-radius:50%; background:#2A8048; }
+        .veg-ind.nv::after { content:''; width:8px; height:8px; border-radius:50%; background:#C03020; }
 
         /* Offer ribbon */
         .c-ribbon {
           position: absolute; bottom: 0; left: 0; right: 0;
-          padding: 5px 12px;
-          font-size: 10px; font-weight: 800; color: #fff; text-align: center;
-          letter-spacing: 0.03em;
+          padding: 5px 12px; font-size: 10px; font-weight: 800; color: #fff;
+          text-align: center; letter-spacing: 0.03em;
         }
 
         /* Card body */
-        .c-body { padding: 14px 15px 15px; }
+        .c-body { padding: 13px 14px 14px; }
 
-        /* Badges row */
-        .c-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 7px; }
-        .c-badge { font-size: 9px; font-weight: 800; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.03em; }
-        .c-badge-pop  { background: #FFF0EB; color: #C84B2A; }
-        .c-badge-feat { background: #F0EBF8; color: #7040A8; }
+        /* Badges */
+        .c-badges { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+        .c-badge  { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 6px; }
+        .c-badge-pop  { background: #FFF0EB; color: #C04A28; }
+        .c-badge-feat { background: #F0EBF8; color: #6030A0; }
 
-        /* Card name */
         .c-name {
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-weight: 800; font-size: 15px;
-          color: #1A1008; line-height: 1.3;
-          margin-bottom: 8px;
+          font-size: 15px; font-weight: 700; color: #1C1C1E;
+          line-height: 1.3; margin-bottom: 8px;
+          letter-spacing: -0.2px;
         }
 
-        /* Price row */
-        .c-price-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
-        .c-price { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17px; font-weight: 800; color: #C84B2A; }
-        .c-cal   { font-size: 11px; color: #AAA; font-weight: 500; }
+        .c-price-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .c-price { font-size: 16px; font-weight: 800; color: #D44A2A; letter-spacing: -0.3px; }
+        .c-cal   { font-size: 11px; color: #AEAEB2; font-weight: 500; }
 
-        /* Meta row */
-        .c-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-        .c-spice { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #888; font-weight: 500; }
-        .c-prep  { font-size: 11px; color: #AAA; font-weight: 500; }
+        .c-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+        .c-spice-chip {
+          display: inline-flex; align-items: center; gap: 4px;
+          font-size: 11px; font-weight: 600;
+          padding: 3px 8px; border-radius: 6px;
+        }
+        .c-prep { font-size: 11px; color: #AEAEB2; }
 
-        /* AR CTA strip in card */
+        /* AR CTA at card bottom */
         .c-ar-cta {
           margin-top: 10px;
           display: flex; align-items: center; justify-content: center; gap: 7px;
-          padding: 9px 12px; border-radius: 10px;
-          background: #F8F4F0; border: 1.5px solid #E8E0D8;
-          font-size: 11px; font-weight: 800; color: #5A5040;
-          letter-spacing: 0.06em; text-transform: uppercase;
+          padding: 9px; border-radius: 10px;
+          background: #F2F2F7;
+          font-size: 11px; font-weight: 700; color: #3A3A3C;
+          letter-spacing: 0.04em; text-transform: uppercase;
         }
 
-        /* Empty */
-        .empty { text-align:center; padding:70px 20px; color:#AAA; }
+        /* empty */
+        .empty { text-align:center; padding:72px 20px; color:#8E8E93; }
 
-        /* ── MODAL ── */
+        /* ─────────── MODAL ─────────── */
         .overlay {
           position: fixed; inset: 0; z-index: 50;
           display: flex; align-items: flex-end; justify-content: center;
-          background: rgba(0,0,0,0.55);
-          backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-          animation: fadeIn 0.2s ease;
+          background: rgba(0,0,0,0.5);
+          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+          animation: fadeIn 0.18s ease;
         }
         .sheet {
           position: relative; width: 100%; max-width: 540px;
-          background: #FFFDF9;
-          border: 1px solid rgba(0,0,0,0.06);
-          border-radius: 28px 28px 0 0;
+          background: #FFFFFF;
+          border-radius: 26px 26px 0 0;
           max-height: 93vh; overflow-y: auto;
-          animation: slideUp 0.34s cubic-bezier(0.32,0.72,0,1);
-          box-shadow: 0 -12px 48px rgba(0,0,0,0.18);
+          animation: slideUp 0.32s cubic-bezier(0.32,0.72,0,1);
+          box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
         }
-        .handle-row { display:flex; justify-content:center; padding:14px 0 0; }
-        .handle     { width:40px; height:4px; border-radius:2px; background:rgba(0,0,0,0.12); }
+        .handle-row { display:flex; justify-content:center; padding:12px 0 0; }
+        .handle     { width:36px; height:4px; border-radius:2px; background:rgba(0,0,0,0.12); }
         .close-btn {
-          position: absolute; top: 14px; right: 16px;
-          width: 34px; height: 34px; border-radius: 50%;
-          background: #F2EDE6; border: 1px solid rgba(0,0,0,0.08);
-          color: #888; cursor: pointer; font-size: 14px;
+          position: absolute; top: 12px; right: 16px;
+          width: 32px; height: 32px; border-radius: 50%;
+          background: #F2F2F7; border: none;
+          color: #3A3A3C; cursor: pointer; font-size: 13px;
           display: flex; align-items: center; justify-content: center;
-          transition: all 0.15s;
+          transition: background 0.15s;
         }
-        .close-btn:hover { background: #FFE8E0; color: #C84B2A; }
+        .close-btn:hover { background: #E5E5EA; }
 
-        /* Modal hero */
-        .m-hero { margin: 10px 16px 0; border-radius: 18px; overflow: hidden; aspect-ratio: 16/9; position: relative; }
+        .m-hero { margin: 10px 14px 0; border-radius: 16px; overflow: hidden; aspect-ratio: 16/9; position: relative; }
         .m-hero img { width:100%; height:100%; object-fit:cover; display:block; }
-        .m-hero-ph  { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:68px; background:linear-gradient(160deg,#FFF0E0,#FADDBD); }
+        .m-hero-ph  { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:64px; background:#F2EDE6; }
 
-        .sbody { padding: 20px 22px 38px; }
-        .m-title { font-family:'Playfair Display',serif; font-weight:800; font-size:26px; color:#1A1008; text-align:center; margin-bottom:12px; line-height:1.2; }
+        .sbody { padding: 20px 20px 36px; }
+        .m-title { font-size: 24px; font-weight: 800; color: #1C1C1E; text-align: center; margin-bottom: 12px; line-height: 1.2; letter-spacing: -0.4px; }
 
-        .m-tags  { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
-        .tag { padding:5px 14px; border-radius:8px; font-size:12px; font-weight:600; }
-        .tag-cat { background:#F2EDE6; color:#5A5040; }
-        .tag-veg { background:#EBF7EF; color:#1A6A38; }
+        .m-tags  { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:12px; }
+        .tag { padding:5px 13px; border-radius:8px; font-size:12px; font-weight:600; }
+        .tag-cat { background:#F2F2F7; color:#3A3A3C; }
+        .tag-veg { background:#E8F5EE; color:#1A6A38; }
         .tag-nv  { background:#FDECEA; color:#8B2010; }
-        .tag-pop { background:#FFF0EB; color:#C84B2A; }
+        .tag-pop { background:#FFF0EB; color:#C04A28; }
 
-        .m-pills { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-        .m-pill  { display:flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; background:#F2EDE6; color:#5A5040; }
+        .m-pills { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
+        .m-pill  { display:flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; background:#F2F2F7; color:#3A3A3C; }
 
-        .m-price     { text-align:center; font-family:'Playfair Display',serif; font-size:36px; font-weight:800; color:#C84B2A; }
-        .m-price-sub { text-align:center; font-size:11px; color:#AAA; margin-top:2px; margin-bottom:16px; }
-        .m-desc      { font-size:14px; color:#6A6050; line-height:1.75; text-align:center; margin-bottom:20px; }
+        .m-price     { text-align:center; font-size:34px; font-weight:800; color:#D44A2A; letter-spacing:-0.6px; }
+        .m-price-sub { text-align:center; font-size:11px; color:#AEAEB2; margin-top:2px; margin-bottom:14px; }
+        .m-desc      { font-size:14px; color:#6C6C70; line-height:1.7; text-align:center; margin-bottom:20px; letter-spacing:-0.1px; }
 
-        .divider { height:1px; background:rgba(0,0,0,0.07); margin:18px 0; }
-        .sec-lbl { font-size:10px; font-weight:800; color:#AAA; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:12px; }
+        .divider { height:0.5px; background:rgba(0,0,0,0.1); margin:16px 0; }
+        .sec-lbl { font-size:11px; font-weight:700; color:#AEAEB2; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:12px; }
 
         .nutr { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
-        .nc   { background:#F8F5F0; border:1px solid #EAE5DE; border-radius:12px; padding:13px 8px; text-align:center; }
-        .nc-v { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:#C84B2A; }
-        .nc-u { font-size:10px; color:#AAA; margin-top:1px; }
-        .nc-l { font-size:10px; color:#888; margin-top:3px; font-weight:600; }
+        .nc   { background:#F9F9FB; border:0.5px solid rgba(0,0,0,0.07); border-radius:12px; padding:13px 8px; text-align:center; }
+        .nc-v { font-size:20px; font-weight:800; color:#D44A2A; letter-spacing:-0.3px; }
+        .nc-u { font-size:10px; color:#AEAEB2; margin-top:1px; }
+        .nc-l { font-size:10px; color:#6C6C70; margin-top:3px; font-weight:600; }
 
         .ings { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:22px; }
-        .ing  { padding:6px 14px; border-radius:8px; font-size:12px; color:#5A5040; background:#F2EDE6; border:1px solid #E2DDD6; font-weight:500; }
+        .ing  { padding:6px 13px; border-radius:8px; font-size:12px; color:#3A3A3C; background:#F2F2F7; font-weight:500; }
 
         /* AR Button */
         .ar-btn {
-          width:100%; padding:18px; border-radius:16px; border:none;
-          background: #2A2018; color: #FFF5E8;
-          font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:16px;
-          cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px;
-          box-shadow: 0 8px 24px rgba(42,32,24,0.3);
+          width:100%; padding:17px; border-radius:14px; border:none;
+          background: #1C1C1E; color: #FFFFFF;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
+          cursor:pointer; display:flex; align-items:center; justify-content:center; gap:11px;
+          box-shadow: 0 4px 20px rgba(28,28,30,0.28);
           transition: transform 0.15s, box-shadow 0.15s;
-          letter-spacing: 0.01em;
+          letter-spacing: -0.1px;
         }
-        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 14px 32px rgba(42,32,24,0.4); }
+        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 8px 28px rgba(28,28,30,0.36); }
         .ar-btn:active { transform:scale(0.98); }
-        .ar-btn-accent { color: #F4A070; }
-        .ar-hint { text-align:center; font-size:11px; color:#AAA; margin-top:9px; }
+        .ar-btn-sub { color:#D44A2A; font-weight:800; }
+        .ar-hint { text-align:center; font-size:11px; color:#AEAEB2; margin-top:9px; letter-spacing:-0.1px; }
 
-        /* ── SMART MENU ASSISTANT FAB ── */
-        .sma-fab {
-          position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+        /* ─────────── FAB — properly centered ─────────── */
+        .fab-wrap {
+          position: fixed;
+          bottom: 28px; left: 0; right: 0;
+          display: flex; justify-content: center;
           z-index: 45;
-          display: flex; align-items: center; gap: 9px;
+          pointer-events: none;
+        }
+        .sma-fab {
+          pointer-events: all;
+          display: flex; align-items: center; gap: 8px;
           padding: 14px 28px; border-radius: 50px; border: none;
-          background: #2A2018;
-          color: #FFF5E8;
-          font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 15px;
-          cursor: pointer; white-space: nowrap;
-          box-shadow: 0 6px 28px rgba(42,32,24,0.4);
+          background: #1C1C1E; color: #FFFFFF;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
+          cursor: pointer; white-space: nowrap; letter-spacing: -0.1px;
+          box-shadow: 0 6px 24px rgba(28,28,30,0.4), 0 2px 8px rgba(28,28,30,0.2);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
           animation: fadeUp 0.5s 0.3s ease both;
         }
-        .sma-fab:hover  { transform: translateX(-50%) translateY(-3px); box-shadow: 0 12px 36px rgba(42,32,24,0.5); }
-        .sma-fab:active { transform: translateX(-50%) scale(0.97); }
-        .sma-fab-icon { font-size: 18px; }
+        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(28,28,30,0.5); }
+        .sma-fab:active { transform: scale(0.97); }
+        .sma-fab-icon   { font-size: 17px; }
 
-        /* SMA overlay */
+        /* ─────────── SMART MENU ASSISTANT ─────────── */
         .sma-overlay {
           position:fixed; inset:0; z-index:55;
           display:flex; align-items:flex-end; justify-content:center;
-          background:rgba(0,0,0,0.55);
-          backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-          animation:fadeIn 0.2s ease;
+          background:rgba(0,0,0,0.5);
+          backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+          animation:fadeIn 0.18s ease;
         }
         .sma-sheet {
           position:relative; width:100%; max-width:540px;
-          background:#FFFDF9;
-          border:1px solid rgba(0,0,0,0.06);
-          border-radius:28px 28px 0 0;
+          background:#FFFFFF;
+          border-radius:26px 26px 0 0;
           max-height:90vh; overflow-y:auto;
           animation:slideUp 0.32s cubic-bezier(0.32,0.72,0,1);
-          box-shadow:0 -12px 48px rgba(0,0,0,0.18);
-          font-family:'Plus Jakarta Sans',sans-serif;
+          box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+          font-family:'Inter',sans-serif;
         }
-        .sma-prog-wrap { padding:20px 24px 0; }
-        .sma-prog-row  { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-        .sma-prog-txt  { font-size:12px; font-weight:600; color:#AAA; }
-        .sma-back      { font-size:12px; font-weight:700; color:#AAA; background:none; border:none; cursor:pointer; font-family:'Plus Jakarta Sans',sans-serif; padding:0; }
-        .sma-back:hover { color:#C84B2A; }
-        .sma-prog-bar  { height:3px; background:#EAE5DE; border-radius:99px; overflow:hidden; }
-        .sma-prog-fill { height:100%; background:#2A2018; border-radius:99px; transition:width 0.35s ease; }
+        .sma-prog-wrap { padding:18px 22px 0; }
+        .sma-prog-row  { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+        .sma-prog-txt  { font-size:12px; font-weight:600; color:#AEAEB2; letter-spacing:0.01em; }
+        .sma-back      { font-size:12px; font-weight:600; color:#AEAEB2; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; padding:0; transition:color 0.15s; }
+        .sma-back:hover { color:#D44A2A; }
+        .sma-prog-bar  { height:3px; background:#F2F2F7; border-radius:99px; overflow:hidden; }
+        .sma-prog-fill { height:100%; background:#1C1C1E; border-radius:99px; transition:width 0.3s ease; }
 
-        .sma-q-wrap  { padding:28px 24px 36px; }
-        .sma-q-emoji { font-size:44px; text-align:center; margin-bottom:14px; }
-        .sma-q-text  { font-family:'Playfair Display',serif; font-weight:800; font-size:22px; color:#1A1008; text-align:center; margin-bottom:6px; line-height:1.3; }
-        .sma-q-sub   { font-size:13px; color:#AAA; text-align:center; margin-bottom:24px; font-weight:500; }
+        .sma-q-wrap  { padding:26px 22px 34px; }
+        .sma-q-emoji { font-size:40px; text-align:center; margin-bottom:12px; }
+        .sma-q-text  { font-size:22px; font-weight:800; color:#1C1C1E; text-align:center; margin-bottom:5px; line-height:1.25; letter-spacing:-0.4px; }
+        .sma-q-sub   { font-size:13px; color:#AEAEB2; text-align:center; margin-bottom:22px; font-weight:500; }
         .sma-opts    { display:flex; flex-direction:column; gap:9px; }
         .sma-opt {
-          display:flex; align-items:center; gap:14px;
-          padding:15px 18px; border-radius:14px; border:1.5px solid #EAE5DE;
-          background:#FAFAF8; cursor:pointer;
-          transition:all 0.18s ease;
-          text-align:left; width:100%; font-family:'Plus Jakarta Sans',sans-serif;
+          display:flex; align-items:center; gap:13px;
+          padding:14px 18px; border-radius:14px;
+          border:1px solid rgba(0,0,0,0.09);
+          background:#FAFAFA; cursor:pointer;
+          transition:all 0.16s ease; text-align:left; width:100%;
+          font-family:'Inter',sans-serif;
         }
-        .sma-opt:hover  { background:#fff; border-color:#C84B2A; transform:translateX(3px); }
+        .sma-opt:hover  { background:#fff; border-color:#D44A2A; transform:translateX(3px); }
         .sma-opt:active { transform:scale(0.98); }
-        .sma-opt-emoji  { font-size:26px; flex-shrink:0; }
-        .sma-opt-label  { font-size:14px; font-weight:700; color:#1A1008; }
-        .sma-close-txt  { text-align:center; margin-top:18px; }
-        .sma-dismiss    { font-size:12px; color:#CCC; background:none; border:none; cursor:pointer; font-family:'Plus Jakarta Sans',sans-serif; }
-        .sma-dismiss:hover { color:#C84B2A; }
+        .sma-opt-emoji  { font-size:24px; flex-shrink:0; }
+        .sma-opt-label  { font-size:14px; font-weight:600; color:#1C1C1E; letter-spacing:-0.1px; }
+        .sma-dismiss    { display:block; text-align:center; margin:18px auto 0; font-size:12px; color:#AEAEB2; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; }
+        .sma-dismiss:hover { color:#D44A2A; }
 
         .sma-res-wrap   { padding:20px 20px 40px; }
         .sma-res-hdr    { text-align:center; margin-bottom:22px; }
-        .sma-res-emoji  { font-size:40px; margin-bottom:8px; }
-        .sma-res-title  { font-family:'Playfair Display',serif; font-weight:800; font-size:22px; color:#1A1008; margin-bottom:5px; }
-        .sma-res-sub    { font-size:13px; color:#AAA; font-weight:500; }
-        .sma-cat-lbl    { font-size:10px; font-weight:800; color:#AAA; letter-spacing:0.12em; text-transform:uppercase; margin:18px 0 9px 2px; }
+        .sma-res-emoji  { font-size:38px; margin-bottom:8px; }
+        .sma-res-title  { font-size:22px; font-weight:800; color:#1C1C1E; margin-bottom:4px; letter-spacing:-0.4px; }
+        .sma-res-sub    { font-size:13px; color:#AEAEB2; }
+        .sma-cat-lbl    { font-size:11px; font-weight:700; color:#AEAEB2; letter-spacing:0.08em; text-transform:uppercase; margin:18px 0 9px 2px; }
         .sma-item {
-          display:flex; align-items:center; gap:13px;
+          display:flex; align-items:center; gap:12px;
           padding:12px 14px; border-radius:14px; margin-bottom:7px;
-          background:#FAFAF8; border:1.5px solid #EAE5DE;
-          cursor:pointer; transition:all 0.16s ease;
-          text-align:left; width:100%; font-family:'Plus Jakarta Sans',sans-serif;
+          background:#FAFAFA; border:1px solid rgba(0,0,0,0.07);
+          cursor:pointer; transition:all 0.15s ease;
+          text-align:left; width:100%; font-family:'Inter',sans-serif;
         }
-        .sma-item:hover { background:#fff; border-color:#C84B2A; transform:translateX(3px); }
-        .sma-item-img   { width:52px; height:52px; border-radius:12px; object-fit:cover; flex-shrink:0; background:#F2EDE6; }
-        .sma-item-name  { font-family:'Playfair Display',serif; font-size:14px; font-weight:700; color:#1A1008; margin-bottom:4px; }
-        .sma-item-meta  { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
-        .sma-item-price { font-size:14px; font-weight:800; color:#C84B2A; }
-        .sma-item-tag   { font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; }
-        .sma-item-tag-pop { background:#FFF0EB; color:#C84B2A; }
-        .sma-item-tag-ar  { background:#EBF7EF; color:#1A6A38; }
-        .sma-actions { display:flex; gap:10px; margin-top:22px; }
-        .sma-btn-dark { flex:1; padding:14px; border-radius:12px; border:none; background:#2A2018; color:#FFF5E8; font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:14px; cursor:pointer; }
-        .sma-btn-light { flex:1; padding:14px; border-radius:12px; border:1.5px solid #EAE5DE; background:transparent; color:#5A5040; font-family:'Plus Jakarta Sans',sans-serif; font-weight:600; font-size:14px; cursor:pointer; }
-        .sma-btn-light:hover { background:#F2EDE6; }
-        .sma-no-match { text-align:center; padding:36px 20px; color:#AAA; }
+        .sma-item:hover { background:#fff; border-color:#D44A2A; transform:translateX(3px); }
+        .sma-item-img   { width:50px; height:50px; border-radius:12px; object-fit:cover; flex-shrink:0; background:#F2F2F7; }
+        .sma-item-name  { font-size:14px; font-weight:700; color:#1C1C1E; margin-bottom:4px; letter-spacing:-0.1px; }
+        .sma-item-meta  { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .sma-item-price { font-size:14px; font-weight:800; color:#D44A2A; }
+        .sma-item-chip  { font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; }
+        .sma-chip-pop   { background:#FFF0EB; color:#C04A28; }
+        .sma-chip-ar    { background:#E8F5EE; color:#1A6A38; }
+        .sma-actions { display:flex; gap:9px; margin-top:22px; }
+        .sma-btn-dark  { flex:1; padding:14px; border-radius:12px; border:none; background:#1C1C1E; color:#fff; font-family:'Inter',sans-serif; font-weight:700; font-size:14px; cursor:pointer; letter-spacing:-0.1px; }
+        .sma-btn-light { flex:1; padding:14px; border-radius:12px; border:1px solid rgba(0,0,0,0.12); background:transparent; color:#3A3A3C; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer; }
+        .sma-btn-light:hover { background:#F2F2F7; }
+        .sma-no-match { text-align:center; padding:36px 20px; color:#AEAEB2; font-size:14px; }
       `}</style>
 
-      {/* ── HEADER ── */}
+      {/* ─── HEADER ─── */}
       <header className="hdr">
         <div className="hdr-inner">
           <div className="hdr-top">
-            <div className="logo">🍽️</div>
+            <div className="r-logo">🍽️</div>
             <div>
-              <div className="rname">{restaurant.name}</div>
-              <div className="rsub">Tap a dish · View in AR on your table</div>
+              <div className="r-name">{restaurant.name}</div>
+              <div className="r-sub">Tap a dish · View it in AR on your table</div>
             </div>
             {arCount > 0 && (
-              <div className="ar-live-badge"><span className="ar-dot"/>AR Live</div>
+              <div className="ar-badge"><span className="ar-dot"/>AR Live</div>
             )}
           </div>
-          <div className="cats-wrap">
-            {cats.map(c => (
-              <button key={c} className={`cat-pill${activeCat===c?' on':''}`} onClick={()=>setActiveCat(c)}>
-                <span className="cat-icon">{catIcon(c)}</span>
-                {c}
-              </button>
-            ))}
+          {/* Category tabs */}
+          <div className="cats-outer">
+            <div className="cats-scroll">
+              {cats.map(c => (
+                <button key={c} className={`cat-pill${activeCat===c?' on':''}`} onClick={()=>setActiveCat(c)}>
+                  <span className="cat-emoji">{catIcon(c)}</span>
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="main">
 
-        {/* Offer banner */}
+        {/* Offer */}
         {offers?.[0] && (
           <div className="offer-bar">
-            <span className="offer-bar-icon">🎉</span>
+            <span style={{fontSize:20}}>🎉</span>
             <div>
               <div className="offer-bar-title">{offers[0].title}</div>
               {offers[0].description && <div className="offer-bar-desc">{offers[0].description}</div>}
@@ -578,15 +613,15 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           </div>
         )}
 
-        {/* AR strip — properly visible now */}
+        {/* AR strip */}
         {arCount > 0 && (
           <div className="ar-strip">
             <span className="ar-strip-icon">🥽</span>
             <div>
-              <div className="ar-strip-main">{arCount} dish{arCount!==1?'es':''} available in AR</div>
-              <div className="ar-strip-sub">No app needed · Tap a card, then "View in AR"</div>
+              <div className="ar-strip-text">{arCount} dish{arCount!==1?'es':''} available in AR</div>
+              <div className="ar-strip-sub">No app needed · Tap a card, then View in AR</div>
             </div>
-            <div className="ar-strip-badge">NEW</div>
+            <div className="ar-strip-chip">TRY IT</div>
           </div>
         )}
 
@@ -594,23 +629,26 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         {filtered.length === 0 ? (
           <div className="empty">
             <div style={{fontSize:44,marginBottom:10}}>🥢</div>
-            <p style={{fontWeight:600,fontSize:14}}>No items in this category</p>
+            <p style={{fontWeight:600,fontSize:14,color:'#8E8E93'}}>No items in this category</p>
           </div>
         ) : (
           <div className="grid">
             {filtered.map((item, idx) => (
               <button key={item.id} className="card" style={{animationDelay:`${idx*0.05}s`}} onClick={()=>openItem(item)}>
                 <div className="c-img">
-                  <img src={imgSrc(item)} alt={item.name} loading="lazy" onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
+                  <img src={imgSrc(item)} alt={item.name} loading="lazy"
+                    onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
                   {item.modelURL && (
-                    <span className="c-ar-badge">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    <span className="c-ar-pill">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                      </svg>
                       AR
                     </span>
                   )}
                   {typeof item.isVeg === 'boolean' && <span className={`veg-ind ${item.isVeg?'v':'nv'}`}/>}
                   {item.offerBadge && item.offerLabel && (
-                    <div className="c-ribbon" style={{background:item.offerColor||'#C84B2A'}}>🏷 {item.offerLabel}</div>
+                    <div className="c-ribbon" style={{background:item.offerColor||'#D44A2A'}}>🏷 {item.offerLabel}</div>
                   )}
                 </div>
                 <div className="c-body">
@@ -622,20 +660,24 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   )}
                   <div className="c-name">{item.name}</div>
                   <div className="c-price-row">
-                    {item.price && <span className="c-price">₹{item.price}</span>}
+                    {item.price    && <span className="c-price">₹{item.price}</span>}
                     {item.calories && <span className="c-cal">{item.calories} kcal</span>}
                   </div>
                   {(item.spiceLevel && item.spiceLevel!=='None' || item.prepTime) && (
                     <div className="c-meta">
-                      {item.spiceLevel && item.spiceLevel!=='None' && (
-                        <span className="c-spice">{SPICE_DOT[item.spiceLevel]} {SPICE_LABEL[item.spiceLevel]}</span>
+                      {item.spiceLevel && item.spiceLevel!=='None' && SPICE_MAP[item.spiceLevel] && (
+                        <span className="c-spice-chip" style={{background:SPICE_MAP[item.spiceLevel].bg,color:SPICE_MAP[item.spiceLevel].color}}>
+                          {SPICE_MAP[item.spiceLevel].dot} {SPICE_MAP[item.spiceLevel].label}
+                        </span>
                       )}
                       {item.prepTime && <span className="c-prep">⏱ {item.prepTime}</span>}
                     </div>
                   )}
                   {item.modelURL && (
                     <div className="c-ar-cta">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                      </svg>
                       View in AR
                     </div>
                   )}
@@ -646,15 +688,17 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         )}
       </main>
 
-      {/* ── FAB ── */}
+      {/* ─── FAB — properly centered with wrapper ─── */}
       {!selectedItem && !smaOpen && (
-        <button className="sma-fab" onClick={openSMA}>
-          <span className="sma-fab-icon">✨</span>
-          Help Me Choose
-        </button>
+        <div className="fab-wrap">
+          <button className="sma-fab" onClick={openSMA}>
+            <span className="sma-fab-icon">✨</span>
+            Help Me Choose
+          </button>
+        </div>
       )}
 
-      {/* ── ITEM MODAL ── */}
+      {/* ─── ITEM MODAL ─── */}
       {selectedItem && (
         <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)closeItem();}}>
           <div className="sheet">
@@ -662,11 +706,12 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
             <button className="close-btn" onClick={closeItem}>✕</button>
             {!showAR && (
               <div className="m-hero">
-                {imgSrc(selectedItem) ? (
-                  <img src={imgSrc(selectedItem)} alt={selectedItem.name} onError={()=>setImgErr(e=>({...e,[selectedItem.id]:true}))}/>
-                ) : <div className="m-hero-ph">🍽️</div>}
+                <img src={imgSrc(selectedItem)} alt={selectedItem.name}
+                  onError={()=>setImgErr(e=>({...e,[selectedItem.id]:true}))}/>
                 {selectedItem.offerBadge && selectedItem.offerLabel && (
-                  <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'8px 16px',background:selectedItem.offerColor||'#C84B2A',color:'#fff',fontSize:12,fontWeight:800,textAlign:'center',letterSpacing:'0.03em'}}>🏷 {selectedItem.offerLabel}</div>
+                  <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'7px 14px',background:selectedItem.offerColor||'#D44A2A',color:'#fff',fontSize:12,fontWeight:700,textAlign:'center'}}>
+                    🏷 {selectedItem.offerLabel}
+                  </div>
                 )}
               </div>
             )}
@@ -679,15 +724,19 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
               </div>
               {(selectedItem.prepTime || (selectedItem.spiceLevel&&selectedItem.spiceLevel!=='None')) && (
                 <div className="m-pills">
-                  {selectedItem.prepTime && <span className="m-pill">⏱ Ready in {selectedItem.prepTime}</span>}
-                  {selectedItem.spiceLevel&&selectedItem.spiceLevel!=='None' && <span className="m-pill">{SPICE_DOT[selectedItem.spiceLevel]} {selectedItem.spiceLevel}</span>}
+                  {selectedItem.prepTime && <span className="m-pill">⏱ {selectedItem.prepTime}</span>}
+                  {selectedItem.spiceLevel&&selectedItem.spiceLevel!=='None'&&SPICE_MAP[selectedItem.spiceLevel] && (
+                    <span className="m-pill" style={{background:SPICE_MAP[selectedItem.spiceLevel].bg,color:SPICE_MAP[selectedItem.spiceLevel].color}}>
+                      {SPICE_MAP[selectedItem.spiceLevel].dot} {selectedItem.spiceLevel}
+                    </span>
+                  )}
                 </div>
               )}
               {selectedItem.price && <><div className="m-price">₹{selectedItem.price}</div><div className="m-price-sub">per serving</div></>}
               {selectedItem.description && <p className="m-desc">{selectedItem.description}</p>}
               {(selectedItem.calories||selectedItem.protein||selectedItem.carbs||selectedItem.fats) && (<>
                 <div className="divider"/>
-                <div className="sec-lbl">Nutrition per serving</div>
+                <div className="sec-lbl">Nutrition</div>
                 <div className="nutr">
                   {[{l:'Calories',v:selectedItem.calories,u:'kcal'},{l:'Protein',v:selectedItem.protein,u:'g'},{l:'Carbs',v:selectedItem.carbs,u:'g'},{l:'Fats',v:selectedItem.fats,u:'g'}]
                     .filter(n=>n.v).map(n=>(<div key={n.l} className="nc"><div className="nc-v">{n.v}</div><div className="nc-u">{n.u}</div><div className="nc-l">{n.l}</div></div>))}
@@ -700,10 +749,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
               {!showAR && selectedItem.modelURL && (<>
                 <div className="divider"/>
                 <button className="ar-btn" onClick={()=>{setShowAR(true);handleARLaunch();}}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                  <span>View in AR —<span className="ar-btn-accent"> Point at Your Table</span></span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  View in AR — <span className="ar-btn-sub">Point at Your Table</span>
                 </button>
-                <div className="ar-hint">No app needed · Android Chrome &amp; iOS Safari</div>
+                <div className="ar-hint">No app needed · Works on Android Chrome &amp; iOS Safari</div>
               </>)}
               {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch}/>}
             </div>
@@ -711,7 +760,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         </div>
       )}
 
-      {/* ── SMART MENU ASSISTANT ── */}
+      {/* ─── SMART MENU ASSISTANT ─── */}
       {smaOpen && (
         <div className="sma-overlay" onClick={e=>{if(e.target===e.currentTarget)closeSMA();}}>
           <div className="sma-sheet">
@@ -720,7 +769,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
             {smaStep < QUESTIONS.length && (<>
               <div className="sma-prog-wrap">
                 <div className="sma-prog-row">
-                  <span className="sma-prog-txt">Question {smaStep+1} of {QUESTIONS.length}</span>
+                  <span className="sma-prog-txt">{smaStep+1} / {QUESTIONS.length}</span>
                   {smaStep>0 && <button className="sma-back" onClick={()=>setSmaStep(s=>s-1)}>← Back</button>}
                 </div>
                 <div className="sma-prog-bar">
@@ -733,13 +782,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                 <div className="sma-q-sub">{QUESTIONS[smaStep].sub}</div>
                 <div className="sma-opts">
                   {QUESTIONS[smaStep].opts.map(o=>(
-                    <button key={o.value} className="sma-opt" onClick={()=>pickAnswer(QUESTIONS[smaStep].id, o.value)}>
-                      <span className="sma-opt-emoji">{o.emoji}</span>
-                      <span className="sma-opt-label">{o.label}</span>
+                    <button key={o.v} className="sma-opt" onClick={()=>pickAnswer(QUESTIONS[smaStep].id, o.v)}>
+                      <span className="sma-opt-emoji">{o.e}</span>
+                      <span className="sma-opt-label">{o.l}</span>
                     </button>
                   ))}
                 </div>
-                <div className="sma-close-txt"><button className="sma-dismiss" onClick={closeSMA}>Dismiss</button></div>
+                <button className="sma-dismiss" onClick={closeSMA}>Dismiss</button>
               </div>
             </>)}
 
@@ -752,12 +801,12 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   <div className="sma-res-hdr">
                     <div className="sma-res-emoji">🎯</div>
                     <div className="sma-res-title">{top.length>0?`${top.length} dishes for you`:'No matches'}</div>
-                    <div className="sma-res-sub">{top.length>0?'Based on your preferences — tap any dish':'Try again with different preferences'}</div>
+                    <div className="sma-res-sub">{top.length>0?'Based on your preferences — tap to see details':'Try again with different preferences'}</div>
                   </div>
                   {top.length===0 ? (
                     <div className="sma-no-match">
                       <p>No dishes matched all your filters.</p>
-                      <button className="sma-btn-dark" style={{marginTop:16,width:'100%'}} onClick={restartSMA}>Try Again</button>
+                      <button className="sma-btn-dark" style={{marginTop:14,width:'100%'}} onClick={restartSMA}>Try Again</button>
                     </div>
                   ) : (<>
                     {Object.entries(groups).map(([cat,items])=>(
@@ -765,24 +814,25 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                         <div className="sma-cat-lbl">{cat}</div>
                         {items.map(item=>(
                           <button key={item.id} className="sma-item" onClick={()=>{closeSMA();openItem(item);}}>
-                            <img className="sma-item-img" src={imgSrc(item)} alt={item.name} onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
+                            <img className="sma-item-img" src={imgSrc(item)} alt={item.name}
+                              onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
                             <div style={{flex:1,minWidth:0}}>
                               <div className="sma-item-name">{item.name}</div>
                               <div className="sma-item-meta">
-                                {item.price && <span className="sma-item-price">₹{item.price}</span>}
-                                {item.isPopular && <span className="sma-item-tag sma-item-tag-pop">✦ Popular</span>}
-                                {item.modelURL  && <span className="sma-item-tag sma-item-tag-ar">🥽 AR</span>}
-                                {item.prepTime  && <span style={{fontSize:11,color:'#AAA'}}>⏱ {item.prepTime}</span>}
+                                {item.price    && <span className="sma-item-price">₹{item.price}</span>}
+                                {item.isPopular && <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
+                                {item.modelURL  && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
+                                {item.prepTime  && <span style={{fontSize:11,color:'#AEAEB2'}}>⏱ {item.prepTime}</span>}
                               </div>
                             </div>
-                            <span style={{fontSize:16,color:'#CCC',flexShrink:0}}>›</span>
+                            <span style={{fontSize:16,color:'#D1D1D6',flexShrink:0}}>›</span>
                           </button>
                         ))}
                       </div>
                     ))}
                     <div className="sma-actions">
                       <button className="sma-btn-light" onClick={restartSMA}>↺ Redo</button>
-                      <button className="sma-btn-dark" onClick={closeSMA}>Browse Menu →</button>
+                      <button className="sma-btn-dark"  onClick={closeSMA}>Browse Menu →</button>
                     </div>
                   </>)}
                 </div>
