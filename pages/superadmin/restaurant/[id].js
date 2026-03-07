@@ -264,8 +264,8 @@ export default function RestaurantDetail() {
           .inp::placeholder{color:rgba(255,255,255,0.18)}
           .tab-btn{padding:10px 20px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;color:rgba(255,255,255,0.38);border-bottom:2.5px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
           .tab-btn.on{color:#B8962E;border-bottom-color:#B8962E;}
-          .tab-btn:hover{color:#1E1B18;}
-          .row:hover{background:#F7F5F2!important}
+          .tab-btn:hover{color:rgba(255,255,255,0.75);background:rgba(255,255,255,0.04);border-radius:6px 6px 0 0;}
+          .row:hover{background:rgba(255,255,255,0.06)!important}
         `}</style>
 
         {/* ── Page header ── */}

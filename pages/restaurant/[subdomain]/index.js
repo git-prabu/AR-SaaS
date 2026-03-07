@@ -258,16 +258,20 @@ export default function RestaurantMenu({restaurant,menuItems,offers,error}){
 
       /* ── GRAIN TEXTURE via SVG filter ── */
       body{
-        background:#08090C;
+        background:#09090E;
         min-height:100vh;overflow-x:hidden;
         font-family:'Bricolage Grotesque',-apple-system,sans-serif;
         -webkit-font-smoothing:antialiased;
         color:rgba(255,255,255,0.85);
       }
+      /* Ambient restaurant glow — candlelit warmth from below */
       body::before{
         content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-        background-repeat:repeat;opacity:1;
+        background:
+          radial-gradient(ellipse 80% 50% at 50% 110%, rgba(184,150,46,0.09) 0%, transparent 70%),
+          radial-gradient(ellipse 60% 40% at 20% 80%, rgba(196,80,40,0.05) 0%, transparent 60%),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+        background-repeat:repeat;
       }
 
       /* ── KEYFRAMES ── */
@@ -541,17 +545,25 @@ export default function RestaurantMenu({restaurant,menuItems,offers,error}){
         border-left:1px solid rgba(255,255,255,0.04);
         border-right:1px solid rgba(255,255,255,0.04);
       }
-      .sheet-handle{display:flex;justify-content:center;padding:14px 0 0;}
-      .sheet-handle-bar{width:32px;height:3px;border-radius:2px;background:rgba(255,255,255,0.1);}
-      .sheet-close{
-        position:absolute;top:14px;right:16px;
-        width:30px;height:30px;border-radius:50%;
-        background:rgba(255,255,255,0.06);border:none;
-        color:rgba(255,255,255,0.4);font-size:12px;cursor:pointer;
-        display:flex;align-items:center;justify-content:center;
-        transition:background 0.15s;font-family:sans-serif;
+      /* Sticky top bar — handle + close always visible */
+      .sheet-topbar{
+        position:sticky;top:0;z-index:5;
+        display:flex;align-items:center;justify-content:space-between;
+        padding:14px 14px 0;
+        background:linear-gradient(to bottom,#0D0E12 60%,transparent);
+        pointer-events:none;
       }
-      .sheet-close:hover{background:rgba(255,255,255,0.1);}
+      .sheet-handle-bar{width:32px;height:3px;border-radius:2px;background:rgba(255,255,255,0.1);margin:0 auto;}
+      .sheet-close{
+        pointer-events:all;
+        width:32px;height:32px;border-radius:50%;
+        background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);
+        color:rgba(255,255,255,0.7);font-size:13px;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;
+        transition:all 0.15s;font-family:sans-serif;
+        box-shadow:0 2px 8px rgba(0,0,0,0.4);
+      }
+      .sheet-close:hover{background:rgba(255,255,255,0.18);color:#fff;border-color:rgba(255,255,255,0.3);}
 
       .m-img{margin:12px 14px 0;border-radius:10px;overflow:hidden;aspect-ratio:16/9;position:relative;background:#0A0B0F;}
       .m-img img{width:100%;height:100%;object-fit:cover;display:block;filter:brightness(0.9) saturate(0.9);}
@@ -585,17 +597,26 @@ export default function RestaurantMenu({restaurant,menuItems,offers,error}){
       .ing{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.04em;
         color:rgba(255,255,255,0.3);padding:5px 11px;border:1px solid rgba(255,255,255,0.07);border-radius:4px;}
 
-      /* AR button — Genesis minimal pill */
+      /* AR button — gold gradient, prominent CTA */
       .ar-btn{
-        width:100%;padding:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);
-        background:rgba(255,255,255,0.04);
-        color:rgba(255,255,255,0.75);
-        font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:14px;
+        width:100%;padding:17px;border-radius:10px;border:none;
+        background:linear-gradient(135deg,#C4A030,#B8962E,#9E7D22);
+        color:#0A0800;
+        font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;
         cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
         letter-spacing:-0.01em;
-        transition:background 0.2s,border-color 0.2s;
+        box-shadow:0 4px 20px rgba(184,150,46,0.35),0 2px 6px rgba(0,0,0,0.3);
+        transition:all 0.2s cubic-bezier(0.16,1,0.3,1);
+        position:relative;overflow:hidden;
       }
-      .ar-btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.22);}
+      .ar-btn::before{
+        content:'';position:absolute;inset:0;
+        background:linear-gradient(135deg,rgba(255,255,255,0.15),transparent);
+        opacity:0;transition:opacity 0.2s;
+      }
+      .ar-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(184,150,46,0.5),0 2px 8px rgba(0,0,0,0.4);}
+      .ar-btn:hover::before{opacity:1;}
+      .ar-btn:active{transform:scale(0.98);}
       .ar-hint{text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.18);margin-top:8px;letter-spacing:0.06em;}
 
       /* ═══════════════════════════════
@@ -851,8 +872,12 @@ export default function RestaurantMenu({restaurant,menuItems,offers,error}){
     {selectedItem&&(
       <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)closeItem();}}>
         <div className="sheet">
-          <div className="sheet-handle"><div className="sheet-handle-bar"/></div>
-          <button className="sheet-close" onClick={closeItem}>✕</button>
+          {/* Sticky top bar — always visible, never scrolls away */}
+          <div className="sheet-topbar">
+            <div style={{width:32}}/>
+            <div className="sheet-handle-bar"/>
+            <button className="sheet-close" onClick={closeItem}>✕</button>
+          </div>
           {!showAR&&(
             <div className="m-img">
               <img src={imgSrc(selectedItem)} alt={selectedItem.name} onError={()=>setImgErr(e=>({...e,[selectedItem.id]:true}))}/>

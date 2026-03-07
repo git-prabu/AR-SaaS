@@ -5,7 +5,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById, getMenuItems, getRequests, getAnalytics } from '../../lib/db';
 import Link from 'next/link';
 
-const G = { bg:'#08090C', card:'#0D0E12', border:'rgba(255,255,255,0.07)', gold:'#B8962E', text:'rgba(255,255,255,0.82)', textDim:'rgba(255,255,255,0.32)' };
+const G = { bg:'var(--ar-bg,#08090C)', card:'var(--ar-card,rgba(255,255,255,0.03))', border:'var(--ar-border,rgba(255,255,255,0.07))', gold:'#B8962E', text:'var(--ar-text,rgba(255,255,255,0.82))', textDim:'var(--ar-text-dim,rgba(255,255,255,0.32))' };
 
 export default function AdminDashboard() {
   const { userData } = useAuth();
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
         {/* Header */}
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:32,flexWrap:'wrap',gap:12}}>
           <div>
-            <h1 style={{fontWeight:800,fontSize:22,color:'rgba(255,255,255,0.88)',margin:0,letterSpacing:'-0.02em'}}>
+            <h1 style={{fontWeight:800,fontSize:22,color:'var(--ar-text)',margin:0,letterSpacing:'-0.02em'}}>
               {restaurant?.name || 'Your Restaurant'}
             </h1>
             <p style={{fontSize:13,color:G.textDim,marginTop:5,fontFamily:`'DM Mono',monospace`}}>{restaurant?.subdomain}.advertradical.com</p>
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:12}}>
           {stats.map(s=>(
             <div key={s.label} className="gcard">
-              <div style={{fontSize:28,fontWeight:800,color:'rgba(255,255,255,0.88)',fontFamily:s.mono?`'DM Mono',monospace`:'inherit',letterSpacing:s.mono?'-0.02em':'normal'}}>{s.value}</div>
+              <div style={{fontSize:28,fontWeight:800,color:'var(--ar-text)',fontFamily:s.mono?`'DM Mono',monospace`:'inherit',letterSpacing:s.mono?'-0.02em':'normal'}}>{s.value}</div>
               <div style={{fontSize:12,color:G.textDim,marginTop:5}}>{s.label}</div>
             </div>
           ))}
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
           ].map(u=>(
             <div key={u.label} className="gcard">
               <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:12}}>
-                <span style={{fontWeight:600,color:'rgba(255,255,255,0.72)'}}>{u.label}</span>
+                <span style={{fontWeight:600,color:'var(--ar-text-mid)'}}>{u.label}</span>
                 <span style={{color:G.textDim,fontFamily:`'DM Mono',monospace`,fontSize:12}}>{typeof u.used==='number'?u.used.toFixed(2):u.used}/{u.max} {u.unit}</span>
               </div>
               <div className="prog">
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
         {requests.length > 0 && (
           <div className="gcard" style={{padding:24}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-              <h2 style={{fontWeight:700,fontSize:15,color:'rgba(255,255,255,0.88)',margin:0}}>Recent Requests</h2>
+              <h2 style={{fontWeight:700,fontSize:15,color:'var(--ar-text)',margin:0}}>Recent Requests</h2>
               <Link href="/admin/requests" style={{fontSize:12,color:G.gold,textDecoration:'none',fontWeight:600}}>View all →</Link>
             </div>
             {requests.slice(0,5).map(req=>(
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
                   {req.imageURL?<img src={req.imageURL} alt={req.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:G.textDim}}>⊞</div>}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:600,color:'rgba(255,255,255,0.8)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{req.name}</div>
+                  <div style={{fontSize:13,fontWeight:600,color:'var(--ar-text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{req.name}</div>
                   <div style={{fontSize:11,color:G.textDim,fontFamily:`'DM Mono',monospace`}}>{req.createdAt?.seconds?new Date(req.createdAt.seconds*1000).toLocaleDateString():'Just now'}</div>
                 </div>
                 <StatusBadge status={req.status}/>
