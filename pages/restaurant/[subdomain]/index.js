@@ -183,6 +183,25 @@ export default function RestaurantMenu({restaurant,menuItems,offers,error}){
   const [smaAnswers,setSmaAnswers]=useState({});
   const [smaResults,setSmaResults]=useState([]);
   const heroNameRef=useRef(null);
+  const modalPriceRef=useRef(null);
+
+  // Count-up animation for modal price when item changes
+  useEffect(()=>{
+    if(!selectedItem||!modalPriceRef.current) return;
+    const target=Number(selectedItem.price);
+    if(isNaN(target)||target===0){if(modalPriceRef.current)modalPriceRef.current.textContent=selectedItem.price||'0';return;}
+    const start=Date.now(),dur=600;
+    let raf;
+    const tick=()=>{
+      const p=Math.min((Date.now()-start)/dur,1);
+      const ease=1-Math.pow(1-p,4);
+      if(modalPriceRef.current) modalPriceRef.current.textContent=Math.round(target*ease);
+      if(p<1) raf=requestAnimationFrame(tick);
+      else if(modalPriceRef.current) modalPriceRef.current.textContent=target;
+    };
+    raf=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(raf);
+  },[selectedItem?.id]);
 
   useEffect(()=>{if(restaurant?.id)trackVisit(restaurant.id,getSessionId()).catch(()=>{});},[restaurant?.id]);
   useEffect(()=>{document.body.style.overflow=(selectedItem||smaOpen)?'hidden':'';return()=>{document.body.style.overflow='';};},[selectedItem,smaOpen]);
@@ -852,9 +871,9 @@ export default function RestaurantMenu({restaurant,menuItems,offers,error}){
               {selectedItem.isPopular&&<span className="m-tag mt-pop">Popular</span>}
               {selectedItem.spiceLevel&&selectedItem.spiceLevel!=='None'&&<span className="m-tag" style={{color:SPICE_MAP[selectedItem.spiceLevel]?.color,borderColor:'currentColor',opacity:0.7}}>{selectedItem.spiceLevel}</span>}
             </div>
-            {selectedItem.price&&(
+            {(selectedItem.price!=null&&selectedItem.price!=='')&&(
               <div className="m-price-block">
-                <div className="m-price-num">₹{selectedItem.price}</div>
+                <div className="m-price-num">₹<span ref={modalPriceRef}>{Number(selectedItem.price)||0}</span></div>
                 {selectedItem.prepTime&&<div className="m-price-label">{selectedItem.prepTime}</div>}
               </div>
             )}

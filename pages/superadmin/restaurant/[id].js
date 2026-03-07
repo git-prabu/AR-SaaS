@@ -442,7 +442,7 @@ export default function RestaurantDetail() {
                     ['Status',    restaurant.isActive ? 'Active' : 'Inactive'],
                     ['Payment',   restaurant.paymentStatus || 'inactive'],
                   ].map(([k,v]) => (
-                    <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid rgba(42,31,16,0.05)' }}>
+                    <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                       <span style={{ fontSize:12, color:'rgba(255,255,255,0.38)' }}>{k}</span>
                       <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.88)', textTransform:'capitalize' }}>{v}</span>
                     </div>
@@ -457,9 +457,9 @@ export default function RestaurantDetail() {
                     ['Sub End',       restaurant.subscriptionEnd || '—'],
                     ['Days Left',     daysLeft !== null ? (isExpired ? 'Expired' : `${daysLeft} days`) : '—'],
                   ].map(([k,v]) => (
-                    <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid rgba(42,31,16,0.05)' }}>
+                    <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
                       <span style={{ fontSize:12, color:'rgba(255,255,255,0.38)' }}>{k}</span>
-                      <span style={{ fontSize:12, fontWeight:600, color: k==='Days Left'&&isExpired?'#C04A28':'#1E1B18' }}>{v}</span>
+                      <span style={{ fontSize:12, fontWeight:600, color: k==='Days Left'&&isExpired?'#C04A28':'rgba(255,255,255,0.82)' }}>{v}</span>
                     </div>
                   ))}
                 </div>
@@ -498,7 +498,7 @@ export default function RestaurantDetail() {
                   const isItemEdit = itemEdit?.id === item.id;
                   return (
                     <div key={item.id}>
-                      <div className="row" style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 100px 80px 120px', padding:'12px 18px', borderBottom:'1px solid rgba(42,31,16,0.05)', alignItems:'center', background:'rgba(255,255,255,0.03)', opacity:item.isActive?1:0.5, transition:'background 0.12s' }}>
+                      <div className="row" style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 100px 80px 120px', padding:'12px 18px', borderBottom:'1px solid rgba(255,255,255,0.05)', alignItems:'center', background:'rgba(255,255,255,0.03)', opacity:item.isActive?1:0.5, transition:'background 0.12s' }}>
                         <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#08090C' }}>
                           {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>🍽️</div>}
                         </div>
@@ -510,7 +510,7 @@ export default function RestaurantDetail() {
                             {item.offerBadge && item.offerLabel && <span style={{ fontSize:9, fontWeight:800, color:'#fff', background:item.offerColor||'#B8962E', borderRadius:20, padding:'2px 6px' }}>🏷 {item.offerLabel}</span>}
                           </div>
                           {item.price && <div style={{ fontSize:11, color:'#C04A28', fontWeight:700, marginTop:2 }}>₹{item.price}</div>}
-                          <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:2 }}>👁 {(item.views||0)+(item.arViews||0)} · AR {item.arViews||0}</div>
+                          <div style={{ fontSize:11, color:'rgba(255,255,255,0.32)', marginTop:2 }}>👁 {(item.views||0)+(item.arViews||0)} · AR {item.arViews||0}</div>
                         </div>
                         <div style={{ fontSize:12, color:'rgba(255,255,255,0.42)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.category||'—'}</div>
                         <div style={{ fontSize:11, color:'rgba(255,255,255,0.38)' }}>{item.prepTime||'—'}</div>
@@ -626,7 +626,7 @@ export default function RestaurantDetail() {
                           {/* Flags */}
                           <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
                             {[['isPopular','✦ Popular'],['isFeatured','⭐ Featured'],['isActive','👁 Visible']].map(([k,lbl])=>(
-                              <div key={k} onClick={()=>setItemData(d=>({...d,[k]:!d[k]}))} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', borderRadius:10, border:`1.5px solid ${itemData[k]?'rgba(224,90,58,0.3)':'rgba(255,255,255,0.09)'}`, background:itemData[k]?'rgba(224,90,58,0.05)':'#fff', cursor:'pointer', fontSize:12, fontWeight:600, color:itemData[k]?'#B8962E':'rgba(255,255,255,0.42)', transition:'all 0.15s' }}>
+                              <div key={k} onClick={()=>setItemData(d=>({...d,[k]:!d[k]}))} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', borderRadius:10, border:`1.5px solid ${itemData[k]?'rgba(224,90,58,0.3)':'rgba(255,255,255,0.09)'}`, background:itemData[k]?'rgba(224,90,58,0.05)':'rgba(255,255,255,0.04)', cursor:'pointer', fontSize:12, fontWeight:600, color:itemData[k]?'#B8962E':'rgba(255,255,255,0.42)', transition:'all 0.15s' }}>
                                 <div style={{ width:28,height:16,borderRadius:99,background:itemData[k]?'#B8962E':'rgba(255,255,255,0.1)',position:'relative',transition:'background 0.2s' }}>
                                   <div style={{ width:10,height:10,borderRadius:'50%',background:'rgba(255,255,255,0.03)',position:'absolute',top:3,left:itemData[k]?15:3,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
                                 </div>
@@ -680,7 +680,7 @@ export default function RestaurantDetail() {
                           <stop offset="95%" stopColor="#B8962E" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)"/>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
                       <XAxis dataKey="date" tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
                       <YAxis tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
                       <Tooltip contentStyle={S.tip}/>
@@ -730,7 +730,7 @@ export default function RestaurantDetail() {
           {tab === 'requests' && (<>
             <div style={{ display:'flex', gap:6, marginBottom:20 }}>
               {['all','pending','approved','rejected'].map(s => (
-                <button key={s} onClick={()=>setReqFilter(s)} style={{ padding:'8px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textTransform:'capitalize', background:reqFilter===s?'#1E1B18':'#fff', color:reqFilter===s?'#FFF5E8':'rgba(255,255,255,0.42)', boxShadow:reqFilter===s?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(255,255,255,0.06)', transition:'all 0.15s' }}>
+                <button key={s} onClick={()=>setReqFilter(s)} style={{ padding:'8px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textTransform:'capitalize', background:reqFilter===s?'rgba(184,150,46,0.15)':'rgba(255,255,255,0.04)', color:reqFilter===s?'#B8962E':'rgba(255,255,255,0.42)', boxShadow:reqFilter===s?'0 2px 8px rgba(0,0,0,0.3)':'none', transition:'all 0.15s' }}>
                   {s}
                 </button>
               ))}

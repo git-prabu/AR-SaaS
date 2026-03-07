@@ -104,7 +104,7 @@ export default function AdminDashboard() {
             <div key={u.label} className="gcard">
               <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:12}}>
                 <span style={{fontWeight:600,color:'rgba(255,255,255,0.72)'}}>{u.label}</span>
-                <span style={{color:G.textDim,fontFamily:`'DM Mono',monospace`,fontSize:12}}>{u.used}/{u.max} {u.unit}</span>
+                <span style={{color:G.textDim,fontFamily:`'DM Mono',monospace`,fontSize:12}}>{typeof u.used==='number'?u.used.toFixed(2):u.used}/{u.max} {u.unit}</span>
               </div>
               <div className="prog">
                 <div className="pfill" style={{width:`${u.pct}%`,background:u.pct>80?'#DC4040':`linear-gradient(90deg,${G.gold},#D4B048)`}}/>
