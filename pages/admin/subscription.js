@@ -11,11 +11,7 @@ const PLANS = [
   { id:'premium', name:'Premium', price:4999, items:100, storage:5120, period:'6 months' },
 ];
 
-const S = {
-  card: { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
-  h1:   { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
-  sub:  { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
-};
+const G = { card:'rgba(255,255,255,0.03)', border:'rgba(255,255,255,0.07)', gold:'#B8962E', text:'rgba(255,255,255,0.82)', textDim:'rgba(255,255,255,0.32)' };
 
 export default function AdminSubscription() {
   const { userData } = useAuth();
@@ -24,16 +20,13 @@ export default function AdminSubscription() {
   const [paying, setPaying] = useState(null);
   const rid = userData?.restaurantId;
 
-  useEffect(() => {
-    if (!rid) return;
-    getRestaurantById(rid).then(r => { setRestaurant(r); setLoading(false); });
-  }, [rid]);
+  useEffect(() => { if (!rid) return; getRestaurantById(rid).then(r=>{setRestaurant(r);setLoading(false);}); }, [rid]);
 
   const handleUpgrade = async (plan) => {
     if (!window.Razorpay) { toast.error('Payment system not loaded. Please refresh.'); return; }
     setPaying(plan.id);
     try {
-      const res  = await fetch('/api/payments/create-order', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ planId:plan.id, restaurantId:rid }) });
+      const res  = await fetch('/api/payments/create-order', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({planId:plan.id,restaurantId:rid})});
       const data = await res.json();
       if (!data.orderId) throw new Error('Could not create order');
       const options = {
@@ -44,12 +37,12 @@ export default function AdminSubscription() {
         description: `${plan.name} Plan — 6 months`,
         order_id: data.orderId,
         handler: async (response) => {
-          await fetch('/api/payments/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...response, planId:plan.id, restaurantId:rid }) });
-          toast.success(`Successfully upgraded to ${plan.name} plan!`);
+          await fetch('/api/payments/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...response,planId:plan.id,restaurantId:rid})});
+          toast.success(`Upgraded to ${plan.name} plan!`);
           setRestaurant(await getRestaurantById(rid));
         },
         prefill:  { email: userData?.email || '' },
-        theme:    { color: '#E05A3A' },
+        theme:    { color: '#B8962E' },
       };
       new window.Razorpay(options).open();
     } catch { toast.error('Payment failed. Try again.'); }
@@ -61,122 +54,103 @@ export default function AdminSubscription() {
   const subStart    = restaurant?.subscriptionStart;
   const isExpired   = subEnd && new Date(subEnd) < new Date();
   const isActive    = restaurant?.paymentStatus === 'active';
-
-  // Days remaining calculation
   const daysRemaining = subEnd ? Math.max(0, Math.ceil((new Date(subEnd) - new Date()) / (1000*60*60*24))) : null;
   const totalDays = (subStart && subEnd) ? Math.ceil((new Date(subEnd) - new Date(subStart)) / (1000*60*60*24)) : 180;
   const usedDays  = totalDays - (daysRemaining || 0);
   const timePct   = Math.min(100, Math.round((usedDays / totalDays) * 100));
-  const timeColor = daysRemaining === null ? '#8FC4A8' : daysRemaining <= 14 ? '#E05A3A' : daysRemaining <= 30 ? '#F4D070' : '#8FC4A8';
+  const timeColor = daysRemaining === null ? G.gold : daysRemaining <= 14 ? '#E05555' : daysRemaining <= 30 ? '#C8A030' : G.gold;
 
   return (
     <AdminLayout>
       <Head>
         <title>Subscription — Advert Radical</title>
-        <script src="https://checkout.razorpay.com/v1/checkout.js" />
+        <script src="https://checkout.razorpay.com/v1/checkout.js"/>
       </Head>
-      <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
-        <div style={{ maxWidth:880, margin:'0 auto' }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <div style={{ marginBottom:28 }}>
-            <h1 style={S.h1}>Subscription</h1>
-            <p style={S.sub}>Manage your plan and billing</p>
+      <div style={{minHeight:'100vh',padding:'32px 36px',fontFamily:`'Bricolage Grotesque',Inter,sans-serif`}}>
+        <div style={{maxWidth:880,margin:'0 auto'}}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box}`}</style>
+          <div style={{marginBottom:28}}>
+            <h1 style={{fontWeight:800,fontSize:22,color:'rgba(255,255,255,0.88)',margin:0,letterSpacing:'-0.02em'}}>Subscription</h1>
+            <p style={{fontSize:13,color:G.textDim,marginTop:4}}>Manage your plan and billing</p>
           </div>
 
           {loading ? (
-            <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-              <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+            <div style={{display:'flex',justifyContent:'center',paddingTop:60}}>
+              <div style={{width:32,height:32,border:`2px solid ${G.gold}`,borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
             </div>
           ) : (<>
             {/* Current plan */}
-            <div style={{ ...S.card, padding:28, marginBottom:28, borderLeft:`4px solid ${isExpired?'#F4A0B0':timeColor}` }}>
-              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
+            <div style={{background:G.card,border:`1px solid ${G.border}`,borderLeft:`3px solid ${isExpired?'#E05555':timeColor}`,borderRadius:12,padding:28,marginBottom:24}}>
+              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:20}}>
                 <div>
-                  <div style={{ fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.4)', letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:6 }}>Current Plan</div>
-                  <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:26, color:'#1E1B18' }}>{currentPlan.name}</div>
-                  {subEnd && (
-                    <div style={{ fontSize:13, marginTop:4, color: isExpired?'#C04A28':'rgba(42,31,16,0.5)' }}>
-                      {isExpired ? '⚠️ Expired on ' : 'Renews on '}{subEnd}
-                    </div>
-                  )}
+                  <div style={{fontSize:11,fontWeight:600,color:G.textDim,letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:6,fontFamily:`'DM Mono',monospace`}}>Current Plan</div>
+                  <div style={{fontWeight:800,fontSize:26,color:'rgba(255,255,255,0.88)',letterSpacing:'-0.02em'}}>{currentPlan.name}</div>
+                  {subEnd && <div style={{fontSize:13,marginTop:4,color:isExpired?'#E05555':G.textDim,fontFamily:`'DM Mono',monospace`}}>{isExpired?'Expired on ':'Renews on '}{subEnd}</div>}
                 </div>
-                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8 }}>
-                  <span style={{ padding:'6px 16px', borderRadius:30, fontSize:12, fontWeight:700, background:isActive?'rgba(143,196,168,0.2)':'rgba(244,160,176,0.2)', color:isActive?'#1A5A38':'#8B1A2A', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(244,160,176,0.4)'}` }}>
-                    {isActive ? '● Active' : '● Inactive'}
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+                  <span style={{padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:600,background:isActive?'rgba(60,160,80,0.1)':'rgba(220,60,60,0.1)',color:isActive?'#5DC87A':'#E05555',border:`1px solid ${isActive?'rgba(60,160,80,0.25)':'rgba(220,60,60,0.25)'}`,fontFamily:`'DM Mono',monospace`}}>
+                    {isActive?'● Active':'● Inactive'}
                   </span>
                   {daysRemaining !== null && !isExpired && (
-                    <div style={{ textAlign:'right' }}>
-                      <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:timeColor }}>{daysRemaining}</span>
-                      <span style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginLeft:4 }}>days left</span>
-                    </div>
-                  )}
-                  {isExpired && (
-                    <div style={{ padding:'6px 14px', borderRadius:10, background:'rgba(224,90,58,0.1)', border:'1px solid rgba(224,90,58,0.3)', fontSize:12, fontWeight:700, color:'#C04A28' }}>
-                      ⚠️ Plan Expired
+                    <div style={{textAlign:'right'}}>
+                      <span style={{fontWeight:800,fontSize:22,color:timeColor,fontFamily:`'DM Mono',monospace`}}>{daysRemaining}</span>
+                      <span style={{fontSize:11,color:G.textDim,marginLeft:4}}>days left</span>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Time remaining bar */}
               {subEnd && (
-                <div style={{ marginBottom:20 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-                    <span style={{ fontSize:12, color:'rgba(42,31,16,0.5)', fontWeight:500 }}>Plan Duration</span>
-                    <span style={{ fontSize:12, color:'rgba(42,31,16,0.4)' }}>
-                      {isExpired ? 'Expired' : `${daysRemaining} of ${totalDays} days remaining`}
-                    </span>
+                <div style={{marginBottom:20}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <span style={{fontSize:12,color:G.textDim}}>Plan Duration</span>
+                    <span style={{fontSize:12,color:G.textDim,fontFamily:`'DM Mono',monospace`}}>{isExpired?'Expired':`${daysRemaining} of ${totalDays} days remaining`}</span>
                   </div>
-                  <div style={{ height:8, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
-                    <div style={{ height:'100%', borderRadius:99, background:isExpired?'#F4A0B0':timeColor, width:`${timePct}%`, transition:'width 0.4s' }} />
+                  <div style={{height:4,background:'rgba(255,255,255,0.06)',borderRadius:2,overflow:'hidden'}}>
+                    <div style={{height:'100%',borderRadius:2,background:isExpired?'#E05555':timeColor,width:`${timePct}%`,transition:'width 0.4s'}}/>
                   </div>
                   {!isExpired && daysRemaining <= 30 && (
-                    <div style={{ marginTop:8, padding:'8px 14px', borderRadius:10, background: daysRemaining<=14?'rgba(224,90,58,0.08)':'rgba(244,208,112,0.15)', border:`1px solid ${daysRemaining<=14?'rgba(224,90,58,0.25)':'rgba(244,208,112,0.4)'}`, fontSize:12, color: daysRemaining<=14?'#C04A28':'#8B6020', fontWeight:600 }}>
-                      {daysRemaining <= 14 ? '⚠️ Renew soon — your plan expires in ' : '📅 Your plan expires in '}
-                      <strong>{daysRemaining} days</strong>. Upgrade below to continue uninterrupted access.
+                    <div style={{marginTop:10,padding:'9px 14px',borderRadius:8,background:daysRemaining<=14?'rgba(220,60,60,0.08)':'rgba(200,160,48,0.08)',border:`1px solid ${daysRemaining<=14?'rgba(220,60,60,0.2)':'rgba(200,160,48,0.2)'}`,fontSize:12,color:daysRemaining<=14?'#E05555':'#C8A030',fontWeight:600}}>
+                      {daysRemaining<=14?'⚠ Renew soon — expires in ':'Plan expires in '}
+                      <strong>{daysRemaining} days</strong>. Upgrade below to continue.
                     </div>
                   )}
                 </div>
               )}
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-                <UsageBar label="AR Items"  used={restaurant?.itemsUsed||0}      max={restaurant?.maxItems||currentPlan.items} />
-                <UsageBar label="Storage"   used={restaurant?.storageUsedMB||0}  max={restaurant?.maxStorageMB||currentPlan.storage} unit="MB" />
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                <UsageBar label="AR Items" used={restaurant?.itemsUsed||0}     max={restaurant?.maxItems||currentPlan.items}/>
+                <UsageBar label="Storage"  used={restaurant?.storageUsedMB||0} max={restaurant?.maxStorageMB||currentPlan.storage} unit="MB"/>
               </div>
             </div>
 
             {/* Plan cards */}
-            <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', marginBottom:16 }}>Upgrade Plan</div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+            <div style={{fontWeight:700,fontSize:14,color:G.textDim,marginBottom:14,letterSpacing:'0.06em',textTransform:'uppercase',fontFamily:`'DM Mono',monospace`}}>Upgrade Plan</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
               {PLANS.map(plan => {
                 const isCurrent = plan.id === restaurant?.plan;
                 return (
-                  <div key={plan.id} style={{ ...S.card, padding:26, position:'relative', border: plan.popular ? '2px solid rgba(224,90,58,0.35)' : '1px solid rgba(42,31,16,0.07)', background: isCurrent ? 'rgba(143,196,168,0.06)' : '#fff' }}>
+                  <div key={plan.id} style={{background:G.card,border:`1px solid ${plan.popular?'rgba(184,150,46,0.3)':G.border}`,borderRadius:12,padding:26,position:'relative',transition:'border-color 0.2s'}}>
                     {plan.popular && (
-                      <div style={{ position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', padding:'5px 16px', background:'linear-gradient(135deg,#E05A3A,#F07050)', color:'#fff', fontSize:11, fontWeight:700, borderRadius:30, whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(224,90,58,0.3)' }}>✦ Popular</div>
+                      <div style={{position:'absolute',top:-12,left:'50%',transform:'translateX(-50%)',padding:'4px 14px',background:'rgba(184,150,46,0.15)',border:'1px solid rgba(184,150,46,0.3)',color:G.gold,fontSize:10,fontWeight:700,borderRadius:20,whiteSpace:'nowrap',fontFamily:`'DM Mono',monospace`,letterSpacing:'0.06em'}}>POPULAR</div>
                     )}
                     {isCurrent && (
-                      <div style={{ position:'absolute', top:14, right:14, padding:'3px 10px', background:'rgba(143,196,168,0.2)', color:'#1A5A38', fontSize:10, fontWeight:700, borderRadius:20, border:'1px solid rgba(143,196,168,0.4)' }}>Current</div>
+                      <div style={{position:'absolute',top:14,right:14,padding:'3px 10px',background:'rgba(60,160,80,0.1)',color:'#5DC87A',fontSize:10,fontWeight:600,borderRadius:20,border:'1px solid rgba(60,160,80,0.25)',fontFamily:`'DM Mono',monospace`}}>Current</div>
                     )}
-                    <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:17, color:'#1E1B18', marginBottom:8 }}>{plan.name}</div>
-                    <div style={{ display:'flex', alignItems:'baseline', gap:4, marginBottom:20 }}>
-                      <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:28, color:'#1E1B18' }}>₹{plan.price.toLocaleString()}</span>
-                      <span style={{ fontSize:12, color:'rgba(42,31,16,0.4)' }}>/ {plan.period}</span>
+                    <div style={{fontWeight:700,fontSize:16,color:'rgba(255,255,255,0.82)',marginBottom:8}}>{plan.name}</div>
+                    <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:20}}>
+                      <span style={{fontWeight:800,fontSize:26,color:'rgba(255,255,255,0.88)',fontFamily:`'DM Mono',monospace`}}>₹{plan.price.toLocaleString()}</span>
+                      <span style={{fontSize:12,color:G.textDim}}>/ {plan.period}</span>
                     </div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:24 }}>
-                      {[`${plan.items} AR items`, `${plan.storage>=1024?plan.storage/1024+'GB':plan.storage+'MB'} storage`, 'Analytics', 'QR code & subdomain'].map(f=>(
-                        <div key={f} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'rgba(42,31,16,0.65)' }}>
-                          <span style={{ width:16, height:16, borderRadius:5, background:'rgba(224,90,58,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, color:'#E05A3A', fontWeight:700, flexShrink:0 }}>✓</span>
-                          {f}
+                    <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
+                      {[`${plan.items} AR items`,`${plan.storage>=1024?plan.storage/1024+'GB':plan.storage+'MB'} storage`,'Analytics','QR code & subdomain'].map(f=>(
+                        <div key={f} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:G.textDim}}>
+                          <span style={{color:G.gold,fontSize:10,fontWeight:700}}>✓</span>{f}
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={()=>!isCurrent&&handleUpgrade(plan)}
-                      disabled={isCurrent||paying===plan.id}
-                      style={{ width:'100%', padding:'12px', borderRadius:12, fontSize:14, fontFamily:'Poppins,sans-serif', fontWeight:700, border:'none', cursor:isCurrent?'default':'pointer', transition:'all 0.18s', background: isCurrent?'rgba(42,31,16,0.06)':plan.popular?'linear-gradient(135deg,#E05A3A,#F07050)':'#1E1B18', color: isCurrent?'rgba(42,31,16,0.4)':'#fff', opacity:paying===plan.id?0.7:1 }}
-                    >
-                      {isCurrent ? 'Current Plan' : paying===plan.id ? 'Opening…' : 'Upgrade'}
+                    <button onClick={()=>!isCurrent&&handleUpgrade(plan)} disabled={isCurrent||paying===plan.id} style={{width:'100%',padding:'11px',borderRadius:8,fontSize:13,fontFamily:'inherit',fontWeight:700,border:`1px solid ${isCurrent?'rgba(255,255,255,0.07)':plan.popular?'rgba(184,150,46,0.35)':'rgba(255,255,255,0.12)'}`,cursor:isCurrent?'default':'pointer',transition:'all 0.2s',background:isCurrent?'transparent':plan.popular?'rgba(184,150,46,0.1)':'rgba(255,255,255,0.04)',color:isCurrent?G.textDim:plan.popular?G.gold:'rgba(255,255,255,0.7)',opacity:paying===plan.id?0.6:1}}>
+                      {isCurrent?'Current Plan':paying===plan.id?'Opening…':'Upgrade →'}
                     </button>
                   </div>
                 );
@@ -192,15 +166,15 @@ AdminSubscription.getLayout = (page) => page;
 
 function UsageBar({ label, used, max, unit='' }) {
   const pct = Math.min(100, Math.round((used/max)*100));
-  const color = pct > 80 ? '#E05A3A' : pct > 60 ? '#F4D070' : '#8FC4A8';
+  const color = pct > 80 ? '#E05555' : pct > 60 ? '#C8A030' : '#B8962E';
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-        <span style={{ fontSize:12, color:'rgba(42,31,16,0.5)', fontWeight:500 }}>{label}</span>
-        <span style={{ fontSize:12, color:'rgba(42,31,16,0.4)' }}>{used}{unit} / {max}{unit}</span>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:7}}>
+        <span style={{fontSize:12,color:'rgba(255,255,255,0.5)',fontWeight:500}}>{label}</span>
+        <span style={{fontSize:12,color:'rgba(255,255,255,0.32)',fontFamily:`'DM Mono',monospace`}}>{used}{unit} / {max}{unit}</span>
       </div>
-      <div style={{ height:6, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
-        <div style={{ height:'100%', borderRadius:99, background:color, width:`${pct}%`, transition:'width 0.4s' }} />
+      <div style={{height:4,background:'rgba(255,255,255,0.06)',borderRadius:2,overflow:'hidden'}}>
+        <div style={{height:'100%',borderRadius:2,background:color,width:`${pct}%`,transition:'width 0.4s'}}/>
       </div>
     </div>
   );

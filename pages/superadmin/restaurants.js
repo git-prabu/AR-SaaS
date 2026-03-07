@@ -10,16 +10,9 @@ import { db } from '../../lib/firebase';
 import toast from 'react-hot-toast';
 
 const BLANK = { name:'', subdomain:'', email:'', password:'' };
-const PLANS = { basic:{ label:'Basic', items:10, storage:500 }, pro:{ label:'Pro', items:40, storage:2048 }, premium:{ label:'Premium', items:100, storage:5120 } };
-
-const S = {
-  card:  { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
-  h1:    { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
-  sub:   { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
-  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(42,31,16,0.09)', borderRadius:12, fontSize:14, color:'#1E1B18', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box' },
-  btn:   { padding:'11px 22px', borderRadius:12, fontSize:14, fontWeight:600, fontFamily:'Poppins,sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
-};
+const G = { card:'rgba(255,255,255,0.03)', border:'rgba(255,255,255,0.07)', gold:'#B8962E', text:'rgba(255,255,255,0.82)', textDim:'rgba(255,255,255,0.32)' };
+const inp = { width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:8, fontSize:14, color:'rgba(255,255,255,0.82)', outline:'none', boxSizing:'border-box', fontFamily:'inherit', colorScheme:'dark' };
+const lbl = { display:'block', fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.32)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:6, fontFamily:`'DM Mono',monospace` };
 
 export default function SuperAdminRestaurants() {
   const [restaurants, setRestaurants] = useState([]);
@@ -31,11 +24,11 @@ export default function SuperAdminRestaurants() {
   const [editId,   setEditId]   = useState(null);
   const [editData, setEditData] = useState({});
 
-  const load = () => { getAllRestaurants().then(r => { setRestaurants(r); setLoading(false); }); };
+  const load = () => { getAllRestaurants().then(r=>{setRestaurants(r);setLoading(false);}); };
   useEffect(() => { load(); }, []);
 
   const handleCreate = async (e) => {
-    e.preventDefault();
+    e.preventDefault?.();
     if (!form.name||!form.subdomain||!form.email||!form.password) { toast.error('All fields required'); return; }
     if (!/^[a-z0-9-]+$/.test(form.subdomain)) { toast.error('Subdomain: lowercase letters, numbers, hyphens only'); return; }
     setSaving(true);
@@ -59,123 +52,105 @@ export default function SuperAdminRestaurants() {
     r.subdomain?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const planColors = { basic:['#F4D070','#8B6020'], pro:['#8FC4A8','#1A5A38'], premium:['#C4B5D4','#4A3A6A'] };
-
   return (
     <SuperAdminLayout>
       <Head><title>Restaurants — Super Admin</title></Head>
-      <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
-        <div style={{ maxWidth:1000, margin:'0 auto' }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}} .inp:focus{border-color:rgba(224,90,58,0.5)!important} .inp::placeholder{color:rgba(42,31,16,0.3)} .row:hover{background:#F7F5F2!important}`}</style>
+      <div style={{minHeight:'100vh',padding:'32px 36px',fontFamily:`'Bricolage Grotesque',Inter,sans-serif`}}>
+        <div style={{maxWidth:1000,margin:'0 auto'}}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}} *{box-sizing:border-box} .sinp:focus{border-color:rgba(184,150,46,0.5)!important;outline:none} .sinp::placeholder{color:rgba(255,255,255,0.18)} .rrestrow:hover{background:rgba(255,255,255,0.02)!important}`}</style>
 
-          {/* Header */}
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:28,flexWrap:'wrap',gap:12}}>
             <div>
-              <h1 style={S.h1}>Restaurants</h1>
-              <p style={S.sub}>{restaurants.length} restaurants on the platform</p>
+              <h1 style={{fontWeight:800,fontSize:22,color:'rgba(255,255,255,0.88)',margin:0,letterSpacing:'-0.02em'}}>Restaurants</h1>
+              <p style={{fontSize:13,color:G.textDim,marginTop:4}}>{restaurants.length} restaurants on the platform</p>
             </div>
-            <button onClick={()=>setShowForm(!showForm)} style={{ ...S.btn, background:showForm?'#F2F0EC':'#1E1B18', color:showForm?'#1E1B18':'#FFF5E8', border:showForm?'1.5px solid rgba(42,31,16,0.12)':'none' }}>
-              {showForm ? '✕ Cancel' : '+ Add Restaurant'}
+            <button onClick={()=>setShowForm(!showForm)} style={{padding:'9px 20px',borderRadius:8,border:`1px solid ${showForm?'rgba(255,255,255,0.1)':'rgba(184,150,46,0.3)'}`,background:showForm?'rgba(255,255,255,0.04)':'rgba(184,150,46,0.1)',color:showForm?G.textDim:G.gold,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 0.2s'}}>
+              {showForm?'✕ Cancel':'+ Add Restaurant'}
             </button>
           </div>
 
-          {/* Create form */}
           {showForm && (
-            <div style={{ ...S.card, padding:28, marginBottom:24 }}>
-              <h2 style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', marginBottom:22 }}>New Restaurant</h2>
-              <form onSubmit={handleCreate}>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-                  <div><label style={S.label}>Restaurant Name *</label><input className="inp" style={S.input} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Spot Restaurant" required /></div>
-                  <div>
-                    <label style={S.label}>Subdomain *</label>
-                    <div style={{ position:'relative' }}>
-                      <input className="inp" style={{ ...S.input, paddingRight:140 }} value={form.subdomain} onChange={e=>setForm(f=>({...f,subdomain:e.target.value.toLowerCase()}))} placeholder="spot" required />
-                      <span style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', fontSize:12, color:'rgba(42,31,16,0.4)', pointerEvents:'none' }}>.advertradical.com</span>
-                    </div>
+            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:12,padding:28,marginBottom:16}}>
+              <h2 style={{fontWeight:700,fontSize:16,color:'rgba(255,255,255,0.82)',margin:'0 0 22px'}}>New Restaurant</h2>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+                <div><label style={lbl}>Restaurant Name *</label><input className="sinp" style={inp} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Spot Restaurant"/></div>
+                <div>
+                  <label style={lbl}>Subdomain *</label>
+                  <div style={{position:'relative'}}>
+                    <input className="sinp" style={{...inp,paddingRight:140}} value={form.subdomain} onChange={e=>setForm(f=>({...f,subdomain:e.target.value.toLowerCase()}))} placeholder="spot"/>
+                    <span style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',fontSize:11,color:G.textDim,pointerEvents:'none',fontFamily:`'DM Mono',monospace`}}>.advertradical.com</span>
                   </div>
-                  <div><label style={S.label}>Admin Email *</label><input className="inp" style={S.input} type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="admin@spot.com" required /></div>
-                  <div><label style={S.label}>Password *</label><input className="inp" style={S.input} type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder="Min 6 characters" required /></div>
                 </div>
-                <button type="submit" disabled={saving} style={{ ...S.btn, background:'#1E1B18', color:'#FFF5E8', padding:'13px 28px', opacity:saving?0.6:1 }}>
-                  {saving ? 'Creating…' : 'Create Restaurant'}
-                </button>
-              </form>
+                <div><label style={lbl}>Admin Email *</label><input className="sinp" style={inp} type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="admin@spot.com"/></div>
+                <div><label style={lbl}>Password *</label><input className="sinp" style={inp} type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder="Min 6 characters"/></div>
+              </div>
+              <button onClick={handleCreate} disabled={saving} style={{padding:'11px 24px',borderRadius:8,border:`1px solid rgba(184,150,46,${saving?'0.15':'0.35'})`,background:saving?'transparent':'rgba(184,150,46,0.1)',color:saving?G.textDim:G.gold,fontSize:14,fontWeight:700,cursor:saving?'not-allowed':'pointer',fontFamily:'inherit',transition:'all 0.2s'}}>
+                {saving?'Creating…':'Create Restaurant'}
+              </button>
             </div>
           )}
 
-          {/* Search */}
-          <div style={{ position:'relative', marginBottom:18 }}>
-            <span style={{ position:'absolute', left:16, top:'50%', transform:'translateY(-50%)', color:'rgba(42,31,16,0.35)', fontSize:16 }}>🔍</span>
-            <input className="inp" style={{ ...S.input, paddingLeft:42, borderRadius:30 }} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search restaurants…" />
+          <div style={{position:'relative',marginBottom:16}}>
+            <input className="sinp" style={{...inp,paddingLeft:36}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search restaurants…"/>
+            <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:G.textDim,fontSize:14,pointerEvents:'none'}}>⌕</span>
           </div>
 
-          {/* Table */}
           {loading ? (
-            <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-              <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+            <div style={{display:'flex',justifyContent:'center',paddingTop:60}}>
+              <div style={{width:32,height:32,border:`2px solid ${G.gold}`,borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
             </div>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>🏪</div>
-              <p style={{ fontSize:14 }}>No restaurants found.</p>
+            <div style={{textAlign:'center',padding:'60px 0',color:G.textDim}}>
+              <div style={{fontSize:32,marginBottom:12,opacity:0.3}}>⬡</div>
+              <p style={{fontSize:14}}>No restaurants found.</p>
             </div>
           ) : (
-            <div style={{ ...S.card, overflow:'hidden' }}>
-              {/* Table header */}
-              <div style={{ display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 130px', gap:0, padding:'12px 20px', borderBottom:'1px solid rgba(42,31,16,0.06)', background:'#FAFAF8' }}>
+            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:12,overflow:'hidden'}}>
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 130px',gap:0,padding:'10px 20px',borderBottom:`1px solid ${G.border}`,background:'rgba(255,255,255,0.02)'}}>
                 {['Restaurant','Subdomain','Plan','Items','Status','Actions'].map(h=>(
-                  <div key={h} style={{ fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.4)', letterSpacing:'0.05em', textTransform:'uppercase' }}>{h}</div>
+                  <div key={h} style={{fontSize:10,fontWeight:600,color:G.textDim,letterSpacing:'0.08em',textTransform:'uppercase',fontFamily:`'DM Mono',monospace`}}>{h}</div>
                 ))}
               </div>
               {filtered.map((r,i) => {
-                const plan = r.plan || 'basic';
-                const [planBg, planColor] = planColors[plan] || planColors.basic;
+                const plan = r.plan||'basic';
                 const isEdit = editId === r.id;
                 return (
-                  <div key={r.id} className="row" style={{ borderBottom: i<filtered.length-1?'1px solid rgba(42,31,16,0.05)':'none', transition:'background 0.12s', background:'#fff' }}>
-                    <div style={{ display:'grid', gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 130px', gap:0, padding:'14px 20px', alignItems:'center' }}>
+                  <div key={r.id} className="rrestrow" style={{borderBottom:i<filtered.length-1?`1px solid ${G.border}`:'none',transition:'background 0.12s',background:'transparent'}}>
+                    <div style={{display:'grid',gridTemplateColumns:'2fr 1.5fr 1fr 1fr 1fr 130px',gap:0,padding:'13px 20px',alignItems:'center'}}>
                       <div>
-                        <Link href={`/superadmin/restaurant/${r.id}`} style={{ fontWeight:600, fontSize:13, color:'#1E1B18', textDecoration:'none' }}
-                          onMouseOver={e=>e.currentTarget.style.color='#E05A3A'}
-                          onMouseOut={e=>e.currentTarget.style.color='#1E1B18'}>
-                          {r.name}
-                        </Link>
-                        <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:2 }}>ID: {r.id?.slice(0,8)}…</div>
+                        <Link href={`/superadmin/restaurant/${r.id}`} style={{fontWeight:600,fontSize:13,color:G.text,textDecoration:'none'}} onMouseOver={e=>e.currentTarget.style.color=G.gold} onMouseOut={e=>e.currentTarget.style.color=G.text}>{r.name}</Link>
+                        <div style={{fontSize:10,color:G.textDim,marginTop:2,fontFamily:`'DM Mono',monospace`}}>ID: {r.id?.slice(0,8)}…</div>
                       </div>
-                      <div style={{ fontSize:12, color:'rgba(42,31,16,0.55)', fontFamily:'monospace' }}>{r.subdomain}</div>
-                      <div><span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:planBg+'33', color:planColor, border:`1px solid ${planBg}66`, textTransform:'capitalize' }}>{plan}</span></div>
-                      <div style={{ fontSize:12, color:'rgba(42,31,16,0.55)' }}>{r.itemsUsed||0}/{r.maxItems||10}</div>
-                      <div><span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:r.isActive?'rgba(143,196,168,0.2)':'rgba(42,31,16,0.06)', color:r.isActive?'#1A5A38':'rgba(42,31,16,0.4)', border:`1px solid ${r.isActive?'rgba(143,196,168,0.35)':'rgba(42,31,16,0.1)'}` }}>{r.isActive?'Active':'Inactive'}</span></div>
-                      <div style={{ display:'flex', gap:6 }}>
-                        <Link href={`/superadmin/restaurant/${r.id}`} style={{ padding:'5px 12px', borderRadius:8, border:'1.5px solid rgba(224,90,58,0.25)', background:'rgba(224,90,58,0.06)', fontSize:12, fontWeight:700, color:'#C04A28', cursor:'pointer', textDecoration:'none', whiteSpace:'nowrap' }}>
-                          View →
-                        </Link>
-                        <button onClick={()=>{ setEditId(isEdit?null:r.id); setEditData({ plan:r.plan||'basic', isActive:r.isActive!==false, maxItems:r.maxItems||10 }); }} style={{ padding:'5px 12px', borderRadius:8, border:'1.5px solid rgba(42,31,16,0.1)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.55)', cursor:'pointer' }}>
-                          {isEdit ? 'Cancel' : 'Edit'}
-                        </button>
+                      <div style={{fontSize:12,color:G.textDim,fontFamily:`'DM Mono',monospace`}}>{r.subdomain}</div>
+                      <div><span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:'rgba(184,150,46,0.1)',color:G.gold,border:'1px solid rgba(184,150,46,0.2)',textTransform:'capitalize',fontFamily:`'DM Mono',monospace`}}>{plan}</span></div>
+                      <div style={{fontSize:12,color:G.textDim,fontFamily:`'DM Mono',monospace`}}>{r.itemsUsed||0}/{r.maxItems||10}</div>
+                      <div><span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:r.isActive?'rgba(60,160,80,0.1)':'rgba(255,255,255,0.04)',color:r.isActive?'#5DC87A':G.textDim,border:`1px solid ${r.isActive?'rgba(60,160,80,0.25)':'rgba(255,255,255,0.08)'}`,fontFamily:`'DM Mono',monospace`}}>{r.isActive?'Active':'Inactive'}</span></div>
+                      <div style={{display:'flex',gap:6}}>
+                        <Link href={`/superadmin/restaurant/${r.id}`} style={{padding:'5px 10px',borderRadius:6,border:`1px solid rgba(184,150,46,0.25)`,background:'rgba(184,150,46,0.07)',fontSize:11,fontWeight:600,color:G.gold,cursor:'pointer',textDecoration:'none',whiteSpace:'nowrap'}}>View →</Link>
+                        <button onClick={()=>{setEditId(isEdit?null:r.id);setEditData({plan:r.plan||'basic',isActive:r.isActive!==false,maxItems:r.maxItems||10});}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${G.border}`,background:'transparent',fontSize:11,fontWeight:600,color:G.textDim,cursor:'pointer'}}>{isEdit?'Cancel':'Edit'}</button>
                       </div>
                     </div>
                     {isEdit && (
-                      <div style={{ padding:'16px 20px 20px', background:'#FAFAF8', borderTop:'1px solid rgba(42,31,16,0.05)', display:'flex', gap:14, alignItems:'flex-end', flexWrap:'wrap' }}>
+                      <div style={{padding:'16px 20px 20px',background:'rgba(255,255,255,0.02)',borderTop:`1px solid ${G.border}`,display:'flex',gap:14,alignItems:'flex-end',flexWrap:'wrap'}}>
                         <div>
-                          <label style={S.label}>Plan</label>
-                          <select style={{ ...S.input, width:140 }} value={editData.plan} onChange={e=>setEditData(d=>({...d,plan:e.target.value}))}>
+                          <label style={lbl}>Plan</label>
+                          <select style={{...inp,width:140,colorScheme:'dark'}} value={editData.plan} onChange={e=>setEditData(d=>({...d,plan:e.target.value}))}>
                             <option value="basic">Basic</option>
                             <option value="pro">Pro</option>
                             <option value="premium">Premium</option>
                           </select>
                         </div>
                         <div>
-                          <label style={S.label}>Max Items</label>
-                          <input type="number" style={{ ...S.input, width:110 }} value={editData.maxItems} onChange={e=>setEditData(d=>({...d,maxItems:Number(e.target.value)}))} min="1" />
+                          <label style={lbl}>Max Items</label>
+                          <input type="number" style={{...inp,width:110}} value={editData.maxItems} onChange={e=>setEditData(d=>({...d,maxItems:Number(e.target.value)}))} min="1"/>
                         </div>
-                        <div style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:2 }}>
-                          <label style={{ ...S.label, marginBottom:0 }}>Active</label>
-                          <div onClick={()=>setEditData(d=>({...d,isActive:!d.isActive}))} style={{ width:44, height:24, borderRadius:99, background:editData.isActive?'#8FC4A8':'rgba(42,31,16,0.15)', cursor:'pointer', position:'relative', transition:'background 0.2s' }}>
-                            <div style={{ width:18, height:18, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:editData.isActive?23:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }} />
+                        <div style={{display:'flex',alignItems:'center',gap:10,paddingBottom:2}}>
+                          <label style={{...lbl,marginBottom:0}}>Active</label>
+                          <div onClick={()=>setEditData(d=>({...d,isActive:!d.isActive}))} style={{width:40,height:22,borderRadius:99,background:editData.isActive?'rgba(60,160,80,0.6)':'rgba(255,255,255,0.1)',cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+                            <div style={{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:3,left:editData.isActive?21:3,transition:'left 0.2s'}}/>
                           </div>
                         </div>
-                        <button onClick={()=>saveEdit(r.id)} style={{ ...S.btn, background:'#1E1B18', color:'#FFF5E8', padding:'10px 20px' }}>Save</button>
+                        <button onClick={()=>saveEdit(r.id)} style={{padding:'10px 20px',borderRadius:8,border:`1px solid rgba(184,150,46,0.35)`,background:'rgba(184,150,46,0.1)',color:G.gold,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Save</button>
                       </div>
                     )}
                   </div>

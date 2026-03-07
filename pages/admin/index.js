@@ -5,6 +5,8 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById, getMenuItems, getRequests, getAnalytics } from '../../lib/db';
 import Link from 'next/link';
 
+const G = { bg:'#08090C', card:'#0D0E12', border:'rgba(255,255,255,0.07)', gold:'#B8962E', text:'rgba(255,255,255,0.82)', textDim:'rgba(255,255,255,0.32)' };
+
 export default function AdminDashboard() {
   const { userData } = useAuth();
   const [restaurant, setRestaurant] = useState(null);
@@ -23,7 +25,7 @@ export default function AdminDashboard() {
   if (loading) return (
     <AdminLayout>
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:300}}>
-        <div style={{width:36,height:36,border:'3px solid #E05A3A',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+        <div style={{width:32,height:32,border:`2px solid ${G.gold}`,borderTopColor:'transparent',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     </AdminLayout>
@@ -33,111 +35,110 @@ export default function AdminDashboard() {
   const pendingCount = requests.filter(r => r.status === 'pending').length;
   const storageUsedPct = restaurant ? Math.round(((restaurant.storageUsedMB||0)/(restaurant.maxStorageMB||500))*100) : 0;
   const itemsPct = restaurant ? Math.round(((restaurant.itemsUsed||0)/(restaurant.maxItems||10))*100) : 0;
-  const planColors = { basic:'#A08060', pro:'#E05A3A', premium:'#C4A020' };
-  const planColor = planColors[restaurant?.plan] || '#A08060';
 
   const stats = [
-    { label:'Visits (7d)', value:totalVisits, icon:'👁', bg:'rgba(255,255,255,0.65)', accent:'#E05A3A' },
-    { label:'Menu Items',  value:restaurant?.itemsUsed||menuItems.length, icon:'🍽️', bg:'rgba(143,196,168,0.3)', accent:'#4A7A5A' },
-    { label:'Pending',     value:pendingCount, icon:'📋', bg:'rgba(244,200,100,0.3)', accent:'#B07820' },
-    { label:'Plan',        value:(restaurant?.plan||'basic').toUpperCase(), icon:'💳', bg:'rgba(196,181,212,0.35)', accent:'#7A5A9A' },
+    { label:'Visits (7d)', value:totalVisits, mono:true },
+    { label:'Menu Items',  value:restaurant?.itemsUsed||menuItems.length, mono:true },
+    { label:'Pending',     value:pendingCount, mono:true },
+    { label:'Plan',        value:(restaurant?.plan||'basic').toUpperCase(), mono:false },
   ];
 
   const actions = [
-    { href:'/admin/requests',  icon:'➕', label:'Add Menu Item',  sub:'Submit a new item request', bg:'rgba(224,90,58,0.12)' },
-    { href:'/admin/analytics', icon:'📈', label:'Analytics',      sub:'Visits & AR interactions',  bg:'rgba(143,196,168,0.2)' },
-    { href:'/admin/qrcode',    icon:'⬡',  label:'QR Code',       sub:'Print for tables & menus',  bg:'rgba(196,181,212,0.25)' },
-    { href:'/admin/offers',    icon:'🎁', label:'Create Offer',   sub:'Add a promo banner',        bg:'rgba(244,160,100,0.2)' },
+    { href:'/admin/requests',  label:'Requests',      sub:'Add or manage menu items' },
+    { href:'/admin/analytics', label:'Analytics',     sub:'Visits & AR interactions' },
+    { href:'/admin/qrcode',    label:'QR Code',       sub:'Print for tables & menus' },
+    { href:'/admin/offers',    label:'Offers',        sub:'Add a promo banner' },
   ];
 
   return (
     <AdminLayout>
       <Head><title>Dashboard — Advert Radical</title></Head>
-      <div style={{padding:32,maxWidth:960,margin:'0 auto'}}>
+      <div style={{padding:'32px 36px',maxWidth:960,margin:'0 auto'}}>
         <style>{`
-          .cc{border-radius:20px;padding:20px;border:1.5px solid rgba(255,220,170,0.5);box-shadow:0 6px 24px rgba(120,70,30,0.1),inset 0 1px 0 rgba(255,255,255,0.6);}
-          .ac{border-radius:20px;padding:20px;border:1.5px solid rgba(255,220,170,0.4);text-decoration:none;color:#2A1F10;display:block;transition:all 0.22s;box-shadow:0 4px 16px rgba(120,70,30,0.08),inset 0 1px 0 rgba(255,255,255,0.5);}
-          .ac:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 12px 32px rgba(120,70,30,0.16);}
-          .rr{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(200,140,80,0.15);}
-          .rr:last-child{border-bottom:none;}
-          .prog{height:8px;border-radius:4px;overflow:hidden;background:rgba(200,140,80,0.15);}
-          .pfill{height:100%;border-radius:4px;transition:width 0.5s;}
+          @keyframes spin{to{transform:rotate(360deg)}}
+          *{box-sizing:border-box}
+          .gcard{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:20px;transition:border-color 0.2s;}
+          .gcard:hover{border-color:rgba(255,255,255,0.12);}
+          .gacard{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:20px;text-decoration:none;color:rgba(255,255,255,0.82);display:block;transition:all 0.2s;}
+          .gacard:hover{background:rgba(184,150,46,0.06);border-color:rgba(184,150,46,0.2);transform:translateY(-2px);}
+          .prog{height:4px;border-radius:2px;overflow:hidden;background:rgba(255,255,255,0.06);}
+          .pfill{height:100%;border-radius:2px;transition:width 0.5s;}
+          .rrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+          .rrow:last-child{border-bottom:none;}
         `}</style>
 
-        {/* Page header */}
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:28,flexWrap:'wrap',gap:12}}>
+        {/* Header */}
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:32,flexWrap:'wrap',gap:12}}>
           <div>
-            <h1 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:24,color:'#2A1F10',margin:0}}>
+            <h1 style={{fontWeight:800,fontSize:22,color:'rgba(255,255,255,0.88)',margin:0,letterSpacing:'-0.02em'}}>
               {restaurant?.name || 'Your Restaurant'}
             </h1>
-            <p style={{fontSize:13,color:'rgba(42,31,16,0.45)',marginTop:5}}>{restaurant?.subdomain}.advertradical.com</p>
+            <p style={{fontSize:13,color:G.textDim,marginTop:5,fontFamily:`'DM Mono',monospace`}}>{restaurant?.subdomain}.advertradical.com</p>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <span style={{padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,textTransform:'capitalize',background:`${planColor}18`,color:planColor,border:`1.5px solid ${planColor}30`}}>
-              {restaurant?.plan||'basic'} plan
+            <span style={{padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:700,textTransform:'uppercase',background:'rgba(184,150,46,0.1)',color:G.gold,border:'1px solid rgba(184,150,46,0.2)',fontFamily:`'DM Mono',monospace`,letterSpacing:'0.06em'}}>
+              {restaurant?.plan||'basic'}
             </span>
-            <span style={{padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,background:restaurant?.isActive?'rgba(74,122,90,0.12)':'rgba(160,120,80,0.1)',color:restaurant?.isActive?'#3A6A48':'rgba(100,60,30,0.5)',border:`1.5px solid ${restaurant?.isActive?'rgba(74,122,90,0.3)':'rgba(160,120,80,0.2)'}`}}>
+            <span style={{padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:600,background:restaurant?.isActive?'rgba(60,160,80,0.1)':'rgba(255,255,255,0.04)',color:restaurant?.isActive?'#5DC87A':'rgba(255,255,255,0.3)',border:`1px solid ${restaurant?.isActive?'rgba(60,160,80,0.25)':'rgba(255,255,255,0.08)'}`,fontFamily:`'DM Mono',monospace`}}>
               {restaurant?.isActive?'● Active':'○ Inactive'}
             </span>
           </div>
         </div>
 
         {/* Stats */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12,marginBottom:20}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:12}}>
           {stats.map(s=>(
-            <div key={s.label} className="cc" style={{background:s.bg,backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
-              <div style={{fontSize:26,marginBottom:10}}>{s.icon}</div>
-              <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:28,color:s.accent}}>{s.value}</div>
-              <div style={{fontSize:12,color:'rgba(42,31,16,0.5)',marginTop:3}}>{s.label}</div>
+            <div key={s.label} className="gcard">
+              <div style={{fontSize:28,fontWeight:800,color:'rgba(255,255,255,0.88)',fontFamily:s.mono?`'DM Mono',monospace`:'inherit',letterSpacing:s.mono?'-0.02em':'normal'}}>{s.value}</div>
+              <div style={{fontSize:12,color:G.textDim,marginTop:5}}>{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* Usage bars */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
           {[
             {label:'Storage Used',used:restaurant?.storageUsedMB||0,max:restaurant?.maxStorageMB||500,unit:'MB',pct:storageUsedPct},
             {label:'AR Items Used',used:restaurant?.itemsUsed||0,max:restaurant?.maxItems||10,unit:'items',pct:itemsPct},
           ].map(u=>(
-            <div key={u.label} className="cc" style={{background:'rgba(255,245,220,0.7)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
+            <div key={u.label} className="gcard">
               <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:12}}>
-                <span style={{fontWeight:700,color:'#2A1F10'}}>{u.label}</span>
-                <span style={{color:'rgba(100,60,30,0.5)'}}>{u.used}/{u.max} {u.unit}</span>
+                <span style={{fontWeight:600,color:'rgba(255,255,255,0.72)'}}>{u.label}</span>
+                <span style={{color:G.textDim,fontFamily:`'DM Mono',monospace`,fontSize:12}}>{u.used}/{u.max} {u.unit}</span>
               </div>
               <div className="prog">
-                <div className="pfill" style={{width:`${u.pct}%`,background:u.pct>80?'#DC3030':'linear-gradient(90deg,#E05A3A,#F4A86A)',boxShadow:u.pct>80?'none':'0 0 8px rgba(224,90,58,0.4)'}}/>
+                <div className="pfill" style={{width:`${u.pct}%`,background:u.pct>80?'#DC4040':`linear-gradient(90deg,${G.gold},#D4B048)`}}/>
               </div>
-              <div style={{fontSize:11,color:'rgba(100,60,30,0.4)',marginTop:6}}>{u.pct}% used</div>
+              <div style={{fontSize:11,color:G.textDim,marginTop:7,fontFamily:`'DM Mono',monospace`}}>{u.pct}% used</div>
             </div>
           ))}
         </div>
 
         {/* Quick actions */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12,marginBottom:20}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:24}}>
           {actions.map(a=>(
-            <Link key={a.href} href={a.href} className="ac" style={{background:a.bg,backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
-              <div style={{fontSize:26,marginBottom:10}}>{a.icon}</div>
-              <div style={{fontWeight:700,fontSize:14,color:'#2A1F10',marginBottom:4}}>{a.label}</div>
-              <div style={{fontSize:12,color:'rgba(42,31,16,0.45)'}}>{a.sub}</div>
+            <Link key={a.href} href={a.href} className="gacard">
+              <div style={{fontWeight:700,fontSize:14,color:'rgba(255,255,255,0.82)',marginBottom:5}}>{a.label}</div>
+              <div style={{fontSize:12,color:G.textDim}}>{a.sub}</div>
             </Link>
           ))}
         </div>
 
         {/* Recent requests */}
         {requests.length > 0 && (
-          <div className="cc" style={{background:'rgba(255,245,220,0.7)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',padding:24}}>
+          <div className="gcard" style={{padding:24}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-              <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:16,color:'#2A1F10',margin:0}}>Recent Requests</h2>
-              <Link href="/admin/requests" style={{fontSize:12,color:'#E05A3A',textDecoration:'none',fontWeight:700}}>View all →</Link>
+              <h2 style={{fontWeight:700,fontSize:15,color:'rgba(255,255,255,0.88)',margin:0}}>Recent Requests</h2>
+              <Link href="/admin/requests" style={{fontSize:12,color:G.gold,textDecoration:'none',fontWeight:600}}>View all →</Link>
             </div>
             {requests.slice(0,5).map(req=>(
-              <div key={req.id} className="rr">
-                <div style={{width:36,height:36,borderRadius:12,overflow:'hidden',background:'rgba(200,140,80,0.15)',flexShrink:0}}>
-                  {req.imageURL?<img src={req.imageURL} alt={req.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🍽️</div>}
+              <div key={req.id} className="rrow">
+                <div style={{width:34,height:34,borderRadius:8,overflow:'hidden',background:'rgba(255,255,255,0.05)',flexShrink:0}}>
+                  {req.imageURL?<img src={req.imageURL} alt={req.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:G.textDim}}>⊞</div>}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:600,color:'#2A1F10',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{req.name}</div>
-                  <div style={{fontSize:11,color:'rgba(100,60,30,0.45)'}}>{req.createdAt?.seconds?new Date(req.createdAt.seconds*1000).toLocaleDateString():'Just now'}</div>
+                  <div style={{fontSize:13,fontWeight:600,color:'rgba(255,255,255,0.8)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{req.name}</div>
+                  <div style={{fontSize:11,color:G.textDim,fontFamily:`'DM Mono',monospace`}}>{req.createdAt?.seconds?new Date(req.createdAt.seconds*1000).toLocaleDateString():'Just now'}</div>
                 </div>
                 <StatusBadge status={req.status}/>
               </div>
@@ -152,10 +153,10 @@ AdminDashboard.getLayout = (page) => page;
 
 function StatusBadge({ status }) {
   const s = {
-    pending: {bg:'rgba(220,160,30,0.15)',color:'#8B6010',border:'rgba(220,160,30,0.3)'},
-    approved:{bg:'rgba(60,106,72,0.12)', color:'#2A5A38',border:'rgba(60,106,72,0.25)'},
-    rejected:{bg:'rgba(200,50,50,0.1)',  color:'#8B2020',border:'rgba(200,50,50,0.2)'},
+    pending: {bg:'rgba(220,180,40,0.1)',color:'#C8A030',border:'rgba(220,180,40,0.2)'},
+    approved:{bg:'rgba(60,160,80,0.1)', color:'#5DC87A',border:'rgba(60,160,80,0.2)'},
+    rejected:{bg:'rgba(220,60,60,0.1)', color:'#E05555',border:'rgba(220,60,60,0.2)'},
   };
   const c=s[status]||s.pending;
-  return <span style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:700,background:c.bg,color:c.color,border:`1.5px solid ${c.border}`,textTransform:'capitalize'}}>{status}</span>;
+  return <span style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:600,background:c.bg,color:c.color,border:`1px solid ${c.border}`,textTransform:'capitalize',fontFamily:`'DM Mono',monospace`,whiteSpace:'nowrap'}}>{status}</span>;
 }

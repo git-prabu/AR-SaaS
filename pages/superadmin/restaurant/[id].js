@@ -29,11 +29,12 @@ const PLANS = [
 const SPICE_LEVELS = ['None','Mild','Medium','Spicy','Very Spicy'];
 const OFFER_BADGES = ['Chef\'s Special','Best Seller','Must Try','New','Limited'];
 
+const G = { bg:'#08090C', card:'rgba(255,255,255,0.03)', border:'rgba(255,255,255,0.07)', gold:'#B8962E', text:'rgba(255,255,255,0.82)', textDim:'rgba(255,255,255,0.32)' };
 const S = {
-  card:  { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
-  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'10px 13px', background:'#F7F5F2', border:'1.5px solid rgba(42,31,16,0.09)', borderRadius:11, fontSize:13, color:'#1E1B18', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
-  tip:   { backgroundColor:'#1E1B18', border:'none', borderRadius:10, color:'#FFF5E8', fontSize:12, fontFamily:'Inter,sans-serif' },
+  card:  { background:G.card, border:`1px solid ${G.border}`, borderRadius:12 },
+  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.32)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:6, fontFamily:`'DM Mono',monospace` },
+  input: { width:'100%', padding:'10px 13px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:8, fontSize:13, color:'rgba(255,255,255,0.82)', fontFamily:'inherit', outline:'none', boxSizing:'border-box', colorScheme:'dark' },
+  tip:   { backgroundColor:'#0D0E12', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'rgba(255,255,255,0.82)', fontSize:12 },
 };
 
 export default function RestaurantDetail() {
@@ -237,7 +238,7 @@ export default function RestaurantDetail() {
   if (loading) return (
     <SuperAdminLayout>
       <div style={{ display:'flex', justifyContent:'center', paddingTop:100 }}>
-        <div style={{ width:36, height:36, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+        <div style={{ width:36, height:36, border:'2px solid #B8962E', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     </SuperAdminLayout>
@@ -245,10 +246,10 @@ export default function RestaurantDetail() {
 
   if (!restaurant) return (
     <SuperAdminLayout>
-      <div style={{ textAlign:'center', padding:'80px 32px', color:'rgba(42,31,16,0.5)' }}>
+      <div style={{ textAlign:'center', padding:'80px 32px', color:'rgba(255,255,255,0.38)' }}>
         <div style={{ fontSize:40, marginBottom:12 }}>🏪</div>
         <p>Restaurant not found.</p>
-        <Link href="/superadmin/restaurants" style={{ color:'#E05A3A', fontWeight:600, textDecoration:'none' }}>← Back to restaurants</Link>
+        <Link href="/superadmin/restaurants" style={{ color:'#B8962E', fontWeight:600, textDecoration:'none' }}>← Back to restaurants</Link>
       </div>
     </SuperAdminLayout>
   );
@@ -256,34 +257,34 @@ export default function RestaurantDetail() {
   return (
     <SuperAdminLayout>
       <Head><title>{restaurant.name} — Super Admin</title></Head>
-      <div style={{ background:'#F2F0EC', minHeight:'100vh', fontFamily:'Inter,sans-serif' }}>
+      <div style={{ background:'#08090C', minHeight:'100vh', fontFamily:"'Bricolage Grotesque',Inter,sans-serif" }}>
         <style>{`
           @keyframes spin{to{transform:rotate(360deg)}}
           .inp:focus{border-color:rgba(224,90,58,0.5)!important}
-          .inp::placeholder{color:rgba(42,31,16,0.3)}
-          .tab-btn{padding:10px 20px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;font-family:Inter,sans-serif;color:rgba(42,31,16,0.5);border-bottom:2.5px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
-          .tab-btn.on{color:#E05A3A;border-bottom-color:#E05A3A;}
+          .inp::placeholder{color:rgba(255,255,255,0.18)}
+          .tab-btn{padding:10px 20px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;color:rgba(255,255,255,0.38);border-bottom:2.5px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+          .tab-btn.on{color:#B8962E;border-bottom-color:#B8962E;}
           .tab-btn:hover{color:#1E1B18;}
           .row:hover{background:#F7F5F2!important}
         `}</style>
 
         {/* ── Page header ── */}
-        <div style={{ background:'#fff', borderBottom:'1px solid rgba(42,31,16,0.07)', padding:'20px 32px' }}>
+        <div style={{ background:'rgba(255,255,255,0.03)', borderBottom:'1px solid rgba(255,255,255,0.07)', padding:'20px 32px' }}>
           <div style={{ maxWidth:1060, margin:'0 auto' }}>
-            <Link href="/superadmin/restaurants" style={{ fontSize:12, color:'rgba(42,31,16,0.4)', textDecoration:'none', fontWeight:600, display:'inline-flex', alignItems:'center', gap:4, marginBottom:12 }}>
+            <Link href="/superadmin/restaurants" style={{ fontSize:12, color:'rgba(255,255,255,0.32)', textDecoration:'none', fontWeight:600, display:'inline-flex', alignItems:'center', gap:4, marginBottom:12 }}>
               ← Restaurants
             </Link>
             <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
               <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-                <div style={{ width:52, height:52, borderRadius:16, background:'linear-gradient(135deg,#E05A3A,#F07050)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:'0 6px 20px rgba(224,90,58,0.3)', flexShrink:0 }}>🏪</div>
+                <div style={{ width:52, height:52, borderRadius:16, background:'rgba(184,150,46,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, boxShadow:'0 6px 20px rgba(224,90,58,0.3)', flexShrink:0 }}>🏪</div>
                 <div>
-                  <h1 style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 }}>{restaurant.name}</h1>
+                  <h1 style={{ fontFamily:'inherit', fontWeight:800, fontSize:22, color:'rgba(255,255,255,0.88)', margin:0 }}>{restaurant.name}</h1>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:4, flexWrap:'wrap' }}>
-                    <span style={{ fontSize:12, color:'rgba(42,31,16,0.45)', fontFamily:'monospace' }}>{restaurant.subdomain}.advertradical.com</span>
+                    <span style={{ fontSize:12, color:'rgba(255,255,255,0.35)', fontFamily:'monospace' }}>{restaurant.subdomain}.advertradical.com</span>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background: restaurant.isActive?'rgba(143,196,168,0.2)':'rgba(244,160,176,0.2)', color: restaurant.isActive?'#1A5A38':'#8B1A2A', border:`1px solid ${restaurant.isActive?'rgba(143,196,168,0.4)':'rgba(244,160,176,0.4)'}` }}>
                       {restaurant.isActive ? '● Active' : '● Inactive'}
                     </span>
-                    <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(42,31,16,0.06)', color:'rgba(42,31,16,0.5)', textTransform:'capitalize' }}>
+                    <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.38)', textTransform:'capitalize' }}>
                       {restaurant.plan || 'basic'} plan
                     </span>
                     {daysLeft !== null && (
@@ -295,11 +296,11 @@ export default function RestaurantDetail() {
                 </div>
               </div>
               <div style={{ display:'flex', gap:10 }}>
-                <a href={getMenuURL(restaurant.subdomain)} target="_blank" rel="noreferrer" style={{ padding:'9px 18px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.6)', textDecoration:'none', display:'flex', alignItems:'center', gap:6 }}>
+                <a href={getMenuURL(restaurant.subdomain)} target="_blank" rel="noreferrer" style={{ padding:'9px 18px', borderRadius:12, border:'1.5px solid rgba(255,255,255,0.1)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(255,255,255,0.48)', textDecoration:'none', display:'flex', alignItems:'center', gap:6 }}>
                   View Menu ↗
                 </a>
                 {!editing && (
-                  <button onClick={startEdit} style={{ padding:'9px 18px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:13, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer' }}>
+                  <button onClick={startEdit} style={{ padding:'9px 18px', borderRadius:12, border:'none', background:'rgba(184,150,46,0.1)', color:'rgba(255,255,255,0.88)', fontSize:13, fontWeight:700, fontFamily:'inherit', cursor:'pointer' }}>
                     Edit Restaurant
                   </button>
                 )}
@@ -307,7 +308,7 @@ export default function RestaurantDetail() {
             </div>
 
             {/* Tabs */}
-            <div style={{ display:'flex', gap:0, marginTop:20, borderBottom:'1px solid rgba(42,31,16,0.08)', overflowX:'auto' }}>
+            <div style={{ display:'flex', gap:0, marginTop:20, borderBottom:'1px solid rgba(255,255,255,0.08)', overflowX:'auto' }}>
               {TABS.map(t => (
                 <button key={t.id} className={`tab-btn${tab===t.id?' on':''}`} onClick={()=>{ setTab(t.id); setEditing(false); }}>
                   <span>{t.icon}</span>{t.label}
@@ -324,14 +325,14 @@ export default function RestaurantDetail() {
             {/* Quick stats row */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
               {[
-                { label:'AR Items Used', value:`${restaurant.itemsUsed||0} / ${restaurant.maxItems||planInfo.maxItems}`, color:'#E05A3A', bg:'rgba(224,90,58,0.07)' },
+                { label:'AR Items Used', value:`${restaurant.itemsUsed||0} / ${restaurant.maxItems||planInfo.maxItems}`, color:'#B8962E', bg:'rgba(224,90,58,0.07)' },
                 { label:'Storage Used',  value:`${restaurant.storageUsedMB||0} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`, color:'#5A9A78', bg:'rgba(143,196,168,0.12)' },
                 { label:'Payment',       value: restaurant.paymentStatus||'inactive', color: restaurant.paymentStatus==='active'?'#1A5A38':'#8B1A2A', bg: restaurant.paymentStatus==='active'?'rgba(143,196,168,0.12)':'rgba(244,160,176,0.12)', cap:true },
-                { label:'Expires',       value: subEnd ? (isExpired ? 'Expired' : subEnd) : 'No subscription', color: isExpired?'#8B1A2A':'rgba(42,31,16,0.7)', bg:'rgba(42,31,16,0.04)' },
+                { label:'Expires',       value: subEnd ? (isExpired ? 'Expired' : subEnd) : 'No subscription', color: isExpired?'#8B1A2A':'rgba(255,255,255,0.6)', bg:'rgba(42,31,16,0.04)' },
               ].map(s => (
                 <div key={s.label} style={{ ...S.card, padding:20, background:s.bg }}>
-                  <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>{s.label}</div>
-                  <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:16, color:s.color, textTransform: s.cap?'capitalize':'none' }}>{s.value}</div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>{s.label}</div>
+                  <div style={{ fontFamily:'inherit', fontWeight:800, fontSize:16, color:s.color, textTransform: s.cap?'capitalize':'none' }}>{s.value}</div>
                 </div>
               ))}
             </div>
@@ -339,7 +340,7 @@ export default function RestaurantDetail() {
             {editing ? (
               /* ── Edit form ── */
               <div style={{ ...S.card, padding:28 }}>
-                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:15, color:'#1E1B18', marginBottom:22 }}>Edit Restaurant Details</div>
+                <div style={{ fontFamily:'inherit', fontWeight:700, fontSize:15, color:'rgba(255,255,255,0.88)', marginBottom:22 }}>Edit Restaurant Details</div>
 
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
                   <div>
@@ -350,7 +351,7 @@ export default function RestaurantDetail() {
                     <label style={S.label}>Subdomain</label>
                     <div style={{ position:'relative' }}>
                       <input className="inp" style={{ ...S.input, paddingRight:140 }} value={editData.subdomain} onChange={e=>setEditData(d=>({...d,subdomain:e.target.value.toLowerCase()}))} />
-                      <span style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'rgba(42,31,16,0.4)', pointerEvents:'none' }}>.advertradical.com</span>
+                      <span style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'rgba(255,255,255,0.32)', pointerEvents:'none' }}>.advertradical.com</span>
                     </div>
                   </div>
                 </div>
@@ -360,9 +361,9 @@ export default function RestaurantDetail() {
                   <label style={S.label}>Plan</label>
                   <div style={{ display:'flex', gap:10 }}>
                     {PLANS.map(p => (
-                      <div key={p.id} onClick={()=>handlePlanChange(p.id)} style={{ flex:1, padding:'14px', borderRadius:14, border:`2px solid ${editData.plan===p.id?'rgba(224,90,58,0.5)':'rgba(42,31,16,0.09)'}`, background: editData.plan===p.id?'rgba(224,90,58,0.05)':'#F7F5F2', cursor:'pointer', textAlign:'center', transition:'all 0.15s' }}>
-                        <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color: editData.plan===p.id?'#E05A3A':'#1E1B18', marginBottom:4 }}>{p.label}</div>
-                        <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)' }}>{p.maxItems} items · {p.maxStorageMB>=1024?p.maxStorageMB/1024+'GB':p.maxStorageMB+'MB'}</div>
+                      <div key={p.id} onClick={()=>handlePlanChange(p.id)} style={{ flex:1, padding:'14px', borderRadius:14, border:`2px solid ${editData.plan===p.id?'rgba(224,90,58,0.5)':'rgba(255,255,255,0.09)'}`, background: editData.plan===p.id?'rgba(224,90,58,0.05)':'#F7F5F2', cursor:'pointer', textAlign:'center', transition:'all 0.15s' }}>
+                        <div style={{ fontFamily:'inherit', fontWeight:700, fontSize:14, color: editData.plan===p.id?'#B8962E':'#1E1B18', marginBottom:4 }}>{p.label}</div>
+                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)' }}>{p.maxItems} items · {p.maxStorageMB>=1024?p.maxStorageMB/1024+'GB':p.maxStorageMB+'MB'}</div>
                       </div>
                     ))}
                   </div>
@@ -407,13 +408,13 @@ export default function RestaurantDetail() {
                     const isOn = key === 'paymentStatus' ? editData.paymentStatus === 'active' : editData[key];
                     const toggle = () => setEditData(d => ({ ...d, [key]: key === 'paymentStatus' ? (d.paymentStatus === 'active' ? 'inactive' : 'active') : !d[key] }));
                     return (
-                      <div key={key} onClick={toggle} style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', borderRadius:12, border:`1.5px solid ${isOn?'rgba(143,196,168,0.5)':'rgba(42,31,16,0.09)'}`, background: isOn?'rgba(143,196,168,0.08)':'#F7F5F2', cursor:'pointer', transition:'all 0.15s' }}>
-                        <div style={{ width:36, height:20, borderRadius:99, background:isOn?'#8FC4A8':'rgba(42,31,16,0.15)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
-                          <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:isOn?19:3, transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
+                      <div key={key} onClick={toggle} style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', borderRadius:12, border:`1.5px solid ${isOn?'rgba(143,196,168,0.5)':'rgba(255,255,255,0.09)'}`, background: isOn?'rgba(143,196,168,0.08)':'#F7F5F2', cursor:'pointer', transition:'all 0.15s' }}>
+                        <div style={{ width:36, height:20, borderRadius:99, background:isOn?'#8FC4A8':'rgba(255,255,255,0.1)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
+                          <div style={{ width:14, height:14, borderRadius:'50%', background:'rgba(255,255,255,0.03)', position:'absolute', top:3, left:isOn?19:3, transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
                         </div>
                         <div>
-                          <div style={{ fontSize:13, fontWeight:700, color:'#1E1B18' }}>{title}</div>
-                          <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)' }}>{desc}</div>
+                          <div style={{ fontSize:13, fontWeight:700, color:'rgba(255,255,255,0.88)' }}>{title}</div>
+                          <div style={{ fontSize:11, color:'rgba(255,255,255,0.32)' }}>{desc}</div>
                         </div>
                       </div>
                     );
@@ -421,10 +422,10 @@ export default function RestaurantDetail() {
                 </div>
 
                 <div style={{ display:'flex', gap:10 }}>
-                  <button onClick={saveEdit} disabled={saving} style={{ padding:'12px 28px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:saving?0.6:1 }}>
+                  <button onClick={saveEdit} disabled={saving} style={{ padding:'12px 28px', borderRadius:12, border:'none', background:'rgba(184,150,46,0.1)', color:'rgba(255,255,255,0.88)', fontSize:14, fontWeight:700, fontFamily:'inherit', cursor:'pointer', opacity:saving?0.6:1 }}>
                     {saving ? 'Saving…' : 'Save Changes'}
                   </button>
-                  <button onClick={()=>setEditing(false)} style={{ padding:'12px 20px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.55)', cursor:'pointer' }}>
+                  <button onClick={()=>setEditing(false)} style={{ padding:'12px 20px', borderRadius:12, border:'1.5px solid rgba(255,255,255,0.1)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(255,255,255,0.42)', cursor:'pointer' }}>
                     Cancel
                   </button>
                 </div>
@@ -433,7 +434,7 @@ export default function RestaurantDetail() {
               /* ── Info cards ── */
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
                 <div style={{ ...S.card, padding:24 }}>
-                  <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:16 }}>Restaurant Info</div>
+                  <div style={{ fontFamily:'inherit', fontWeight:700, fontSize:14, color:'rgba(255,255,255,0.88)', marginBottom:16 }}>Restaurant Info</div>
                   {[
                     ['Name',      restaurant.name],
                     ['Subdomain', restaurant.subdomain + '.advertradical.com'],
@@ -442,13 +443,13 @@ export default function RestaurantDetail() {
                     ['Payment',   restaurant.paymentStatus || 'inactive'],
                   ].map(([k,v]) => (
                     <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid rgba(42,31,16,0.05)' }}>
-                      <span style={{ fontSize:12, color:'rgba(42,31,16,0.5)' }}>{k}</span>
-                      <span style={{ fontSize:12, fontWeight:600, color:'#1E1B18', textTransform:'capitalize' }}>{v}</span>
+                      <span style={{ fontSize:12, color:'rgba(255,255,255,0.38)' }}>{k}</span>
+                      <span style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.88)', textTransform:'capitalize' }}>{v}</span>
                     </div>
                   ))}
                 </div>
                 <div style={{ ...S.card, padding:24 }}>
-                  <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:16 }}>Usage & Subscription</div>
+                  <div style={{ fontFamily:'inherit', fontWeight:700, fontSize:14, color:'rgba(255,255,255,0.88)', marginBottom:16 }}>Usage & Subscription</div>
                   {[
                     ['Items Used',    `${restaurant.itemsUsed||0} / ${restaurant.maxItems||planInfo.maxItems}`],
                     ['Storage',       `${restaurant.storageUsedMB||0} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`],
@@ -457,7 +458,7 @@ export default function RestaurantDetail() {
                     ['Days Left',     daysLeft !== null ? (isExpired ? 'Expired' : `${daysLeft} days`) : '—'],
                   ].map(([k,v]) => (
                     <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid rgba(42,31,16,0.05)' }}>
-                      <span style={{ fontSize:12, color:'rgba(42,31,16,0.5)' }}>{k}</span>
+                      <span style={{ fontSize:12, color:'rgba(255,255,255,0.38)' }}>{k}</span>
                       <span style={{ fontSize:12, fontWeight:600, color: k==='Days Left'&&isExpired?'#C04A28':'#1E1B18' }}>{v}</span>
                     </div>
                   ))}
@@ -470,26 +471,26 @@ export default function RestaurantDetail() {
           {tab === 'menu' && (<>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
               <div>
-                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18' }}>Menu Items</div>
-                <div style={{ fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:3 }}>{items.filter(i=>i.isActive).length} active · {items.length} total</div>
+                <div style={{ fontFamily:'inherit', fontWeight:700, fontSize:16, color:'rgba(255,255,255,0.88)' }}>Menu Items</div>
+                <div style={{ fontSize:13, color:'rgba(255,255,255,0.35)', marginTop:3 }}>{items.filter(i=>i.isActive).length} active · {items.length} total</div>
               </div>
             </div>
 
             {!itemsLoaded ? (
               <div style={{ display:'flex', justifyContent:'center', paddingTop:40 }}>
-                <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                <div style={{ width:32, height:32, border:'2px solid #B8962E', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
               </div>
             ) : items.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
+              <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(255,255,255,0.32)' }}>
                 <div style={{ fontSize:40, marginBottom:12 }}>🍽️</div>
                 <p>No menu items for this restaurant yet.</p>
               </div>
             ) : (
               <div style={{ ...S.card, overflow:'hidden' }}>
                 {/* Header */}
-                <div style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 100px 80px 120px', padding:'10px 18px', borderBottom:'1px solid rgba(42,31,16,0.06)', background:'#FAFAF8' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 100px 80px 120px', padding:'10px 18px', borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)' }}>
                   {['','Item','Category','Prep','Spice','Status','Actions'].map(h => (
-                    <div key={h} style={{ fontSize:10, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase' }}>{h}</div>
+                    <div key={h} style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.32)', letterSpacing:'0.06em', textTransform:'uppercase' }}>{h}</div>
                   ))}
                 </div>
 
@@ -497,32 +498,32 @@ export default function RestaurantDetail() {
                   const isItemEdit = itemEdit?.id === item.id;
                   return (
                     <div key={item.id}>
-                      <div className="row" style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 100px 80px 120px', padding:'12px 18px', borderBottom:'1px solid rgba(42,31,16,0.05)', alignItems:'center', background:'#fff', opacity:item.isActive?1:0.5, transition:'background 0.12s' }}>
-                        <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#F2F0EC' }}>
+                      <div className="row" style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 100px 80px 120px', padding:'12px 18px', borderBottom:'1px solid rgba(42,31,16,0.05)', alignItems:'center', background:'rgba(255,255,255,0.03)', opacity:item.isActive?1:0.5, transition:'background 0.12s' }}>
+                        <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#08090C' }}>
                           {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>🍽️</div>}
                         </div>
                         <div style={{ minWidth:0, paddingRight:8 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                            <span style={{ fontWeight:600, fontSize:13, color:'#1E1B18' }}>{item.name}</span>
-                            {item.isPopular && <span style={{ fontSize:9, fontWeight:800, color:'#E05A3A', background:'rgba(224,90,58,0.1)', borderRadius:20, padding:'2px 6px' }}>✦ Popular</span>}
+                            <span style={{ fontWeight:600, fontSize:13, color:'rgba(255,255,255,0.88)' }}>{item.name}</span>
+                            {item.isPopular && <span style={{ fontSize:9, fontWeight:800, color:'#B8962E', background:'rgba(224,90,58,0.1)', borderRadius:20, padding:'2px 6px' }}>✦ Popular</span>}
                             {item.isFeatured && <span style={{ fontSize:9, fontWeight:800, color:'#8A70B0', background:'rgba(138,112,176,0.1)', borderRadius:20, padding:'2px 6px' }}>⭐ Featured</span>}
-                            {item.offerBadge && item.offerLabel && <span style={{ fontSize:9, fontWeight:800, color:'#fff', background:item.offerColor||'#E05A3A', borderRadius:20, padding:'2px 6px' }}>🏷 {item.offerLabel}</span>}
+                            {item.offerBadge && item.offerLabel && <span style={{ fontSize:9, fontWeight:800, color:'#fff', background:item.offerColor||'#B8962E', borderRadius:20, padding:'2px 6px' }}>🏷 {item.offerLabel}</span>}
                           </div>
                           {item.price && <div style={{ fontSize:11, color:'#C04A28', fontWeight:700, marginTop:2 }}>₹{item.price}</div>}
                           <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:2 }}>👁 {(item.views||0)+(item.arViews||0)} · AR {item.arViews||0}</div>
                         </div>
-                        <div style={{ fontSize:12, color:'rgba(42,31,16,0.55)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.category||'—'}</div>
-                        <div style={{ fontSize:11, color:'rgba(42,31,16,0.5)' }}>{item.prepTime||'—'}</div>
-                        <div style={{ fontSize:11, color:'rgba(42,31,16,0.5)' }}>{item.spiceLevel && item.spiceLevel!=='None' ? item.spiceLevel : '—'}</div>
+                        <div style={{ fontSize:12, color:'rgba(255,255,255,0.42)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.category||'—'}</div>
+                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.38)' }}>{item.prepTime||'—'}</div>
+                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.38)' }}>{item.spiceLevel && item.spiceLevel!=='None' ? item.spiceLevel : '—'}</div>
                         {/* Active toggle */}
                         <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                          <div onClick={()=>toggleItemActive(item)} style={{ width:32, height:18, borderRadius:99, background:item.isActive?'#8FC4A8':'rgba(42,31,16,0.15)', cursor:'pointer', position:'relative', transition:'background 0.2s' }}>
-                            <div style={{ width:12, height:12, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:item.isActive?17:3, transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
+                          <div onClick={()=>toggleItemActive(item)} style={{ width:32, height:18, borderRadius:99, background:item.isActive?'#8FC4A8':'rgba(255,255,255,0.1)', cursor:'pointer', position:'relative', transition:'background 0.2s' }}>
+                            <div style={{ width:12, height:12, borderRadius:'50%', background:'rgba(255,255,255,0.03)', position:'absolute', top:3, left:item.isActive?17:3, transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
                           </div>
                         </div>
                         {/* Actions */}
                         <div style={{ display:'flex', gap:5 }}>
-                          <button onClick={()=>{ if(isItemEdit){setItemEdit(null)}else{setItemEdit(item);setItemData({ name:item.name, description:item.description||'', category:item.category||'', price:item.price||'', prepTime:item.prepTime||'', spiceLevel:item.spiceLevel||'None', offerBadge:item.offerBadge||false, offerLabel:item.offerLabel||'', offerColor:item.offerColor||'#E05A3A', isPopular:item.isPopular||false, isFeatured:item.isFeatured||false, isActive:item.isActive!==false })} }} style={{ padding:'6px 10px', borderRadius:8, border:'1.5px solid rgba(42,31,16,0.12)', background: isItemEdit?'rgba(224,90,58,0.08)':'transparent', color: isItemEdit?'#C04A28':'rgba(42,31,16,0.55)', fontSize:11, fontWeight:600, cursor:'pointer' }}>
+                          <button onClick={()=>{ if(isItemEdit){setItemEdit(null)}else{setItemEdit(item);setItemData({ name:item.name, description:item.description||'', category:item.category||'', price:item.price||'', prepTime:item.prepTime||'', spiceLevel:item.spiceLevel||'None', offerBadge:item.offerBadge||false, offerLabel:item.offerLabel||'', offerColor:item.offerColor||'#B8962E', isPopular:item.isPopular||false, isFeatured:item.isFeatured||false, isActive:item.isActive!==false })} }} style={{ padding:'6px 10px', borderRadius:8, border:'1.5px solid rgba(255,255,255,0.1)', background: isItemEdit?'rgba(224,90,58,0.08)':'transparent', color: isItemEdit?'#C04A28':'rgba(255,255,255,0.42)', fontSize:11, fontWeight:600, cursor:'pointer' }}>
                             {isItemEdit ? 'Cancel' : 'Edit'}
                           </button>
                           <button onClick={()=>deleteItem(item)} style={{ padding:'6px 8px', borderRadius:8, border:'1.5px solid rgba(244,160,176,0.4)', background:'rgba(244,160,176,0.08)', color:'#8B1A2A', fontSize:11, fontWeight:600, cursor:'pointer' }}>✕</button>
@@ -531,22 +532,22 @@ export default function RestaurantDetail() {
 
                       {/* Inline edit panel */}
                       {isItemEdit && (
-                        <div style={{ background:'#F7F5F2', borderBottom:'1px solid rgba(42,31,16,0.06)', padding:'18px 18px 22px' }}>
+                        <div style={{ background:'rgba(255,255,255,0.04)', borderBottom:'1px solid rgba(255,255,255,0.06)', padding:'18px 18px 22px' }}>
                           
                           {/* Image + AR media row */}
                           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18 }}>
                             
                             {/* Cover Image */}
-                            <div style={{ background:'#fff', borderRadius:14, padding:16, border:'1px solid rgba(42,31,16,0.07)' }}>
+                            <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:14, padding:16, border:'1px solid rgba(255,255,255,0.07)' }}>
                               <label style={{ ...S.label, marginBottom:10 }}>📸 Cover Image</label>
                               <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-                                <div style={{ width:60, height:60, borderRadius:12, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                                <div style={{ width:60, height:60, borderRadius:12, overflow:'hidden', background:'#08090C', flexShrink:0 }}>
                                   {item.imageURL
                                     ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                                     : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>🍽️</div>}
                                 </div>
                                 <div style={{ flex:1 }}>
-                                  <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginBottom:6 }}>JPG, PNG · Max 5MB</div>
+                                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginBottom:6 }}>JPG, PNG · Max 5MB</div>
                                   <input
                                     type="file" accept="image/*" style={{ display:'none' }}
                                     ref={el => { if(el) imgInputRef.current[item.id]=el; }}
@@ -555,20 +556,20 @@ export default function RestaurantDetail() {
                                   <button
                                     onClick={() => imgInputRef.current[item.id]?.click()}
                                     disabled={imgUpload[item.id]?.uploading}
-                                    style={{ padding:'8px 14px', borderRadius:10, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer', opacity: imgUpload[item.id]?.uploading?0.6:1 }}>
+                                    style={{ padding:'8px 14px', borderRadius:10, border:'1.5px solid rgba(255,255,255,0.1)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.48)', cursor:'pointer', opacity: imgUpload[item.id]?.uploading?0.6:1 }}>
                                     {imgUpload[item.id]?.uploading ? `Uploading ${imgUpload[item.id].progress}%…` : '↑ Upload New Image'}
                                   </button>
                                 </div>
                               </div>
                               {imgUpload[item.id]?.uploading && (
-                                <div style={{ height:4, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
-                                  <div style={{ height:'100%', background:'#E05A3A', borderRadius:99, width:`${imgUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
+                                <div style={{ height:4, background:'rgba(255,255,255,0.07)', borderRadius:99, overflow:'hidden' }}>
+                                  <div style={{ height:'100%', background:'#B8962E', borderRadius:99, width:`${imgUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
                                 </div>
                               )}
                             </div>
 
                             {/* AR Model */}
-                            <div style={{ background:'#fff', borderRadius:14, padding:16, border:'1px solid rgba(42,31,16,0.07)' }}>
+                            <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:14, padding:16, border:'1px solid rgba(255,255,255,0.07)' }}>
                               <label style={{ ...S.label, marginBottom:10 }}>🥽 AR Model (.glb / .gltf)</label>
                               <div style={{ marginBottom:10 }}>
                                 {item.modelURL ? (
@@ -582,7 +583,7 @@ export default function RestaurantDetail() {
                                     ⚠️ No AR model — item shows without AR
                                   </div>
                                 )}
-                                <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginBottom:8 }}>.glb or .gltf · Max 20MB</div>
+                                <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginBottom:8 }}>.glb or .gltf · Max 20MB</div>
                                 <input
                                   type="file" accept=".glb,.gltf" style={{ display:'none' }}
                                   ref={el => { if(el) arInputRef.current[item.id]=el; }}
@@ -591,12 +592,12 @@ export default function RestaurantDetail() {
                                 <button
                                   onClick={() => arInputRef.current[item.id]?.click()}
                                   disabled={arUpload[item.id]?.uploading}
-                                  style={{ padding:'8px 14px', borderRadius:10, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer', opacity:arUpload[item.id]?.uploading?0.6:1 }}>
+                                  style={{ padding:'8px 14px', borderRadius:10, border:'1.5px solid rgba(255,255,255,0.1)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.48)', cursor:'pointer', opacity:arUpload[item.id]?.uploading?0.6:1 }}>
                                   {arUpload[item.id]?.uploading ? `Uploading ${arUpload[item.id].progress}%…` : item.modelURL ? '↑ Replace AR Model' : '↑ Upload AR Model'}
                                 </button>
                               </div>
                               {arUpload[item.id]?.uploading && (
-                                <div style={{ height:4, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
+                                <div style={{ height:4, background:'rgba(255,255,255,0.07)', borderRadius:99, overflow:'hidden' }}>
                                   <div style={{ height:'100%', background:'#8FC4A8', borderRadius:99, width:`${arUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
                                 </div>
                               )}
@@ -625,19 +626,19 @@ export default function RestaurantDetail() {
                           {/* Flags */}
                           <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
                             {[['isPopular','✦ Popular'],['isFeatured','⭐ Featured'],['isActive','👁 Visible']].map(([k,lbl])=>(
-                              <div key={k} onClick={()=>setItemData(d=>({...d,[k]:!d[k]}))} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', borderRadius:10, border:`1.5px solid ${itemData[k]?'rgba(224,90,58,0.3)':'rgba(42,31,16,0.09)'}`, background:itemData[k]?'rgba(224,90,58,0.05)':'#fff', cursor:'pointer', fontSize:12, fontWeight:600, color:itemData[k]?'#E05A3A':'rgba(42,31,16,0.55)', transition:'all 0.15s' }}>
-                                <div style={{ width:28,height:16,borderRadius:99,background:itemData[k]?'#E05A3A':'rgba(42,31,16,0.15)',position:'relative',transition:'background 0.2s' }}>
-                                  <div style={{ width:10,height:10,borderRadius:'50%',background:'#fff',position:'absolute',top:3,left:itemData[k]?15:3,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
+                              <div key={k} onClick={()=>setItemData(d=>({...d,[k]:!d[k]}))} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', borderRadius:10, border:`1.5px solid ${itemData[k]?'rgba(224,90,58,0.3)':'rgba(255,255,255,0.09)'}`, background:itemData[k]?'rgba(224,90,58,0.05)':'#fff', cursor:'pointer', fontSize:12, fontWeight:600, color:itemData[k]?'#B8962E':'rgba(255,255,255,0.42)', transition:'all 0.15s' }}>
+                                <div style={{ width:28,height:16,borderRadius:99,background:itemData[k]?'#B8962E':'rgba(255,255,255,0.1)',position:'relative',transition:'background 0.2s' }}>
+                                  <div style={{ width:10,height:10,borderRadius:'50%',background:'rgba(255,255,255,0.03)',position:'absolute',top:3,left:itemData[k]?15:3,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
                                 </div>
                                 {lbl}
                               </div>
                             ))}
                           </div>
                           <div style={{ display:'flex', gap:10 }}>
-                            <button onClick={saveItemEdit} disabled={itemSaving} style={{ padding:'10px 22px', borderRadius:11, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:13, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:itemSaving?0.6:1 }}>
+                            <button onClick={saveItemEdit} disabled={itemSaving} style={{ padding:'10px 22px', borderRadius:11, border:'none', background:'rgba(184,150,46,0.1)', color:'rgba(255,255,255,0.88)', fontSize:13, fontWeight:700, fontFamily:'inherit', cursor:'pointer', opacity:itemSaving?0.6:1 }}>
                               {itemSaving?'Saving…':'Save'}
                             </button>
-                            <button onClick={()=>setItemEdit(null)} style={{ padding:'10px 16px', borderRadius:11, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.5)', cursor:'pointer' }}>Cancel</button>
+                            <button onClick={()=>setItemEdit(null)} style={{ padding:'10px 16px', borderRadius:11, border:'1.5px solid rgba(255,255,255,0.1)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.38)', cursor:'pointer' }}>Cancel</button>
                           </div>
                         </div>
                       )}
@@ -652,44 +653,44 @@ export default function RestaurantDetail() {
           {tab === 'analytics' && (<>
             {!analLoaded ? (
               <div style={{ display:'flex', justifyContent:'center', paddingTop:40 }}>
-                <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                <div style={{ width:32, height:32, border:'2px solid #B8962E', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
               </div>
             ) : (<>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:20 }}>
                 {[
-                  { label:'Total Visits (30d)',   value:totalVisits,  color:'#E05A3A', bg:'rgba(224,90,58,0.07)'  },
+                  { label:'Total Visits (30d)',   value:totalVisits,  color:'#B8962E', bg:'rgba(224,90,58,0.07)'  },
                   { label:'Unique Visitors (30d)', value:uniqueVisits, color:'#5A9A78', bg:'rgba(143,196,168,0.12)' },
                   { label:'AR Items',              value:items.filter(i=>i.modelURL).length, color:'#8A70B0', bg:'rgba(196,181,212,0.15)' },
                 ].map(s => (
                   <div key={s.label} style={{ ...S.card, padding:22, background:s.bg }}>
-                    <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:28, color:s.color, marginBottom:4 }}>{s.value.toLocaleString()}</div>
-                    <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)' }}>{s.label}</div>
+                    <div style={{ fontFamily:'inherit', fontWeight:800, fontSize:28, color:s.color, marginBottom:4 }}>{s.value.toLocaleString()}</div>
+                    <div style={{ fontSize:12, color:'rgba(255,255,255,0.38)' }}>{s.label}</div>
                   </div>
                 ))}
               </div>
 
               {chartData.length > 0 ? (
                 <div style={{ ...S.card, padding:28, marginBottom:20 }}>
-                  <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:20 }}>Visits Over Time (Last 30 Days)</div>
+                  <div style={{ fontFamily:'inherit', fontWeight:700, fontSize:14, color:'rgba(255,255,255,0.88)', marginBottom:20 }}>Visits Over Time (Last 30 Days)</div>
                   <ResponsiveContainer width="100%" height={200}>
                     <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="#E05A3A" stopOpacity={0.15}/>
-                          <stop offset="95%" stopColor="#E05A3A" stopOpacity={0}/>
+                          <stop offset="5%"  stopColor="#B8962E" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#B8962E" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)"/>
                       <XAxis dataKey="date" tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
                       <YAxis tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
                       <Tooltip contentStyle={S.tip}/>
-                      <Area type="monotone" dataKey="visits" stroke="#E05A3A" strokeWidth={2.5} fill="url(#ag)" name="Total Visits"/>
+                      <Area type="monotone" dataKey="visits" stroke="#B8962E" strokeWidth={2.5} fill="url(#ag)" name="Total Visits"/>
                       <Area type="monotone" dataKey="unique" stroke="#8FC4A8" strokeWidth={2} fill="transparent" name="Unique" strokeDasharray="5 3"/>
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div style={{ ...S.card, padding:40, textAlign:'center', color:'rgba(42,31,16,0.4)', marginBottom:20 }}>
+                <div style={{ ...S.card, padding:40, textAlign:'center', color:'rgba(255,255,255,0.32)', marginBottom:20 }}>
                   <div style={{ fontSize:36, marginBottom:10 }}>📊</div>
                   <p>No analytics data yet for this restaurant.</p>
                 </div>
@@ -697,7 +698,7 @@ export default function RestaurantDetail() {
 
               {topItems.length > 0 && (
                 <div style={{ ...S.card, padding:24 }}>
-                  <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:16 }}>Top Items by Views</div>
+                  <div style={{ fontFamily:'inherit', fontWeight:700, fontSize:14, color:'rgba(255,255,255,0.88)', marginBottom:16 }}>Top Items by Views</div>
                   {topItems.map((item,i) => {
                     const score = (item.views||0)+(item.arViews||0)*2;
                     const maxScore = Math.max(...topItems.map(x=>(x.views||0)+(x.arViews||0)*2), 1);
@@ -705,16 +706,16 @@ export default function RestaurantDetail() {
                     return (
                       <div key={item.id} style={{ display:'flex', alignItems:'center', gap:12, marginBottom:10 }}>
                         <span style={{ fontSize:11, color:'rgba(42,31,16,0.3)', width:16, textAlign:'right', flexShrink:0 }}>#{i+1}</span>
-                        <div style={{ width:30, height:30, borderRadius:10, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                        <div style={{ width:30, height:30, borderRadius:10, overflow:'hidden', background:'#08090C', flexShrink:0 }}>
                           {item.imageURL?<img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>:<span style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', fontSize:14 }}>🍽️</span>}
                         </div>
                         <div style={{ flex:1 }}>
                           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                            <span style={{ fontSize:13, fontWeight:500, color:'#1E1B18' }}>{item.name}</span>
-                            <span style={{ fontSize:11, color:'rgba(42,31,16,0.4)' }}>{item.views||0} views · {item.arViews||0} AR</span>
+                            <span style={{ fontSize:13, fontWeight:500, color:'rgba(255,255,255,0.88)' }}>{item.name}</span>
+                            <span style={{ fontSize:11, color:'rgba(255,255,255,0.32)' }}>{item.views||0} views · {item.arViews||0} AR</span>
                           </div>
-                          <div style={{ height:5, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden' }}>
-                            <div style={{ height:'100%', borderRadius:99, background:i===0?'#E05A3A':i===1?'#F4A060':'#8FC4A8', width:`${pct}%` }}/>
+                          <div style={{ height:5, background:'rgba(255,255,255,0.07)', borderRadius:99, overflow:'hidden' }}>
+                            <div style={{ height:'100%', borderRadius:99, background:i===0?'#B8962E':i===1?'#F4A060':'#8FC4A8', width:`${pct}%` }}/>
                           </div>
                         </div>
                       </div>
@@ -729,7 +730,7 @@ export default function RestaurantDetail() {
           {tab === 'requests' && (<>
             <div style={{ display:'flex', gap:6, marginBottom:20 }}>
               {['all','pending','approved','rejected'].map(s => (
-                <button key={s} onClick={()=>setReqFilter(s)} style={{ padding:'8px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background:reqFilter===s?'#1E1B18':'#fff', color:reqFilter===s?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow:reqFilter===s?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
+                <button key={s} onClick={()=>setReqFilter(s)} style={{ padding:'8px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textTransform:'capitalize', background:reqFilter===s?'#1E1B18':'#fff', color:reqFilter===s?'#FFF5E8':'rgba(255,255,255,0.42)', boxShadow:reqFilter===s?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(255,255,255,0.06)', transition:'all 0.15s' }}>
                   {s}
                 </button>
               ))}
@@ -737,10 +738,10 @@ export default function RestaurantDetail() {
 
             {!reqLoaded ? (
               <div style={{ display:'flex', justifyContent:'center', paddingTop:40 }}>
-                <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                <div style={{ width:32, height:32, border:'2px solid #B8962E', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
               </div>
             ) : requests.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
+              <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(255,255,255,0.32)' }}>
                 <div style={{ fontSize:36, marginBottom:10 }}>📭</div>
                 <p>No {reqFilter === 'all' ? '' : reqFilter} requests.</p>
               </div>
@@ -751,17 +752,17 @@ export default function RestaurantDetail() {
                   const [bg, color] = badgeMap[req.status] || badgeMap.pending;
                   return (
                     <div key={req.id} style={{ ...S.card, padding:18, display:'flex', alignItems:'flex-start', gap:14 }}>
-                      <div style={{ width:48, height:48, borderRadius:14, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                      <div style={{ width:48, height:48, borderRadius:14, overflow:'hidden', background:'#08090C', flexShrink:0 }}>
                         {req.imageURL?<img src={req.imageURL} alt={req.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>:<div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🍽️</div>}
                       </div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                          <span style={{ fontWeight:600, fontSize:14, color:'#1E1B18' }}>{req.name}</span>
+                          <span style={{ fontWeight:600, fontSize:14, color:'rgba(255,255,255,0.88)' }}>{req.name}</span>
                           <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:bg+'33', color, border:`1px solid ${bg}66`, textTransform:'capitalize', flexShrink:0 }}>{req.status}</span>
                         </div>
-                        {req.category && <div style={{ fontSize:12, color:'rgba(42,31,16,0.45)' }}>{req.category}</div>}
-                        {req.description && <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)', marginTop:4, lineHeight:1.5 }}>{req.description}</div>}
-                        {req.prepTime && <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:4 }}>⏱ {req.prepTime}</div>}
+                        {req.category && <div style={{ fontSize:12, color:'rgba(255,255,255,0.35)' }}>{req.category}</div>}
+                        {req.description && <div style={{ fontSize:12, color:'rgba(255,255,255,0.38)', marginTop:4, lineHeight:1.5 }}>{req.description}</div>}
+                        {req.prepTime && <div style={{ fontSize:11, color:'rgba(255,255,255,0.32)', marginTop:4 }}>⏱ {req.prepTime}</div>}
                         <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:6 }}>
                           Submitted {req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleDateString() : 'recently'}
                         </div>
