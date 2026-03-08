@@ -164,28 +164,25 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
     return () => { document.body.style.overflow = ''; };
   }, [selectedItem, smaOpen]);
 
-  // Scroll reveal via IntersectionObserver
-  useEffect(() => {
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add('revealed');
-          obs.unobserve(e.target);
-        }
-      });
-    }, { threshold: 0.06, rootMargin: '0px 0px -20px 0px' });
-    const cards = document.querySelectorAll('.card');
-    cards.forEach(c => obs.observe(c));
-    return () => obs.disconnect();
-  }, [activeCat, menuItems]);
+  // No IntersectionObserver needed — pure CSS animation handles reveal
 
-  // 50% rule: each category shows at most 50% of total restaurant items (min 6)
+  // 50% rule
   const totalItems = (menuItems||[]).length;
   const maxPerCat  = Math.max(6, Math.ceil(totalItems * 0.5));
-  const cats       = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
-  const filtered   = activeCat==='All'
+
+  // Deduplicate categories case-insensitively, preserve first-seen casing
+  const allCats = (menuItems||[]).map(i=>i.category).filter(Boolean);
+  const seenLower = new Set();
+  const uniqueCats = allCats.filter(c => {
+    const l = c.toLowerCase();
+    if (seenLower.has(l)) return false;
+    seenLower.add(l); return true;
+  });
+  const cats     = ['All', ...uniqueCats];
+  // When filtering, match case-insensitively
+  const filtered = activeCat==='All'
     ? (menuItems||[])
-    : (menuItems||[]).filter(i=>i.category===activeCat).slice(0, maxPerCat);
+    : (menuItems||[]).filter(i=>(i.category||'').toLowerCase()===activeCat.toLowerCase()).slice(0, maxPerCat);
   const arCount    = (menuItems||[]).filter(i=>i.modelURL).length;
 
   const openItem = useCallback(async (item) => {
@@ -363,11 +360,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background:#FFFFFF; border-radius:20px; overflow:hidden;
           cursor:pointer; position:relative; text-align:left; border:none;
           box-shadow:0 1px 3px rgba(0,0,0,0.05),0 4px 18px rgba(0,0,0,0.08);
-          opacity:0; transform:translateY(22px);
-          transition:opacity 0.42s ease,transform 0.42s ease,box-shadow 0.22s ease;
-          will-change:transform,opacity;
+          animation: cardReveal 0.45s ease both;
+          transition: transform 0.22s ease, box-shadow 0.22s ease;
+          will-change: transform;
         }
-        .card.revealed { opacity:1; transform:translateY(0); }
+        @keyframes cardReveal {
+          from { opacity:0; transform:translateY(20px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
         .card:hover {
           transform:translateY(-5px) scale(1.005);
           box-shadow:0 12px 36px rgba(0,0,0,0.14),0 0 0 1.5px rgba(212,74,42,0.15);
@@ -764,9 +764,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                 </button>
               ))}
             </div>
-            {activeCat !== 'All' && (menuItems||[]).filter(i=>i.category===activeCat).length > maxPerCat && (
+            {activeCat !== 'All' && (menuItems||[]).filter(i=>(i.category||'').toLowerCase()===activeCat.toLowerCase()).length > maxPerCat && (
               <div className="cat-limit-note">
-                Showing top {maxPerCat} of {(menuItems||[]).filter(i=>i.category===activeCat).length} items in this category · Switch to All to see everything
+                Showing top {maxPerCat} of {(menuItems||[]).filter(i=>(i.category||'').toLowerCase()===activeCat.toLowerCase()).length} items in this category · Switch to All to see everything
               </div>
             )}
           </>
