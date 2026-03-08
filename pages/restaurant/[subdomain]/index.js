@@ -188,7 +188,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [smaStep,      setSmaStep]      = useState(0);
   const [smaAnswers,   setSmaAnswers]   = useState({});
   const [smaResults,   setSmaResults]   = useState([]);
-  const [darkMode,     setDarkMode]     = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('ar_theme') === 'dark';
+  });
 
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(()=>{});
@@ -245,6 +248,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
       <div className={darkMode ? 'dm' : ''} id="app-root">
       <style>{`
         html, body { margin:0; padding:0; }
+        #app-root { transition: background 0.35s ease; }
+        .card, .sheet, .sma-sheet, .hdr { transition: background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease !important; }
         *, *::before, *::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
         body {
@@ -698,117 +703,360 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* ── Shareable tag on result items ── */
         .sma-chip-share { background:#EEF4FF; color:#3060B0; }
 
-        /* ══════════════════════════════
-           DARK MODE  (Zomato District style)
-           ══════════════════════════════ */
-        .dm { color-scheme: dark; }
-        .dm body, #app-root.dm { background:#111 !important; }
+        /* ══════════════════════════════════════════════════════
+           DISTRICT-GRADE DARK MODE
+           Spec: #0F0F0F base · #1F1F1F cards · amber accent
+           Inspired by Zomato District — cinematic, immersive
+           ══════════════════════════════════════════════════════ */
 
-        /* Page bg */
-        .dm .main          { background:#111 !important; }
-        .dm .hdr           { background:rgba(18,18,18,0.96) !important; border-bottom:0.5px solid rgba(255,255,255,0.06) !important; }
+        /* ── CSS tokens for dark mode ── */
+        .dm {
+          color-scheme: dark;
+          --bg-base:    #0F0F0F;
+          --bg-surface: #181818;
+          --bg-card:    #1F1F1F;
+          --bg-elevated:#252525;
+          --divider:    #2A2A2A;
+          --accent:     #F79B3D;
+          --accent-glow:rgba(247,155,61,0.22);
+          --text-1:     #FFFFFF;
+          --text-2:     #B3B3B3;
+          --text-muted: #7A7A7A;
+          --shadow-card:0 4px 24px rgba(0,0,0,0.5);
+          --shadow-hover:0 16px 48px rgba(0,0,0,0.7);
+        }
 
-        /* Cards */
-        .dm .card          { background:#1C1C1C !important; border-color:rgba(255,255,255,0.06) !important; }
-        .dm .card:hover    { box-shadow:0 12px 36px rgba(0,0,0,0.55) !important; }
-        .dm .c-body        {}
-        .dm .c-name        { color:#F2F2F2 !important; }
-        .dm .c-cal         { color:#666 !important; }
-        .dm .c-prep        { color:#666 !important; }
-        .dm .c-ar-cta      { background:#252525 !important; color:#AAA !important; }
-        .dm .c-badge-pop   { background:rgba(247,155,61,0.18) !important; color:#F79B3D !important; }
-        .dm .c-badge-feat  { background:rgba(100,60,180,0.2) !important; color:#B090E0 !important; }
-        .dm .c-img-ph      { background:#282828 !important; }
+        /* ── Page shell ── */
+        #app-root.dm               { background: var(--bg-base); }
+        .dm .main                  { background: var(--bg-base) !important; }
 
-        /* AR strip + offer bar */
-        .dm .ar-strip      { background:#1C1C1C !important; border-color:rgba(247,155,61,0.2) !important; }
-        .dm .ar-strip-text { color:#E0E0E0 !important; }
-        .dm .ar-strip-sub  { color:#666 !important; }
-        .dm .offer-bar     { background:#1C1C1C !important; border-color:rgba(255,220,100,0.2) !important; }
-        .dm .offer-bar-title { color:#D4A020 !important; }
-        .dm .offer-bar-desc  { color:#888 !important; }
+        /* ── Sticky header ── */
+        .dm .hdr {
+          background: rgba(15,15,15,0.94) !important;
+          backdrop-filter: saturate(180%) blur(20px) !important;
+          -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+          border-bottom: 0.5px solid var(--divider) !important;
+        }
+        .dm .r-name  { color: var(--text-1) !important; }
+        .dm .r-sub   { color: var(--text-muted) !important; }
+        .dm .r-logo  {
+          background: linear-gradient(145deg,#F79B3D,#C07020) !important;
+          box-shadow: 0 3px 12px rgba(247,155,61,0.35) !important;
+        }
 
-        /* Header text */
-        .dm .r-name        { color:#F0F0F0 !important; }
-        .dm .r-sub         { color:#666 !important; }
-        .dm .ar-badge      { background:rgba(247,155,61,0.14) !important; border-color:rgba(247,155,61,0.25) !important; }
+        /* ── AR Live badge ── */
+        .dm .ar-badge {
+          background: rgba(247,155,61,0.12) !important;
+          border-color: rgba(247,155,61,0.3) !important;
+          color: #F79B3D !important;
+        }
 
-        /* Category pills */
-        .dm .cat-pill      { background:rgba(255,255,255,0.06) !important; color:#AAA !important; }
-        .dm .cat-pill:hover:not(.on) { background:rgba(255,255,255,0.1) !important; color:#E0E0E0 !important; }
-        .dm .cat-pill.on   { background:#F79B3D !important; color:#fff !important; }
+        /* ── Category pills ── */
+        .dm .cat-pill {
+          background: var(--bg-elevated) !important;
+          color: var(--text-2) !important;
+          border-color: transparent !important;
+        }
+        .dm .cat-pill:hover:not(.on) {
+          background: #2E2E2E !important;
+          color: var(--text-1) !important;
+        }
+        .dm .cat-pill.on {
+          background: var(--accent) !important;
+          color: #fff !important;
+          box-shadow: 0 4px 16px rgba(247,155,61,0.45) !important;
+        }
 
-        /* Modal sheet */
-        .dm .sheet         { background:#181818 !important; }
-        .dm .handle        { background:rgba(255,255,255,0.14) !important; }
-        .dm .close-btn     { background:#2A2A2A !important; color:#E0E0E0 !important; border:1px solid rgba(255,255,255,0.1) !important; }
-        .dm .close-btn:hover { background:#333 !important; }
-        .dm .m-hero        {}
-        .dm .m-title       { color:#F0F0F0 !important; }
-        .dm .tag-cat       { background:#252525 !important; color:#AAA !important; }
-        .dm .tag-veg       { background:rgba(40,120,70,0.25) !important; color:#5EC47A !important; }
-        .dm .tag-nv        { background:rgba(160,40,30,0.25) !important; color:#E07060 !important; }
-        .dm .tag-pop       { background:rgba(247,155,61,0.18) !important; color:#F79B3D !important; }
-        .dm .m-pill        { background:#252525 !important; color:#AAA !important; }
-        .dm .m-price-sub   { color:#666 !important; }
-        .dm .m-desc        { color:#888 !important; }
-        .dm .divider       { background:rgba(255,255,255,0.07) !important; }
-        .dm .sec-lbl       { color:#555 !important; }
-        .dm .nc            { background:#222 !important; border-color:rgba(255,255,255,0.06) !important; }
-        .dm .nc-u, .dm .nc-l { color:#666 !important; }
-        .dm .ing           { background:#252525 !important; color:#AAA !important; }
-        .dm .ar-hint       { color:#555 !important; }
-        .dm .sbody         {}
+        /* ── AR strip & offer bar ── */
+        .dm .ar-strip {
+          background: var(--bg-card) !important;
+          border-color: rgba(247,155,61,0.18) !important;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.4) !important;
+        }
+        .dm .ar-strip-text { color: var(--text-1) !important; }
+        .dm .ar-strip-sub  { color: var(--text-muted) !important; }
 
-        /* SMA */
-        .dm .sma-sheet     { background:#181818 !important; }
-        .dm .sma-prog-bar  { background:#2A2A2A !important; }
-        .dm .sma-prog-txt  { color:#555 !important; }
-        .dm .sma-back      { color:#555 !important; }
-        .dm .sma-q-text    { color:#F0F0F0 !important; }
-        .dm .sma-q-sub     { color:#666 !important; }
-        .dm .sma-opt       { background:#222 !important; border-color:rgba(255,255,255,0.07) !important; }
-        .dm .sma-opt:hover { background:#2A2A2A !important; }
-        .dm .sma-opt-label { color:#E0E0E0 !important; }
-        .dm .sma-item      { background:#222 !important; border-color:rgba(255,255,255,0.07) !important; }
-        .dm .sma-item:hover { background:#2A2A2A !important; }
-        .dm .sma-item-name { color:#E0E0E0 !important; }
-        .dm .sma-res-title { color:#F0F0F0 !important; }
-        .dm .sma-res-sub   { color:#666 !important; }
-        .dm .sma-cat-lbl   { color:#555 !important; }
-        .dm .sma-mode-title { color:#F0F0F0 !important; }
-        .dm .sma-mode-sub  { color:#666 !important; }
-        .dm .sma-mode-card { background:#222 !important; border-color:rgba(255,255,255,0.08) !important; }
-        .dm .sma-mode-card:hover { background:#2A2A2A !important; border-color:#F79B3D !important; }
-        .dm .sma-mode-card-name { color:#F0F0F0 !important; }
-        .dm .sma-mode-card-desc { color:#666 !important; }
-        .dm .sma-size-title { color:#F0F0F0 !important; }
-        .dm .sma-size-sub  { color:#666 !important; }
-        .dm .sma-size-btn  { background:#222 !important; border-color:rgba(255,255,255,0.08) !important; }
-        .dm .sma-size-btn:hover { background:#2A2A2A !important; border-color:#F79B3D !important; }
-        .dm .sma-size-btn-num { color:#F0F0F0 !important; }
-        .dm .sma-size-btn-lbl { color:#666 !important; }
-        .dm .sma-btn-light { border-color:rgba(255,255,255,0.12) !important; color:#AAA !important; }
-        .dm .sma-btn-light:hover { background:#2A2A2A !important; }
-        .dm .sma-no-match  { color:#666 !important; }
-        .dm .sma-group-banner { background:rgba(30,80,50,0.3) !important; border-color:rgba(60,140,90,0.3) !important; }
-        .dm .sma-dismiss   { color:#555 !important; }
+        .dm .offer-bar {
+          background: var(--bg-card) !important;
+          border-color: rgba(212,160,30,0.2) !important;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.4) !important;
+        }
+        .dm .offer-bar-title { color: #D4A020 !important; }
+        .dm .offer-bar-desc  { color: var(--text-muted) !important; }
 
-        /* Dark mode FAB */
-        .dm .sma-fab       { background:#F79B3D !important; box-shadow:0 6px 24px rgba(247,155,61,0.4), 0 2px 8px rgba(0,0,0,0.4) !important; }
+        /* ── CARDS — cinematic District treatment ── */
+        .dm .card {
+          background: var(--bg-card) !important;
+          border-color: rgba(255,255,255,0.05) !important;
+          box-shadow: var(--shadow-card) !important;
+        }
+        .dm .card:hover {
+          box-shadow: var(--shadow-hover) !important;
+          border-color: rgba(247,155,61,0.15) !important;
+        }
 
-        /* Dark theme toggle button */
+        /* Cinematic bottom-gradient on card images in dark mode */
+        .dm .c-img::before {
+          content: '';
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 55%;
+          background: linear-gradient(
+            to top,
+            rgba(15,15,15,0.72) 0%,
+            rgba(15,15,15,0.3) 50%,
+            transparent 100%
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
+        /* Ensure AR pill sits above gradient */
+        .dm .c-ar-pill { z-index: 2 !important; }
+        .dm .veg-ind   { z-index: 2 !important; }
+
+        .dm .c-img-ph  { background: #282828 !important; }
+
+        /* Card body text */
+        .dm .c-name    { color: var(--text-1) !important; }
+        .dm .c-price   { color: var(--accent) !important; }
+        .dm .c-cal     { color: var(--text-muted) !important; }
+        .dm .c-prep    { color: var(--text-muted) !important; }
+
+        /* AR CTA inside card */
+        .dm .c-ar-cta  {
+          background: rgba(247,155,61,0.1) !important;
+          color: var(--accent) !important;
+          border-top: 1px solid rgba(247,155,61,0.12) !important;
+        }
+
+        /* Badges */
+        .dm .c-badge-pop  { background: rgba(247,155,61,0.16) !important; color: var(--accent) !important; }
+        .dm .c-badge-feat { background: rgba(120,80,200,0.18) !important; color: #C0A0F0 !important; }
+
+        /* AR pill on card */
+        .dm .c-ar-pill { background: rgba(247,155,61,0.85) !important; }
+
+        /* ── MODAL SHEET — layered dark surfaces ── */
+        .dm .overlay {
+          background: rgba(0,0,0,0.82) !important;
+        }
+        .dm .sheet {
+          background: var(--bg-surface) !important;
+          box-shadow: 0 -12px 60px rgba(0,0,0,0.8) !important;
+        }
+        .dm .handle { background: rgba(255,255,255,0.12) !important; }
+
+        /* Close button — frosted dark glass */
+        .dm .close-btn {
+          background: rgba(255,255,255,0.1) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          border-color: rgba(255,255,255,0.12) !important;
+          color: var(--text-1) !important;
+        }
+        .dm .close-btn:hover {
+          background: rgba(255,255,255,0.18) !important;
+          transform: scale(1.08) !important;
+        }
+
+        /* Modal image — dark gradient overlay */
+        .dm .m-hero::after {
+          content: '';
+          position: absolute;
+          bottom: 0; left: 0; right: 0; height: 40%;
+          background: linear-gradient(to top, rgba(24,24,24,0.7), transparent);
+          border-radius: 0 0 16px 16px;
+          pointer-events: none;
+        }
+
+        /* Modal body */
+        .dm .sbody         { background: var(--bg-surface) !important; }
+        .dm .m-title       { color: var(--text-1) !important; }
+        .dm .m-desc        { color: var(--text-2) !important; }
+        .dm .m-price       { color: var(--accent) !important; }
+        .dm .m-price-sub   { color: var(--text-muted) !important; }
+
+        /* Modal tags */
+        .dm .tag-cat  { background: var(--bg-elevated) !important; color: var(--text-2) !important; border: 1px solid var(--divider) !important; }
+        .dm .tag-veg  { background: rgba(30,100,60,0.22) !important; color: #5EC47A !important; }
+        .dm .tag-nv   { background: rgba(140,30,30,0.22) !important; color: #E07060 !important; }
+        .dm .tag-pop  { background: rgba(247,155,61,0.14) !important; color: var(--accent) !important; }
+        .dm .m-pill   { background: var(--bg-elevated) !important; color: var(--text-2) !important; }
+
+        /* Nutrition cards */
+        .dm .divider { background: var(--divider) !important; }
+        .dm .sec-lbl { color: var(--text-muted) !important; letter-spacing: 0.1em; }
+        .dm .nc {
+          background: var(--bg-elevated) !important;
+          border-color: var(--divider) !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+        }
+        .dm .nc-v  { color: var(--accent) !important; }
+        .dm .nc-u  { color: var(--text-muted) !important; }
+        .dm .nc-l  { color: var(--text-2) !important; }
+
+        /* Ingredients */
+        .dm .ing {
+          background: var(--bg-elevated) !important;
+          color: var(--text-2) !important;
+          border: 1px solid var(--divider) !important;
+        }
+
+        /* AR button in modal */
+        .dm .ar-btn {
+          background: var(--accent) !important;
+          box-shadow: 0 6px 24px rgba(247,155,61,0.4) !important;
+        }
+        .dm .ar-btn:hover { box-shadow: 0 10px 32px rgba(247,155,61,0.55) !important; }
+        .dm .ar-hint { color: var(--text-muted) !important; }
+
+        /* ── SMART MENU ASSISTANT ── */
+        .dm .sma-overlay { background: rgba(0,0,0,0.85) !important; }
+
+        .dm .sma-sheet {
+          background: var(--bg-surface) !important;
+          box-shadow: 0 -12px 60px rgba(0,0,0,0.8) !important;
+        }
+
+        /* Progress */
+        .dm .sma-prog-bar  { background: var(--bg-elevated) !important; }
+        .dm .sma-prog-fill { background: var(--accent) !important; }
+        .dm .sma-prog-txt  { color: var(--text-muted) !important; }
+        .dm .sma-back      { color: var(--text-muted) !important; }
+        .dm .sma-back:hover { color: var(--accent) !important; }
+
+        /* Questions */
+        .dm .sma-q-text  { color: var(--text-1) !important; }
+        .dm .sma-q-sub   { color: var(--text-muted) !important; }
+
+        /* Option rows */
+        .dm .sma-opt {
+          background: var(--bg-card) !important;
+          border-color: var(--divider) !important;
+        }
+        .dm .sma-opt:hover {
+          background: var(--bg-elevated) !important;
+          border-color: var(--accent) !important;
+          box-shadow: 0 0 0 1px rgba(247,155,61,0.25) !important;
+        }
+        .dm .sma-opt-label { color: var(--text-1) !important; }
+        .dm .sma-dismiss   { color: var(--text-muted) !important; }
+        .dm .sma-dismiss:hover { color: var(--accent) !important; }
+
+        /* Result items */
+        .dm .sma-res-title  { color: var(--text-1) !important; }
+        .dm .sma-res-sub    { color: var(--text-muted) !important; }
+        .dm .sma-cat-lbl    { color: var(--text-muted) !important; }
+        .dm .sma-item {
+          background: var(--bg-card) !important;
+          border-color: var(--divider) !important;
+        }
+        .dm .sma-item:hover {
+          background: var(--bg-elevated) !important;
+          border-color: var(--accent) !important;
+        }
+        .dm .sma-item-name  { color: var(--text-1) !important; }
+        .dm .sma-item-price { color: var(--accent) !important; }
+
+        /* Badges inside SMA */
+        .dm .sma-chip-pop   { background: rgba(247,155,61,0.14) !important; color: var(--accent) !important; }
+        .dm .sma-chip-ar    { background: rgba(40,100,70,0.2) !important; color: #5EC47A !important; }
+        .dm .sma-chip-share { background: rgba(40,80,180,0.2) !important; color: #80A8F0 !important; }
+
+        /* Mode picker */
+        .dm .sma-mode-title { color: var(--text-1) !important; }
+        .dm .sma-mode-sub   { color: var(--text-muted) !important; }
+        .dm .sma-mode-card {
+          background: var(--bg-card) !important;
+          border-color: var(--divider) !important;
+        }
+        .dm .sma-mode-card:hover {
+          background: var(--bg-elevated) !important;
+          border-color: var(--accent) !important;
+          box-shadow: 0 0 0 1px rgba(247,155,61,0.2), 0 8px 24px rgba(0,0,0,0.4) !important;
+        }
+        .dm .sma-mode-card-name { color: var(--text-1) !important; }
+        .dm .sma-mode-card-desc { color: var(--text-muted) !important; }
+
+        /* Size picker */
+        .dm .sma-size-title { color: var(--text-1) !important; }
+        .dm .sma-size-sub   { color: var(--text-muted) !important; }
+        .dm .sma-size-btn {
+          background: var(--bg-card) !important;
+          border-color: var(--divider) !important;
+        }
+        .dm .sma-size-btn:hover {
+          background: var(--bg-elevated) !important;
+          border-color: var(--accent) !important;
+        }
+        .dm .sma-size-btn-num { color: var(--text-1) !important; }
+        .dm .sma-size-btn-lbl { color: var(--text-muted) !important; }
+
+        /* Group banner */
+        .dm .sma-group-banner {
+          background: rgba(20,70,40,0.25) !important;
+          border-color: rgba(50,120,70,0.3) !important;
+        }
+        .dm .sma-group-banner-text { color: #5EC47A !important; }
+        .dm .sma-group-banner-sub  { color: #3E9A5A !important; }
+
+        /* Action buttons */
+        .dm .sma-btn-dark {
+          background: var(--accent) !important;
+          box-shadow: 0 4px 16px rgba(247,155,61,0.35) !important;
+        }
+        .dm .sma-btn-light {
+          background: transparent !important;
+          border-color: var(--divider) !important;
+          color: var(--text-2) !important;
+        }
+        .dm .sma-btn-light:hover {
+          background: var(--bg-elevated) !important;
+          border-color: rgba(255,255,255,0.15) !important;
+        }
+        .dm .sma-no-match { color: var(--text-muted) !important; }
+
+        /* FAB in dark mode */
+        .dm .sma-fab {
+          background: var(--accent) !important;
+          box-shadow: 0 6px 28px rgba(247,155,61,0.5), 0 2px 8px rgba(0,0,0,0.5) !important;
+        }
+        .dm .sma-fab:hover {
+          box-shadow: 0 12px 40px rgba(247,155,61,0.65), 0 4px 12px rgba(0,0,0,0.5) !important;
+        }
+
+        /* ── Empty state ── */
+        .dm .empty p { color: var(--text-muted) !important; }
+
+        /* ── Spice chips ── */
+        .dm .c-spice-chip {
+          filter: brightness(0.85) saturate(1.2) !important;
+        }
+
+        /* ── Dark scrollbar ── */
+        .dm ::-webkit-scrollbar-track { background: var(--bg-surface) !important; }
+        .dm ::-webkit-scrollbar-thumb { background: var(--bg-elevated) !important; }
+        .dm ::-webkit-scrollbar-thumb:hover { background: var(--accent) !important; }
+
+        /* ─────────────────────────────────────
+           THEME TOGGLE BUTTON
+           ───────────────────────────────────── */
         .theme-toggle {
           margin-left: 10px; flex-shrink: 0;
           width: 36px; height: 36px; border-radius: 50%; border: none;
           display: flex; align-items: center; justify-content: center;
           cursor: pointer; font-size: 16px;
           background: rgba(247,155,61,0.1);
-          transition: all 0.22s ease;
+          transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
         }
-        .theme-toggle:hover { background: rgba(247,155,61,0.2); transform: rotate(20deg); }
-        .dm .theme-toggle  { background: rgba(255,255,255,0.08); }
-        .dm .theme-toggle:hover { background: rgba(255,255,255,0.14); }
+        .theme-toggle:hover {
+          background: rgba(247,155,61,0.18);
+          transform: rotate(20deg) scale(1.1);
+        }
+        .dm .theme-toggle  { background: rgba(255,255,255,0.07); }
+        .dm .theme-toggle:hover { background: rgba(255,255,255,0.12); transform: rotate(20deg) scale(1.1); }
+
+
 
         /* ══════════════════════════════
            FIX: IMAGE FULL COVER
@@ -894,7 +1142,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
-            <button className="theme-toggle" onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Switch to Light":"Switch to Dark"}>
+            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"}>
               {darkMode ? "☀️" : "🌙"}
             </button>
             {arCount > 0 && (
