@@ -27,25 +27,27 @@ function getPlaceholder(id) {
 }
 
 
-/* ── Animated price counter ── */
-function PriceCounter({ price, className, style }) {
-  const [display, setDisplay] = useState(0);
+/* ── Animated price counter (modal only) ── */
+function PriceCounter({ price, className, style, animate = false }) {
+  const [display, setDisplay] = useState(animate ? 0 : (Number(price) || 0));
   const rafRef = useRef(null);
   const target = Number(price) || 0;
 
   useEffect(() => {
-    if (!target) return;
-    const duration = 900;
+    if (!animate) { setDisplay(target); return; }
+    setDisplay(0);
+    const duration = 720; // spec: 600–800ms
     const startTime = performance.now();
     const tick = (now) => {
       const p = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 4); // ease-out quart
+      const eased = 1 - Math.pow(1 - p, 4); // ease-out quart — slow finish
       setDisplay(Math.round(eased * target));
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
     };
+    cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [target]);
+  }, [target, animate]);
 
   return <span className={className} style={style}>₹{display}</span>;
 }
@@ -182,6 +184,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [selectedItem, setSelectedItem] = useState(null);
   const [showAR,       setShowAR]       = useState(false);
   const [imgErr,       setImgErr]       = useState({});
+  const [imgLoaded,    setImgLoaded]    = useState({});
   const [smaOpen,      setSmaOpen]      = useState(false);
   const [smaMode,      setSmaMode]      = useState(null);    // null | 'solo' | 'group'
   const [groupSize,    setGroupSize]    = useState(null);    // 2|3|4|5|'6+'
@@ -249,7 +252,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
       <style>{`
         html, body { margin:0; padding:0; }
         #app-root { transition: background 0.35s ease; }
-        .card, .sheet, .sma-sheet, .hdr { transition: background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease !important; }
+        .sheet, .sma-sheet, .hdr { transition: background 0.3s ease, border-color 0.3s ease; }
+        .card { transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, background 0.3s ease, border-color 0.3s ease !important; }
         *, *::before, *::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
         body {
@@ -263,7 +267,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
         @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        @keyframes slideUp { 
+          from { transform: translateY(50px) scale(0.95); opacity: 0; }
+          to   { transform: translateY(0) scale(1);   opacity: 1; }
+        }
         @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0.15} }
 
         /* ─────────── HEADER ─────────── */
@@ -327,7 +334,19 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           transition: all 0.2s ease;
           letter-spacing: -0.1px;
           position: relative;
-          min-height: 38px;
+          height: 40px;
+          /* Prevent bold font-weight from expanding width on active state */
+          /* Use pseudo-element to pre-reserve bold width */
+        }
+        /* Pre-reserve bold width so active state doesn't resize the pill */
+        .cat-pill::before {
+          content: attr(data-label);
+          display: block;
+          font-weight: 700;
+          height: 0;
+          overflow: hidden;
+          visibility: hidden;
+          pointer-events: none;
         }
         .cat-pill:hover:not(.on) {
           background: rgba(247,155,61,0.12);
@@ -369,7 +388,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           padding: 5px 12px; border-radius: 20px;
           background: #F79B3D; color: #fff;
           font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+          cursor: pointer; transition: all 0.2s ease;
         }
+        .ar-strip-chip:hover { background: #F48A1E; transform: scale(1.05); }
 
         /* Offer */
         .offer-bar {
@@ -385,7 +406,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* ─────────── GRID ─────────── */
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         @media (min-width: 600px) and (max-width: 899px) {
-          .grid { grid-template-columns: repeat(3, 1fr); }
+          .grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
         }
         @media (min-width: 900px) {
           .grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -396,24 +417,25 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: #FFFFFF;
           border-radius: 20px; overflow: hidden;
           cursor: pointer; position: relative; text-align: left;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          animation: fadeUp 0.4s ease both;
+          display: flex; flex-direction: column;
+          will-change: transform;
+          transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, border-color 0.28s ease;
           box-shadow:
             0 1px 3px rgba(0,0,0,0.06),
             0 4px 16px rgba(0,0,0,0.07);
           border: 1px solid #F0E8DE;
         }
-        .card:hover  { transform: translateY(-6px); box-shadow: 0 12px 36px rgba(0,0,0,0.12); }
+        .card:hover  { transform: translateY(-6px); box-shadow: 0 16px 44px rgba(0,0,0,0.16); border-color: rgba(247,155,61,0.2); }
+        .card:hover .c-img img { transform: scale(1.06); }
         .card:active { transform: scale(0.98); }
 
         /* Card image */
-        .c-img { position: relative; overflow: hidden; width: 100%; height: 185px; }
-        .c-img img { width:100%; height:100%; object-fit:cover; display:block; transition: transform 0.3s ease; }
-        .card:hover .c-img img { transform: scale(1.04); }
+        .c-img { position: relative; overflow: hidden; width: 100%; height: 185px; display: block; border-radius: 20px 20px 0 0; background: #F5EDE0; }
+        .c-img img { width:100%; height:100%; object-fit:cover; display:block; vertical-align:bottom; transition: transform 0.4s cubic-bezier(0.4,0,0.2,1); }
         .c-img-ph {
           width:100%; height:100%;
           display:flex; align-items:center; justify-content:center; font-size:48px;
-          background: #F5EDE0; border-radius:0;
+          background: #F5EDE0;
         }
 
         /* AR badge — top right, minimal */
@@ -446,7 +468,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         }
 
         /* Card body */
-        .c-body { padding: 13px 14px 14px; }
+        .c-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; }
 
         /* Badges */
         .c-badges { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
@@ -458,9 +480,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           font-size: 15px; font-weight: 700; color: #1E1B18;
           line-height: 1.3; margin-bottom: 8px;
           letter-spacing: -0.2px;
+          flex: 1;
         }
 
-        .c-price-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .c-price-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
         .c-price { font-size: 16px; font-weight: 800; color: #F79B3D; letter-spacing: -0.3px; }
         .c-cal   { font-size: 11px; color: #7A7A7A; font-weight: 500; }
 
@@ -480,7 +503,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: #F5F0EA;
           font-size: 11px; font-weight: 700; color: #2B2B2B;
           letter-spacing: 0.04em; text-transform: uppercase;
+          transition: all 0.2s ease;
         }
+        .c-ar-cta:hover { background: rgba(247,155,61,0.12); color: #F79B3D; }
 
         /* empty */
         .empty { text-align:center; padding:72px 20px; color:#9A9A9A; }
@@ -498,7 +523,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: #FFFDF9;
           border-radius: 26px 26px 0 0;
           max-height: 93vh; overflow-y: auto;
-          animation: slideUp 0.32s cubic-bezier(0.32,0.72,0,1);
+          animation: slideUp 0.25s cubic-bezier(0.32,0.72,0,1);
           box-shadow: 0 -8px 40px rgba(0,0,0,0.14);
         }
         .handle-row { display:flex; justify-content:center; padding:12px 0 0; }
@@ -511,8 +536,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           border: 1px solid rgba(255,255,255,0.15);
           color: #FFFFFF; cursor: pointer; font-size: 12px; font-weight: 700;
           display: flex; align-items: center; justify-content: center;
-          transition: all 0.18s ease; z-index: 10;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+          transition: all 0.18s ease; z-index: 100;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.35);
         }
         .close-btn:hover { background: rgba(30,27,24,0.92); transform: scale(1.08); }
 
@@ -547,7 +572,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .nc-l { font-size:10px; color:#5A5A5A; margin-top:3px; font-weight:600; }
 
         .ings { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:22px; }
-        .ing  { padding:6px 13px; border-radius:8px; font-size:12px; color:#2B2B2B; background:#F5F0EA; font-weight:500; }
+        .ing  { padding:6px 13px; border-radius:8px; font-size:12px; color:#2B2B2B; background:#F5F0EA; font-weight:500; transition: all 0.15s ease; cursor:default; }
+        .ing:hover { background:#F0E8D8; transform: scale(1.04); }
 
         /* AR Button */
         .ar-btn {
@@ -559,7 +585,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           transition: transform 0.15s, box-shadow 0.15s;
           letter-spacing: -0.1px;
         }
-        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 10px 28px rgba(247,155,61,0.48); }
+        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 10px 28px rgba(247,155,61,0.48); filter: brightness(1.05); }
         .ar-btn:active { transform:scale(0.98); }
         .ar-btn-sub { color:rgba(255,255,255,0.75); font-weight:800; }
         .ar-hint { text-align:center; font-size:11px; color:#7A7A7A; margin-top:9px; letter-spacing:-0.1px; }
@@ -580,10 +606,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor: pointer; white-space: nowrap; letter-spacing: -0.1px;
           box-shadow: 0 6px 24px rgba(247,155,61,0.45), 0 2px 8px rgba(247,155,61,0.25);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, border-color 0.28s ease;
           animation: fadeUp 0.5s 0.3s ease both;
         }
-        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(247,155,61,0.55); }
+        .sma-fab:hover  { transform: translateY(-3px) scale(1.02); box-shadow: 0 12px 32px rgba(247,155,61,0.55); filter: brightness(1.05); }
         .sma-fab:active { transform: scale(0.97); }
         .sma-fab-icon   { font-size: 17px; }
 
@@ -600,7 +626,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background:#FFFDF9;
           border-radius:26px 26px 0 0;
           max-height:90vh; overflow-y:auto;
-          animation:slideUp 0.32s cubic-bezier(0.32,0.72,0,1);
+          animation:slideUp 0.25s cubic-bezier(0.32,0.72,0,1);
           box-shadow:0 -8px 40px rgba(0,0,0,0.15);
           font-family:'Inter',sans-serif;
         }
@@ -625,7 +651,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           transition:all 0.16s ease; text-align:left; width:100%;
           font-family:'Inter',sans-serif;
         }
-        .sma-opt:hover  { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); }
+        .sma-opt:hover  { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); filter: brightness(1.01); }
+        .sma-opt:active { transform: scale(0.985); filter: brightness(0.97); }
         .sma-opt:active { transform:scale(0.98); }
         .sma-opt-emoji  { font-size:24px; flex-shrink:0; }
         .sma-opt-label  { font-size:14px; font-weight:600; color:#1E1B18; letter-spacing:-0.1px; }
@@ -645,7 +672,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           cursor:pointer; transition:all 0.15s ease;
           text-align:left; width:100%; font-family:'Inter',sans-serif;
         }
-        .sma-item:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); }
+        .sma-item:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); filter: brightness(1.01); }
         .sma-item-img   { width:50px; height:50px; border-radius:12px; object-fit:cover; flex-shrink:0; background:#F5F0EA; }
         .sma-item-name  { font-size:14px; font-weight:700; color:#1E1B18; margin-bottom:4px; letter-spacing:-0.1px; }
         .sma-item-meta  { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
@@ -815,6 +842,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .dm .veg-ind   { z-index: 2 !important; }
 
         .dm .c-img-ph  { background: #282828 !important; }
+        .dm .img-skeleton { background: linear-gradient(90deg,#282828 25%,#333 50%,#282828 75%) !important; background-size: 200% 100% !important; }
 
         /* Card body text */
         .dm .c-name    { color: var(--text-1) !important; }
@@ -1025,6 +1053,27 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           box-shadow: 0 12px 40px rgba(247,155,61,0.65), 0 4px 12px rgba(0,0,0,0.5) !important;
         }
 
+
+        /* ── Image skeleton loader (Issue 9) ── */
+        @keyframes skeletonPulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.45; }
+        }
+        .img-skeleton {
+          position: absolute; inset: 0;
+          background: linear-gradient(90deg, #F0E8DE 25%, #F8F2EA 50%, #F0E8DE 75%);
+          background-size: 200% 100%;
+          animation: skeletonPulse 1.4s ease-in-out infinite;
+          transition: opacity 0.3s ease;
+          z-index: 0;
+        }
+        .dm .img-skeleton {
+          background: linear-gradient(90deg, #252525 25%, #303030 50%, #252525 75%) !important;
+        }
+        .img-skeleton.loaded { opacity: 0; pointer-events: none; }
+        .c-img img { opacity: 0; transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.4,0,0.2,1); z-index: 1; position: relative; }
+        .c-img img.img-visible { opacity: 1; }
+
         /* ── Empty state ── */
         .dm .empty p { color: var(--text-muted) !important; }
 
@@ -1103,8 +1152,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           to   { opacity:1; transform:translateY(0); }
         }
 
-        /* Apply card pop animation */
-        .card { animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both !important; }
+        /* Apply card pop animation — no !important so transition still works */
+        .card { animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
         /* Chip animations */
         .c-badge { animation: badgePop 0.3s 0.15s cubic-bezier(0.34,1.56,0.64,1) both; }
         /* AR strip animation */
@@ -1153,7 +1202,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           <div className="cats-outer">
             <div className="cats-scroll">
               {cats.map(c => (
-                <button key={c} className={`cat-pill${activeCat===c?' on':''}`} style={{animationDelay:`${cats.indexOf(c)*0.04}s`}} onClick={()=>setActiveCat(c)}>
+                <button key={c} className={`cat-pill${activeCat===c?' on':''}`} data-label={c} style={{animationDelay:`${cats.indexOf(c)*0.04}s`}} onClick={()=>setActiveCat(c)}>
                   <span className="cat-emoji">{catIcon(c)}</span>
                   {c}
                 </button>
@@ -1199,8 +1248,11 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
             {filtered.map((item, idx) => (
               <button key={item.id} className="card" style={{animationDelay:`${idx*0.05}s`}} onClick={()=>openItem(item)}>
                 <div className="c-img">
+                  <div className={`img-skeleton${imgLoaded[item.id]?' loaded':''}`}/>
                   <img src={imgSrc(item)} alt={item.name} loading="lazy"
-                    onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
+                    className={imgLoaded[item.id]?'img-visible':''}
+                    onLoad={()=>setImgLoaded(s=>({...s,[item.id]:true}))}
+                    onError={()=>{ setImgErr(e=>({...e,[item.id]:true})); setImgLoaded(s=>({...s,[item.id]:true})); }}/>
                   {item.modelURL && (
                     <span className="c-ar-pill">
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1223,7 +1275,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   )}
                   <div className="c-name">{item.name}</div>
                   <div className="c-price-row">
-                    {item.price    && <PriceCounter price={item.price} className="c-price"/>}
+                    {item.price    && <PriceCounter price={item.price} className="c-price" animate={false}/>}
                     {item.calories && <span className="c-cal">{item.calories} kcal</span>}
                   </div>
                   {(item.spiceLevel && item.spiceLevel!=='None' || item.prepTime) && (
@@ -1295,7 +1347,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   )}
                 </div>
               )}
-              {selectedItem.price && <><div className="m-price">₹{selectedItem.price}</div><div className="m-price-sub">per serving</div></>}
+              {selectedItem.price && <><PriceCounter key={selectedItem.id} price={selectedItem.price} className="m-price" animate={true}/><div className="m-price-sub">per serving</div></>}
               {selectedItem.description && <p className="m-desc">{selectedItem.description}</p>}
               {(selectedItem.calories||selectedItem.protein||selectedItem.carbs||selectedItem.fats) && (<>
                 <div className="divider"/>
