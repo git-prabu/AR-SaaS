@@ -503,6 +503,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           color: #fff; font-size: 10px; font-weight: 700;
           padding: 4px 9px; border-radius: 8px;
           letter-spacing: 0.03em;
+          z-index: 3;
         }
 
         /* Veg indicator */
@@ -510,6 +511,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           position: absolute; top: 10px; left: 10px;
           width: 20px; height: 20px; border-radius: 4px; border: 2px solid;
           background: rgba(255,255,255,0.92); display: flex; align-items: center; justify-content: center;
+          z-index: 3;
         }
         .veg-ind.v  { border-color: #2A8048; }
         .veg-ind.nv { border-color: #C03020; }
