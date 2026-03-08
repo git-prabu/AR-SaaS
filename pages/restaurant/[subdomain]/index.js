@@ -89,216 +89,11 @@ const GROUP_SIZES = [
   {n:2,e:'👫'},{n:3,e:'👨‍👩‍👦'},{n:4,e:'👨‍👩‍👧‍👦'},{n:5,e:'🧑‍🤝‍🧑'},{n:'6+',e:'🎉'},
 ];
 
-// ── Category keyword lists (expanded from SMA keyword doc) ────────
-
-const LIGHT_CATS = [
-  'starter','starters','appetizer','appetizers',
-  'salad','salads',
-  'soup','soups',
-  'snack','snacks',
-  'drink','drinks','beverage','beverages',
-  'juice','smoothie','shake',
-  'dessert','desserts','sweet','sweets',
-  'side','sides','side dish',
-  'dip','chutney','sauce',
-  'chaat',
-];
-
-const HEAVY_CATS = [
-  'main','mains','main course',
-  'burger','burgers',
-  'pasta','noodle','noodles',
-  'pizza',
-  'biryani',
-  'thali',
-  'grill','grills',
-  'rice',
-  'steak',
-  'platter',
-  'combo',
-  'lasagne','lasagna',
-  'pot','hotpot',
-  'bowl',
-  'paratha',
-  'breakfast',
-];
-
-const SHARING_KW = [
-  'platter','sharing','shared','to share',
-  'family','large','xl','extra large',
-  'combo','bucket','board',
-  'thali','spread','feast',
-  'tapas','mezze','dim sum',
-  'sushi platter','sushi boat',
-  'nachos','wings',
-  'party','celebration',
-  'for two','for 2','serves 2',
-  'for four','for 4','serves 4',
-  'appetizer selection','starter selection',
-  'tasting menu','tasting platter',
-  'assorted','variety','mix',
-];
-
-const HEALTHY_KW = [
-  'salad','grilled','steamed',
-  'healthy','nutritious','wholesome',
-  'light','lighter',
-  'vegan','plant based','plant-based',
-  'fresh','freshly',
-  'oat','oatmeal',
-  'quinoa','kale','spinach',
-  'fruit','fruits','fruit bowl',
-  'green','greens',
-  'smoothie','smoothie bowl',
-  'low calorie','low fat','low carb',
-  'protein bowl','protein salad',
-  'detox','raw',
-  'cold pressed',
-  'acai',
-  'tofu',
-  'avocado',
-  'brown rice','multigrain','whole wheat','wholegrain',
-  'no sugar','sugar free','zero sugar',
-  'baked',
-  'yogurt','curd',
-];
-
-const COMFORT_KW = [
-  'butter','cream','creamy',
-  'cheese','cheesy',
-  'fried','deep fried','crispy',
-  'masala','curry',
-  'rich','loaded',
-  'classic','old favourite','traditional',
-  'special','chef special','house special',
-  'bbq','barbecue',
-  'mac and cheese','mac n cheese',
-  'mashed','mash','gravy',
-  'hot chocolate','cocoa',
-  'khichdi','khichri',
-  'halwa','kheer','payasam','rice pudding',
-  'waffle','pancake',
-  'tikka','tandoori',
-  'korma','rogan',
-];
-
-// ── Cuisine-specific dish name map (name → { isVeg, spice, size, mood }) ──
-// Used as fallback when isVeg / spiceLevel fields are not set on an item
-const DISH_MAP = [
-  // Indian
-  { keys:['dal tadka','dal makhani','dal fry'],        isVeg:true,  spice:'Mild',       size:'regular', mood:'comfort'  },
-  { keys:['palak paneer'],                              isVeg:true,  spice:'Mild',       size:'regular', mood:'healthy'  },
-  { keys:['butter chicken'],                            isVeg:false, spice:'Mild',       size:'regular', mood:'comfort'  },
-  { keys:['chicken tikka masala'],                      isVeg:false, spice:'Medium',     size:'regular', mood:'comfort'  },
-  { keys:['chicken biryani','mutton biryani'],          isVeg:false, spice:'Medium',     size:'heavy',   mood:'comfort'  },
-  { keys:['veg biryani','vegetable biryani'],           isVeg:true,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
-  { keys:['chettinad'],                                 isVeg:false, spice:'Very Spicy', size:'regular', mood:'comfort'  },
-  { keys:['pani puri','golgappa'],                      isVeg:true,  spice:'Spicy',      size:'light',   mood:'snack'    },
-  { keys:['bhel puri'],                                 isVeg:true,  spice:'Mild',       size:'light',   mood:'snack'    },
-  { keys:['samosa'],                                    isVeg:true,  spice:'Mild',       size:'light',   mood:'comfort'  },
-  { keys:['aloo paratha','stuffed paratha'],            isVeg:true,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
-  { keys:['rajma chawal','rajma rice'],                 isVeg:true,  spice:'Medium',     size:'heavy',   mood:'comfort'  },
-  { keys:['vindaloo'],                                  isVeg:false, spice:'Very Spicy', size:'regular', mood:'comfort'  },
-  { keys:['idli','idly'],                               isVeg:true,  spice:'Mild',       size:'light',   mood:'healthy'  },
-  { keys:['masala dosa','dosa'],                        isVeg:true,  spice:'Mild',       size:'regular', mood:'comfort'  },
-  { keys:['chole bhature'],                             isVeg:true,  spice:'Medium',     size:'heavy',   mood:'comfort'  },
-  { keys:['khichdi'],                                   isVeg:true,  spice:'None',       size:'regular', mood:'comfort'  },
-  { keys:['seekh kebab','kebab'],                       isVeg:false, spice:'Medium',     size:'regular', mood:'comfort'  },
-  { keys:['korma'],                                     isVeg:null,  spice:'Mild',       size:'regular', mood:'comfort'  },
-  { keys:['kolhapuri'],                                 isVeg:null,  spice:'Very Spicy', size:'regular', mood:'comfort'  },
-  // Italian
-  { keys:['margherita'],                                isVeg:true,  spice:'None',       size:'heavy',   mood:'comfort'  },
-  { keys:['carbonara'],                                 isVeg:false, spice:'None',       size:'heavy',   mood:'comfort'  },
-  { keys:['bolognese'],                                 isVeg:false, spice:'Mild',       size:'heavy',   mood:'comfort'  },
-  { keys:['arrabbiata'],                                isVeg:true,  spice:'Spicy',      size:'heavy',   mood:'comfort'  },
-  { keys:['caesar salad'],                              isVeg:null,  spice:'None',       size:'light',   mood:'healthy'  },
-  { keys:['risotto'],                                   isVeg:null,  spice:'None',       size:'heavy',   mood:'comfort'  },
-  { keys:['bruschetta'],                                isVeg:true,  spice:'None',       size:'light',   mood:'light'    },
-  { keys:['tiramisu','panna cotta'],                    isVeg:true,  spice:'None',       size:'light',   mood:'comfort'  },
-  { keys:['caprese'],                                   isVeg:true,  spice:'None',       size:'light',   mood:'healthy'  },
-  { keys:['gnocchi'],                                   isVeg:true,  spice:'None',       size:'heavy',   mood:'comfort'  },
-  // Asian
-  { keys:['pad thai'],                                  isVeg:null,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
-  { keys:['green curry','thai curry'],                  isVeg:null,  spice:'Medium',     size:'regular', mood:'comfort'  },
-  { keys:['tom yum'],                                   isVeg:null,  spice:'Spicy',      size:'light',   mood:'healthy'  },
-  { keys:['dim sum'],                                   isVeg:null,  spice:'None',       size:'light',   mood:'light'    },
-  { keys:['manchurian'],                                isVeg:null,  spice:'Medium',     size:'regular', mood:'comfort'  },
-  { keys:['schezwan','szechuan','sichuan'],             isVeg:null,  spice:'Spicy',      size:'heavy',   mood:'comfort'  },
-  { keys:['spring roll'],                               isVeg:null,  spice:'None',       size:'light',   mood:'light'    },
-  { keys:['ramen'],                                     isVeg:null,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
-  { keys:['bibimbap'],                                  isVeg:null,  spice:'Mild',       size:'heavy',   mood:'healthy'  },
-  { keys:['kimchi'],                                    isVeg:null,  spice:'Spicy',      size:'heavy',   mood:'comfort'  },
-  { keys:['edamame'],                                   isVeg:true,  spice:'None',       size:'light',   mood:'healthy'  },
-  { keys:['miso soup'],                                 isVeg:true,  spice:'None',       size:'light',   mood:'healthy'  },
-];
-
-// ── Veg keyword inference (fallback when isVeg not set) ───────────
-const VEG_KW = [
-  'paneer','tofu','veg ','vegetable','vegetables','vegetarian',
-  'dal ','lentil','lentils','mushroom','aloo','potato',
-  'palak','spinach','corn','maize','chana','chickpea',
-  'rajma','kidney bean','gobi','cauliflower','broccoli',
-  'margherita','falafel','idli','dosa','uttapam','pav bhaji','vegan',
-];
-const NON_VEG_KW = [
-  'chicken','mutton','lamb','beef','pork',
-  'fish','salmon','tuna','cod','tilapia',
-  'prawn','shrimp','lobster','crab','squid','octopus',
-  'bacon','keema','kheema','seekh','tandoori chicken','biryani chicken',
-];
-
-// ── Spice inference (fallback when spiceLevel not set) ────────────
-const SPICE_INFER_HIGH = [
-  'vindaloo','kolhapuri','chettinad','andhra',
-  'szechuan','sichuan','schezwan',
-  'ghost pepper','bhut jolokia',
-  'sambal','peri peri','piri piri',
-  'hot sauce','sriracha','dynamite','inferno','blazing','fiery','fire','flaming',
-  'extra spicy','very spicy','super hot',
-  'kimchi',
-];
-const SPICE_INFER_MED = [
-  'tikka','jalfrezi','harissa','mexican','thai','pepper chicken','chilli',
-  'chili','szechuan','mildly spiced','lightly spiced',
-];
-const SPICE_INFER_MILD = [
-  'creamy','cream sauce','sweet','raita','lassi','juice','smoothie','dessert',
-  'ice cream','cake','halwa','kheer','bread','naan','roti','chapati','sandwich',
-  'porridge','oatmeal','butter chicken','korma','mild',
-];
-
-// ── Budget keyword inference (fallback when price not set) ─────────
-const BUDGET_KW_PREMIUM = [
-  'premium','signature','gourmet','imported','wagyu','lobster','truffle',
-  'aged','reserve','tasting menu','steak',
-];
-const BUDGET_KW_BUDGET = [
-  'street food','chaat','vada','samosa','pani puri',
-  'basic','economy',
-];
-
-// ── Infer isVeg from keywords (returns true/false/null) ───────────
-function inferIsVeg(txt) {
-  if (NON_VEG_KW.some(k => txt.includes(k))) return false;
-  if (VEG_KW.some(k => txt.includes(k)))     return true;
-  return null;
-}
-
-// ── Infer spice from keywords (returns 'None'/'Mild'/'Medium'/'Spicy'/'Very Spicy'/null) ──
-function inferSpice(txt) {
-  if (SPICE_INFER_HIGH.some(k => txt.includes(k))) return 'Very Spicy';
-  if (SPICE_INFER_MED.some(k  => txt.includes(k))) return 'Medium';
-  if (SPICE_INFER_MILD.some(k => txt.includes(k))) return 'Mild';
-  return null;
-}
-
-// ── Lookup dish in DISH_MAP ───────────────────────────────────────
-function dishLookup(txt) {
-  for (const entry of DISH_MAP) {
-    if (entry.keys.some(k => txt.includes(k))) return entry;
-  }
-  return null;
-}
+const LIGHT_CATS  = ['starter','salad','soup','snack','drink','beverage','dessert'];
+const HEAVY_CATS  = ['main','burger','pasta','pizza','biryani','thali','grill','rice'];
+const SHARING_KW  = ['platter','sharing','family','large','combo','bucket','plate','thali','spread','feast'];
+const HEALTHY_KW  = ['salad','grilled','steamed','healthy','light','vegan','fresh','oat','quinoa','fruit'];
+const COMFORT_KW  = ['butter','cheese','cream','fried','crispy','masala','curry','rich','loaded','classic','special'];
 
 function isShareable(item) {
   const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
@@ -307,112 +102,47 @@ function isShareable(item) {
 
 function scoreItem(item, ans, groupSize=1) {
   let s = 0;
-  const txt = `${item.name||''} ${item.description||''} ${item.category||''} ${(item.ingredients||[]).join(' ')}`.toLowerCase();
+  const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
   const cat = (item.category||'').toLowerCase();
-  const big = typeof groupSize === 'number' ? groupSize >= 4 : true;
+  const sp  = item.spiceLevel || 'None';
+  const pr  = item.price ? Number(item.price) : null;
+  const big = typeof groupSize === 'number' ? groupSize >= 4 : true; // 6+ counts as big
 
-  // ── Resolve isVeg — field first, then keyword inference, then dish map ──
-  let isVeg = item.isVeg;
-  if (typeof isVeg !== 'boolean') {
-    const dish = dishLookup(txt);
-    if (dish && dish.isVeg !== null) isVeg = dish.isVeg;
-    else isVeg = inferIsVeg(txt);
-  }
+  // ── diet ──
+  if (ans.diet==='veg'   && item.isVeg===false) return -999;
+  if (ans.diet==='veg'   && item.isVeg===true)  s+=20;
+  if (ans.diet==='mixed') { /* allow both, slight boost to veg items for inclusivity */ if (item.isVeg===true) s+=8; }
+  if (ans.diet==='nonveg'&& item.isVeg===true)  s-=10;
 
-  // ── Resolve spiceLevel — field first, then dish map, then keyword inference ──
-  let sp = item.spiceLevel && item.spiceLevel !== 'None' ? item.spiceLevel : null;
-  if (!sp) {
-    const dish = dishLookup(txt);
-    if (dish) sp = dish.spice;
-    else sp = inferSpice(txt) || 'None';
-  }
+  // ── spice ──
+  if (ans.spice==='mild'   && ['Spicy','Very Spicy'].includes(sp)) return -999;
+  if (ans.spice==='mild'   && ['None','Mild'].includes(sp)) s+=15;
+  if (ans.spice==='medium' && sp==='Medium') s+=20;
+  if (ans.spice==='spicy'  && ['Spicy','Very Spicy'].includes(sp)) s+=25;
 
-  // ── Resolve budget tier from price, fallback to keywords ──────
-  const pr = item.price ? Number(item.price) : null;
-  let budgetTier = null;
+  // ── budget ──
   if (pr !== null) {
-    if (pr < 200)           budgetTier = 'budget';
-    else if (pr <= 500)     budgetTier = 'mid';
-    else                    budgetTier = 'premium';
-  } else {
-    if (BUDGET_KW_PREMIUM.some(k => txt.includes(k))) budgetTier = 'premium';
-    else if (BUDGET_KW_BUDGET.some(k => txt.includes(k))) budgetTier = 'budget';
+    if (ans.budget==='budget'  && pr<200)           s+=20; else if (ans.budget==='budget')  s-=15;
+    if (ans.budget==='mid'     && pr>=200&&pr<=500) s+=20; else if (ans.budget==='mid')     s-=8;
+    if (ans.budget==='premium' && pr>500)           s+=20; else if (ans.budget==='premium'&&pr<200) s-=10;
   }
 
-  // ── Diet ──────────────────────────────────────────────────────
-  if (ans.diet==='veg') {
-    if (isVeg===false) return -999;
-    if (isVeg===true)  s+=20;
-  }
-  if (ans.diet==='mixed')  { if (isVeg===true) s+=8; }
-  if (ans.diet==='nonveg') { if (isVeg===true) s-=10; }
+  // ── size / style ──
+  if (ans.size==='light') { if (LIGHT_CATS.some(l=>cat.includes(l))) s+=18; if (HEAVY_CATS.some(h=>cat.includes(h))) s-=15; }
+  if (ans.size==='heavy') { if (HEAVY_CATS.some(h=>cat.includes(h))) s+=18; }
 
-  // ── Spice ─────────────────────────────────────────────────────
-  if (ans.spice==='mild') {
-    if (['Spicy','Very Spicy'].includes(sp)) return -999;
-    if (['None','Mild'].includes(sp)) s+=15;
-  }
-  if (ans.spice==='medium') {
-    if (sp==='Medium') s+=20;
-    else if (['Spicy','Very Spicy'].includes(sp)) s-=5;
-  }
-  if (ans.spice==='spicy') {
-    if (['Spicy','Very Spicy'].includes(sp)) s+=25;
-  }
-
-  // ── Budget ────────────────────────────────────────────────────
-  if (budgetTier) {
-    if (ans.budget==='budget')  { if (budgetTier==='budget')  s+=20; else if (budgetTier==='premium') s-=15; else s-=5; }
-    if (ans.budget==='mid')     { if (budgetTier==='mid')     s+=20; else if (budgetTier==='premium') s-=8; }
-    if (ans.budget==='premium') { if (budgetTier==='premium') s+=20; else if (budgetTier==='budget')  s-=10; }
-  }
-
-  // ── Meal size ─────────────────────────────────────────────────
-  // Also check keywords in txt for items with no category
-  const isLightTxt = LIGHT_CATS.some(l => txt.includes(l));
-  const isHeavyTxt = HEAVY_CATS.some(h => cat.includes(h) || txt.includes(h));
-  if (ans.size==='light') {
-    if (isLightTxt)  s+=18;
-    if (isHeavyTxt)  s-=15;
-  }
-  if (ans.size==='heavy') {
-    if (isHeavyTxt) s+=18;
-    if (isLightTxt) s-=8;
-  }
-  if (ans.size==='regular') {
-    if (!isLightTxt && !isHeavyTxt) s+=5; // neutral dishes get a small bonus
-  }
-
-  // ── Group style ───────────────────────────────────────────────
+  // Group style: sharing dishes get a boost for groups that want to share or for large groups
   if (ans.style==='sharing' && isShareable(item)) s+=25;
-  if (ans.style==='sharing' && isHeavyTxt)        s+=10;
-  if (big && isShareable(item))                   s+=15;
+  if (ans.style==='sharing' && HEAVY_CATS.some(h=>cat.includes(h))) s+=10;
+  if (big && isShareable(item)) s+=15; // large groups always benefit from shareable dishes
 
-  // ── Mood ──────────────────────────────────────────────────────
-  if (ans.mood==='popular') {
-    if (item.isPopular)  s+=30;
-    if (item.isFeatured) s+=15;
-  }
-  if (ans.mood==='healthy') {
-    if (HEALTHY_KW.some(k => txt.includes(k))) s+=20;
-    if (item.calories && item.calories < 400)  s+=10;
-    // Dish map healthy boost
-    const dish = dishLookup(txt);
-    if (dish && dish.mood==='healthy') s+=10;
-  }
-  if (ans.mood==='comfort') {
-    if (COMFORT_KW.some(k => txt.includes(k))) s+=20;
-    const dish = dishLookup(txt);
-    if (dish && dish.mood==='comfort') s+=10;
-  }
-  if (ans.mood==='new') {
-    if (item.isFeatured) s+=25;
-    s += Math.floor(Math.random()*12);
-  }
+  // ── mood ──
+  if (ans.mood==='popular') { if (item.isPopular||item.isFeatured) s+=30; }
+  if (ans.mood==='healthy') { if (HEALTHY_KW.some(k=>txt.includes(k))) s+=20; if (item.calories&&item.calories<400) s+=10; }
+  if (ans.mood==='comfort') { if (COMFORT_KW.some(k=>txt.includes(k))) s+=20; }
+  if (ans.mood==='new')     { if (item.isFeatured) s+=25; s+=Math.floor(Math.random()*12); }
 
-  // ── Popularity tiebreaker ─────────────────────────────────────
-  s += Math.min((item.views||0) + (item.arViews||0)*2, 20) * 0.3;
-
+  s += Math.min((item.views||0)+(item.arViews||0)*2, 20)*0.3;
   return s;
 }
 
@@ -470,10 +200,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   };
 
   if (error || !restaurant) return (
-    <div style={{minHeight:'100vh',background:'#F7F5F2',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif'}}>
+    <div style={{minHeight:'100vh',background:'#FAF7F2',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif'}}>
       <div style={{textAlign:'center'}}><div style={{fontSize:52,marginBottom:12}}>🍽️</div>
-        <h1 style={{fontSize:20,fontWeight:700,color:'#1C1C1E'}}>Restaurant not found</h1>
-        <p style={{color:'#8E8E93',marginTop:6,fontSize:14}}>This page doesn't exist or is inactive.</p>
+        <h1 style={{fontSize:20,fontWeight:700,color:'#1E1B18'}}>Restaurant not found</h1>
+        <p style={{color:'#9A9A9A',marginTop:6,fontSize:14}}>This page doesn't exist or is inactive.</p>
       </div>
     </div>
   );
@@ -492,7 +222,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         *, *::before, *::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
         body {
-          background: #F7F5F2 !important;
+          background: #FAF7F2 !important;
           min-height: 100vh;
           overflow-x: hidden;
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
@@ -508,7 +238,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* ─────────── HEADER ─────────── */
         .hdr {
           position: sticky; top: 0; z-index: 40;
-          background: rgba(247,245,242,0.94);
+          background: rgba(255,255,255,0.95);
           backdrop-filter: saturate(180%) blur(20px);
           -webkit-backdrop-filter: saturate(180%) blur(20px);
           border-bottom: 0.5px solid rgba(0,0,0,0.1);
@@ -521,24 +251,24 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         }
         .r-logo {
           width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-          background: linear-gradient(145deg,#D44A2A,#E86848);
+          background: linear-gradient(145deg,#F79B3D,#F4C06A);
           display: flex; align-items: center; justify-content: center;
           font-size: 20px;
-          box-shadow: 0 3px 12px rgba(212,74,42,0.35);
+          box-shadow: 0 3px 12px rgba(247,155,61,0.35);
         }
-        .r-name { font-size: 17px; font-weight: 700; color: #1C1C1E; letter-spacing: -0.3px; line-height: 1.2; }
-        .r-sub  { font-size: 12px; color: #8E8E93; margin-top: 2px; letter-spacing: -0.1px; }
+        .r-name { font-size: 17px; font-weight: 700; color: #1E1B18; letter-spacing: -0.3px; line-height: 1.2; }
+        .r-sub  { font-size: 12px; color: #9A9A9A; margin-top: 2px; letter-spacing: -0.1px; }
 
         .ar-badge {
           margin-left: auto; flex-shrink: 0;
           display: flex; align-items: center; gap: 5px;
           padding: 6px 13px; border-radius: 20px;
-          background: rgba(212,74,42,0.1);
-          border: 1px solid rgba(212,74,42,0.25);
-          font-size: 11px; font-weight: 600; color: #C04A28;
+          background: rgba(247,155,61,0.1);
+          border: 1px solid rgba(247,155,61,0.25);
+          font-size: 11px; font-weight: 600; color: #E07020;
           letter-spacing: 0.01em;
         }
-        .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #D44A2A; animation: blink 1.8s infinite; }
+        .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #F79B3D; animation: blink 1.8s infinite; }
 
         /* ─── CATEGORY TABS — bleeding pill design ─── */
         .cats-outer {
@@ -561,26 +291,23 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           font-family: 'Inter', sans-serif;
           cursor: pointer; white-space: nowrap;
           border: 1.5px solid transparent;
-          background: rgba(0,0,0,0.06);
-          color: #3A3A3C;
+          background: rgba(247,155,61,0.07);
+          color: #2B2B2B;
           transition: all 0.2s ease;
           letter-spacing: -0.1px;
           position: relative;
         }
         .cat-pill:hover:not(.on) {
-          background: rgba(0,0,0,0.09);
-          color: #1C1C1E;
+          background: rgba(247,155,61,0.12);
+          color: #1E1B18;
         }
-        /* ── Active "bleeding" pill ── */
+        /* ── Active pill — Tastywala amber ── */
         .cat-pill.on {
-          background: #1C1C1E;
+          background: #F79B3D;
           color: #FFFFFF;
           font-weight: 700;
           border-color: transparent;
-          box-shadow:
-            0 4px 16px rgba(28,28,30,0.28),
-            0 1px 4px rgba(28,28,30,0.12),
-            0 0 0 2px rgba(255,255,255,0.8);
+          box-shadow: 0 4px 16px rgba(247,155,61,0.38), 0 1px 4px rgba(247,155,61,0.2);
           transform: translateY(-2px);
           letter-spacing: -0.15px;
         }
@@ -590,7 +317,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .main {
           max-width: 1080px; margin: 0 auto;
           padding: 20px 18px 110px;
-          background: #F7F5F2;
+          background: #FAF7F2;
         }
 
         /* AR strip */
@@ -598,18 +325,18 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           display: flex; align-items: center; gap: 14px;
           padding: 14px 18px; margin-bottom: 20px;
           background: #ffffff;
-          border: 1px solid rgba(212,74,42,0.18);
+          border: 1px solid rgba(247,155,61,0.18);
           border-radius: 16px;
           box-shadow: 0 1px 6px rgba(0,0,0,0.06);
           animation: fadeUp 0.4s ease both;
         }
         .ar-strip-icon { font-size: 22px; flex-shrink: 0; }
-        .ar-strip-text { font-size: 13px; font-weight: 600; color: #1C1C1E; letter-spacing: -0.1px; }
-        .ar-strip-sub  { font-size: 11px; color: #8E8E93; margin-top: 2px; }
+        .ar-strip-text { font-size: 13px; font-weight: 600; color: #1E1B18; letter-spacing: -0.1px; }
+        .ar-strip-sub  { font-size: 11px; color: #9A9A9A; margin-top: 2px; }
         .ar-strip-chip {
           margin-left: auto; flex-shrink: 0;
           padding: 5px 12px; border-radius: 20px;
-          background: #D44A2A; color: #fff;
+          background: #F79B3D; color: #fff;
           font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
         }
 
@@ -636,16 +363,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* ─────────── CARD — Apple App Store level ─────────── */
         .card {
           background: #FFFFFF;
-          border-radius: 18px; overflow: hidden;
+          border-radius: 20px; overflow: hidden;
           cursor: pointer; position: relative; text-align: left;
           transition: transform 0.2s ease, box-shadow 0.2s ease;
           animation: fadeUp 0.4s ease both;
           box-shadow:
             0 1px 3px rgba(0,0,0,0.06),
             0 4px 16px rgba(0,0,0,0.07);
-          border: none;
+          border: 1px solid #F0E8DE;
         }
-        .card:hover  { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.13); }
+        .card:hover  { transform: translateY(-6px); box-shadow: 0 12px 36px rgba(0,0,0,0.12); }
         .card:active { transform: scale(0.98); }
 
         /* Card image */
@@ -655,14 +382,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .c-img-ph {
           width:100%; height:100%;
           display:flex; align-items:center; justify-content:center; font-size:48px;
-          background: #F2EDE6;
+          background: #F5EDE0;
         }
 
         /* AR badge — top right, minimal */
         .c-ar-pill {
           position: absolute; top: 10px; right: 10px;
           display: flex; align-items: center; gap: 4px;
-          background: rgba(28,28,30,0.78);
+          background: rgba(30,27,24,0.78);
           backdrop-filter: blur(8px);
           color: #fff; font-size: 10px; font-weight: 700;
           padding: 4px 9px; border-radius: 8px;
@@ -693,18 +420,18 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* Badges */
         .c-badges { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
         .c-badge  { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 6px; }
-        .c-badge-pop  { background: #FFF0EB; color: #C04A28; }
+        .c-badge-pop  { background: #FFF0EB; color: #E07020; }
         .c-badge-feat { background: #F0EBF8; color: #6030A0; }
 
         .c-name {
-          font-size: 15px; font-weight: 700; color: #1C1C1E;
+          font-size: 15px; font-weight: 700; color: #1E1B18;
           line-height: 1.3; margin-bottom: 8px;
           letter-spacing: -0.2px;
         }
 
         .c-price-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-        .c-price { font-size: 16px; font-weight: 800; color: #D44A2A; letter-spacing: -0.3px; }
-        .c-cal   { font-size: 11px; color: #AEAEB2; font-weight: 500; }
+        .c-price { font-size: 16px; font-weight: 800; color: #F79B3D; letter-spacing: -0.3px; }
+        .c-cal   { font-size: 11px; color: #7A7A7A; font-weight: 500; }
 
         .c-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
         .c-spice-chip {
@@ -712,20 +439,20 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           font-size: 11px; font-weight: 600;
           padding: 3px 8px; border-radius: 6px;
         }
-        .c-prep { font-size: 11px; color: #AEAEB2; }
+        .c-prep { font-size: 11px; color: #7A7A7A; }
 
         /* AR CTA at card bottom */
         .c-ar-cta {
           margin-top: 10px;
           display: flex; align-items: center; justify-content: center; gap: 7px;
           padding: 9px; border-radius: 10px;
-          background: #F2F2F7;
-          font-size: 11px; font-weight: 700; color: #3A3A3C;
+          background: #F5F0EA;
+          font-size: 11px; font-weight: 700; color: #2B2B2B;
           letter-spacing: 0.04em; text-transform: uppercase;
         }
 
         /* empty */
-        .empty { text-align:center; padding:72px 20px; color:#8E8E93; }
+        .empty { text-align:center; padding:72px 20px; color:#9A9A9A; }
 
         /* ─────────── MODAL ─────────── */
         .overlay {
@@ -737,19 +464,19 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         }
         .sheet {
           position: relative; width: 100%; max-width: 540px;
-          background: #FFFFFF;
+          background: #FFFDF9;
           border-radius: 26px 26px 0 0;
           max-height: 93vh; overflow-y: auto;
           animation: slideUp 0.32s cubic-bezier(0.32,0.72,0,1);
-          box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+          box-shadow: 0 -8px 40px rgba(0,0,0,0.14);
         }
         .handle-row { display:flex; justify-content:center; padding:12px 0 0; }
         .handle     { width:36px; height:4px; border-radius:2px; background:rgba(0,0,0,0.12); }
         .close-btn {
           position: absolute; top: 12px; right: 16px;
           width: 32px; height: 32px; border-radius: 50%;
-          background: #F2F2F7; border: none;
-          color: #3A3A3C; cursor: pointer; font-size: 13px;
+          background: #F5F0EA; border: none;
+          color: #2B2B2B; cursor: pointer; font-size: 13px;
           display: flex; align-items: center; justify-content: center;
           transition: background 0.15s;
         }
@@ -757,51 +484,51 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
         .m-hero { margin: 10px 14px 0; border-radius: 16px; overflow: hidden; aspect-ratio: 16/9; position: relative; }
         .m-hero img { width:100%; height:100%; object-fit:cover; display:block; }
-        .m-hero-ph  { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:64px; background:#F2EDE6; }
+        .m-hero-ph  { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:64px; background:#F5EDE0; }
 
         .sbody { padding: 20px 20px 36px; }
-        .m-title { font-size: 24px; font-weight: 800; color: #1C1C1E; text-align: center; margin-bottom: 12px; line-height: 1.2; letter-spacing: -0.4px; }
+        .m-title { font-size: 24px; font-weight: 800; color: #1E1B18; text-align: center; margin-bottom: 12px; line-height: 1.2; letter-spacing: -0.4px; }
 
         .m-tags  { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:12px; }
         .tag { padding:5px 13px; border-radius:8px; font-size:12px; font-weight:600; }
-        .tag-cat { background:#F2F2F7; color:#3A3A3C; }
+        .tag-cat { background:#F5F0EA; color:#2B2B2B; }
         .tag-veg { background:#E8F5EE; color:#1A6A38; }
         .tag-nv  { background:#FDECEA; color:#8B2010; }
-        .tag-pop { background:#FFF0EB; color:#C04A28; }
+        .tag-pop { background:#FFF0EB; color:#E07020; }
 
         .m-pills { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
-        .m-pill  { display:flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; background:#F2F2F7; color:#3A3A3C; }
+        .m-pill  { display:flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; background:#F5F0EA; color:#2B2B2B; }
 
-        .m-price     { text-align:center; font-size:34px; font-weight:800; color:#D44A2A; letter-spacing:-0.6px; }
-        .m-price-sub { text-align:center; font-size:11px; color:#AEAEB2; margin-top:2px; margin-bottom:14px; }
-        .m-desc      { font-size:14px; color:#6C6C70; line-height:1.7; text-align:center; margin-bottom:20px; letter-spacing:-0.1px; }
+        .m-price     { text-align:center; font-size:34px; font-weight:800; color:#F79B3D; letter-spacing:-0.6px; }
+        .m-price-sub { text-align:center; font-size:11px; color:#7A7A7A; margin-top:2px; margin-bottom:14px; }
+        .m-desc      { font-size:14px; color:#5A5A5A; line-height:1.7; text-align:center; margin-bottom:20px; letter-spacing:-0.1px; }
 
         .divider { height:0.5px; background:rgba(0,0,0,0.1); margin:16px 0; }
-        .sec-lbl { font-size:11px; font-weight:700; color:#AEAEB2; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:12px; }
+        .sec-lbl { font-size:11px; font-weight:700; color:#7A7A7A; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:12px; }
 
         .nutr { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
-        .nc   { background:#F9F9FB; border:0.5px solid rgba(0,0,0,0.07); border-radius:12px; padding:13px 8px; text-align:center; }
-        .nc-v { font-size:20px; font-weight:800; color:#D44A2A; letter-spacing:-0.3px; }
-        .nc-u { font-size:10px; color:#AEAEB2; margin-top:1px; }
-        .nc-l { font-size:10px; color:#6C6C70; margin-top:3px; font-weight:600; }
+        .nc   { background:#FAF7F2; border:0.5px solid rgba(0,0,0,0.07); border-radius:12px; padding:13px 8px; text-align:center; }
+        .nc-v { font-size:20px; font-weight:800; color:#F79B3D; letter-spacing:-0.3px; }
+        .nc-u { font-size:10px; color:#7A7A7A; margin-top:1px; }
+        .nc-l { font-size:10px; color:#5A5A5A; margin-top:3px; font-weight:600; }
 
         .ings { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:22px; }
-        .ing  { padding:6px 13px; border-radius:8px; font-size:12px; color:#3A3A3C; background:#F2F2F7; font-weight:500; }
+        .ing  { padding:6px 13px; border-radius:8px; font-size:12px; color:#2B2B2B; background:#F5F0EA; font-weight:500; }
 
         /* AR Button */
         .ar-btn {
-          width:100%; padding:17px; border-radius:14px; border:none;
-          background: #1C1C1E; color: #FFFFFF;
+          width:100%; padding:17px; border-radius:50px; border:none;
+          background: #F79B3D; color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:11px;
-          box-shadow: 0 4px 20px rgba(28,28,30,0.28);
+          box-shadow: 0 6px 20px rgba(247,155,61,0.38);
           transition: transform 0.15s, box-shadow 0.15s;
           letter-spacing: -0.1px;
         }
-        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 8px 28px rgba(28,28,30,0.36); }
+        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 10px 28px rgba(247,155,61,0.48); }
         .ar-btn:active { transform:scale(0.98); }
-        .ar-btn-sub { color:#D44A2A; font-weight:800; }
-        .ar-hint { text-align:center; font-size:11px; color:#AEAEB2; margin-top:9px; letter-spacing:-0.1px; }
+        .ar-btn-sub { color:rgba(255,255,255,0.75); font-weight:800; }
+        .ar-hint { text-align:center; font-size:11px; color:#7A7A7A; margin-top:9px; letter-spacing:-0.1px; }
 
         /* ─────────── FAB — properly centered ─────────── */
         .fab-wrap {
@@ -815,14 +542,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           pointer-events: all;
           display: flex; align-items: center; gap: 8px;
           padding: 14px 28px; border-radius: 50px; border: none;
-          background: #1C1C1E; color: #FFFFFF;
+          background: #F79B3D; color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor: pointer; white-space: nowrap; letter-spacing: -0.1px;
-          box-shadow: 0 6px 24px rgba(28,28,30,0.4), 0 2px 8px rgba(28,28,30,0.2);
+          box-shadow: 0 6px 24px rgba(247,155,61,0.45), 0 2px 8px rgba(247,155,61,0.25);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
           animation: fadeUp 0.5s 0.3s ease both;
         }
-        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(28,28,30,0.5); }
+        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(247,155,61,0.55); }
         .sma-fab:active { transform: scale(0.97); }
         .sma-fab-icon   { font-size: 17px; }
 
@@ -836,99 +563,99 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         }
         .sma-sheet {
           position:relative; width:100%; max-width:540px;
-          background:#FFFFFF;
+          background:#FFFDF9;
           border-radius:26px 26px 0 0;
           max-height:90vh; overflow-y:auto;
           animation:slideUp 0.32s cubic-bezier(0.32,0.72,0,1);
-          box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+          box-shadow:0 -8px 40px rgba(0,0,0,0.15);
           font-family:'Inter',sans-serif;
         }
         .sma-prog-wrap { padding:18px 22px 0; }
         .sma-prog-row  { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-        .sma-prog-txt  { font-size:12px; font-weight:600; color:#AEAEB2; letter-spacing:0.01em; }
-        .sma-back      { font-size:12px; font-weight:600; color:#AEAEB2; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; padding:0; transition:color 0.15s; }
-        .sma-back:hover { color:#D44A2A; }
-        .sma-prog-bar  { height:3px; background:#F2F2F7; border-radius:99px; overflow:hidden; }
-        .sma-prog-fill { height:100%; background:#1C1C1E; border-radius:99px; transition:width 0.3s ease; }
+        .sma-prog-txt  { font-size:12px; font-weight:600; color:#7A7A7A; letter-spacing:0.01em; }
+        .sma-back      { font-size:12px; font-weight:600; color:#7A7A7A; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; padding:0; transition:color 0.15s; }
+        .sma-back:hover { color:#F79B3D; }
+        .sma-prog-bar  { height:3px; background:#F5F0EA; border-radius:99px; overflow:hidden; }
+        .sma-prog-fill { height:100%; background:#F79B3D; border-radius:99px; transition:width 0.3s ease; }
 
         .sma-q-wrap  { padding:26px 22px 34px; }
         .sma-q-emoji { font-size:40px; text-align:center; margin-bottom:12px; }
-        .sma-q-text  { font-size:22px; font-weight:800; color:#1C1C1E; text-align:center; margin-bottom:5px; line-height:1.25; letter-spacing:-0.4px; }
-        .sma-q-sub   { font-size:13px; color:#AEAEB2; text-align:center; margin-bottom:22px; font-weight:500; }
+        .sma-q-text  { font-size:22px; font-weight:800; color:#1E1B18; text-align:center; margin-bottom:5px; line-height:1.25; letter-spacing:-0.4px; }
+        .sma-q-sub   { font-size:13px; color:#7A7A7A; text-align:center; margin-bottom:22px; font-weight:500; }
         .sma-opts    { display:flex; flex-direction:column; gap:9px; }
         .sma-opt {
           display:flex; align-items:center; gap:13px;
           padding:14px 18px; border-radius:14px;
           border:1px solid rgba(0,0,0,0.09);
-          background:#FAFAFA; cursor:pointer;
+          background:#FDFAF6; cursor:pointer;
           transition:all 0.16s ease; text-align:left; width:100%;
           font-family:'Inter',sans-serif;
         }
-        .sma-opt:hover  { background:#fff; border-color:#D44A2A; transform:translateX(3px); }
+        .sma-opt:hover  { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); }
         .sma-opt:active { transform:scale(0.98); }
         .sma-opt-emoji  { font-size:24px; flex-shrink:0; }
-        .sma-opt-label  { font-size:14px; font-weight:600; color:#1C1C1E; letter-spacing:-0.1px; }
-        .sma-dismiss    { display:block; text-align:center; margin:18px auto 0; font-size:12px; color:#AEAEB2; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; }
-        .sma-dismiss:hover { color:#D44A2A; }
+        .sma-opt-label  { font-size:14px; font-weight:600; color:#1E1B18; letter-spacing:-0.1px; }
+        .sma-dismiss    { display:block; text-align:center; margin:18px auto 0; font-size:12px; color:#7A7A7A; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; }
+        .sma-dismiss:hover { color:#F79B3D; }
 
         .sma-res-wrap   { padding:20px 20px 40px; }
         .sma-res-hdr    { text-align:center; margin-bottom:22px; }
         .sma-res-emoji  { font-size:38px; margin-bottom:8px; }
-        .sma-res-title  { font-size:22px; font-weight:800; color:#1C1C1E; margin-bottom:4px; letter-spacing:-0.4px; }
-        .sma-res-sub    { font-size:13px; color:#AEAEB2; }
-        .sma-cat-lbl    { font-size:11px; font-weight:700; color:#AEAEB2; letter-spacing:0.08em; text-transform:uppercase; margin:18px 0 9px 2px; }
+        .sma-res-title  { font-size:22px; font-weight:800; color:#1E1B18; margin-bottom:4px; letter-spacing:-0.4px; }
+        .sma-res-sub    { font-size:13px; color:#7A7A7A; }
+        .sma-cat-lbl    { font-size:11px; font-weight:700; color:#7A7A7A; letter-spacing:0.08em; text-transform:uppercase; margin:18px 0 9px 2px; }
         .sma-item {
           display:flex; align-items:center; gap:12px;
           padding:12px 14px; border-radius:14px; margin-bottom:7px;
-          background:#FAFAFA; border:1px solid rgba(0,0,0,0.07);
+          background:#FDFAF6; border:1px solid rgba(0,0,0,0.07);
           cursor:pointer; transition:all 0.15s ease;
           text-align:left; width:100%; font-family:'Inter',sans-serif;
         }
-        .sma-item:hover { background:#fff; border-color:#D44A2A; transform:translateX(3px); }
-        .sma-item-img   { width:50px; height:50px; border-radius:12px; object-fit:cover; flex-shrink:0; background:#F2F2F7; }
-        .sma-item-name  { font-size:14px; font-weight:700; color:#1C1C1E; margin-bottom:4px; letter-spacing:-0.1px; }
+        .sma-item:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); }
+        .sma-item-img   { width:50px; height:50px; border-radius:12px; object-fit:cover; flex-shrink:0; background:#F5F0EA; }
+        .sma-item-name  { font-size:14px; font-weight:700; color:#1E1B18; margin-bottom:4px; letter-spacing:-0.1px; }
         .sma-item-meta  { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-        .sma-item-price { font-size:14px; font-weight:800; color:#D44A2A; }
+        .sma-item-price { font-size:14px; font-weight:800; color:#F79B3D; }
         .sma-item-chip  { font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; }
-        .sma-chip-pop   { background:#FFF0EB; color:#C04A28; }
+        .sma-chip-pop   { background:#FFF0EB; color:#E07020; }
         .sma-chip-ar    { background:#E8F5EE; color:#1A6A38; }
         .sma-actions { display:flex; gap:9px; margin-top:22px; }
-        .sma-btn-dark  { flex:1; padding:14px; border-radius:12px; border:none; background:#1C1C1E; color:#fff; font-family:'Inter',sans-serif; font-weight:700; font-size:14px; cursor:pointer; letter-spacing:-0.1px; }
-        .sma-btn-light { flex:1; padding:14px; border-radius:12px; border:1px solid rgba(0,0,0,0.12); background:transparent; color:#3A3A3C; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer; }
-        .sma-btn-light:hover { background:#F2F2F7; }
-        .sma-no-match { text-align:center; padding:36px 20px; color:#AEAEB2; font-size:14px; }
+        .sma-btn-dark  { flex:1; padding:14px; border-radius:50px; border:none; background:#F79B3D; color:#fff; font-family:'Inter',sans-serif; font-weight:700; font-size:14px; cursor:pointer; letter-spacing:-0.1px; box-shadow:0 4px 14px rgba(247,155,61,0.35); }
+        .sma-btn-light { flex:1; padding:14px; border-radius:12px; border:1px solid rgba(0,0,0,0.12); background:transparent; color:#2B2B2B; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer; }
+        .sma-btn-light:hover { background:#F5F0EA; }
+        .sma-no-match { text-align:center; padding:36px 20px; color:#7A7A7A; font-size:14px; }
 
         /* ── Mode picker (Solo / Group) ── */
         .sma-mode-wrap { padding:28px 22px 36px; }
-        .sma-mode-title { font-size:22px; font-weight:800; color:#1C1C1E; text-align:center; margin-bottom:6px; letter-spacing:-0.4px; }
-        .sma-mode-sub   { font-size:13px; color:#AEAEB2; text-align:center; margin-bottom:28px; }
+        .sma-mode-title { font-size:22px; font-weight:800; color:#1E1B18; text-align:center; margin-bottom:6px; letter-spacing:-0.4px; }
+        .sma-mode-sub   { font-size:13px; color:#7A7A7A; text-align:center; margin-bottom:28px; }
         .sma-mode-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
         .sma-mode-card {
           padding:22px 16px; border-radius:18px;
-          border:1.5px solid rgba(0,0,0,0.08); background:#FAFAFA;
+          border:1.5px solid rgba(0,0,0,0.08); background:#FDFAF6;
           cursor:pointer; text-align:center; transition:all 0.18s ease;
           font-family:'Inter',sans-serif;
         }
-        .sma-mode-card:hover { background:#fff; border-color:#1C1C1E; transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.1); }
+        .sma-mode-card:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateY(-2px); box-shadow:0 6px 20px rgba(247,155,61,0.18); }
         .sma-mode-card-emoji { font-size:36px; margin-bottom:10px; }
-        .sma-mode-card-name  { font-size:15px; font-weight:800; color:#1C1C1E; margin-bottom:4px; letter-spacing:-0.2px; }
-        .sma-mode-card-desc  { font-size:11px; color:#AEAEB2; line-height:1.5; }
+        .sma-mode-card-name  { font-size:15px; font-weight:800; color:#1E1B18; margin-bottom:4px; letter-spacing:-0.2px; }
+        .sma-mode-card-desc  { font-size:11px; color:#7A7A7A; line-height:1.5; }
 
         /* ── Group size picker ── */
         .sma-size-wrap  { padding:26px 22px 36px; }
-        .sma-size-title { font-size:22px; font-weight:800; color:#1C1C1E; text-align:center; margin-bottom:6px; letter-spacing:-0.4px; }
-        .sma-size-sub   { font-size:13px; color:#AEAEB2; text-align:center; margin-bottom:26px; }
+        .sma-size-title { font-size:22px; font-weight:800; color:#1E1B18; text-align:center; margin-bottom:6px; letter-spacing:-0.4px; }
+        .sma-size-sub   { font-size:13px; color:#7A7A7A; text-align:center; margin-bottom:26px; }
         .sma-size-grid  { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; }
         .sma-size-btn {
           padding:14px 6px; border-radius:14px;
-          border:1.5px solid rgba(0,0,0,0.08); background:#FAFAFA;
+          border:1.5px solid rgba(0,0,0,0.08); background:#FDFAF6;
           cursor:pointer; text-align:center; transition:all 0.18s ease;
           font-family:'Inter',sans-serif;
         }
-        .sma-size-btn:hover { background:#fff; border-color:#1C1C1E; transform:translateY(-2px); }
+        .sma-size-btn:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateY(-2px); }
         .sma-size-btn-emoji { font-size:22px; display:block; margin-bottom:6px; }
-        .sma-size-btn-num   { font-size:15px; font-weight:800; color:#1C1C1E; }
-        .sma-size-btn-lbl   { font-size:10px; color:#AEAEB2; margin-top:2px; }
+        .sma-size-btn-num   { font-size:15px; font-weight:800; color:#1E1B18; }
+        .sma-size-btn-lbl   { font-size:10px; color:#7A7A7A; margin-top:2px; }
 
         /* ── Group mode banner in results ── */
         .sma-group-banner {
@@ -950,7 +677,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
             <div className="r-logo">🍽️</div>
             <div>
               <div className="r-name">{restaurant.name}</div>
-              <div className="r-sub">Tap a dish · View it in AR on your table</div>
+              <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
             {arCount > 0 && (
               <div className="ar-badge"><span className="ar-dot"/>AR Live</div>
@@ -999,7 +726,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         {filtered.length === 0 ? (
           <div className="empty">
             <div style={{fontSize:44,marginBottom:10}}>🥢</div>
-            <p style={{fontWeight:600,fontSize:14,color:'#8E8E93'}}>No items in this category</p>
+            <p style={{fontWeight:600,fontSize:14,color:'#9A9A9A'}}>No items in this category</p>
           </div>
         ) : (
           <div className="grid">
@@ -1018,7 +745,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   )}
                   {typeof item.isVeg === 'boolean' && <span className={`veg-ind ${item.isVeg?'v':'nv'}`}/>}
                   {item.offerBadge && item.offerLabel && (
-                    <div className="c-ribbon" style={{background:item.offerColor||'#D44A2A'}}>🏷 {item.offerLabel}</div>
+                    <div className="c-ribbon" style={{background:item.offerColor||'#F79B3D'}}>🏷 {item.offerLabel}</div>
                   )}
                 </div>
                 <div className="c-body">
@@ -1079,7 +806,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                 <img src={imgSrc(selectedItem)} alt={selectedItem.name}
                   onError={()=>setImgErr(e=>({...e,[selectedItem.id]:true}))}/>
                 {selectedItem.offerBadge && selectedItem.offerLabel && (
-                  <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'7px 14px',background:selectedItem.offerColor||'#D44A2A',color:'#fff',fontSize:12,fontWeight:700,textAlign:'center'}}>
+                  <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'7px 14px',background:selectedItem.offerColor||'#F79B3D',color:'#fff',fontSize:12,fontWeight:700,textAlign:'center'}}>
                     🏷 {selectedItem.offerLabel}
                   </div>
                 )}
@@ -1269,7 +996,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                                   {shareable     && <span className="sma-item-chip sma-chip-share">🤲 Shareable</span>}
                                   {item.isPopular&& <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
                                   {item.modelURL && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
-                                  {item.prepTime && <span style={{fontSize:11,color:'#AEAEB2'}}>⏱ {item.prepTime}</span>}
+                                  {item.prepTime && <span style={{fontSize:11,color:'#7A7A7A'}}>⏱ {item.prepTime}</span>}
                                 </div>
                               </div>
                               <span style={{fontSize:16,color:'#D1D1D6',flexShrink:0}}>›</span>
