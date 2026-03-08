@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, trackVisit, incrementItemView, incrementARView } from '../../../lib/db';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
@@ -24,6 +24,30 @@ function getPlaceholder(id) {
   let h = 0;
   for (let i = 0; i < (id||'').length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return FOOD_PLACEHOLDERS[h % FOOD_PLACEHOLDERS.length];
+}
+
+
+/* ── Animated price counter ── */
+function PriceCounter({ price, className, style }) {
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef(null);
+  const target = Number(price) || 0;
+
+  useEffect(() => {
+    if (!target) return;
+    const duration = 900;
+    const startTime = performance.now();
+    const tick = (now) => {
+      const p = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 4); // ease-out quart
+      setDisplay(Math.round(eased * target));
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target]);
+
+  return <span className={className} style={style}>₹{display}</span>;
 }
 
 const SPICE_MAP = {
@@ -164,6 +188,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [smaStep,      setSmaStep]      = useState(0);
   const [smaAnswers,   setSmaAnswers]   = useState({});
   const [smaResults,   setSmaResults]   = useState([]);
+  const [darkMode,     setDarkMode]     = useState(false);
 
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(()=>{});
@@ -217,6 +242,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
       </Head>
 
+      <div className={darkMode ? 'dm' : ''} id="app-root">
       <style>{`
         html, body { margin:0; padding:0; }
         *, *::before, *::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -296,6 +322,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           transition: all 0.2s ease;
           letter-spacing: -0.1px;
           position: relative;
+          min-height: 38px;
         }
         .cat-pill:hover:not(.on) {
           background: rgba(247,155,61,0.12);
@@ -308,10 +335,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           font-weight: 700;
           border-color: transparent;
           box-shadow: 0 4px 16px rgba(247,155,61,0.38), 0 1px 4px rgba(247,155,61,0.2);
-          transform: translateY(-2px);
           letter-spacing: -0.15px;
         }
-        .cat-emoji { font-size: 14px; }
+        .cat-emoji { font-size: 13px; width: 16px; text-align: center; display: inline-block; line-height:1; }
 
         /* ─────────── MAIN ─────────── */
         .main {
@@ -376,13 +402,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .card:active { transform: scale(0.98); }
 
         /* Card image */
-        .c-img { position: relative; overflow: hidden; width: 100%; aspect-ratio: 3/2; }
+        .c-img { position: relative; overflow: hidden; width: 100%; height: 185px; }
         .c-img img { width:100%; height:100%; object-fit:cover; display:block; transition: transform 0.3s ease; }
         .card:hover .c-img img { transform: scale(1.04); }
         .c-img-ph {
           width:100%; height:100%;
           display:flex; align-items:center; justify-content:center; font-size:48px;
-          background: #F5EDE0;
+          background: #F5EDE0; border-radius:0;
         }
 
         /* AR badge — top right, minimal */
@@ -473,14 +499,17 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .handle-row { display:flex; justify-content:center; padding:12px 0 0; }
         .handle     { width:36px; height:4px; border-radius:2px; background:rgba(0,0,0,0.12); }
         .close-btn {
-          position: absolute; top: 12px; right: 16px;
-          width: 32px; height: 32px; border-radius: 50%;
-          background: #F5F0EA; border: none;
-          color: #2B2B2B; cursor: pointer; font-size: 13px;
+          position: absolute; top: 14px; right: 16px;
+          width: 34px; height: 34px; border-radius: 50%;
+          background: rgba(30,27,24,0.72);
+          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.15);
+          color: #FFFFFF; cursor: pointer; font-size: 12px; font-weight: 700;
           display: flex; align-items: center; justify-content: center;
-          transition: background 0.15s;
+          transition: all 0.18s ease; z-index: 10;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.25);
         }
-        .close-btn:hover { background: #E5E5EA; }
+        .close-btn:hover { background: rgba(30,27,24,0.92); transform: scale(1.08); }
 
         .m-hero { margin: 10px 14px 0; border-radius: 16px; overflow: hidden; aspect-ratio: 16/9; position: relative; }
         .m-hero img { width:100%; height:100%; object-fit:cover; display:block; }
@@ -668,6 +697,192 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
         /* ── Shareable tag on result items ── */
         .sma-chip-share { background:#EEF4FF; color:#3060B0; }
+
+        /* ══════════════════════════════
+           DARK MODE  (Zomato District style)
+           ══════════════════════════════ */
+        .dm { color-scheme: dark; }
+        .dm body, #app-root.dm { background:#111 !important; }
+
+        /* Page bg */
+        .dm .main          { background:#111 !important; }
+        .dm .hdr           { background:rgba(18,18,18,0.96) !important; border-bottom:0.5px solid rgba(255,255,255,0.06) !important; }
+
+        /* Cards */
+        .dm .card          { background:#1C1C1C !important; border-color:rgba(255,255,255,0.06) !important; }
+        .dm .card:hover    { box-shadow:0 12px 36px rgba(0,0,0,0.55) !important; }
+        .dm .c-body        {}
+        .dm .c-name        { color:#F2F2F2 !important; }
+        .dm .c-cal         { color:#666 !important; }
+        .dm .c-prep        { color:#666 !important; }
+        .dm .c-ar-cta      { background:#252525 !important; color:#AAA !important; }
+        .dm .c-badge-pop   { background:rgba(247,155,61,0.18) !important; color:#F79B3D !important; }
+        .dm .c-badge-feat  { background:rgba(100,60,180,0.2) !important; color:#B090E0 !important; }
+        .dm .c-img-ph      { background:#282828 !important; }
+
+        /* AR strip + offer bar */
+        .dm .ar-strip      { background:#1C1C1C !important; border-color:rgba(247,155,61,0.2) !important; }
+        .dm .ar-strip-text { color:#E0E0E0 !important; }
+        .dm .ar-strip-sub  { color:#666 !important; }
+        .dm .offer-bar     { background:#1C1C1C !important; border-color:rgba(255,220,100,0.2) !important; }
+        .dm .offer-bar-title { color:#D4A020 !important; }
+        .dm .offer-bar-desc  { color:#888 !important; }
+
+        /* Header text */
+        .dm .r-name        { color:#F0F0F0 !important; }
+        .dm .r-sub         { color:#666 !important; }
+        .dm .ar-badge      { background:rgba(247,155,61,0.14) !important; border-color:rgba(247,155,61,0.25) !important; }
+
+        /* Category pills */
+        .dm .cat-pill      { background:rgba(255,255,255,0.06) !important; color:#AAA !important; }
+        .dm .cat-pill:hover:not(.on) { background:rgba(255,255,255,0.1) !important; color:#E0E0E0 !important; }
+        .dm .cat-pill.on   { background:#F79B3D !important; color:#fff !important; }
+
+        /* Modal sheet */
+        .dm .sheet         { background:#181818 !important; }
+        .dm .handle        { background:rgba(255,255,255,0.14) !important; }
+        .dm .close-btn     { background:#2A2A2A !important; color:#E0E0E0 !important; border:1px solid rgba(255,255,255,0.1) !important; }
+        .dm .close-btn:hover { background:#333 !important; }
+        .dm .m-hero        {}
+        .dm .m-title       { color:#F0F0F0 !important; }
+        .dm .tag-cat       { background:#252525 !important; color:#AAA !important; }
+        .dm .tag-veg       { background:rgba(40,120,70,0.25) !important; color:#5EC47A !important; }
+        .dm .tag-nv        { background:rgba(160,40,30,0.25) !important; color:#E07060 !important; }
+        .dm .tag-pop       { background:rgba(247,155,61,0.18) !important; color:#F79B3D !important; }
+        .dm .m-pill        { background:#252525 !important; color:#AAA !important; }
+        .dm .m-price-sub   { color:#666 !important; }
+        .dm .m-desc        { color:#888 !important; }
+        .dm .divider       { background:rgba(255,255,255,0.07) !important; }
+        .dm .sec-lbl       { color:#555 !important; }
+        .dm .nc            { background:#222 !important; border-color:rgba(255,255,255,0.06) !important; }
+        .dm .nc-u, .dm .nc-l { color:#666 !important; }
+        .dm .ing           { background:#252525 !important; color:#AAA !important; }
+        .dm .ar-hint       { color:#555 !important; }
+        .dm .sbody         {}
+
+        /* SMA */
+        .dm .sma-sheet     { background:#181818 !important; }
+        .dm .sma-prog-bar  { background:#2A2A2A !important; }
+        .dm .sma-prog-txt  { color:#555 !important; }
+        .dm .sma-back      { color:#555 !important; }
+        .dm .sma-q-text    { color:#F0F0F0 !important; }
+        .dm .sma-q-sub     { color:#666 !important; }
+        .dm .sma-opt       { background:#222 !important; border-color:rgba(255,255,255,0.07) !important; }
+        .dm .sma-opt:hover { background:#2A2A2A !important; }
+        .dm .sma-opt-label { color:#E0E0E0 !important; }
+        .dm .sma-item      { background:#222 !important; border-color:rgba(255,255,255,0.07) !important; }
+        .dm .sma-item:hover { background:#2A2A2A !important; }
+        .dm .sma-item-name { color:#E0E0E0 !important; }
+        .dm .sma-res-title { color:#F0F0F0 !important; }
+        .dm .sma-res-sub   { color:#666 !important; }
+        .dm .sma-cat-lbl   { color:#555 !important; }
+        .dm .sma-mode-title { color:#F0F0F0 !important; }
+        .dm .sma-mode-sub  { color:#666 !important; }
+        .dm .sma-mode-card { background:#222 !important; border-color:rgba(255,255,255,0.08) !important; }
+        .dm .sma-mode-card:hover { background:#2A2A2A !important; border-color:#F79B3D !important; }
+        .dm .sma-mode-card-name { color:#F0F0F0 !important; }
+        .dm .sma-mode-card-desc { color:#666 !important; }
+        .dm .sma-size-title { color:#F0F0F0 !important; }
+        .dm .sma-size-sub  { color:#666 !important; }
+        .dm .sma-size-btn  { background:#222 !important; border-color:rgba(255,255,255,0.08) !important; }
+        .dm .sma-size-btn:hover { background:#2A2A2A !important; border-color:#F79B3D !important; }
+        .dm .sma-size-btn-num { color:#F0F0F0 !important; }
+        .dm .sma-size-btn-lbl { color:#666 !important; }
+        .dm .sma-btn-light { border-color:rgba(255,255,255,0.12) !important; color:#AAA !important; }
+        .dm .sma-btn-light:hover { background:#2A2A2A !important; }
+        .dm .sma-no-match  { color:#666 !important; }
+        .dm .sma-group-banner { background:rgba(30,80,50,0.3) !important; border-color:rgba(60,140,90,0.3) !important; }
+        .dm .sma-dismiss   { color:#555 !important; }
+
+        /* Dark mode FAB */
+        .dm .sma-fab       { background:#F79B3D !important; box-shadow:0 6px 24px rgba(247,155,61,0.4), 0 2px 8px rgba(0,0,0,0.4) !important; }
+
+        /* Dark theme toggle button */
+        .theme-toggle {
+          margin-left: 10px; flex-shrink: 0;
+          width: 36px; height: 36px; border-radius: 50%; border: none;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; font-size: 16px;
+          background: rgba(247,155,61,0.1);
+          transition: all 0.22s ease;
+        }
+        .theme-toggle:hover { background: rgba(247,155,61,0.2); transform: rotate(20deg); }
+        .dm .theme-toggle  { background: rgba(255,255,255,0.08); }
+        .dm .theme-toggle:hover { background: rgba(255,255,255,0.14); }
+
+        /* ══════════════════════════════
+           FIX: IMAGE FULL COVER
+           ══════════════════════════════ */
+        /* Changed from aspect-ratio to fixed height so ALL cards have identical image area */
+
+        /* ══════════════════════════════
+           EXTRA ANIMATIONS
+           ══════════════════════════════ */
+        @keyframes cardPop {
+          0%   { opacity:0; transform:translateY(20px) scale(0.95); }
+          60%  { opacity:1; transform:translateY(-3px) scale(1.01); }
+          100% { opacity:1; transform:translateY(0) scale(1); }
+        }
+        @keyframes chipSlide {
+          from { opacity:0; transform:translateX(-8px); }
+          to   { opacity:1; transform:translateX(0); }
+        }
+        @keyframes stripBounce {
+          0%  { opacity:0; transform:translateY(-8px); }
+          70% { transform:translateY(2px); }
+          100%{ opacity:1; transform:translateY(0); }
+        }
+        @keyframes pricePop {
+          0%   { transform:scale(0.8); opacity:0; }
+          70%  { transform:scale(1.08); }
+          100% { transform:scale(1); opacity:1; }
+        }
+        @keyframes shimmerSlide {
+          from { transform:translateX(-100%); }
+          to   { transform:translateX(200%); }
+        }
+        @keyframes modalIn {
+          from { opacity:0; transform:translateY(60px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes badgePop {
+          0%  { transform:scale(0); opacity:0; }
+          70% { transform:scale(1.15); }
+          100%{ transform:scale(1); opacity:1; }
+        }
+        @keyframes headerDrop {
+          from { opacity:0; transform:translateY(-12px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+
+        /* Apply card pop animation */
+        .card { animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both !important; }
+        /* Chip animations */
+        .c-badge { animation: badgePop 0.3s 0.15s cubic-bezier(0.34,1.56,0.64,1) both; }
+        /* AR strip animation */
+        .ar-strip  { animation: stripBounce 0.5s ease both !important; }
+        .offer-bar { animation: stripBounce 0.5s 0.1s ease both !important; }
+        /* Pill slide */
+        .cat-pill  { animation: chipSlide 0.3s ease both; }
+        /* Header */
+        .hdr-top   { animation: headerDrop 0.4s ease both; }
+
+        /* Shimmer on card image hover */
+        .c-img::after {
+          content:''; position:absolute; inset:0;
+          background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.18) 50%,transparent 60%);
+          transform:translateX(-100%); pointer-events:none; border-radius:inherit;
+          transition:none;
+        }
+        .card:hover .c-img::after {
+          animation: shimmerSlide 0.6s ease forwards;
+        }
+
+        /* Price pop on modal open */
+        .m-price { animation: pricePop 0.5s 0.2s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+        /* Sheet uses modalIn (already has slideUp, keep as is) */
+
       `}</style>
 
       {/* ─── HEADER ─── */}
@@ -679,6 +894,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
+            <button className="theme-toggle" onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Switch to Light":"Switch to Dark"}>
+              {darkMode ? "☀️" : "🌙"}
+            </button>
             {arCount > 0 && (
               <div className="ar-badge"><span className="ar-dot"/>AR Live</div>
             )}
@@ -687,7 +905,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           <div className="cats-outer">
             <div className="cats-scroll">
               {cats.map(c => (
-                <button key={c} className={`cat-pill${activeCat===c?' on':''}`} onClick={()=>setActiveCat(c)}>
+                <button key={c} className={`cat-pill${activeCat===c?' on':''}`} style={{animationDelay:`${cats.indexOf(c)*0.04}s`}} onClick={()=>setActiveCat(c)}>
                   <span className="cat-emoji">{catIcon(c)}</span>
                   {c}
                 </button>
@@ -757,7 +975,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   )}
                   <div className="c-name">{item.name}</div>
                   <div className="c-price-row">
-                    {item.price    && <span className="c-price">₹{item.price}</span>}
+                    {item.price    && <PriceCounter price={item.price} className="c-price"/>}
                     {item.calories && <span className="c-cal">{item.calories} kcal</span>}
                   </div>
                   {(item.spiceLevel && item.spiceLevel!=='None' || item.prepTime) && (
@@ -1016,6 +1234,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           </div>
         </div>
       )}
+    </div>
     </>
   );
 }
