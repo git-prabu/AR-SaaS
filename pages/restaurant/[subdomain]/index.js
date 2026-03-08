@@ -164,6 +164,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [smaStep,      setSmaStep]      = useState(0);
   const [smaAnswers,   setSmaAnswers]   = useState({});
   const [smaResults,   setSmaResults]   = useState([]);
+  const [searchQuery,  setSearchQuery]  = useState('');
+  const [dietFilter,   setDietFilter]   = useState('all'); // 'all' | 'veg' | 'nonveg'
 
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(()=>{});
@@ -174,9 +176,36 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
     return () => { document.body.style.overflow = ''; };
   }, [selectedItem, smaOpen]);
 
-  const cats     = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
-  const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
-  const arCount  = (menuItems||[]).filter(i=>i.modelURL).length;
+  // Deduplicate categories case-insensitively
+  const seenLower = new Set();
+  const uniqueCats = (menuItems||[]).map(i=>i.category).filter(Boolean).filter(c => {
+    const l = c.toLowerCase(); if (seenLower.has(l)) return false; seenLower.add(l); return true;
+  });
+  const cats = ['All', ...uniqueCats];
+
+  // 50% cap per category (min 6)
+  const totalItems  = (menuItems||[]).length;
+  const maxPerCat   = Math.max(6, Math.ceil(totalItems * 0.5));
+  const catFiltered = activeCat==='All'
+    ? (menuItems||[])
+    : (menuItems||[]).filter(i=>(i.category||'').toLowerCase()===activeCat.toLowerCase()).slice(0, maxPerCat);
+
+  const dietFiltered = catFiltered.filter(i => {
+    if (dietFilter==='veg')    return i.isVeg === true;
+    if (dietFilter==='nonveg') return i.isVeg === false;
+    return true;
+  });
+  const searchTerm = searchQuery.trim().toLowerCase();
+  const filtered = searchTerm
+    ? dietFiltered.filter(i =>
+        (i.name||'').toLowerCase().includes(searchTerm) ||
+        (i.description||'').toLowerCase().includes(searchTerm) ||
+        (i.category||'').toLowerCase().includes(searchTerm))
+    : dietFiltered;
+
+  const arCount     = (menuItems||[]).filter(i=>i.modelURL).length;
+  const vegCount    = (menuItems||[]).filter(i=>i.isVeg===true).length;
+  const nonVegCount = (menuItems||[]).filter(i=>i.isVeg===false).length;
 
   const openItem = useCallback(async (item) => {
     setSelectedItem(item); setShowAR(false);
@@ -234,6 +263,29 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
         @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0.15} }
+        @keyframes kenBurns{ from{transform:scale(1)} to{transform:scale(1.08)} }
+        @keyframes cardIn  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes ripple  { 0%{transform:scale(0);opacity:0.45} 100%{transform:scale(4);opacity:0} }
+        @keyframes pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(212,74,42,0.4)} 70%{box-shadow:0 0 0 8px rgba(212,74,42,0)} }
+
+        /* ── HERO ── */
+        .hero { position:relative; width:100%; height:240px; overflow:hidden; background:#1C1C1E; }
+        @media(min-width:600px){ .hero{ height:300px; } }
+        .hero-bg { position:absolute; inset:0; background-size:cover; background-position:center;
+          animation:kenBurns 16s ease-in-out infinite alternate; will-change:transform; }
+        .hero-overlay { position:absolute; inset:0;
+          background:linear-gradient(160deg,rgba(0,0,0,0.05) 0%,rgba(0,0,0,0.2) 40%,rgba(0,0,0,0.78) 100%); }
+        .hero-content { position:absolute; bottom:0; left:0; right:0; padding:0 20px 22px;
+          animation:fadeUp 0.5s ease both; }
+        .hero-ar-tag { display:inline-flex; align-items:center; gap:6px; padding:5px 12px;
+          border-radius:20px; margin-bottom:8px;
+          background:rgba(212,74,42,0.9); backdrop-filter:blur(8px);
+          font-size:11px; font-weight:700; color:#fff; letter-spacing:0.04em; }
+        .hero-dot { width:5px; height:5px; border-radius:50%; background:#fff; animation:blink 1.8s infinite; }
+        .hero-name { font-size:26px; font-weight:900; color:#fff; letter-spacing:-0.6px; line-height:1.1;
+          text-shadow:0 2px 16px rgba(0,0,0,0.5); }
+        @media(min-width:600px){ .hero-name{ font-size:36px; } }
+        .hero-sub  { font-size:13px; color:rgba(255,255,255,0.65); margin-top:4px; font-weight:500; }
 
         /* ─────────── HEADER ─────────── */
         .hdr {
@@ -244,6 +296,37 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           border-bottom: 0.5px solid rgba(0,0,0,0.1);
         }
         .hdr-inner { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
+
+        /* Search */
+        .search-wrap { padding:12px 0 6px; }
+        .search-box  { position:relative; }
+        .search-icon { position:absolute; left:13px; top:50%; transform:translateY(-50%);
+          color:#AEAEB2; font-size:14px; pointer-events:none; }
+        .search-input {
+          width:100%; padding:10px 36px 10px 38px;
+          border-radius:13px; border:1.5px solid rgba(0,0,0,0.1);
+          background:#fff; font-family:'Inter',sans-serif;
+          font-size:14px; color:#1C1C1E; outline:none;
+          transition:border-color 0.18s, box-shadow 0.18s;
+          box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+        .search-input::placeholder { color:#AEAEB2; }
+        .search-input:focus { border-color:#D44A2A; box-shadow:0 0 0 3px rgba(212,74,42,0.1); }
+        .search-clear { position:absolute; right:11px; top:50%; transform:translateY(-50%);
+          background:none; border:none; cursor:pointer; color:#AEAEB2; font-size:13px;
+          padding:4px; border-radius:50%; transition:color 0.15s; }
+        .search-clear:hover { color:#D44A2A; }
+
+        /* Diet filter pills */
+        .diet-pills { display:flex; gap:7px; padding:2px 0 6px; }
+        .diet-pill  { display:flex; align-items:center; gap:5px; padding:6px 13px; border-radius:22px;
+          font-size:12px; font-weight:700; font-family:'Inter',sans-serif; cursor:pointer;
+          white-space:nowrap; border:1.5px solid transparent; transition:all 0.18s ease; }
+        .dp-all  { background:#F2F2F7; color:#3A3A3C; border-color:rgba(0,0,0,0.08); }
+        .dp-all.active,.dp-all:hover { background:#1C1C1E; color:#fff; border-color:transparent; }
+        .dp-veg  { background:#E8F5EE; color:#1A6A38; border-color:rgba(42,128,72,0.2); }
+        .dp-veg.active  { background:#2A8048; color:#fff; border-color:transparent; box-shadow:0 3px 10px rgba(42,128,72,0.3); }
+        .dp-nonveg { background:#FDECEA; color:#8B2010; border-color:rgba(192,48,32,0.2); }
+        .dp-nonveg.active { background:#C03020; color:#fff; border-color:transparent; box-shadow:0 3px 10px rgba(192,48,32,0.3); }
 
         .hdr-top {
           display: flex; align-items: center; gap: 13px;
@@ -301,16 +384,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: rgba(0,0,0,0.09);
           color: #1C1C1E;
         }
-        /* ── Active "bleeding" pill ── */
+        /* ── Active pill — orange gradient ── */
         .cat-pill.on {
-          background: #1C1C1E;
+          background: linear-gradient(135deg,#D44A2A,#E8604C);
           color: #FFFFFF;
           font-weight: 700;
           border-color: transparent;
-          box-shadow:
-            0 4px 16px rgba(28,28,30,0.28),
-            0 1px 4px rgba(28,28,30,0.12),
-            0 0 0 2px rgba(255,255,255,0.8);
+          box-shadow: 0 4px 14px rgba(212,74,42,0.38), 0 1px 4px rgba(212,74,42,0.2);
           transform: translateY(-2px);
           letter-spacing: -0.15px;
         }
@@ -368,15 +448,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: #FFFFFF;
           border-radius: 18px; overflow: hidden;
           cursor: pointer; position: relative; text-align: left;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          animation: fadeUp 0.4s ease both;
-          box-shadow:
-            0 1px 3px rgba(0,0,0,0.06),
-            0 4px 16px rgba(0,0,0,0.07);
+          transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease;
+          animation: cardIn 0.42s ease both;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.07);
           border: none;
         }
-        .card:hover  { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.13); }
-        .card:active { transform: scale(0.98); }
+        .card:hover  { transform: translateY(-6px) scale(1.01); box-shadow: 0 14px 36px rgba(0,0,0,0.14), 0 0 0 1.5px rgba(212,74,42,0.15); }
+        .card:active { transform: scale(0.97); }
 
         /* Card image */
         .c-img { position: relative; overflow: hidden; width: 100%; aspect-ratio: 3/2; }
@@ -388,15 +466,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: #F2EDE6;
         }
 
-        /* AR badge — top right, minimal */
+        /* AR badge — top right, orange */
         .c-ar-pill {
           position: absolute; top: 10px; right: 10px;
           display: flex; align-items: center; gap: 4px;
-          background: rgba(28,28,30,0.78);
+          background: rgba(212,74,42,0.92);
           backdrop-filter: blur(8px);
           color: #fff; font-size: 10px; font-weight: 700;
           padding: 4px 9px; border-radius: 8px;
           letter-spacing: 0.03em;
+          box-shadow: 0 2px 8px rgba(212,74,42,0.4);
         }
 
         /* Veg indicator */
@@ -444,15 +523,24 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         }
         .c-prep { font-size: 11px; color: #AEAEB2; }
 
-        /* AR CTA at card bottom */
+        /* AR CTA at card bottom — orange */
         .c-ar-cta {
+          position: relative; overflow: hidden;
           margin-top: 10px;
           display: flex; align-items: center; justify-content: center; gap: 7px;
           padding: 9px; border-radius: 10px;
-          background: #F2F2F7;
-          font-size: 11px; font-weight: 700; color: #3A3A3C;
-          letter-spacing: 0.04em; text-transform: uppercase;
+          background: linear-gradient(135deg,#D44A2A,#E8604C);
+          color: #fff;
+          font-size: 11px; font-weight: 800;
+          letter-spacing: 0.03em;
+          box-shadow: 0 3px 10px rgba(212,74,42,0.32);
+          transition: transform 0.15s, box-shadow 0.15s;
         }
+        .c-ar-cta:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(212,74,42,0.44); }
+        .c-ar-cta::after { content:''; position:absolute; border-radius:50%;
+          width:20px; height:20px; background:rgba(255,255,255,0.4);
+          transform:scale(0); pointer-events:none; }
+        .card:active .c-ar-cta::after { animation:ripple 0.5s ease; }
 
         /* empty */
         .empty { text-align:center; padding:72px 20px; color:#8E8E93; }
@@ -521,16 +609,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* AR Button */
         .ar-btn {
           width:100%; padding:17px; border-radius:14px; border:none;
-          background: #1C1C1E; color: #FFFFFF;
+          background: linear-gradient(135deg,#D44A2A,#E8604C); color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:11px;
-          box-shadow: 0 4px 20px rgba(28,28,30,0.28);
+          box-shadow: 0 6px 22px rgba(212,74,42,0.4), 0 2px 6px rgba(212,74,42,0.2);
           transition: transform 0.15s, box-shadow 0.15s;
           letter-spacing: -0.1px;
         }
-        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 8px 28px rgba(28,28,30,0.36); }
+        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 10px 28px rgba(212,74,42,0.5); }
         .ar-btn:active { transform:scale(0.98); }
-        .ar-btn-sub { color:#D44A2A; font-weight:800; }
+        .ar-btn-sub { color:rgba(255,255,255,0.8); font-weight:800; }
         .ar-hint { text-align:center; font-size:11px; color:#AEAEB2; margin-top:9px; letter-spacing:-0.1px; }
 
         /* ─────────── FAB — properly centered ─────────── */
@@ -545,14 +633,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           pointer-events: all;
           display: flex; align-items: center; gap: 8px;
           padding: 14px 28px; border-radius: 50px; border: none;
-          background: #1C1C1E; color: #FFFFFF;
+          background: linear-gradient(135deg,#D44A2A,#E8604C); color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor: pointer; white-space: nowrap; letter-spacing: -0.1px;
-          box-shadow: 0 6px 24px rgba(28,28,30,0.4), 0 2px 8px rgba(28,28,30,0.2);
+          box-shadow: 0 8px 28px rgba(212,74,42,0.48), 0 3px 10px rgba(212,74,42,0.28);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
           animation: fadeUp 0.5s 0.3s ease both;
         }
-        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(28,28,30,0.5); }
+        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(212,74,42,0.58); }
         .sma-fab:active { transform: scale(0.97); }
         .sma-fab-icon   { font-size: 17px; }
 
@@ -673,6 +761,22 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .sma-chip-share { background:#EEF4FF; color:#3060B0; }
       `}</style>
 
+      {/* ─── HERO ─── */}
+      <section className="hero">
+        <div className="hero-bg" style={{backgroundImage:`url(https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=900&q=80)`}}/>
+        <div className="hero-overlay"/>
+        <div className="hero-content">
+          {arCount > 0 && (
+            <div className="hero-ar-tag">
+              <span className="hero-dot"/>
+              AR Live · {arCount} dish{arCount!==1?'es':''} in 3D
+            </div>
+          )}
+          <div className="hero-name">{restaurant.name}</div>
+          <div className="hero-sub">Tap any dish · See it in augmented reality</div>
+        </div>
+      </section>
+
       {/* ─── HEADER ─── */}
       <header className="hdr">
         <div className="hdr-inner">
@@ -688,6 +792,42 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           </div>
           {/* Category tabs */}
           <div className="cats-outer">
+            {/* Search bar */}
+            <div className="search-wrap">
+              <div className="search-box">
+                <span className="search-icon">🔍</span>
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder="Search dishes, ingredients…"
+                  value={searchQuery}
+                  onChange={e => { setSearchQuery(e.target.value); }}
+                />
+                {searchQuery && (
+                  <button className="search-clear" onClick={()=>setSearchQuery('')}>✕</button>
+                )}
+              </div>
+            </div>
+            {/* Veg / Non-Veg filter */}
+            {(vegCount > 0 || nonVegCount > 0) && (
+              <div className="diet-pills">
+                <button className={`diet-pill dp-all${dietFilter==='all'?' active':''}`} onClick={()=>setDietFilter('all')}>All</button>
+                {vegCount > 0 && (
+                  <button className={`diet-pill dp-veg${dietFilter==='veg'?' active':''}`} onClick={()=>setDietFilter(dietFilter==='veg'?'all':'veg')}>
+                    <span style={{width:8,height:8,borderRadius:1,border:'1.5px solid currentColor',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <span style={{width:4,height:4,borderRadius:'50%',background:'currentColor'}}/>
+                    </span>
+                    Veg
+                  </button>
+                )}
+                {nonVegCount > 0 && (
+                  <button className={`diet-pill dp-nonveg${dietFilter==='nonveg'?' active':''}`} onClick={()=>setDietFilter(dietFilter==='nonveg'?'all':'nonveg')}>
+                    <span style={{width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderBottom:'7px solid currentColor',display:'inline-block'}}/>
+                    Non-Veg
+                  </button>
+                )}
+              </div>
+            )}
             <div className="cats-scroll">
               {cats.map(c => (
                 <button key={c} className={`cat-pill${activeCat===c?' on':''}`} onClick={()=>setActiveCat(c)}>
@@ -725,16 +865,32 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           </div>
         )}
 
+        {/* Search result count */}
+        {searchQuery && (
+          <div style={{marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{fontSize:13,color:'#6C6C70',fontWeight:500}}>
+              {filtered.length > 0
+                ? <><span style={{fontWeight:700,color:'#1C1C1E'}}>{filtered.length}</span> result{filtered.length!==1?'s':''} for "<span style={{color:'#D44A2A',fontWeight:600}}>{searchQuery}</span>"</>
+                : <>No results for "<span style={{color:'#D44A2A',fontWeight:600}}>{searchQuery}</span>"</>
+              }
+            </div>
+            <button onClick={()=>setSearchQuery('')} style={{fontSize:12,color:'#D44A2A',background:'none',border:'none',cursor:'pointer',fontWeight:600,fontFamily:'Inter,sans-serif'}}>Clear</button>
+          </div>
+        )}
+
         {/* Grid */}
         {filtered.length === 0 ? (
           <div className="empty">
-            <div style={{fontSize:44,marginBottom:10}}>🥢</div>
-            <p style={{fontWeight:600,fontSize:14,color:'#8E8E93'}}>No items in this category</p>
+            <div style={{fontSize:44,marginBottom:10}}>{searchQuery ? '🔍' : '🥢'}</div>
+            <p style={{fontWeight:600,fontSize:14,color:'#8E8E93'}}>
+              {searchQuery ? 'No dishes found' : dietFilter!=='all' ? 'No items match this filter' : 'No items in this category'}
+            </p>
+            {searchQuery && <p style={{fontSize:12,color:'#AEAEB2',marginTop:4}}>Try a different name or ingredient</p>}
           </div>
         ) : (
           <div className="grid">
             {filtered.map((item, idx) => (
-              <button key={item.id} className="card" style={{animationDelay:`${idx*0.05}s`}} onClick={()=>openItem(item)}>
+              <button key={item.id} className="card" style={{animationDelay:`${Math.min(idx,10)*0.055}s`}} onClick={()=>openItem(item)}>
                 <div className="c-img">
                   <img src={imgSrc(item)} alt={item.name} loading="lazy"
                     onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
