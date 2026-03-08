@@ -7,6 +7,7 @@ const navItems = [
   { href: '/superadmin',             label: 'Overview',    icon: '▦' },
   { href: '/superadmin/restaurants', label: 'Restaurants', icon: '⬡' },
   { href: '/superadmin/requests',    label: 'Requests',    icon: '◈' },
+  { href: '/superadmin/plans',       label: 'Plan Manager',icon: '💳' },
 ];
 
 export default function SuperAdminLayout({ children }) {

@@ -8,6 +8,31 @@ import toast from 'react-hot-toast';
 
 const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'', isVeg:'', spiceLevel:'' };
 
+// ── Calorie estimator using Open Food Facts API ──────────────────
+async function estimateNutrition(dishName, ingredients) {
+  const query = ingredients?.trim() ? ingredients.split(',')[0].trim() : dishName;
+  try {
+    const res = await fetch(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5&fields=product_name,nutriments`
+    );
+    const data = await res.json();
+    const products = (data.products || []).filter(p => p.nutriments);
+    if (products.length === 0) return null;
+    // Average top 3 results for better accuracy
+    const top = products.slice(0, 3);
+    const avg = (key) => {
+      const vals = top.map(p => p.nutriments[key]).filter(v => typeof v === 'number' && v > 0);
+      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0) / vals.length) : null;
+    };
+    return {
+      calories: avg('energy-kcal_100g') || avg('energy_100g') ? Math.round((avg('energy-kcal_100g') || avg('energy_100g') / 4.184)) : null,
+      protein:  avg('proteins_100g'),
+      carbs:    avg('carbohydrates_100g'),
+      fats:     avg('fat_100g'),
+    };
+  } catch { return null; }
+}
+
 const S = {
   page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
   card:  { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
@@ -29,6 +54,7 @@ export default function AdminRequests() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filter, setFilter] = useState('all');
+  const [estimating, setEstimating] = useState(false);
   const rid = userData?.restaurantId;
 
   useEffect(() => {
@@ -42,6 +68,26 @@ export default function AdminRequests() {
     if (fileSizeMB(f) > 5) { toast.error('Image must be under 5MB'); return; }
     setImageFile(f);
     setImagePreview(URL.createObjectURL(f));
+  };
+
+  const handleEstimate = async () => {
+    if (!form.name.trim() && !form.ingredients.trim()) {
+      toast.error('Enter a dish name or ingredients first'); return;
+    }
+    setEstimating(true);
+    const result = await estimateNutrition(form.name, form.ingredients);
+    setEstimating(false);
+    if (!result || (!result.calories && !result.protein && !result.carbs && !result.fats)) {
+      toast.error("Couldn't estimate — try adding more ingredients"); return;
+    }
+    setForm(f => ({
+      ...f,
+      calories: result.calories != null ? String(result.calories) : f.calories,
+      protein:  result.protein  != null ? String(result.protein)  : f.protein,
+      carbs:    result.carbs    != null ? String(result.carbs)    : f.carbs,
+      fats:     result.fats     != null ? String(result.fats)     : f.fats,
+    }));
+    toast.success('Nutrition estimated! Review and adjust if needed.');
   };
 
   const handleSubmit = async (e) => {
@@ -147,13 +193,28 @@ export default function AdminRequests() {
                   </div>
                   <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:4 }}>Shown on menu card so customers know how long to wait</div>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
-                  {['calories','protein','carbs','fats'].map(n=>(
-                    <div key={n}>
-                      <label style={S.label}>{n.charAt(0).toUpperCase()+n.slice(1)}</label>
-                      <input className="inp" style={S.input} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
-                    </div>
-                  ))}
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                    <label style={S.label}>Nutrition Info</label>
+                    <button type="button" onClick={handleEstimate} disabled={estimating}
+                      style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', borderRadius:10, border:'1.5px solid #E05A3A', background: estimating ? 'rgba(224,90,58,0.08)' : 'rgba(224,90,58,0.06)', color:'#C04A28', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Inter,sans-serif', transition:'all 0.15s' }}>
+                      {estimating
+                        ? <><span style={{ width:12, height:12, border:'2px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.7s linear infinite', display:'inline-block' }}/> Estimating…</>
+                        : <>✨ Auto Estimate</>
+                      }
+                    </button>
+                  </div>
+                  <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginBottom:10 }}>
+                    Enter dish name or ingredients above, then click Auto Estimate. You can always edit the values manually.
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+                    {['calories','protein','carbs','fats'].map(n=>(
+                      <div key={n}>
+                        <label style={S.label}>{n.charAt(0).toUpperCase()+n.slice(1)}</label>
+                        <input className="inp" style={{...S.input, borderColor: form[n] ? 'rgba(42,31,16,0.09)' : 'rgba(42,31,16,0.09)'}} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div style={{ marginBottom:20 }}>
                   <label style={S.label}>Food Photo</label>

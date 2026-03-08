@@ -8,6 +8,30 @@ import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Very Spicy'];
+
+// ── Calorie estimator ─────────────────────────────────────────────
+async function estimateNutrition(dishName, ingredients) {
+  const query = ingredients?.trim() ? ingredients.split(',')[0].trim() : dishName;
+  try {
+    const res = await fetch(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5&fields=product_name,nutriments`
+    );
+    const data = await res.json();
+    const products = (data.products || []).filter(p => p.nutriments);
+    if (products.length === 0) return null;
+    const top = products.slice(0, 3);
+    const avg = (key) => {
+      const vals = top.map(p => p.nutriments[key]).filter(v => typeof v === 'number' && v > 0);
+      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0) / vals.length) : null;
+    };
+    return {
+      calories: avg('energy-kcal_100g') || (avg('energy_100g') ? Math.round(avg('energy_100g') / 4.184) : null),
+      protein:  avg('proteins_100g'),
+      carbs:    avg('carbohydrates_100g'),
+      fats:     avg('fat_100g'),
+    };
+  } catch { return null; }
+}
 const SPICE_COLORS = { None:'#8FC4A8', Mild:'#F4D070', Medium:'#F4A060', Spicy:'#E05A3A', 'Very Spicy':'#B02020' };
 const OFFER_BADGES = [
   { label:'Chef\'s Special', color:'#8A70B0' },
@@ -34,6 +58,7 @@ export default function AdminItems() {
   const [catFilter, setCatFilter] = useState('all');
   const [editId,    setEditId]    = useState(null);
   const [editData,  setEditData]  = useState({});
+  const [estimating, setEstimating] = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [deleting,  setDeleting]  = useState(null);
   const [customBadge, setCustomBadge] = useState('');
@@ -101,6 +126,26 @@ export default function AdminItems() {
       toast.success('Cover image updated!');
     } catch (e) { toast.error('Upload failed: ' + e.message); }
     finally { setImgUpload(u => ({ ...u, [item.id]: { uploading:false, progress:0 } })); }
+  };
+
+  const handleEstimate = async () => {
+    const name = editData.name || '';
+    const ingredients = editData.ingredients?.join(', ') || '';
+    if (!name.trim() && !ingredients.trim()) { toast.error('Enter a dish name first'); return; }
+    setEstimating(true);
+    const result = await estimateNutrition(name, ingredients);
+    setEstimating(false);
+    if (!result || (!result.calories && !result.protein && !result.carbs && !result.fats)) {
+      toast.error("Couldn't estimate — try updating the dish name or ingredients"); return;
+    }
+    setEditData(d => ({
+      ...d,
+      calories: result.calories != null ? String(result.calories) : d.calories,
+      protein:  result.protein  != null ? String(result.protein)  : d.protein,
+      carbs:    result.carbs    != null ? String(result.carbs)    : d.carbs,
+      fats:     result.fats     != null ? String(result.fats)     : d.fats,
+    }));
+    toast.success('Nutrition estimated! Review and adjust if needed.');
   };
 
   const saveEdit = async () => {
@@ -336,13 +381,17 @@ export default function AdminItems() {
                             <input className="inp" style={S.input} type="number" min="0" value={editData.price} onChange={e=>setEditData(d=>({...d,price:e.target.value}))} placeholder="e.g. 299" />
                           </div>
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:14, marginBottom:14 }}>
+                        <div style={{ marginBottom:14 }}>
+                          <label style={S.label}>Description</label>
+                          <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={editData.description} onChange={e=>setEditData(d=>({...d,description:e.target.value}))} placeholder="Short description…" />
+                        </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:14, marginBottom:14 }}>
                           <div>
                             <label style={S.label}>Veg / Non-Veg *</label>
                             <select className="inp" style={S.input} value={editData.isVeg === null ? '' : String(editData.isVeg)} onChange={e=>setEditData(d=>({...d,isVeg:e.target.value===''?null:e.target.value==='true'}))}>
                               <option value="">Select…</option>
-                              <option value="true">🟢 Vegetarian</option>
-                              <option value="false">🔴 Non-Vegetarian</option>
+                              <option value="true">🟢 Veg</option>
+                              <option value="false">🔴 Non-Veg</option>
                             </select>
                           </div>
                           <div>
@@ -351,19 +400,35 @@ export default function AdminItems() {
                               {SPICE_LEVELS.map(s=><option key={s} value={s}>{s}</option>)}
                             </select>
                           </div>
-                        </div>
-                        <div style={{ marginBottom:14 }}>
-                          <label style={S.label}>Description</label>
-                          <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={editData.description} onChange={e=>setEditData(d=>({...d,description:e.target.value}))} placeholder="Short description…" />
-                        </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:14, marginBottom:14 }}>
                           <div>
                             <label style={S.label}>⏱ Prep Time</label>
-                            <input className="inp" style={S.input} value={editData.prepTime} onChange={e=>setEditData(d=>({...d,prepTime:e.target.value}))} placeholder="10–15 minutes" />
+                            <input className="inp" style={S.input} value={editData.prepTime} onChange={e=>setEditData(d=>({...d,prepTime:e.target.value}))} placeholder="10–15 min" />
                           </div>
                           <div>
                             <label style={S.label}>Priority Order</label>
                             <input className="inp" style={S.input} type="number" min="1" value={editData.sortOrder} onChange={e=>setEditData(d=>({...d,sortOrder:e.target.value}))} placeholder="1 = first" />
+                          </div>
+                        </div>
+
+                        {/* Nutrition with Auto Estimate */}
+                        <div style={{ background:'rgba(224,90,58,0.03)', border:'1px solid rgba(224,90,58,0.12)', borderRadius:14, padding:16, marginBottom:14 }}>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                            <label style={S.label}>🔢 Nutrition Info</label>
+                            <button type="button" onClick={handleEstimate} disabled={estimating}
+                              style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', borderRadius:10, border:'1.5px solid #E05A3A', background:estimating?'rgba(224,90,58,0.08)':'rgba(224,90,58,0.06)', color:'#C04A28', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Inter,sans-serif', transition:'all 0.15s' }}>
+                              {estimating
+                                ? <><span style={{ width:11, height:11, border:'2px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.7s linear infinite', display:'inline-block' }}/> Estimating…</>
+                                : <>✨ Auto Estimate</>}
+                            </button>
+                          </div>
+                          <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginBottom:10 }}>Based on dish name. Review and adjust manually if needed.</div>
+                          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+                            {[['calories','Calories','kcal'],['protein','Protein','g'],['carbs','Carbs','g'],['fats','Fats','g']].map(([key,label,unit])=>(
+                              <div key={key}>
+                                <label style={S.label}>{label} <span style={{color:'rgba(42,31,16,0.3)',fontWeight:400}}>({unit})</span></label>
+                                <input className="inp" style={S.input} type="number" min="0" value={editData[key]||''} onChange={e=>setEditData(d=>({...d,[key]:e.target.value}))} placeholder="0" />
+                              </div>
+                            ))}
                           </div>
                         </div>
 
