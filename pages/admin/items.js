@@ -79,6 +79,7 @@ export default function AdminItems() {
       isPopular:   item.isPopular   || false,
       isFeatured:  item.isFeatured  || false,
       isActive:    item.isActive    !== false,
+      isVeg:       typeof item.isVeg === 'boolean' ? item.isVeg : null,
       sortOrder:   item.sortOrder   ?? '',
     });
     setCustomBadge('');
@@ -104,6 +105,9 @@ export default function AdminItems() {
 
   const saveEdit = async () => {
     if (!editData.name?.trim()) { toast.error('Item name required'); return; }
+    if (!editData.category?.trim()) { toast.error('Category is required'); return; }
+    if (typeof editData.isVeg !== 'boolean') { toast.error('Please select Veg or Non-Veg'); return; }
+    if (!editData.spiceLevel) { toast.error('Spice level is required'); return; }
     setSaving(true);
     try {
       const finalLabel = editData.offerBadge === 'Custom…' ? customBadge : editData.offerBadge;
@@ -324,7 +328,7 @@ export default function AdminItems() {
                             <input className="inp" style={S.input} value={editData.name} onChange={e=>setEditData(d=>({...d,name:e.target.value}))} />
                           </div>
                           <div>
-                            <label style={S.label}>Category</label>
+                            <label style={S.label}>Category *</label>
                             <input className="inp" style={S.input} value={editData.category} onChange={e=>setEditData(d=>({...d,category:e.target.value}))} placeholder="e.g. Main Course" />
                           </div>
                           <div>
@@ -332,20 +336,30 @@ export default function AdminItems() {
                             <input className="inp" style={S.input} type="number" min="0" value={editData.price} onChange={e=>setEditData(d=>({...d,price:e.target.value}))} placeholder="e.g. 299" />
                           </div>
                         </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:14, marginBottom:14 }}>
+                          <div>
+                            <label style={S.label}>Veg / Non-Veg *</label>
+                            <select className="inp" style={S.input} value={editData.isVeg === null ? '' : String(editData.isVeg)} onChange={e=>setEditData(d=>({...d,isVeg:e.target.value===''?null:e.target.value==='true'}))}>
+                              <option value="">Select…</option>
+                              <option value="true">🟢 Vegetarian</option>
+                              <option value="false">🔴 Non-Vegetarian</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={S.label}>🌶 Spice Level *</label>
+                            <select className="inp" style={S.input} value={editData.spiceLevel} onChange={e=>setEditData(d=>({...d,spiceLevel:e.target.value}))}>
+                              {SPICE_LEVELS.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </div>
+                        </div>
                         <div style={{ marginBottom:14 }}>
                           <label style={S.label}>Description</label>
                           <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={editData.description} onChange={e=>setEditData(d=>({...d,description:e.target.value}))} placeholder="Short description…" />
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:14, marginBottom:14 }}>
                           <div>
                             <label style={S.label}>⏱ Prep Time</label>
                             <input className="inp" style={S.input} value={editData.prepTime} onChange={e=>setEditData(d=>({...d,prepTime:e.target.value}))} placeholder="10–15 minutes" />
-                          </div>
-                          <div>
-                            <label style={S.label}>🌶 Spice Level</label>
-                            <select className="inp" style={S.input} value={editData.spiceLevel} onChange={e=>setEditData(d=>({...d,spiceLevel:e.target.value}))}>
-                              {SPICE_LEVELS.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
                           </div>
                           <div>
                             <label style={S.label}>Priority Order</label>

@@ -264,7 +264,7 @@ export default function RestaurantDetail() {
           .tab-btn{padding:10px 20px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;font-family:Inter,sans-serif;color:rgba(42,31,16,0.5);border-bottom:2.5px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
           .tab-btn.on{color:#E05A3A;border-bottom-color:#E05A3A;}
           .tab-btn:hover{color:#1E1B18;}
-          .row:hover{background:#F7F5F2!important}
+          .row:hover{background:rgba(224,90,58,0.05)!important}
         `}</style>
 
         {/* ── Page header ── */}

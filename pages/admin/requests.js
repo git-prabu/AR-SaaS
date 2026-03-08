@@ -6,7 +6,7 @@ import { getRequests, submitRequest } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
-const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'' };
+const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'', isVeg:'', spiceLevel:'' };
 
 const S = {
   page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
@@ -47,6 +47,9 @@ export default function AdminRequests() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.name.trim()) { toast.error('Item name is required'); return; }
+    if (!form.category.trim()) { toast.error('Category is required'); return; }
+    if (form.isVeg === '') { toast.error('Please select Veg or Non-Veg'); return; }
+    if (!form.spiceLevel) { toast.error('Spice level is required'); return; }
     setSubmitting(true);
     try {
       let imageURL = null;
@@ -58,6 +61,8 @@ export default function AdminRequests() {
       await submitRequest(rid, {
         name: form.name.trim(), description: form.description.trim(), category: form.category.trim(), ingredients,
         prepTime: form.prepTime.trim() || null,
+        isVeg: form.isVeg === 'true',
+        spiceLevel: form.spiceLevel,
         nutritionalData: { calories: Number(form.calories)||null, protein: Number(form.protein)||null, carbs: Number(form.carbs)||null, fats: Number(form.fats)||null },
         imageURL,
       });
@@ -105,8 +110,25 @@ export default function AdminRequests() {
                     <input className="inp" style={S.input} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Butter Chicken" required />
                   </div>
                   <div>
-                    <label style={S.label}>Category</label>
+                    <label style={S.label}>Category *</label>
                     <input className="inp" style={S.input} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} placeholder="e.g. Main Course" />
+                  </div>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+                  <div>
+                    <label style={S.label}>Veg / Non-Veg *</label>
+                    <select className="inp" style={S.input} value={form.isVeg} onChange={e=>setForm(f=>({...f,isVeg:e.target.value}))}>
+                      <option value="">Select…</option>
+                      <option value="true">🟢 Vegetarian</option>
+                      <option value="false">🔴 Non-Vegetarian</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={S.label}>Spice Level *</label>
+                    <select className="inp" style={S.input} value={form.spiceLevel} onChange={e=>setForm(f=>({...f,spiceLevel:e.target.value}))}>
+                      <option value="">Select…</option>
+                      {['None','Mild','Medium','Spicy','Very Spicy'].map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div style={{ marginBottom:16 }}>

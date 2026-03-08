@@ -102,7 +102,7 @@ export default function AdminDashboard() {
             <div key={u.label} className="cc" style={{background:'rgba(255,245,220,0.7)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:12}}>
                 <span style={{fontWeight:700,color:'#2A1F10'}}>{u.label}</span>
-                <span style={{color:'rgba(100,60,30,0.5)'}}>{u.used}/{u.max} {u.unit}</span>
+                <span style={{color:'rgba(100,60,30,0.5)'}}>{u.unit==='MB' ? Number(u.used).toFixed(1) : u.used}/{u.max} {u.unit}</span>
               </div>
               <div className="prog">
                 <div className="pfill" style={{width:`${u.pct}%`,background:u.pct>80?'#DC3030':'linear-gradient(90deg,#E05A3A,#F4A86A)',boxShadow:u.pct>80?'none':'0 0 8px rgba(224,90,58,0.4)'}}/>
