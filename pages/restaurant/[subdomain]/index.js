@@ -28,6 +28,7 @@ function getPlaceholder(id) {
 
 
 /* ── Animated price counter (modal only) ── */
+/* ── Animated price counter ── */
 function PriceCounter({ price, className, style, animate = false }) {
   const [display, setDisplay] = useState(animate ? 0 : (Number(price) || 0));
   const rafRef = useRef(null);
@@ -36,11 +37,11 @@ function PriceCounter({ price, className, style, animate = false }) {
   useEffect(() => {
     if (!animate) { setDisplay(target); return; }
     setDisplay(0);
-    const duration = 720; // spec: 600–800ms
+    const duration = 700;
     const startTime = performance.now();
     const tick = (now) => {
       const p = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 4); // ease-out quart — slow finish
+      const eased = 1 - Math.pow(1 - p, 4);
       setDisplay(Math.round(eased * target));
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
     };
@@ -50,6 +51,37 @@ function PriceCounter({ price, className, style, animate = false }) {
   }, [target, animate]);
 
   return <span className={className} style={style}>₹{display}</span>;
+}
+
+/* ── Card price: animates once when card enters viewport ── */
+function CardPrice({ price, className }) {
+  const [animate, setAnimate] = useState(false);
+  const spanRef = useRef(null);
+
+  useEffect(() => {
+    const el = spanRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      // Fallback: just show price statically
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setAnimate(true);
+          observer.disconnect(); // fire ONCE only
+        }
+      },
+      { threshold: 0.4 } // card must be 40% visible before counting
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <span ref={spanRef}>
+      <PriceCounter price={price} className={className} animate={animate} />
+    </span>
+  );
 }
 
 const SPICE_MAP = {
@@ -311,57 +343,81 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* ─── CATEGORY TABS — bleeding pill design ─── */
         .cats-outer {
           padding: 4px 0 0;
+          /* Ensure outer never clips or wraps */
+          min-width: 0;
         }
         .cats-scroll {
-          display: flex; gap: 6px;
-          overflow-x: scroll; scrollbar-width: none;
-          padding: 6px 0 16px;
-          -webkit-overflow-scrolling: touch;
+          display: flex;
+          flex-direction: row;
           flex-wrap: nowrap;
+          align-items: center;
+          gap: 6px;
+          overflow-x: auto;
+          overflow-y: visible;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          padding: 6px 0 14px;
+          -webkit-overflow-scrolling: touch;
+          /* Prevent the row from ever collapsing into two lines */
+          width: 100%;
+          min-width: 0;
         }
         .cats-scroll::-webkit-scrollbar { display: none; }
 
         .cat-pill {
-          flex-shrink: 0;
-          display: flex; align-items: center; gap: 6px;
-          padding: 9px 18px; border-radius: 30px;
-          font-size: 13px; font-weight: 500;
+          /* Never shrink or wrap — each pill is a fixed-size atom */
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          /* Fixed height + padding — identical for ALL states */
+          height: 38px;
+          padding: 0 16px;
+          border-radius: 30px;
+          /* Typography — same weight in both states to prevent width shift */
+          font-size: 13px;
+          font-weight: 600;
           font-family: 'Inter', sans-serif;
-          cursor: pointer; white-space: nowrap;
+          white-space: nowrap;
+          letter-spacing: -0.1px;
+          /* Appearance */
           border: 1.5px solid transparent;
           background: rgba(247,155,61,0.07);
           color: #2B2B2B;
-          transition: all 0.2s ease;
-          letter-spacing: -0.1px;
+          cursor: pointer;
           position: relative;
-          height: 40px;
-          /* Prevent bold font-weight from expanding width on active state */
-          /* Use pseudo-element to pre-reserve bold width */
-        }
-        /* Pre-reserve bold width so active state doesn't resize the pill */
-        .cat-pill::before {
-          content: attr(data-label);
-          display: block;
-          font-weight: 700;
-          height: 0;
-          overflow: hidden;
-          visibility: hidden;
-          pointer-events: none;
+          /* Only animate visual properties — NEVER layout properties */
+          transition: background 0.2s ease, color 0.2s ease,
+                      box-shadow 0.2s ease, border-color 0.2s ease;
+          box-sizing: border-box;
+          line-height: 1;
+          /* GPU compositing for smooth scroll */
+          -webkit-tap-highlight-color: transparent;
         }
         .cat-pill:hover:not(.on) {
-          background: rgba(247,155,61,0.12);
+          background: rgba(247,155,61,0.14);
           color: #1E1B18;
         }
-        /* ── Active pill — Tastywala amber ── */
+        .cat-pill:active { opacity: 0.85; }
+        /* ── Active pill — amber fill, same physical size ── */
         .cat-pill.on {
           background: #F79B3D;
           color: #FFFFFF;
-          font-weight: 700;
+          font-weight: 600;
           border-color: transparent;
           box-shadow: 0 4px 16px rgba(247,155,61,0.38), 0 1px 4px rgba(247,155,61,0.2);
-          letter-spacing: -0.15px;
+          /* No letter-spacing change — prevents neighbour pills from shifting */
         }
-        .cat-emoji { font-size: 13px; width: 16px; text-align: center; display: inline-block; line-height:1; }
+        .cat-emoji {
+          font-size: 13px;
+          display: inline-block;
+          line-height: 1;
+          /* Fixed width so different emoji widths don't expand/shrink pills */
+          width: 15px;
+          text-align: center;
+          flex-shrink: 0;
+        }
 
         /* ─────────── MAIN ─────────── */
         .main {
@@ -1275,7 +1331,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   )}
                   <div className="c-name">{item.name}</div>
                   <div className="c-price-row">
-                    {item.price    && <PriceCounter price={item.price} className="c-price" animate={false}/>}
+                    {item.price    && <CardPrice price={item.price} className="c-price"/>}
                     {item.calories && <span className="c-cal">{item.calories} kcal</span>}
                   </div>
                   {(item.spiceLevel && item.spiceLevel!=='None' || item.prepTime) && (
