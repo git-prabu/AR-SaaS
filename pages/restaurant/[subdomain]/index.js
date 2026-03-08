@@ -89,11 +89,216 @@ const GROUP_SIZES = [
   {n:2,e:'👫'},{n:3,e:'👨‍👩‍👦'},{n:4,e:'👨‍👩‍👧‍👦'},{n:5,e:'🧑‍🤝‍🧑'},{n:'6+',e:'🎉'},
 ];
 
-const LIGHT_CATS  = ['starter','salad','soup','snack','drink','beverage','dessert'];
-const HEAVY_CATS  = ['main','burger','pasta','pizza','biryani','thali','grill','rice'];
-const SHARING_KW  = ['platter','sharing','family','large','combo','bucket','plate','thali','spread','feast'];
-const HEALTHY_KW  = ['salad','grilled','steamed','healthy','light','vegan','fresh','oat','quinoa','fruit'];
-const COMFORT_KW  = ['butter','cheese','cream','fried','crispy','masala','curry','rich','loaded','classic','special'];
+// ── Category keyword lists (expanded from SMA keyword doc) ────────
+
+const LIGHT_CATS = [
+  'starter','starters','appetizer','appetizers',
+  'salad','salads',
+  'soup','soups',
+  'snack','snacks',
+  'drink','drinks','beverage','beverages',
+  'juice','smoothie','shake',
+  'dessert','desserts','sweet','sweets',
+  'side','sides','side dish',
+  'dip','chutney','sauce',
+  'chaat',
+];
+
+const HEAVY_CATS = [
+  'main','mains','main course',
+  'burger','burgers',
+  'pasta','noodle','noodles',
+  'pizza',
+  'biryani',
+  'thali',
+  'grill','grills',
+  'rice',
+  'steak',
+  'platter',
+  'combo',
+  'lasagne','lasagna',
+  'pot','hotpot',
+  'bowl',
+  'paratha',
+  'breakfast',
+];
+
+const SHARING_KW = [
+  'platter','sharing','shared','to share',
+  'family','large','xl','extra large',
+  'combo','bucket','board',
+  'thali','spread','feast',
+  'tapas','mezze','dim sum',
+  'sushi platter','sushi boat',
+  'nachos','wings',
+  'party','celebration',
+  'for two','for 2','serves 2',
+  'for four','for 4','serves 4',
+  'appetizer selection','starter selection',
+  'tasting menu','tasting platter',
+  'assorted','variety','mix',
+];
+
+const HEALTHY_KW = [
+  'salad','grilled','steamed',
+  'healthy','nutritious','wholesome',
+  'light','lighter',
+  'vegan','plant based','plant-based',
+  'fresh','freshly',
+  'oat','oatmeal',
+  'quinoa','kale','spinach',
+  'fruit','fruits','fruit bowl',
+  'green','greens',
+  'smoothie','smoothie bowl',
+  'low calorie','low fat','low carb',
+  'protein bowl','protein salad',
+  'detox','raw',
+  'cold pressed',
+  'acai',
+  'tofu',
+  'avocado',
+  'brown rice','multigrain','whole wheat','wholegrain',
+  'no sugar','sugar free','zero sugar',
+  'baked',
+  'yogurt','curd',
+];
+
+const COMFORT_KW = [
+  'butter','cream','creamy',
+  'cheese','cheesy',
+  'fried','deep fried','crispy',
+  'masala','curry',
+  'rich','loaded',
+  'classic','old favourite','traditional',
+  'special','chef special','house special',
+  'bbq','barbecue',
+  'mac and cheese','mac n cheese',
+  'mashed','mash','gravy',
+  'hot chocolate','cocoa',
+  'khichdi','khichri',
+  'halwa','kheer','payasam','rice pudding',
+  'waffle','pancake',
+  'tikka','tandoori',
+  'korma','rogan',
+];
+
+// ── Cuisine-specific dish name map (name → { isVeg, spice, size, mood }) ──
+// Used as fallback when isVeg / spiceLevel fields are not set on an item
+const DISH_MAP = [
+  // Indian
+  { keys:['dal tadka','dal makhani','dal fry'],        isVeg:true,  spice:'Mild',       size:'regular', mood:'comfort'  },
+  { keys:['palak paneer'],                              isVeg:true,  spice:'Mild',       size:'regular', mood:'healthy'  },
+  { keys:['butter chicken'],                            isVeg:false, spice:'Mild',       size:'regular', mood:'comfort'  },
+  { keys:['chicken tikka masala'],                      isVeg:false, spice:'Medium',     size:'regular', mood:'comfort'  },
+  { keys:['chicken biryani','mutton biryani'],          isVeg:false, spice:'Medium',     size:'heavy',   mood:'comfort'  },
+  { keys:['veg biryani','vegetable biryani'],           isVeg:true,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
+  { keys:['chettinad'],                                 isVeg:false, spice:'Very Spicy', size:'regular', mood:'comfort'  },
+  { keys:['pani puri','golgappa'],                      isVeg:true,  spice:'Spicy',      size:'light',   mood:'snack'    },
+  { keys:['bhel puri'],                                 isVeg:true,  spice:'Mild',       size:'light',   mood:'snack'    },
+  { keys:['samosa'],                                    isVeg:true,  spice:'Mild',       size:'light',   mood:'comfort'  },
+  { keys:['aloo paratha','stuffed paratha'],            isVeg:true,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
+  { keys:['rajma chawal','rajma rice'],                 isVeg:true,  spice:'Medium',     size:'heavy',   mood:'comfort'  },
+  { keys:['vindaloo'],                                  isVeg:false, spice:'Very Spicy', size:'regular', mood:'comfort'  },
+  { keys:['idli','idly'],                               isVeg:true,  spice:'Mild',       size:'light',   mood:'healthy'  },
+  { keys:['masala dosa','dosa'],                        isVeg:true,  spice:'Mild',       size:'regular', mood:'comfort'  },
+  { keys:['chole bhature'],                             isVeg:true,  spice:'Medium',     size:'heavy',   mood:'comfort'  },
+  { keys:['khichdi'],                                   isVeg:true,  spice:'None',       size:'regular', mood:'comfort'  },
+  { keys:['seekh kebab','kebab'],                       isVeg:false, spice:'Medium',     size:'regular', mood:'comfort'  },
+  { keys:['korma'],                                     isVeg:null,  spice:'Mild',       size:'regular', mood:'comfort'  },
+  { keys:['kolhapuri'],                                 isVeg:null,  spice:'Very Spicy', size:'regular', mood:'comfort'  },
+  // Italian
+  { keys:['margherita'],                                isVeg:true,  spice:'None',       size:'heavy',   mood:'comfort'  },
+  { keys:['carbonara'],                                 isVeg:false, spice:'None',       size:'heavy',   mood:'comfort'  },
+  { keys:['bolognese'],                                 isVeg:false, spice:'Mild',       size:'heavy',   mood:'comfort'  },
+  { keys:['arrabbiata'],                                isVeg:true,  spice:'Spicy',      size:'heavy',   mood:'comfort'  },
+  { keys:['caesar salad'],                              isVeg:null,  spice:'None',       size:'light',   mood:'healthy'  },
+  { keys:['risotto'],                                   isVeg:null,  spice:'None',       size:'heavy',   mood:'comfort'  },
+  { keys:['bruschetta'],                                isVeg:true,  spice:'None',       size:'light',   mood:'light'    },
+  { keys:['tiramisu','panna cotta'],                    isVeg:true,  spice:'None',       size:'light',   mood:'comfort'  },
+  { keys:['caprese'],                                   isVeg:true,  spice:'None',       size:'light',   mood:'healthy'  },
+  { keys:['gnocchi'],                                   isVeg:true,  spice:'None',       size:'heavy',   mood:'comfort'  },
+  // Asian
+  { keys:['pad thai'],                                  isVeg:null,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
+  { keys:['green curry','thai curry'],                  isVeg:null,  spice:'Medium',     size:'regular', mood:'comfort'  },
+  { keys:['tom yum'],                                   isVeg:null,  spice:'Spicy',      size:'light',   mood:'healthy'  },
+  { keys:['dim sum'],                                   isVeg:null,  spice:'None',       size:'light',   mood:'light'    },
+  { keys:['manchurian'],                                isVeg:null,  spice:'Medium',     size:'regular', mood:'comfort'  },
+  { keys:['schezwan','szechuan','sichuan'],             isVeg:null,  spice:'Spicy',      size:'heavy',   mood:'comfort'  },
+  { keys:['spring roll'],                               isVeg:null,  spice:'None',       size:'light',   mood:'light'    },
+  { keys:['ramen'],                                     isVeg:null,  spice:'Mild',       size:'heavy',   mood:'comfort'  },
+  { keys:['bibimbap'],                                  isVeg:null,  spice:'Mild',       size:'heavy',   mood:'healthy'  },
+  { keys:['kimchi'],                                    isVeg:null,  spice:'Spicy',      size:'heavy',   mood:'comfort'  },
+  { keys:['edamame'],                                   isVeg:true,  spice:'None',       size:'light',   mood:'healthy'  },
+  { keys:['miso soup'],                                 isVeg:true,  spice:'None',       size:'light',   mood:'healthy'  },
+];
+
+// ── Veg keyword inference (fallback when isVeg not set) ───────────
+const VEG_KW = [
+  'paneer','tofu','veg ','vegetable','vegetables','vegetarian',
+  'dal ','lentil','lentils','mushroom','aloo','potato',
+  'palak','spinach','corn','maize','chana','chickpea',
+  'rajma','kidney bean','gobi','cauliflower','broccoli',
+  'margherita','falafel','idli','dosa','uttapam','pav bhaji','vegan',
+];
+const NON_VEG_KW = [
+  'chicken','mutton','lamb','beef','pork',
+  'fish','salmon','tuna','cod','tilapia',
+  'prawn','shrimp','lobster','crab','squid','octopus',
+  'bacon','keema','kheema','seekh','tandoori chicken','biryani chicken',
+];
+
+// ── Spice inference (fallback when spiceLevel not set) ────────────
+const SPICE_INFER_HIGH = [
+  'vindaloo','kolhapuri','chettinad','andhra',
+  'szechuan','sichuan','schezwan',
+  'ghost pepper','bhut jolokia',
+  'sambal','peri peri','piri piri',
+  'hot sauce','sriracha','dynamite','inferno','blazing','fiery','fire','flaming',
+  'extra spicy','very spicy','super hot',
+  'kimchi',
+];
+const SPICE_INFER_MED = [
+  'tikka','jalfrezi','harissa','mexican','thai','pepper chicken','chilli',
+  'chili','szechuan','mildly spiced','lightly spiced',
+];
+const SPICE_INFER_MILD = [
+  'creamy','cream sauce','sweet','raita','lassi','juice','smoothie','dessert',
+  'ice cream','cake','halwa','kheer','bread','naan','roti','chapati','sandwich',
+  'porridge','oatmeal','butter chicken','korma','mild',
+];
+
+// ── Budget keyword inference (fallback when price not set) ─────────
+const BUDGET_KW_PREMIUM = [
+  'premium','signature','gourmet','imported','wagyu','lobster','truffle',
+  'aged','reserve','tasting menu','steak',
+];
+const BUDGET_KW_BUDGET = [
+  'street food','chaat','vada','samosa','pani puri',
+  'basic','economy',
+];
+
+// ── Infer isVeg from keywords (returns true/false/null) ───────────
+function inferIsVeg(txt) {
+  if (NON_VEG_KW.some(k => txt.includes(k))) return false;
+  if (VEG_KW.some(k => txt.includes(k)))     return true;
+  return null;
+}
+
+// ── Infer spice from keywords (returns 'None'/'Mild'/'Medium'/'Spicy'/'Very Spicy'/null) ──
+function inferSpice(txt) {
+  if (SPICE_INFER_HIGH.some(k => txt.includes(k))) return 'Very Spicy';
+  if (SPICE_INFER_MED.some(k  => txt.includes(k))) return 'Medium';
+  if (SPICE_INFER_MILD.some(k => txt.includes(k))) return 'Mild';
+  return null;
+}
+
+// ── Lookup dish in DISH_MAP ───────────────────────────────────────
+function dishLookup(txt) {
+  for (const entry of DISH_MAP) {
+    if (entry.keys.some(k => txt.includes(k))) return entry;
+  }
+  return null;
+}
 
 function isShareable(item) {
   const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
@@ -102,47 +307,112 @@ function isShareable(item) {
 
 function scoreItem(item, ans, groupSize=1) {
   let s = 0;
-  const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
+  const txt = `${item.name||''} ${item.description||''} ${item.category||''} ${(item.ingredients||[]).join(' ')}`.toLowerCase();
   const cat = (item.category||'').toLowerCase();
-  const sp  = item.spiceLevel || 'None';
-  const pr  = item.price ? Number(item.price) : null;
-  const big = typeof groupSize === 'number' ? groupSize >= 4 : true; // 6+ counts as big
+  const big = typeof groupSize === 'number' ? groupSize >= 4 : true;
 
-  // ── diet ──
-  if (ans.diet==='veg'   && item.isVeg===false) return -999;
-  if (ans.diet==='veg'   && item.isVeg===true)  s+=20;
-  if (ans.diet==='mixed') { /* allow both, slight boost to veg items for inclusivity */ if (item.isVeg===true) s+=8; }
-  if (ans.diet==='nonveg'&& item.isVeg===true)  s-=10;
-
-  // ── spice ──
-  if (ans.spice==='mild'   && ['Spicy','Very Spicy'].includes(sp)) return -999;
-  if (ans.spice==='mild'   && ['None','Mild'].includes(sp)) s+=15;
-  if (ans.spice==='medium' && sp==='Medium') s+=20;
-  if (ans.spice==='spicy'  && ['Spicy','Very Spicy'].includes(sp)) s+=25;
-
-  // ── budget ──
-  if (pr !== null) {
-    if (ans.budget==='budget'  && pr<200)           s+=20; else if (ans.budget==='budget')  s-=15;
-    if (ans.budget==='mid'     && pr>=200&&pr<=500) s+=20; else if (ans.budget==='mid')     s-=8;
-    if (ans.budget==='premium' && pr>500)           s+=20; else if (ans.budget==='premium'&&pr<200) s-=10;
+  // ── Resolve isVeg — field first, then keyword inference, then dish map ──
+  let isVeg = item.isVeg;
+  if (typeof isVeg !== 'boolean') {
+    const dish = dishLookup(txt);
+    if (dish && dish.isVeg !== null) isVeg = dish.isVeg;
+    else isVeg = inferIsVeg(txt);
   }
 
-  // ── size / style ──
-  if (ans.size==='light') { if (LIGHT_CATS.some(l=>cat.includes(l))) s+=18; if (HEAVY_CATS.some(h=>cat.includes(h))) s-=15; }
-  if (ans.size==='heavy') { if (HEAVY_CATS.some(h=>cat.includes(h))) s+=18; }
+  // ── Resolve spiceLevel — field first, then dish map, then keyword inference ──
+  let sp = item.spiceLevel && item.spiceLevel !== 'None' ? item.spiceLevel : null;
+  if (!sp) {
+    const dish = dishLookup(txt);
+    if (dish) sp = dish.spice;
+    else sp = inferSpice(txt) || 'None';
+  }
 
-  // Group style: sharing dishes get a boost for groups that want to share or for large groups
+  // ── Resolve budget tier from price, fallback to keywords ──────
+  const pr = item.price ? Number(item.price) : null;
+  let budgetTier = null;
+  if (pr !== null) {
+    if (pr < 200)           budgetTier = 'budget';
+    else if (pr <= 500)     budgetTier = 'mid';
+    else                    budgetTier = 'premium';
+  } else {
+    if (BUDGET_KW_PREMIUM.some(k => txt.includes(k))) budgetTier = 'premium';
+    else if (BUDGET_KW_BUDGET.some(k => txt.includes(k))) budgetTier = 'budget';
+  }
+
+  // ── Diet ──────────────────────────────────────────────────────
+  if (ans.diet==='veg') {
+    if (isVeg===false) return -999;
+    if (isVeg===true)  s+=20;
+  }
+  if (ans.diet==='mixed')  { if (isVeg===true) s+=8; }
+  if (ans.diet==='nonveg') { if (isVeg===true) s-=10; }
+
+  // ── Spice ─────────────────────────────────────────────────────
+  if (ans.spice==='mild') {
+    if (['Spicy','Very Spicy'].includes(sp)) return -999;
+    if (['None','Mild'].includes(sp)) s+=15;
+  }
+  if (ans.spice==='medium') {
+    if (sp==='Medium') s+=20;
+    else if (['Spicy','Very Spicy'].includes(sp)) s-=5;
+  }
+  if (ans.spice==='spicy') {
+    if (['Spicy','Very Spicy'].includes(sp)) s+=25;
+  }
+
+  // ── Budget ────────────────────────────────────────────────────
+  if (budgetTier) {
+    if (ans.budget==='budget')  { if (budgetTier==='budget')  s+=20; else if (budgetTier==='premium') s-=15; else s-=5; }
+    if (ans.budget==='mid')     { if (budgetTier==='mid')     s+=20; else if (budgetTier==='premium') s-=8; }
+    if (ans.budget==='premium') { if (budgetTier==='premium') s+=20; else if (budgetTier==='budget')  s-=10; }
+  }
+
+  // ── Meal size ─────────────────────────────────────────────────
+  // Also check keywords in txt for items with no category
+  const isLightTxt = LIGHT_CATS.some(l => txt.includes(l));
+  const isHeavyTxt = HEAVY_CATS.some(h => cat.includes(h) || txt.includes(h));
+  if (ans.size==='light') {
+    if (isLightTxt)  s+=18;
+    if (isHeavyTxt)  s-=15;
+  }
+  if (ans.size==='heavy') {
+    if (isHeavyTxt) s+=18;
+    if (isLightTxt) s-=8;
+  }
+  if (ans.size==='regular') {
+    if (!isLightTxt && !isHeavyTxt) s+=5; // neutral dishes get a small bonus
+  }
+
+  // ── Group style ───────────────────────────────────────────────
   if (ans.style==='sharing' && isShareable(item)) s+=25;
-  if (ans.style==='sharing' && HEAVY_CATS.some(h=>cat.includes(h))) s+=10;
-  if (big && isShareable(item)) s+=15; // large groups always benefit from shareable dishes
+  if (ans.style==='sharing' && isHeavyTxt)        s+=10;
+  if (big && isShareable(item))                   s+=15;
 
-  // ── mood ──
-  if (ans.mood==='popular') { if (item.isPopular||item.isFeatured) s+=30; }
-  if (ans.mood==='healthy') { if (HEALTHY_KW.some(k=>txt.includes(k))) s+=20; if (item.calories&&item.calories<400) s+=10; }
-  if (ans.mood==='comfort') { if (COMFORT_KW.some(k=>txt.includes(k))) s+=20; }
-  if (ans.mood==='new')     { if (item.isFeatured) s+=25; s+=Math.floor(Math.random()*12); }
+  // ── Mood ──────────────────────────────────────────────────────
+  if (ans.mood==='popular') {
+    if (item.isPopular)  s+=30;
+    if (item.isFeatured) s+=15;
+  }
+  if (ans.mood==='healthy') {
+    if (HEALTHY_KW.some(k => txt.includes(k))) s+=20;
+    if (item.calories && item.calories < 400)  s+=10;
+    // Dish map healthy boost
+    const dish = dishLookup(txt);
+    if (dish && dish.mood==='healthy') s+=10;
+  }
+  if (ans.mood==='comfort') {
+    if (COMFORT_KW.some(k => txt.includes(k))) s+=20;
+    const dish = dishLookup(txt);
+    if (dish && dish.mood==='comfort') s+=10;
+  }
+  if (ans.mood==='new') {
+    if (item.isFeatured) s+=25;
+    s += Math.floor(Math.random()*12);
+  }
 
-  s += Math.min((item.views||0)+(item.arViews||0)*2, 20)*0.3;
+  // ── Popularity tiebreaker ─────────────────────────────────────
+  s += Math.min((item.views||0) + (item.arViews||0)*2, 20) * 0.3;
+
   return s;
 }
 
@@ -164,8 +434,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [smaStep,      setSmaStep]      = useState(0);
   const [smaAnswers,   setSmaAnswers]   = useState({});
   const [smaResults,   setSmaResults]   = useState([]);
-  const [searchQuery,  setSearchQuery]  = useState('');
-  const [dietFilter,   setDietFilter]   = useState('all'); // 'all' | 'veg' | 'nonveg'
 
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(()=>{});
@@ -176,36 +444,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
     return () => { document.body.style.overflow = ''; };
   }, [selectedItem, smaOpen]);
 
-  // Deduplicate categories case-insensitively
-  const seenLower = new Set();
-  const uniqueCats = (menuItems||[]).map(i=>i.category).filter(Boolean).filter(c => {
-    const l = c.toLowerCase(); if (seenLower.has(l)) return false; seenLower.add(l); return true;
-  });
-  const cats = ['All', ...uniqueCats];
-
-  // 50% cap per category (min 6)
-  const totalItems  = (menuItems||[]).length;
-  const maxPerCat   = Math.max(6, Math.ceil(totalItems * 0.5));
-  const catFiltered = activeCat==='All'
-    ? (menuItems||[])
-    : (menuItems||[]).filter(i=>(i.category||'').toLowerCase()===activeCat.toLowerCase()).slice(0, maxPerCat);
-
-  const dietFiltered = catFiltered.filter(i => {
-    if (dietFilter==='veg')    return i.isVeg === true;
-    if (dietFilter==='nonveg') return i.isVeg === false;
-    return true;
-  });
-  const searchTerm = searchQuery.trim().toLowerCase();
-  const filtered = searchTerm
-    ? dietFiltered.filter(i =>
-        (i.name||'').toLowerCase().includes(searchTerm) ||
-        (i.description||'').toLowerCase().includes(searchTerm) ||
-        (i.category||'').toLowerCase().includes(searchTerm))
-    : dietFiltered;
-
-  const arCount     = (menuItems||[]).filter(i=>i.modelURL).length;
-  const vegCount    = (menuItems||[]).filter(i=>i.isVeg===true).length;
-  const nonVegCount = (menuItems||[]).filter(i=>i.isVeg===false).length;
+  const cats     = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
+  const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
+  const arCount  = (menuItems||[]).filter(i=>i.modelURL).length;
 
   const openItem = useCallback(async (item) => {
     setSelectedItem(item); setShowAR(false);
@@ -263,29 +504,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
         @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0.15} }
-        @keyframes kenBurns{ from{transform:scale(1)} to{transform:scale(1.08)} }
-        @keyframes cardIn  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes ripple  { 0%{transform:scale(0);opacity:0.45} 100%{transform:scale(4);opacity:0} }
-        @keyframes pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(212,74,42,0.4)} 70%{box-shadow:0 0 0 8px rgba(212,74,42,0)} }
-
-        /* ── HERO ── */
-        .hero { position:relative; width:100%; height:240px; overflow:hidden; background:#1C1C1E; }
-        @media(min-width:600px){ .hero{ height:300px; } }
-        .hero-bg { position:absolute; inset:0; background-size:cover; background-position:center;
-          animation:kenBurns 16s ease-in-out infinite alternate; will-change:transform; }
-        .hero-overlay { position:absolute; inset:0;
-          background:linear-gradient(160deg,rgba(0,0,0,0.05) 0%,rgba(0,0,0,0.2) 40%,rgba(0,0,0,0.78) 100%); }
-        .hero-content { position:absolute; bottom:0; left:0; right:0; padding:0 20px 22px;
-          animation:fadeUp 0.5s ease both; }
-        .hero-ar-tag { display:inline-flex; align-items:center; gap:6px; padding:5px 12px;
-          border-radius:20px; margin-bottom:8px;
-          background:rgba(212,74,42,0.9); backdrop-filter:blur(8px);
-          font-size:11px; font-weight:700; color:#fff; letter-spacing:0.04em; }
-        .hero-dot { width:5px; height:5px; border-radius:50%; background:#fff; animation:blink 1.8s infinite; }
-        .hero-name { font-size:26px; font-weight:900; color:#fff; letter-spacing:-0.6px; line-height:1.1;
-          text-shadow:0 2px 16px rgba(0,0,0,0.5); }
-        @media(min-width:600px){ .hero-name{ font-size:36px; } }
-        .hero-sub  { font-size:13px; color:rgba(255,255,255,0.65); margin-top:4px; font-weight:500; }
 
         /* ─────────── HEADER ─────────── */
         .hdr {
@@ -296,37 +514,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           border-bottom: 0.5px solid rgba(0,0,0,0.1);
         }
         .hdr-inner { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
-
-        /* Search */
-        .search-wrap { padding:12px 0 6px; }
-        .search-box  { position:relative; }
-        .search-icon { position:absolute; left:13px; top:50%; transform:translateY(-50%);
-          color:#AEAEB2; font-size:14px; pointer-events:none; }
-        .search-input {
-          width:100%; padding:10px 36px 10px 38px;
-          border-radius:13px; border:1.5px solid rgba(0,0,0,0.1);
-          background:#fff; font-family:'Inter',sans-serif;
-          font-size:14px; color:#1C1C1E; outline:none;
-          transition:border-color 0.18s, box-shadow 0.18s;
-          box-shadow:0 1px 4px rgba(0,0,0,0.05); }
-        .search-input::placeholder { color:#AEAEB2; }
-        .search-input:focus { border-color:#D44A2A; box-shadow:0 0 0 3px rgba(212,74,42,0.1); }
-        .search-clear { position:absolute; right:11px; top:50%; transform:translateY(-50%);
-          background:none; border:none; cursor:pointer; color:#AEAEB2; font-size:13px;
-          padding:4px; border-radius:50%; transition:color 0.15s; }
-        .search-clear:hover { color:#D44A2A; }
-
-        /* Diet filter pills */
-        .diet-pills { display:flex; gap:7px; padding:2px 0 6px; }
-        .diet-pill  { display:flex; align-items:center; gap:5px; padding:6px 13px; border-radius:22px;
-          font-size:12px; font-weight:700; font-family:'Inter',sans-serif; cursor:pointer;
-          white-space:nowrap; border:1.5px solid transparent; transition:all 0.18s ease; }
-        .dp-all  { background:#F2F2F7; color:#3A3A3C; border-color:rgba(0,0,0,0.08); }
-        .dp-all.active,.dp-all:hover { background:#1C1C1E; color:#fff; border-color:transparent; }
-        .dp-veg  { background:#E8F5EE; color:#1A6A38; border-color:rgba(42,128,72,0.2); }
-        .dp-veg.active  { background:#2A8048; color:#fff; border-color:transparent; box-shadow:0 3px 10px rgba(42,128,72,0.3); }
-        .dp-nonveg { background:#FDECEA; color:#8B2010; border-color:rgba(192,48,32,0.2); }
-        .dp-nonveg.active { background:#C03020; color:#fff; border-color:transparent; box-shadow:0 3px 10px rgba(192,48,32,0.3); }
 
         .hdr-top {
           display: flex; align-items: center; gap: 13px;
@@ -384,13 +571,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: rgba(0,0,0,0.09);
           color: #1C1C1E;
         }
-        /* ── Active pill — orange gradient ── */
+        /* ── Active "bleeding" pill ── */
         .cat-pill.on {
-          background: linear-gradient(135deg,#D44A2A,#E8604C);
+          background: #1C1C1E;
           color: #FFFFFF;
           font-weight: 700;
           border-color: transparent;
-          box-shadow: 0 4px 14px rgba(212,74,42,0.38), 0 1px 4px rgba(212,74,42,0.2);
+          box-shadow:
+            0 4px 16px rgba(28,28,30,0.28),
+            0 1px 4px rgba(28,28,30,0.12),
+            0 0 0 2px rgba(255,255,255,0.8);
           transform: translateY(-2px);
           letter-spacing: -0.15px;
         }
@@ -448,13 +638,15 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: #FFFFFF;
           border-radius: 18px; overflow: hidden;
           cursor: pointer; position: relative; text-align: left;
-          transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease;
-          animation: cardIn 0.42s ease both;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.07);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          animation: fadeUp 0.4s ease both;
+          box-shadow:
+            0 1px 3px rgba(0,0,0,0.06),
+            0 4px 16px rgba(0,0,0,0.07);
           border: none;
         }
-        .card:hover  { transform: translateY(-6px) scale(1.01); box-shadow: 0 14px 36px rgba(0,0,0,0.14), 0 0 0 1.5px rgba(212,74,42,0.15); }
-        .card:active { transform: scale(0.97); }
+        .card:hover  { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,0.13); }
+        .card:active { transform: scale(0.98); }
 
         /* Card image */
         .c-img { position: relative; overflow: hidden; width: 100%; aspect-ratio: 3/2; }
@@ -466,16 +658,15 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           background: #F2EDE6;
         }
 
-        /* AR badge — top right, orange */
+        /* AR badge — top right, minimal */
         .c-ar-pill {
           position: absolute; top: 10px; right: 10px;
           display: flex; align-items: center; gap: 4px;
-          background: rgba(212,74,42,0.92);
+          background: rgba(28,28,30,0.78);
           backdrop-filter: blur(8px);
           color: #fff; font-size: 10px; font-weight: 700;
           padding: 4px 9px; border-radius: 8px;
           letter-spacing: 0.03em;
-          box-shadow: 0 2px 8px rgba(212,74,42,0.4);
         }
 
         /* Veg indicator */
@@ -523,24 +714,15 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         }
         .c-prep { font-size: 11px; color: #AEAEB2; }
 
-        /* AR CTA at card bottom — orange */
+        /* AR CTA at card bottom */
         .c-ar-cta {
-          position: relative; overflow: hidden;
           margin-top: 10px;
           display: flex; align-items: center; justify-content: center; gap: 7px;
           padding: 9px; border-radius: 10px;
-          background: linear-gradient(135deg,#D44A2A,#E8604C);
-          color: #fff;
-          font-size: 11px; font-weight: 800;
-          letter-spacing: 0.03em;
-          box-shadow: 0 3px 10px rgba(212,74,42,0.32);
-          transition: transform 0.15s, box-shadow 0.15s;
+          background: #F2F2F7;
+          font-size: 11px; font-weight: 700; color: #3A3A3C;
+          letter-spacing: 0.04em; text-transform: uppercase;
         }
-        .c-ar-cta:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(212,74,42,0.44); }
-        .c-ar-cta::after { content:''; position:absolute; border-radius:50%;
-          width:20px; height:20px; background:rgba(255,255,255,0.4);
-          transform:scale(0); pointer-events:none; }
-        .card:active .c-ar-cta::after { animation:ripple 0.5s ease; }
 
         /* empty */
         .empty { text-align:center; padding:72px 20px; color:#8E8E93; }
@@ -609,16 +791,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         /* AR Button */
         .ar-btn {
           width:100%; padding:17px; border-radius:14px; border:none;
-          background: linear-gradient(135deg,#D44A2A,#E8604C); color: #FFFFFF;
+          background: #1C1C1E; color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:11px;
-          box-shadow: 0 6px 22px rgba(212,74,42,0.4), 0 2px 6px rgba(212,74,42,0.2);
+          box-shadow: 0 4px 20px rgba(28,28,30,0.28);
           transition: transform 0.15s, box-shadow 0.15s;
           letter-spacing: -0.1px;
         }
-        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 10px 28px rgba(212,74,42,0.5); }
+        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 8px 28px rgba(28,28,30,0.36); }
         .ar-btn:active { transform:scale(0.98); }
-        .ar-btn-sub { color:rgba(255,255,255,0.8); font-weight:800; }
+        .ar-btn-sub { color:#D44A2A; font-weight:800; }
         .ar-hint { text-align:center; font-size:11px; color:#AEAEB2; margin-top:9px; letter-spacing:-0.1px; }
 
         /* ─────────── FAB — properly centered ─────────── */
@@ -633,14 +815,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           pointer-events: all;
           display: flex; align-items: center; gap: 8px;
           padding: 14px 28px; border-radius: 50px; border: none;
-          background: linear-gradient(135deg,#D44A2A,#E8604C); color: #FFFFFF;
+          background: #1C1C1E; color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor: pointer; white-space: nowrap; letter-spacing: -0.1px;
-          box-shadow: 0 8px 28px rgba(212,74,42,0.48), 0 3px 10px rgba(212,74,42,0.28);
+          box-shadow: 0 6px 24px rgba(28,28,30,0.4), 0 2px 8px rgba(28,28,30,0.2);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
           animation: fadeUp 0.5s 0.3s ease both;
         }
-        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(212,74,42,0.58); }
+        .sma-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(28,28,30,0.5); }
         .sma-fab:active { transform: scale(0.97); }
         .sma-fab-icon   { font-size: 17px; }
 
@@ -761,22 +943,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .sma-chip-share { background:#EEF4FF; color:#3060B0; }
       `}</style>
 
-      {/* ─── HERO ─── */}
-      <section className="hero">
-        <div className="hero-bg" style={{backgroundImage:`url(https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=900&q=80)`}}/>
-        <div className="hero-overlay"/>
-        <div className="hero-content">
-          {arCount > 0 && (
-            <div className="hero-ar-tag">
-              <span className="hero-dot"/>
-              AR Live · {arCount} dish{arCount!==1?'es':''} in 3D
-            </div>
-          )}
-          <div className="hero-name">{restaurant.name}</div>
-          <div className="hero-sub">Tap any dish · See it in augmented reality</div>
-        </div>
-      </section>
-
       {/* ─── HEADER ─── */}
       <header className="hdr">
         <div className="hdr-inner">
@@ -792,42 +958,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           </div>
           {/* Category tabs */}
           <div className="cats-outer">
-            {/* Search bar */}
-            <div className="search-wrap">
-              <div className="search-box">
-                <span className="search-icon">🔍</span>
-                <input
-                  className="search-input"
-                  type="text"
-                  placeholder="Search dishes, ingredients…"
-                  value={searchQuery}
-                  onChange={e => { setSearchQuery(e.target.value); }}
-                />
-                {searchQuery && (
-                  <button className="search-clear" onClick={()=>setSearchQuery('')}>✕</button>
-                )}
-              </div>
-            </div>
-            {/* Veg / Non-Veg filter */}
-            {(vegCount > 0 || nonVegCount > 0) && (
-              <div className="diet-pills">
-                <button className={`diet-pill dp-all${dietFilter==='all'?' active':''}`} onClick={()=>setDietFilter('all')}>All</button>
-                {vegCount > 0 && (
-                  <button className={`diet-pill dp-veg${dietFilter==='veg'?' active':''}`} onClick={()=>setDietFilter(dietFilter==='veg'?'all':'veg')}>
-                    <span style={{width:8,height:8,borderRadius:1,border:'1.5px solid currentColor',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                      <span style={{width:4,height:4,borderRadius:'50%',background:'currentColor'}}/>
-                    </span>
-                    Veg
-                  </button>
-                )}
-                {nonVegCount > 0 && (
-                  <button className={`diet-pill dp-nonveg${dietFilter==='nonveg'?' active':''}`} onClick={()=>setDietFilter(dietFilter==='nonveg'?'all':'nonveg')}>
-                    <span style={{width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderBottom:'7px solid currentColor',display:'inline-block'}}/>
-                    Non-Veg
-                  </button>
-                )}
-              </div>
-            )}
             <div className="cats-scroll">
               {cats.map(c => (
                 <button key={c} className={`cat-pill${activeCat===c?' on':''}`} onClick={()=>setActiveCat(c)}>
@@ -865,32 +995,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           </div>
         )}
 
-        {/* Search result count */}
-        {searchQuery && (
-          <div style={{marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div style={{fontSize:13,color:'#6C6C70',fontWeight:500}}>
-              {filtered.length > 0
-                ? <><span style={{fontWeight:700,color:'#1C1C1E'}}>{filtered.length}</span> result{filtered.length!==1?'s':''} for "<span style={{color:'#D44A2A',fontWeight:600}}>{searchQuery}</span>"</>
-                : <>No results for "<span style={{color:'#D44A2A',fontWeight:600}}>{searchQuery}</span>"</>
-              }
-            </div>
-            <button onClick={()=>setSearchQuery('')} style={{fontSize:12,color:'#D44A2A',background:'none',border:'none',cursor:'pointer',fontWeight:600,fontFamily:'Inter,sans-serif'}}>Clear</button>
-          </div>
-        )}
-
         {/* Grid */}
         {filtered.length === 0 ? (
           <div className="empty">
-            <div style={{fontSize:44,marginBottom:10}}>{searchQuery ? '🔍' : '🥢'}</div>
-            <p style={{fontWeight:600,fontSize:14,color:'#8E8E93'}}>
-              {searchQuery ? 'No dishes found' : dietFilter!=='all' ? 'No items match this filter' : 'No items in this category'}
-            </p>
-            {searchQuery && <p style={{fontSize:12,color:'#AEAEB2',marginTop:4}}>Try a different name or ingredient</p>}
+            <div style={{fontSize:44,marginBottom:10}}>🥢</div>
+            <p style={{fontWeight:600,fontSize:14,color:'#8E8E93'}}>No items in this category</p>
           </div>
         ) : (
           <div className="grid">
             {filtered.map((item, idx) => (
-              <button key={item.id} className="card" style={{animationDelay:`${Math.min(idx,10)*0.055}s`}} onClick={()=>openItem(item)}>
+              <button key={item.id} className="card" style={{animationDelay:`${idx*0.05}s`}} onClick={()=>openItem(item)}>
                 <div className="c-img">
                   <img src={imgSrc(item)} alt={item.name} loading="lazy"
                     onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
