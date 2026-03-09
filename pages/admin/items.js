@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem } from '../../lib/db';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem, createMenuItem } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 import {
@@ -85,6 +85,11 @@ export default function AdminItems() {
   const [customBadge, setCustomBadge] = useState('');
   const [imgUpload,   setImgUpload]   = useState({});
   const [activeItemId, setActiveItemId] = useState(null);
+  const [csvModal,    setCsvModal]    = useState(false);
+  const [csvPreview,  setCsvPreview]  = useState([]);
+  const [csvError,    setCsvError]    = useState('');
+  const [csvImporting,setCsvImporting]= useState(false);
+  const csvInputRef = useRef(null);
   const imgInputRef = useRef({});
   const rid = userData?.restaurantId;
 
@@ -235,6 +240,72 @@ export default function AdminItems() {
     await load();
   };
 
+
+  /* ─── CSV Import ─── */
+  const parseCSV = (text) => {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return { error: 'CSV must have a header row and at least one item.' };
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g,''));
+    const required = ['name'];
+    const missing  = required.filter(r => !headers.includes(r));
+    if (missing.length) return { error: `Missing required column: ${missing.join(', ')}` };
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      // Handle quoted fields
+      const cols = [];
+      let cur = '', inQ = false;
+      for (const ch of lines[i] + ',') {
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      const obj = {};
+      headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
+      if (!obj.name) continue;
+      rows.push({
+        name:        obj.name,
+        category:    obj.category    || '',
+        price:       obj.price       ? Number(obj.price) : null,
+        description: obj.description || '',
+        spiceLevel:  obj.spicelevel  || obj.spice || 'None',
+        isVeg:       obj.isveg !== undefined ? (obj.isveg.toLowerCase() === 'true' || obj.isveg === '1' || obj.isveg.toLowerCase() === 'yes') : null,
+        prepTime:    obj.preptime    || obj.prep || '',
+        calories:    obj.calories    ? Number(obj.calories) : null,
+      });
+    }
+    if (!rows.length) return { error: 'No valid rows found in CSV.' };
+    return { rows };
+  };
+
+  const handleCSVFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const { rows, error } = parseCSV(e.target.result);
+      if (error) { setCsvError(error); setCsvPreview([]); }
+      else        { setCsvError('');   setCsvPreview(rows); }
+      setCsvModal(true);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCSVImport = async () => {
+    if (!csvPreview.length || !rid) return;
+    setCsvImporting(true);
+    try {
+      await Promise.all(csvPreview.map(row => createMenuItem(rid, row)));
+      toast.success(`${csvPreview.length} items imported!`);
+      setCsvModal(false);
+      setCsvPreview([]);
+      await load();
+    } catch (e) {
+      toast.error('Import failed: ' + e.message);
+    } finally {
+      setCsvImporting(false);
+    }
+  };
+
   const draggingItem = activeItemId ? filtered.find(i => i.id === activeItemId) : null;
 
   return (
@@ -256,8 +327,14 @@ export default function AdminItems() {
               <h1 style={S.h1}>Menu Items</h1>
               <p style={S.sub}>Manage, edit, reorder and add offers to your approved AR menu items.</p>
             </div>
-            <div style={{ padding:'10px 18px', borderRadius:12, background:'rgba(143,196,168,0.15)', border:'1px solid rgba(143,196,168,0.35)', fontSize:13, fontWeight:600, color:'#1A5A38' }}>
-              {items.filter(i=>i.isActive).length} active · {items.length} total
+            <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+              <div style={{ padding:'10px 18px', borderRadius:12, background:'rgba(143,196,168,0.15)', border:'1px solid rgba(143,196,168,0.35)', fontSize:13, fontWeight:600, color:'#1A5A38' }}>
+                {items.filter(i=>i.isActive).length} active · {items.length} total
+              </div>
+              <button onClick={() => csvInputRef.current?.click()} style={{ padding:'10px 18px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'#fff', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.7)', cursor:'pointer', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }} onMouseOver={e=>e.currentTarget.style.borderColor='#E05A3A'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(42,31,16,0.12)'}>
+                📥 Import CSV
+              </button>
+              <input type='file' accept='.csv,text/csv' style={{ display:'none' }} ref={csvInputRef} onChange={e => handleCSVFile(e.target.files[0])} />
             </div>
           </div>
 
@@ -527,6 +604,83 @@ export default function AdminItems() {
                       </div>
                     );
                   })}
+              </div>
+            </div>
+          )}
+
+          {/* ─── CSV Import Modal ─── */}
+          {csvModal && (
+            <div style={{ position:'fixed', inset:0, zIndex:100, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+              <div style={{ background:'#fff', borderRadius:20, padding:28, width:'100%', maxWidth:640, maxHeight:'80vh', display:'flex', flexDirection:'column', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+                  <div>
+                    <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#1E1B18' }}>📥 Import Menu Items</div>
+                    <div style={{ fontSize:12, color:'rgba(42,31,16,0.45)', marginTop:3 }}>
+                      CSV columns: <code style={{ background:'#F7F5F2', padding:'1px 6px', borderRadius:4 }}>name, category, price, description, spiceLevel, isVeg, prepTime, calories</code>
+                    </div>
+                  </div>
+                  <button onClick={() => { setCsvModal(false); setCsvPreview([]); setCsvError(''); }} style={{ width:32, height:32, borderRadius:'50%', border:'1px solid rgba(42,31,16,0.12)', background:'transparent', cursor:'pointer', fontSize:14, color:'rgba(42,31,16,0.5)' }}>✕</button>
+                </div>
+
+                {csvError && (
+                  <div style={{ padding:'12px 16px', background:'rgba(139,26,42,0.08)', border:'1px solid rgba(139,26,42,0.2)', borderRadius:10, color:'#8B1A2A', fontSize:13, marginBottom:16 }}>
+                    ⚠ {csvError}
+                  </div>
+                )}
+
+                {csvPreview.length > 0 && (
+                  <>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#1E1B18', marginBottom:10 }}>
+                      Preview — {csvPreview.length} items ready to import
+                    </div>
+                    <div style={{ flex:1, overflowY:'auto', border:'1px solid rgba(42,31,16,0.08)', borderRadius:12, marginBottom:18 }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ background:'#FAFAF8', borderBottom:'1px solid rgba(42,31,16,0.08)' }}>
+                            {['Name','Category','Price','Spice','Veg'].map(h => (
+                              <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.05em', textTransform:'uppercase', fontSize:10 }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {csvPreview.map((row, i) => (
+                            <tr key={i} style={{ borderBottom:'1px solid rgba(42,31,16,0.05)' }}>
+                              <td style={{ padding:'9px 14px', fontWeight:600, color:'#1E1B18' }}>{row.name}</td>
+                              <td style={{ padding:'9px 14px', color:'rgba(42,31,16,0.55)' }}>{row.category || '—'}</td>
+                              <td style={{ padding:'9px 14px', color:'rgba(42,31,16,0.55)' }}>{row.price ? `₹${row.price}` : '—'}</td>
+                              <td style={{ padding:'9px 14px', color:'rgba(42,31,16,0.55)' }}>{row.spiceLevel || '—'}</td>
+                              <td style={{ padding:'9px 14px' }}>
+                                {row.isVeg === true  ? <span style={{ color:'#2A8048', fontWeight:600 }}>● Veg</span>   :
+                                 row.isVeg === false ? <span style={{ color:'#C03020', fontWeight:600 }}>● Non-Veg</span> :
+                                 <span style={{ color:'rgba(42,31,16,0.3)' }}>—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ display:'flex', gap:10 }}>
+                      <button onClick={handleCSVImport} disabled={csvImporting} style={{ padding:'12px 28px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:csvImporting?0.6:1 }}>
+                        {csvImporting ? 'Importing…' : `Import ${csvPreview.length} Items`}
+                      </button>
+                      <button onClick={() => { setCsvModal(false); setCsvPreview([]); }} style={{ padding:'12px 20px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.55)', cursor:'pointer' }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {!csvPreview.length && !csvError && (
+                  <div style={{ textAlign:'center', padding:'40px 0', color:'rgba(42,31,16,0.4)' }}>
+                    <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
+                    <p style={{ fontSize:14 }}>Select a CSV file to preview items before importing.</p>
+                    <a href="data:text/csv;charset=utf-8,name,category,price,description,spiceLevel,isVeg,prepTime%0AGrilled Fish,Chef's Special,690,Grilled with herbs,Mild,false,20 mins"
+                       download="menu_template.csv"
+                       style={{ fontSize:12, color:'#E05A3A', textDecoration:'none', fontWeight:600 }}>
+                      ↓ Download template CSV
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           )}

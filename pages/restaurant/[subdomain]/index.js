@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, trackVisit, incrementItemView, incrementARView } from '../../../lib/db';
+import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall } from '../../../lib/db';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
 function getSessionId() {
@@ -298,6 +298,19 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const [smaStep,      setSmaStep]      = useState(0);
   const [smaAnswers,   setSmaAnswers]   = useState({});
   const [smaResults,   setSmaResults]   = useState([]);
+  // Ratings
+  const [userRatings,   setUserRatings]   = useState({});  // { itemId: 1-5 }
+  const [ratingPending, setRatingPending] = useState(null);
+  // Waiter call
+  const [waiterModal,   setWaiterModal]   = useState(false);
+  const [waiterReason,  setWaiterReason]  = useState(null);
+  const [waiterTable,   setWaiterTable]   = useState('');
+  const [waiterSent,    setWaiterSent]    = useState(false);
+  const [waiterSending, setWaiterSending] = useState(false);
+  // AI upsell
+  const [upsellItems,   setUpsellItems]   = useState([]);
+  const [upsellLoading, setUpsellLoading] = useState(false);
+  // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('ar_theme') === 'dark';
@@ -316,9 +329,87 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
   const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
   const arCount  = (menuItems||[]).filter(i=>i.modelURL).length;
 
+
+  /* ─── Rating handler ─── */
+  const handleRate = useCallback(async (item, stars) => {
+    if (userRatings[item.id]) return; // already rated this session
+    setRatingPending(item.id);
+    try {
+      await rateMenuItem(restaurant.id, item.id, stars);
+      setUserRatings(r => ({ ...r, [item.id]: stars }));
+      // Update local item ratingAvg optimistically
+    } catch (e) { console.error(e); }
+    finally { setRatingPending(null); }
+  }, [restaurant?.id, userRatings]);
+
+  /* ─── Waiter call handler ─── */
+  const handleWaiterCall = useCallback(async () => {
+    if (!waiterReason) return;
+    setWaiterSending(true);
+    try {
+      await createWaiterCall(restaurant.id, {
+        reason:      waiterReason,
+        tableNumber: waiterTable || 'Not specified',
+        restaurantName: restaurant.name,
+      });
+      setWaiterSent(true);
+      setTimeout(() => {
+        setWaiterModal(false);
+        setWaiterSent(false);
+        setWaiterReason(null);
+        setWaiterTable('');
+      }, 2500);
+    } catch (e) { console.error(e); }
+    finally { setWaiterSending(false); }
+  }, [restaurant?.id, restaurant?.name, waiterReason, waiterTable]);
+
+  /* ─── AI Upsell fetcher ─── */
+  const fetchUpsell = useCallback(async (item) => {
+    if (!menuItems?.length) return;
+    setUpsellItems([]);
+    setUpsellLoading(true);
+    try {
+      const otherItems = (menuItems || [])
+        .filter(i => i.id !== item.id && i.isActive !== false)
+        .map(i => `${i.name} (${i.category || 'other'})`);
+      if (otherItems.length < 2) { setUpsellLoading(false); return; }
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 200,
+          messages: [{
+            role: 'user',
+            content: `A customer is looking at "${item.name}" (${item.category || 'food'}). From this restaurant menu, pick exactly 2-3 items that pair well with it. Reply ONLY with a JSON array of item names, no explanation. Menu: ${otherItems.slice(0, 40).join(', ')}`
+          }]
+        })
+      });
+      const data  = await response.json();
+      const text  = data.content?.[0]?.text || '';
+      const clean = text.replace(/```json|```/g, '').trim();
+      const names = JSON.parse(clean);
+      // Match names back to full item objects
+      const matched = names
+        .map(n => (menuItems || []).find(i => i.name === n || i.name.toLowerCase() === n.toLowerCase()))
+        .filter(Boolean)
+        .slice(0, 3);
+      setUpsellItems(matched);
+    } catch (e) {
+      // Fallback: same-category items
+      const same = (menuItems || []).filter(i => i.id !== item.id && i.category === item.category).slice(0, 2);
+      const diff = (menuItems || []).filter(i => i.id !== item.id && i.category !== item.category).slice(0, 1);
+      setUpsellItems([...same, ...diff].slice(0, 3));
+    } finally {
+      setUpsellLoading(false);
+    }
+  }, [menuItems]);
+
   const openItem = useCallback(async (item) => {
     setSelectedItem(item); setShowAR(false);
     if (restaurant?.id) incrementItemView(restaurant.id, item.id).catch(()=>{});
+    fetchUpsell(item);
   }, [restaurant?.id]);
   const closeItem     = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
   const handleARLaunch = useCallback(async () => {
@@ -724,13 +815,24 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .ar-hint { text-align:center; font-size:11px; color:#7A7A7A; margin-top:9px; letter-spacing:-0.1px; }
 
         /* ─────────── FAB — properly centered ─────────── */
-        .fab-wrap {
+        .fab-wrap { display:flex; flex-direction:row; align-items:center; gap:12px; justify-content:center;
           position: fixed;
           bottom: 28px; left: 0; right: 0;
           display: flex; justify-content: center;
           z-index: 45;
           pointer-events: none;
         }
+
+        .waiter-fab {
+          width: 48px; height: 48px; border-radius: 50%;
+          border: none; background: #fff;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+          font-size: 20px; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.2s; flex-shrink: 0;
+        }
+        .waiter-fab:hover  { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+        .waiter-fab:active { transform: scale(0.96); }
         .sma-fab {
           pointer-events: all;
           display: flex; align-items: center; gap: 8px;
@@ -1410,6 +1512,12 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                   <div className="c-price-row">
                     {item.price    && <CardPrice price={item.price} className="c-price"/>}
                     {item.calories && <span className="c-cal">{item.calories} kcal</span>}
+                    {item.ratingCount > 0 && (
+                      <span style={{ fontSize:11, color:'#F79B3D', fontWeight:700, marginLeft:'auto', whiteSpace:'nowrap' }}>
+                        ★ {item.ratingAvg?.toFixed(1)}
+                        <span style={{ color:'rgba(42,31,16,0.35)', fontWeight:400 }}> ({item.ratingCount})</span>
+                      </span>
+                    )}
                   </div>
                   {(item.spiceLevel && item.spiceLevel!=='None' || item.prepTime) && (
                     <div className="c-meta">
@@ -1436,9 +1544,12 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         )}
       </main>
 
-      {/* ─── FAB — properly centered with wrapper ─── */}
+      {/* ─── FABs: SMA + Waiter Call ─── */}
       {!selectedItem && !smaOpen && (
         <div className="fab-wrap">
+          <button className="waiter-fab" onClick={() => setWaiterModal(true)} title="Call Waiter">
+            🔔
+          </button>
           <button className="sma-fab" onClick={openSMA}>
             <span className="sma-fab-icon">✨</span>
             Help Me Choose
@@ -1503,9 +1614,143 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                 <div className="ar-hint">No app needed · Works on Android Chrome &amp; iOS Safari</div>
               </>)}
               {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch}/>}
+
+              {/* ─── Star Rating ─── */}
+              {!showAR && (
+                <div style={{ margin:'20px 0 8px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:10 }}>Rate This Dish</div>
+                  {userRatings[selectedItem.id] ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ display:'flex', gap:3 }}>
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s} style={{ fontSize:22, color: s <= userRatings[selectedItem.id] ? '#F79B3D' : 'rgba(42,31,16,0.15)' }}>★</span>
+                        ))}
+                      </div>
+                      <span style={{ fontSize:12, color:'rgba(42,31,16,0.45)', fontWeight:500 }}>Thanks for rating!</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display:'flex', gap:4, marginBottom:8 }}>
+                        {[1,2,3,4,5].map(s => (
+                          <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize:26, background:'none', border:'none', cursor:'pointer', color:'rgba(42,31,16,0.15)', padding:'2px 3px', transition:'color 0.1s, transform 0.1s', lineHeight:1 }}
+                            onMouseOver={e => { for(let i=0;i<5;i++) { const btn=e.currentTarget.parentNode.children[i]; btn.style.color = i<s ? '#F79B3D' : 'rgba(42,31,16,0.15)'; } }}
+                            onMouseOut={e  => { for(let i=0;i<5;i++) { e.currentTarget.parentNode.children[i].style.color='rgba(42,31,16,0.15)'; } }}>
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                      {selectedItem.ratingCount > 0 && (
+                        <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)' }}>
+                          {selectedItem.ratingAvg?.toFixed(1)} ★ · {selectedItem.ratingCount} {selectedItem.ratingCount === 1 ? 'rating' : 'ratings'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ─── AI Upsell ─── */}
+              {!showAR && (upsellLoading || upsellItems.length > 0) && (
+                <div style={{ margin:'8px 0 4px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:12 }}>
+                    ✨ Pairs Well With
+                  </div>
+                  {upsellLoading ? (
+                    <div style={{ display:'flex', gap:8 }}>
+                      {[1,2,3].map(i => <div key={i} style={{ height:60, flex:1, background:'rgba(42,31,16,0.06)', borderRadius:12, animation:'pulse 1.4s ease infinite' }}/>)}
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
+                      {upsellItems.map(u => (
+                        <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'rgba(247,155,61,0.07)', border:'1.5px solid rgba(247,155,61,0.2)', borderRadius:14, cursor:'pointer', transition:'all 0.15s', textAlign:'left' }}
+                          onMouseOver={e => { e.currentTarget.style.background='rgba(247,155,61,0.14)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.45)'; }}
+                          onMouseOut={e  => { e.currentTarget.style.background='rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.2)'; }}>
+                          {u.imageURL && (
+                            <div style={{ width:36, height:36, borderRadius:9, overflow:'hidden', flexShrink:0 }}>
+                              <img src={u.imageURL} alt={u.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize:12, fontWeight:600, color:'#1E1B18', whiteSpace:'nowrap' }}>{u.name}</div>
+                            {u.price && <div style={{ fontSize:11, color:'#F79B3D', fontWeight:700 }}>₹{u.price}</div>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </SwipeableSheet>
+      )}
+
+      {/* ─── WAITER CALL MODAL ─── */}
+      {waiterModal && (
+        <div style={{ position:'fixed', inset:0, zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center', background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.18s ease' }}
+          onClick={e => { if(e.target===e.currentTarget) { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); } }}>
+          <div style={{ width:'100%', maxWidth:440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius:'24px 24px 0 0', padding:'28px 24px 40px', boxShadow:'0 -8px 40px rgba(0,0,0,0.18)', animation:'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)' }}>
+            {/* Handle */}
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
+              <div style={{ width:40, height:5, borderRadius:3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }}/>
+            </div>
+
+            {waiterSent ? (
+              <div style={{ textAlign:'center', padding:'20px 0' }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
+                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:18, color: darkMode?'#FFF5E8':'#1E1B18', marginBottom:8 }}>
+                  Waiter notified!
+                </div>
+                <div style={{ fontSize:14, color:'rgba(42,31,16,0.5)' }}>
+                  Someone will be with you shortly.
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:20, color: darkMode?'#FFF5E8':'#1E1B18', marginBottom:6 }}>
+                  🔔 Call Waiter
+                </div>
+                <div style={{ fontSize:13, color:'rgba(42,31,16,0.45)', marginBottom:22 }}>
+                  What do you need? We'll notify your waiter.
+                </div>
+
+                {/* Reason options */}
+                <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:22 }}>
+                  {[
+                    { id:'water',      emoji:'💧', label:'Need Water' },
+                    { id:'bill',       emoji:'🧾', label:'Need Bill' },
+                    { id:'assistance', emoji:'🙋', label:'Need Assistance' },
+                    { id:'order',      emoji:'📋', label:'Ready to Order' },
+                  ].map(opt => (
+                    <button key={opt.id} onClick={() => setWaiterReason(opt.id)}
+                      style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', borderRadius:14, border:`2px solid ${waiterReason===opt.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: waiterReason===opt.id ? 'rgba(247,155,61,0.1)' : 'transparent', cursor:'pointer', transition:'all 0.15s', textAlign:'left', width:'100%' }}>
+                      <span style={{ fontSize:22 }}>{opt.emoji}</span>
+                      <span style={{ fontSize:14, fontWeight:600, color: darkMode?'#FFF5E8':'#1E1B18' }}>{opt.label}</span>
+                      {waiterReason === opt.id && <span style={{ marginLeft:'auto', color:'#F79B3D', fontSize:18 }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Optional table number */}
+                <div style={{ marginBottom:20 }}>
+                  <input
+                    value={waiterTable}
+                    onChange={e => setWaiterTable(e.target.value)}
+                    placeholder="Table number (optional)"
+                    style={{ width:'100%', padding:'12px 16px', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,255,255,0.12)':'rgba(42,31,16,0.1)'}`, background: darkMode?'rgba(255,255,255,0.06)':'#F7F5F2', fontSize:14, color: darkMode?'#FFF5E8':'#1E1B18', outline:'none', boxSizing:'border-box', fontFamily:'Inter,sans-serif' }}
+                  />
+                </div>
+
+                <button
+                  onClick={handleWaiterCall}
+                  disabled={!waiterReason || waiterSending}
+                  style={{ width:'100%', padding:'14px', borderRadius:14, border:'none', background: waiterReason ? 'linear-gradient(135deg,#F79B3D,#F48A1E)' : 'rgba(42,31,16,0.1)', color: waiterReason ? '#fff' : 'rgba(42,31,16,0.3)', fontSize:15, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition:'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(247,155,61,0.35)' : 'none' }}>
+                  {waiterSending ? 'Sending…' : '🔔 Call Waiter'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ─── SMART MENU ASSISTANT ─── */}

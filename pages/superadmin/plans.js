@@ -5,9 +5,24 @@ import { getAllRestaurants, updateRestaurant } from '../../lib/db';
 import toast from 'react-hot-toast';
 
 const PLANS = [
-  { id:'basic',   label:'Basic',   maxItems:10,  maxStorageMB:500,  color:'#5A8AC4', bg:'rgba(90,138,196,0.1)'  },
-  { id:'pro',     label:'Pro',     maxItems:40,  maxStorageMB:2048, color:'#E05A3A', bg:'rgba(224,90,58,0.1)'   },
-  { id:'premium', label:'Premium', maxItems:100, maxStorageMB:5120, color:'#8A5AC4', bg:'rgba(138,90,196,0.1)'  },
+  {
+    id: 'starter', label: 'Starter', price: 999,
+    maxItems: 20, maxStorageMB: 1024,
+    color: '#5A8AC4', bg: 'rgba(90,138,196,0.1)',
+    features: ['Up to 20 menu items', '1 GB storage', 'QR code menu', 'Smart Menu Assistant', 'Basic analytics'],
+  },
+  {
+    id: 'growth', label: 'Growth', price: 2499,
+    maxItems: 60, maxStorageMB: 3072,
+    color: '#E05A3A', bg: 'rgba(224,90,58,0.1)',
+    features: ['Up to 60 menu items', '3 GB storage', 'Everything in Starter', 'AR food visualization', 'AI upselling', 'Dish ratings', 'Waiter call system'],
+  },
+  {
+    id: 'pro', label: 'Pro', price: 4999,
+    maxItems: 150, maxStorageMB: 10240,
+    color: '#8A5AC4', bg: 'rgba(138,90,196,0.1)',
+    features: ['Up to 150 menu items', '10 GB storage', 'Everything in Growth', 'Priority support', 'CSV menu import', 'Advanced analytics', 'Custom branding'],
+  },
 ];
 
 const S = {
@@ -269,6 +284,7 @@ export default function SuperAdminPlans() {
                             onClick={()=>handlePlanClick(r.id, p.id)}
                             style={{ flex:1, background:edit.plan===p.id?p.bg:'#F7F5F2', borderColor:edit.plan===p.id?p.color:'transparent', boxShadow:edit.plan===p.id?`0 3px 12px ${p.color}33`:'' }}>
                             <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color:edit.plan===p.id?p.color:'#1E1B18' }}>{p.label}</div>
+                            <div style={{ fontSize:12, fontWeight:700, color:edit.plan===p.id?p.color:'rgba(42,31,16,0.6)', marginTop:2 }}>₹{p.price?.toLocaleString('en-IN')}/mo</div>
                             <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginTop:3 }}>{p.maxItems} items · {p.maxStorageMB>=1024?p.maxStorageMB/1024+'GB':p.maxStorageMB+'MB'}</div>
                           </div>
                         ))}
