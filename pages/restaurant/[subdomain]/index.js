@@ -211,6 +211,81 @@ function filterItems(items, ans, groupSize=1) {
     .sort((a,b) => b.score - a.score);
 }
 
+
+/* ─── SwipeableSheet — iOS-style drag-to-dismiss bottom sheet ─── */
+function SwipeableSheet({ onClose, children, darkMode }) {
+  const sheetRef   = useRef(null);
+  const startYRef  = useRef(0);
+  const currentYRef = useRef(0);
+  const isDragging = useRef(false);
+  const startTime  = useRef(0);
+  const [dragY, setDragY] = useState(0);
+
+  const DISMISS_THRESHOLD  = 120; // px down to dismiss
+  const VELOCITY_THRESHOLD = 0.45; // px/ms fast flick
+
+  const onTouchStart = (e) => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const touch = e.touches[0];
+    const rect  = sheet.getBoundingClientRect();
+    // Only start drag if touch is within top 60px (handle zone)
+    if (touch.clientY - rect.top > 60) return;
+    isDragging.current  = true;
+    startYRef.current   = touch.clientY;
+    startTime.current   = Date.now();
+    currentYRef.current = 0;
+  };
+
+  const onTouchMove = (e) => {
+    if (!isDragging.current) return;
+    const delta = e.touches[0].clientY - startYRef.current;
+    if (delta <= 0) { setDragY(0); return; }
+    currentYRef.current = delta;
+    setDragY(delta);
+  };
+
+  const onTouchEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const delta    = currentYRef.current;
+    const elapsed  = Math.max(1, Date.now() - startTime.current);
+    const velocity = delta / elapsed;
+    if (delta > DISMISS_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
+      onClose();
+    } else {
+      setDragY(0); // snap back to position
+    }
+    currentYRef.current = 0;
+  };
+
+  const progress  = Math.min(dragY / 300, 1);
+  const bgAlpha   = darkMode ? 0.85 * (1 - progress) : 0.5 * (1 - progress);
+
+  return (
+    <div
+      style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center', background:`rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.18s ease' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        ref={sheetRef}
+        style={{
+          width:'100%', maxWidth:540,
+          transform: `translateY(${dragY}px)`,
+          transition: isDragging.current ? 'none' : 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
+          willChange:'transform',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function RestaurantMenu({ restaurant, menuItems, offers, error }) {
   const [activeCat,    setActiveCat]    = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -585,7 +660,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           box-shadow: 0 -8px 40px rgba(0,0,0,0.14);
         }
         .handle-row { display:flex; justify-content:center; padding:12px 0 0; }
-        .handle     { width:36px; height:4px; border-radius:2px; background:rgba(0,0,0,0.12); }
+        .handle     { width:44px; height:5px; border-radius:3px; background:rgba(0,0,0,0.18); transition:width 0.2s, background 0.2s; }
         .close-btn {
           position: absolute; top: 14px; right: 16px;
           width: 34px; height: 34px; border-radius: 50%;
@@ -1373,7 +1448,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
 
       {/* ─── ITEM MODAL ─── */}
       {selectedItem && (
-        <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)closeItem();}}>
+        <SwipeableSheet onClose={closeItem} darkMode={darkMode}>
           <div className="sheet">
             <div className="handle-row"><div className="handle"/></div>
             <button className="close-btn" onClick={closeItem}>✕</button>
@@ -1430,7 +1505,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
               {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch}/>}
             </div>
           </div>
-        </div>
+        </SwipeableSheet>
       )}
 
       {/* ─── SMART MENU ASSISTANT ─── */}
