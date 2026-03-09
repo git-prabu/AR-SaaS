@@ -15,6 +15,20 @@ const S = {
 };
 
 const tip = { backgroundColor:'#1E1B18', border:'none', borderRadius:10, color:'#FFF5E8', fontSize:12, fontFamily:'Inter,sans-serif' };
+const tipLabel = { color:'#FFF5E8', fontWeight:600 };
+const tipItem  = { color:'#FFF5E8' };
+
+// Custom tooltip for PieChart (Recharts PieChart ignores contentStyle color for text)
+const PieTooltip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  const { name, value } = payload[0];
+  return (
+    <div style={{ background:'#1E1B18', border:'none', borderRadius:10, padding:'8px 14px', fontFamily:'Inter,sans-serif' }}>
+      <div style={{ color:'#FFF5E8', fontWeight:700, fontSize:13 }}>{name}</div>
+      <div style={{ color:'rgba(255,245,232,0.7)', fontSize:12, marginTop:2 }}>{value} views</div>
+    </div>
+  );
+};
 
 // Colour palette for categories
 const CAT_COLORS = ['#E05A3A','#F79B3D','#8A70B0','#5A9A78','#4A80C0','#C04A28','#8FC4A8','#F4D070','#C8A050'];
@@ -164,7 +178,7 @@ export default function AdminAnalytics() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)"/>
                     <XAxis dataKey="date" tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
-                    <Tooltip contentStyle={tip}/>
+                    <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem}/>
                     <Area type="monotone" dataKey="visits" stroke="#E05A3A" strokeWidth={2.5} fill="url(#ag1)" name="Total Visits"/>
                     <Area type="monotone" dataKey="unique" stroke="#8FC4A8" strokeWidth={2} fill="transparent" name="Unique" strokeDasharray="5 3"/>
                   </AreaChart>
@@ -180,7 +194,7 @@ export default function AdminAnalytics() {
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)"/>
                       <XAxis dataKey="name" tick={{ fill:'rgba(42,31,16,0.35)', fontSize:10 }} axisLine={false} tickLine={false}/>
                       <YAxis tick={{ fill:'rgba(42,31,16,0.35)', fontSize:11 }} axisLine={false} tickLine={false}/>
-                      <Tooltip contentStyle={tip}/>
+                      <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem}/>
                       <Bar dataKey="views"   name="Views"    fill="#E05A3A" radius={[6,6,0,0]}/>
                       <Bar dataKey="arViews" name="AR Views" fill="#8FC4A8" radius={[6,6,0,0]}/>
                     </BarChart>
@@ -298,7 +312,7 @@ export default function AdminAnalytics() {
                           <Pie data={catData} dataKey="views" nameKey="name" cx="50%" cy="50%" outerRadius={72} paddingAngle={3}>
                             {catData.map((_, i) => <Cell key={i} fill={CAT_COLORS[i % CAT_COLORS.length]}/>)}
                           </Pie>
-                          <Tooltip contentStyle={tip} formatter={(v,n) => [`${v} views`, n]}/>
+                          <Tooltip content={<PieTooltip />}/>
                         </PieChart>
                       </ResponsiveContainer>
                       <div style={{ display:'flex', flexDirection:'column', gap:7, marginTop:8 }}>
