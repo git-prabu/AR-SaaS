@@ -60,7 +60,7 @@ export default function SuperAdminRequests() {
         views:0, arViews:0, isActive:true, createdAt:serverTimestamp(),
       });
       await updateRequestStatus(rid, req.id, 'approved', modelURL);
-      await updateRestaurant(rid, { itemsUsed:(restaurant.itemsUsed||0)+1, storageUsedMB:(restaurant.storageUsedMB||0)+sizeMB });
+      await updateRestaurant(rid, { itemsUsed:(restaurant.itemsUsed||0)+1, storageUsedMB: parseFloat(((restaurant.storageUsedMB||0)+sizeMB).toFixed(2)) });
       toast.success(`"${req.name}" approved and published!`);
       setModelFiles(f => { const n={...f}; delete n[req.id]; return n; });
       load();

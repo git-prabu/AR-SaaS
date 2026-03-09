@@ -19,7 +19,7 @@ export default function HomePage() {
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
       </Head>
 
-      <div style={{minHeight:'100vh',background:'linear-gradient(160deg,#F5A876 0%,#F0906A 45%,#C8A8D8 100%)',fontFamily:'Inter,sans-serif',color:'#2A1F10',overflowX:'hidden',position:'relative'}}>
+      <div style={{minHeight:'100vh',background:'#FAF7F2',fontFamily:'Inter,sans-serif',color:'#2A1F10',overflowX:'hidden',position:'relative'}}>
         <style>{`
           *{box-sizing:border-box;margin:0;padding:0} a{text-decoration:none}
           @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
@@ -32,28 +32,28 @@ export default function HomePage() {
 
           /* NAV */
           .nav{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:50;
-            background:rgba(255,248,232,0.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-            border:1.5px solid rgba(255,220,160,0.55);border-radius:50px;
+            background:rgba(255,255,255,0.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+            border:1.5px solid rgba(42,31,16,0.1);border-radius:50px;
             padding:8px 10px 8px 20px;display:flex;align-items:center;gap:2px;
             box-shadow:0 6px 28px rgba(120,70,30,0.13),inset 0 1px 0 rgba(255,255,255,0.65);
             width:auto;white-space:nowrap;}
           .nlnk{font-size:14px;color:rgba(42,31,16,0.55);font-weight:500;transition:color 0.15s;padding:6px 14px;border-radius:30px;}
-          .nlnk:hover{color:#2A1F10;background:rgba(255,255,255,0.3);}
+          .nlnk:hover{color:#2A1F10;background:rgba(42,31,16,0.06);}
 
           /* Clay card */
-          .cc{background:rgba(255,248,230,0.75);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-            border:1.5px solid rgba(255,215,155,0.5);border-radius:22px;
-            box-shadow:0 6px 24px rgba(120,70,30,0.1),inset 0 1px 0 rgba(255,255,255,0.7);
+          .cc{background:#FFFFFF;
+            border:1.5px solid rgba(42,31,16,0.08);border-radius:20px;
+            box-shadow:0 2px 16px rgba(42,31,16,0.07);
             transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
-          .cc:hover{transform:translateY(-5px);box-shadow:0 18px 44px rgba(120,70,30,0.17);}
+          .cc:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(42,31,16,0.13);}
 
           /* Plan card */
-          .pc{background:rgba(255,248,230,0.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-            border:1.5px solid rgba(255,215,155,0.5);border-radius:24px;padding:32px;position:relative;
-            box-shadow:0 6px 24px rgba(120,70,30,0.1),inset 0 1px 0 rgba(255,255,255,0.7);
+          .pc{background:#FFFFFF;
+            border:1.5px solid rgba(42,31,16,0.08);border-radius:20px;padding:32px;position:relative;
+            box-shadow:0 2px 16px rgba(42,31,16,0.07);
             transition:all 0.22s;}
-          .pc.pop{border-color:rgba(224,90,58,0.45);box-shadow:0 10px 36px rgba(224,90,58,0.18);}
-          .pc:hover{transform:translateY(-4px);}
+          .pc.pop{border-color:rgba(247,155,61,0.5);box-shadow:0 8px 32px rgba(247,155,61,0.18);}
+          .pc:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(42,31,16,0.12);}
 
           /* Buttons */
           .btn-dark{background:#1E1B18;color:#FFF5E8;border:none;border-radius:50px;
@@ -61,10 +61,10 @@ export default function HomePage() {
             box-shadow:0 6px 20px rgba(30,27,24,0.3);}
           .btn-dark:hover{background:#2E2B28;transform:translateY(-2px);}
 
-          .btn-outline{background:rgba(255,255,255,0.55);color:#1E1B18;border:1.5px solid rgba(42,31,16,0.2);
+          .btn-outline{background:#FFFFFF;color:#1E1B18;border:1.5px solid rgba(42,31,16,0.18);
             border-radius:50px;font-weight:600;cursor:pointer;transition:all 0.2s;
-            font-family:Poppins,sans-serif;backdrop-filter:blur(8px);}
-          .btn-outline:hover{background:rgba(255,255,255,0.82);}
+            font-family:Poppins,sans-serif;}
+          .btn-outline:hover{background:#F7F5F2;border-color:rgba(42,31,16,0.3);}
 
           .btn-coral{background:linear-gradient(135deg,#E05A3A,#F07050);color:#fff;border:none;border-radius:14px;
             font-family:Poppins,sans-serif;font-weight:700;cursor:pointer;transition:all 0.2s;
@@ -91,8 +91,8 @@ export default function HomePage() {
         `}</style>
 
         {/* Background blobs — subtle, not cluttered */}
-        <div style={{position:'fixed',bottom:'-15%',right:'-6%',width:480,height:480,borderRadius:'50%',background:'rgba(255,255,255,0.1)',pointerEvents:'none',zIndex:0}}/>
-        <div style={{position:'fixed',top:'-10%',left:'-5%',width:360,height:360,borderRadius:'50%',background:'rgba(255,255,255,0.08)',pointerEvents:'none',zIndex:0}}/>
+        <div style={{position:'fixed',bottom:'-15%',right:'-6%',width:480,height:480,borderRadius:'50%',background:'rgba(247,155,61,0.07)',pointerEvents:'none',zIndex:0}}/>
+        <div style={{position:'fixed',top:'-10%',left:'-5%',width:360,height:360,borderRadius:'50%',background:'rgba(224,90,58,0.06)',pointerEvents:'none',zIndex:0}}/>
 
         {/* ══ NAV ══ */}
         <nav className="nav">
@@ -108,23 +108,23 @@ export default function HomePage() {
         </nav>
 
         {/* ══ HERO ══ */}
-        <section style={{paddingTop:108,paddingBottom:32,position:'relative',zIndex:1}}>
+        <section style={{paddingTop:108,paddingBottom:64,position:'relative',zIndex:1}}>
           <div className="inner">
             <div className="split">
 
               {/* LEFT — clean, minimal */}
               <div style={{animation:'fadeUp 0.8s ease forwards'}}>
-                <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'6px 14px',borderRadius:30,background:'rgba(255,255,255,0.5)',border:'1px solid rgba(255,215,155,0.6)',fontSize:12,fontWeight:600,color:'#8B4020',marginBottom:24,letterSpacing:'0.02em'}}>
+                <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'6px 14px',borderRadius:30,background:'rgba(247,155,61,0.1)',border:'1px solid rgba(247,155,61,0.3)',fontSize:12,fontWeight:600,color:'#8B4020',marginBottom:24,letterSpacing:'0.02em'}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:'#E05A3A',animation:'blink 2s infinite'}}/>
                   🥽 AR + AI Revenue Platform
                 </div>
 
-                <h1 style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:'clamp(36px,4.4vw,60px)',lineHeight:1.06,letterSpacing:'-0.03em',color:'#1E1B18',marginBottom:20}}>
+                <h1 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(30px,3.6vw,50px)',lineHeight:1.1,letterSpacing:'-0.02em',color:'#1E1B18',marginBottom:20}}>
                   Turn Your Menu Into an<br/>
                   <span style={{background:'linear-gradient(135deg,#E05A3A,#F07050)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>AR-Powered Revenue</span><br/>Machine
                 </h1>
 
-                <p style={{fontSize:17,color:'rgba(42,31,16,0.58)',lineHeight:1.7,marginBottom:36,maxWidth:420}}>
+                <p style={{fontSize:16,color:'rgba(42,31,16,0.62)',lineHeight:1.75,marginBottom:36,maxWidth:440}}>
                   Customers scan your QR code, watch dishes appear in 3D AR, get AI upsell suggestions — and order more. No app needed.
                 </p>
 
@@ -137,7 +137,7 @@ export default function HomePage() {
                   </a>
                 </div>
 
-                <div style={{display:'flex',alignItems:'center',gap:16,paddingTop:20,borderTop:'1px solid rgba(42,31,16,0.1)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:16,paddingTop:20,borderTop:'1px solid rgba(42,31,16,0.08)'}}>
                   <div style={{textAlign:'center'}}>
                     <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:22,color:'#1E1B18'}}>↑ 28%</div>
                     <div style={{fontSize:12,color:'rgba(42,31,16,0.5)',marginTop:2}}>Avg order value</div>
@@ -299,7 +299,7 @@ export default function HomePage() {
         </section>
 
         {/* ══ HOW IT WORKS — split with Analytics scene ══ */}
-        <section id="how" className="section" style={{background:'rgba(255,255,255,0.14)',backdropFilter:'blur(10px)',borderTop:'1px solid rgba(255,215,155,0.28)',borderBottom:'1px solid rgba(255,215,155,0.28)'}}>
+        <section id="how" className="section" style={{background:'#F5E6D3',backdropFilter:'none',borderTop:'1px solid rgba(42,31,16,0.06)',borderBottom:'1px solid rgba(42,31,16,0.06)'}}>
           <div className="inner">
             <div className="split">
               {/* Text */}
@@ -475,7 +475,7 @@ export default function HomePage() {
         </section>
 
         {/* ══ PLANS — with decorative scene ══ */}
-        <section id="plans" className="section" style={{background:'rgba(255,255,255,0.14)',backdropFilter:'blur(10px)',borderTop:'1px solid rgba(255,215,155,0.28)',borderBottom:'1px solid rgba(255,215,155,0.28)'}}>
+        <section id="plans" className="section" style={{background:'#F5E6D3',backdropFilter:'none',borderTop:'1px solid rgba(42,31,16,0.06)',borderBottom:'1px solid rgba(42,31,16,0.06)'}}>
           <div className="inner">
             <div style={{textAlign:'center',marginBottom:52}}>
               <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>Pricing</div>
@@ -513,7 +513,7 @@ export default function HomePage() {
         {/* ══ CTA — split with celebration scene ══ */}
         <section className="section">
           <div className="inner">
-            <div style={{background:'rgba(255,248,230,0.72)',backdropFilter:'blur(16px)',border:'1.5px solid rgba(255,215,155,0.5)',borderRadius:32,padding:'56px 48px',boxShadow:'0 12px 48px rgba(120,70,30,0.14),inset 0 1px 0 rgba(255,255,255,0.7)',overflow:'hidden',position:'relative'}}>
+            <div style={{background:'#FFFFFF',backdropFilter:'none',border:'1.5px solid rgba(42,31,16,0.07)',borderRadius:32,padding:'56px 48px',boxShadow:'0 12px 48px rgba(120,70,30,0.14),inset 0 1px 0 rgba(255,255,255,0.7)',overflow:'hidden',position:'relative'}}>
               <div className="split" style={{gap:40}}>
                 <div>
                   <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:'clamp(28px,3.5vw,46px)',color:'#1E1B18',lineHeight:1.1,marginBottom:16}}>
@@ -540,7 +540,7 @@ export default function HomePage() {
         </section>
 
         {/* ══ FOOTER ══ */}
-        <footer style={{borderTop:'1px solid rgba(200,140,80,0.18)',padding:'28px 0',background:'rgba(255,240,210,0.25)',backdropFilter:'blur(8px)'}}>
+        <footer style={{borderTop:'1px solid rgba(200,140,80,0.18)',padding:'28px 0',background:'#F5E6D3',backdropFilter:'none'}}>
           <div className="inner" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
             <span style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:15,color:'#1E1B18'}}>
               Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F4A86A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Radical</span>

@@ -264,7 +264,7 @@ export default function RestaurantDetail() {
           .tab-btn{padding:10px 20px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;font-family:Inter,sans-serif;color:rgba(42,31,16,0.5);border-bottom:2.5px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
           .tab-btn.on{color:#E05A3A;border-bottom-color:#E05A3A;}
           .tab-btn:hover{color:#1E1B18;}
-          .row:hover{background:rgba(224,90,58,0.05)!important}
+          .row:hover{background:#F7F5F2!important}
         `}</style>
 
         {/* ── Page header ── */}
@@ -325,7 +325,7 @@ export default function RestaurantDetail() {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
               {[
                 { label:'AR Items Used', value:`${restaurant.itemsUsed||0} / ${restaurant.maxItems||planInfo.maxItems}`, color:'#E05A3A', bg:'rgba(224,90,58,0.07)' },
-                { label:'Storage Used',  value:`${restaurant.storageUsedMB||0} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`, color:'#5A9A78', bg:'rgba(143,196,168,0.12)' },
+                { label:'Storage Used',  value:`${parseFloat(restaurant.storageUsedMB||0).toFixed(2)} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`, color:'#5A9A78', bg:'rgba(143,196,168,0.12)' },
                 { label:'Payment',       value: restaurant.paymentStatus||'inactive', color: restaurant.paymentStatus==='active'?'#1A5A38':'#8B1A2A', bg: restaurant.paymentStatus==='active'?'rgba(143,196,168,0.12)':'rgba(244,160,176,0.12)', cap:true },
                 { label:'Expires',       value: subEnd ? (isExpired ? 'Expired' : subEnd) : 'No subscription', color: isExpired?'#8B1A2A':'rgba(42,31,16,0.7)', bg:'rgba(42,31,16,0.04)' },
               ].map(s => (
@@ -451,7 +451,7 @@ export default function RestaurantDetail() {
                   <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:16 }}>Usage & Subscription</div>
                   {[
                     ['Items Used',    `${restaurant.itemsUsed||0} / ${restaurant.maxItems||planInfo.maxItems}`],
-                    ['Storage',       `${restaurant.storageUsedMB||0} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`],
+                    ['Storage',       `${parseFloat(restaurant.storageUsedMB||0).toFixed(2)} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`],
                     ['Sub Start',     restaurant.subscriptionStart || '—'],
                     ['Sub End',       restaurant.subscriptionEnd || '—'],
                     ['Days Left',     daysLeft !== null ? (isExpired ? 'Expired' : `${daysLeft} days`) : '—'],

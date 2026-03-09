@@ -63,7 +63,9 @@ export default function AdminAnalytics() {
   // Category breakdown
   const catMap = {};
   activeItems.forEach(i => {
-    const cat = i.category || 'Uncategorised';
+    // Normalise to Title Case to prevent "pasta" and "Pasta" being separate
+    const raw = i.category || 'Uncategorised';
+    const cat = raw.charAt(0).toUpperCase() + raw.slice(1);
     if (!catMap[cat]) catMap[cat] = { name:cat, views:0, items:0 };
     catMap[cat].views += (i.views||0) + (i.arViews||0);
     catMap[cat].items += 1;
@@ -73,7 +75,7 @@ export default function AdminAnalytics() {
   // Ratings leaderboard
   const ratedItems = [...activeItems].filter(i => (i.ratingCount||0) > 0);
   const topRated   = [...ratedItems].sort((a,b) => (b.ratingAvg||0) - (a.ratingAvg||0)).slice(0,5);
-  const lowRated   = [...ratedItems].sort((a,b) => (a.ratingAvg||0) - (b.ratingAvg||0)).slice(0,3);
+  const lowRated   = [...ratedItems].filter(i => (i.ratingAvg||0) < 3.5).sort((a,b) => (a.ratingAvg||0) - (b.ratingAvg||0)).slice(0,3);
 
   // Overall AR engagement
   const totalViews   = activeItems.reduce((s,i)=>s+(i.views||0),0);
@@ -299,12 +301,13 @@ export default function AdminAnalytics() {
                           <Tooltip contentStyle={tip} formatter={(v,n) => [`${v} views`, n]}/>
                         </PieChart>
                       </ResponsiveContainer>
-                      <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:8 }}>
-                        {catData.slice(0,5).map((c,i) => (
-                          <div key={c.name} style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
-                            <div style={{ width:10, height:10, borderRadius:2, background:CAT_COLORS[i % CAT_COLORS.length], flexShrink:0 }}/>
-                            <span style={{ flex:1, color:'#1E1B18', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
-                            <span style={{ color:'rgba(42,31,16,0.45)', fontWeight:600 }}>{c.views} views</span>
+                      <div style={{ display:'flex', flexDirection:'column', gap:7, marginTop:8 }}>
+                        {catData.slice(0,6).map((c,i) => (
+                          <div key={c.name} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13 }}>
+                            <div style={{ width:11, height:11, borderRadius:3, background:CAT_COLORS[i % CAT_COLORS.length], flexShrink:0 }}/>
+                            <span style={{ flex:1, color:'#1E1B18', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
+                            <span style={{ color:'#1E1B18', fontWeight:700 }}>{c.views}</span>
+                            <span style={{ color:'rgba(42,31,16,0.45)', fontSize:11 }}>views</span>
                           </div>
                         ))}
                       </div>
