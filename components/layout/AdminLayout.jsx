@@ -7,6 +7,7 @@ const navItems = [
   { href: '/admin',                  label: 'Overview',       icon: '▦' },
   { href: '/admin/requests',         label: 'Requests',       icon: '◈' },
   { href: '/admin/items',            label: 'Menu Items',     icon: '🍽' },
+  { href: '/admin/combos',           label: 'Combo Builder',  icon: '🍱' },
   { href: '/admin/analytics',        label: 'Analytics',      icon: '◎' },
   { href: '/admin/notifications',    label: 'Notifications',  icon: '🔔' },
   { href: '/admin/qrcode',           label: 'QR Code',        icon: '⬡' },

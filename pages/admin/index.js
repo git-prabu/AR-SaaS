@@ -36,6 +36,14 @@ export default function AdminDashboard() {
   const planColors = { basic:'#A08060', pro:'#E05A3A', premium:'#C4A020' };
   const planColor = planColors[restaurant?.plan] || '#A08060';
 
+  // Subscription expiry
+  const subEnd    = restaurant?.subscriptionEnd;
+  const daysLeft  = subEnd ? Math.max(0, Math.ceil((new Date(subEnd) - new Date()) / 86400000)) : null;
+  const isExpired = subEnd && new Date(subEnd) < new Date();
+  const isInactive = restaurant?.paymentStatus && restaurant.paymentStatus !== 'active';
+  const showExpiredBanner = isExpired || isInactive;
+  const showWarnBanner = !showExpiredBanner && daysLeft !== null && daysLeft <= 7;
+
   const stats = [
     { label:'Visits (7d)', value:totalVisits, icon:'👁', bg:'rgba(255,255,255,0.65)', accent:'#E05A3A' },
     { label:'Menu Items',  value:restaurant?.itemsUsed||menuItems.length, icon:'🍽️', bg:'rgba(143,196,168,0.3)', accent:'#4A7A5A' },
@@ -82,6 +90,27 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+
+        {/* Subscription banners */}
+        {showExpiredBanner && (
+          <div style={{background:'rgba(200,30,30,0.07)',border:'1.5px solid rgba(200,30,30,0.25)',borderRadius:16,padding:'16px 20px',marginBottom:20,display:'flex',alignItems:'center',gap:14}}>
+            <div style={{fontSize:28,flexShrink:0}}>🚫</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:800,fontSize:15,color:'#8B1A1A',marginBottom:3}}>Your subscription has expired</div>
+              <div style={{fontSize:13,color:'rgba(100,30,30,0.7)'}}>Your public menu is currently hidden from customers. Contact <strong>support@advertradical.com</strong> to renew your plan and reactivate your menu.</div>
+            </div>
+          </div>
+        )}
+        {showWarnBanner && (
+          <div style={{background:'rgba(224,90,58,0.06)',border:'1.5px solid rgba(224,90,58,0.3)',borderRadius:16,padding:'16px 20px',marginBottom:20,display:'flex',alignItems:'center',gap:14}}>
+            <div style={{fontSize:28,flexShrink:0}}>⚠️</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:800,fontSize:15,color:'#B03010',marginBottom:3}}>Subscription expiring in {daysLeft} day{daysLeft===1?'':'s'}</div>
+              <div style={{fontSize:13,color:'rgba(100,40,20,0.65)'}}>Your menu will become unavailable on <strong>{subEnd}</strong>. Contact us at <strong>support@advertradical.com</strong> to renew.</div>
+            </div>
+          </div>
+        )}
+
         {/* Stats */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12,marginBottom:20}}>
           {stats.map(s=>(
@@ -102,7 +131,7 @@ export default function AdminDashboard() {
             <div key={u.label} className="cc" style={{background:'rgba(255,245,220,0.7)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:12}}>
                 <span style={{fontWeight:700,color:'#2A1F10'}}>{u.label}</span>
-                <span style={{color:'rgba(100,60,30,0.5)'}}>{u.unit==='MB' ? Number(u.used).toFixed(1) : u.used}/{u.max} {u.unit}</span>
+                <span style={{color:'rgba(100,60,30,0.5)'}}>{u.used}/{u.max} {u.unit}</span>
               </div>
               <div className="prog">
                 <div className="pfill" style={{width:`${u.pct}%`,background:u.pct>80?'#DC3030':'linear-gradient(90deg,#E05A3A,#F4A86A)',boxShadow:u.pct>80?'none':'0 0 8px rgba(224,90,58,0.4)'}}/>

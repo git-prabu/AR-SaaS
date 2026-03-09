@@ -3,29 +3,19 @@ import Head from 'next/head';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem, createMenuItem } from '../../lib/db';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
-import {
-  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
-  useSensor, useSensors, DragOverlay,
-} from '@dnd-kit/core';
-import {
-  SortableContext, useSortable,
-  horizontalListSortingStrategy, verticalListSortingStrategy,
-  arrayMove, sortableKeyboardCoordinates,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Very Spicy'];
 const SPICE_COLORS = { None:'#8FC4A8', Mild:'#F4D070', Medium:'#F4A060', Spicy:'#E05A3A', 'Very Spicy':'#B02020' };
 const OFFER_BADGES = [
-  { label:"Chef's Special", color:'#8A70B0' },
-  { label:'Best Seller',    color:'#E05A3A' },
-  { label:'Must Try',       color:'#5A9A78' },
-  { label:'New',            color:'#4A80C0' },
-  { label:'Limited',        color:'#C04A28' },
-  { label:'Custom…',    color:'#1E1B18' },
+  { label:'Chef\'s Special', color:'#8A70B0' },
+  { label:'Best Seller',     color:'#E05A3A' },
+  { label:'Must Try',        color:'#5A9A78' },
+  { label:'New',             color:'#4A80C0' },
+  { label:'Limited',         color:'#C04A28' },
+  { label:'Custom…',         color:'#1E1B18' },
 ];
 
 const S = {
@@ -36,139 +26,43 @@ const S = {
   input: { width:'100%', padding:'10px 13px', background:'#F7F5F2', border:'1.5px solid rgba(42,31,16,0.09)', borderRadius:11, fontSize:13, color:'#1E1B18', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
 };
 
-// Sortable category pill
-function SortableCatPill({ id, label, isActive, totalCount, onClick }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.45 : 1 }}>
-      <button
-        onClick={onClick}
-        {...attributes} {...listeners}
-        style={{
-          padding:'9px 16px', borderRadius:30, border:'none',
-          fontSize:12, fontWeight:600, cursor: isDragging ? 'grabbing' : 'grab',
-          fontFamily:'Inter,sans-serif', textTransform:'capitalize',
-          background: isActive ? '#1E1B18' : '#fff',
-          color: isActive ? '#FFF5E8' : 'rgba(42,31,16,0.55)',
-          boxShadow: isActive ? '0 2px 8px rgba(30,27,24,0.18)' : '0 1px 4px rgba(42,31,16,0.06)',
-          transition:'background 0.15s, color 0.15s',
-          whiteSpace:'nowrap', userSelect:'none', touchAction:'none',
-        }}
-      >
-        {label === 'all' ? `All (${totalCount})` : label}
-      </button>
-    </div>
-  );
-}
-
-// Sortable item row
-function SortableItemRow({ id, children }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 20 : 'auto', position:'relative' }}>
-      {children({ dragHandleProps: { ...attributes, ...listeners }, isDragging })}
-    </div>
-  );
-}
-
 export default function AdminItems() {
-  const { userData }                  = useAuth();
-  const [items,       setItems]       = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [search,      setSearch]      = useState('');
-  const [catFilter,   setCatFilter]   = useState('all');
-  const [catOrder,    setCatOrder]    = useState([]);
-  const [editId,      setEditId]      = useState(null);
-  const [editData,    setEditData]    = useState({});
-  const [saving,      setSaving]      = useState(false);
-  const [deleting,    setDeleting]    = useState(null);
+  const { userData } = useAuth();
+  const [items,     setItems]     = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [search,    setSearch]    = useState('');
+  const [catFilter, setCatFilter] = useState('all');
+  const [editId,    setEditId]    = useState(null);
+  const [editData,  setEditData]  = useState({});
+  const [saving,    setSaving]    = useState(false);
+  const [deleting,  setDeleting]  = useState(null);
   const [customBadge, setCustomBadge] = useState('');
-  const [imgUpload,   setImgUpload]   = useState({});
-  const [activeItemId, setActiveItemId] = useState(null);
-  const [csvModal,    setCsvModal]    = useState(false);
-  const [csvPreview,  setCsvPreview]  = useState([]);
-  const [csvError,    setCsvError]    = useState('');
-  const [csvImporting,setCsvImporting]= useState(false);
-  const csvInputRef = useRef(null);
+  const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { progress, uploading } }
   const imgInputRef = useRef({});
   const rid = userData?.restaurantId;
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor,   { activationConstraint: { delay: 180, tolerance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
 
   const load = async () => {
     if (!rid) return;
     const data = await getAllMenuItems(rid);
+    // Sort by sortOrder first, then createdAt
     const sorted = data.sort((a, b) => {
       const ao = a.sortOrder ?? 9999, bo = b.sortOrder ?? 9999;
       if (ao !== bo) return ao - bo;
       return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
     });
     setItems(sorted);
-    const cats = Array.from(new Set(sorted.map(i => i.category).filter(Boolean)));
-    setCatOrder(prev => {
-      const kept  = prev.filter(c => cats.includes(c));
-      const fresh = cats.filter(c => !prev.includes(c));
-      return [...kept, ...fresh];
-    });
     setLoading(false);
   };
 
   useEffect(() => { load(); }, [rid]);
 
+  const categories = ['all', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))];
+
   const filtered = items.filter(item => {
-    const matchCat    = catFilter === 'all' || item.category === catFilter;
+    const matchCat = catFilter === 'all' || item.category === catFilter;
     const matchSearch = !search || item.name?.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
-
-  // Category drag end — reorder in UI only (no DB write needed for category order)
-  const handleCatDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
-    setCatOrder(prev => arrayMove(prev, prev.indexOf(active.id), prev.indexOf(over.id)));
-    toast.success('Category order updated');
-  };
-
-  // Item drag — save new sortOrder to Firebase
-  const handleItemDragEnd = async ({ active, over }) => {
-    setActiveItemId(null);
-    if (!over || active.id === over.id) return;
-    const oIdx = filtered.findIndex(i => i.id === active.id);
-    const nIdx = filtered.findIndex(i => i.id === over.id);
-    if (oIdx < 0 || nIdx < 0) return;
-    const reordered = arrayMove(filtered, oIdx, nIdx);
-    const updates   = reordered.map((item, i) => ({ id: item.id, sortOrder: i + 1 }));
-    // Optimistic update
-    setItems(prev => {
-      const map = Object.fromEntries(updates.map(u => [u.id, u.sortOrder]));
-      return prev.map(i => map[i.id] !== undefined ? { ...i, sortOrder: map[i.id] } : i)
-                 .sort((a,b) => (a.sortOrder??9999) - (b.sortOrder??9999));
-    });
-    try {
-      await Promise.all(updates.map(u => updateMenuItem(rid, u.id, { sortOrder: u.sortOrder })));
-      toast.success('Order saved');
-    } catch {
-      toast.error('Failed to save order');
-      load();
-    }
-  };
-
-  const moveItem = async (item, direction) => {
-    const idx = filtered.findIndex(i => i.id === item.id);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= filtered.length) return;
-    const swapItem = filtered[swapIdx];
-    const aOrder = item.sortOrder ?? idx;
-    const bOrder = swapItem.sortOrder ?? swapIdx;
-    await Promise.all([
-      updateMenuItem(rid, item.id,     { sortOrder: bOrder }),
-      updateMenuItem(rid, swapItem.id, { sortOrder: aOrder }),
-    ]);
-    await load();
-  };
 
   const startEdit = (item) => {
     setEditId(item.id);
@@ -179,6 +73,7 @@ export default function AdminItems() {
       price:       item.price       || '',
       prepTime:    item.prepTime    || '',
       spiceLevel:  item.spiceLevel  || 'None',
+      isVeg:       item.isVeg !== undefined ? item.isVeg : '',
       offerBadge:  item.offerBadge  || '',
       offerLabel:  item.offerLabel  || '',
       offerColor:  item.offerColor  || '#E05A3A',
@@ -189,6 +84,7 @@ export default function AdminItems() {
     });
     setCustomBadge('');
   };
+
   const cancelEdit = () => { setEditId(null); setEditData({}); };
 
   const handleImageUpload = async (item, file) => {
@@ -197,7 +93,9 @@ export default function AdminItems() {
     setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:0 } }));
     try {
       const path = buildImagePath(rid, file.name);
-      const url  = await uploadFile(file, path, pct => setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:pct } })));
+      const url  = await uploadFile(file, path, (pct) =>
+        setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:pct } }))
+      );
       await updateMenuItem(rid, item.id, { imageURL: url });
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url } : i));
       toast.success('Cover image updated!');
@@ -206,7 +104,12 @@ export default function AdminItems() {
   };
 
   const saveEdit = async () => {
-    if (!editData.name?.trim()) { toast.error('Item name required'); return; }
+    if (!editData.name?.trim())     { toast.error('Item name is required'); return; }
+    if (!editData.category?.trim()) { toast.error('Category is required — please select or type a category'); return; }
+    if (editData.isVeg === undefined || editData.isVeg === null || editData.isVeg === '') {
+      toast.error('Please mark item as Veg or Non-Veg'); return;
+    }
+    if (!editData.spiceLevel || editData.spiceLevel === '') { toast.error('Spice level is required'); return; }
     setSaving(true);
     try {
       const finalLabel = editData.offerBadge === 'Custom…' ? customBadge : editData.offerBadge;
@@ -215,7 +118,7 @@ export default function AdminItems() {
         offerLabel: finalLabel || '',
         offerBadge: !!finalLabel,
         sortOrder:  editData.sortOrder !== '' ? Number(editData.sortOrder) : null,
-        price:      editData.price     !== '' ? Number(editData.price)     : null,
+        price:      editData.price !== '' ? Number(editData.price) : null,
       });
       toast.success('Item updated!');
       setEditId(null);
@@ -235,78 +138,25 @@ export default function AdminItems() {
     finally { setDeleting(null); }
   };
 
+  const moveItem = async (item, direction) => {
+    // Find adjacent item in filtered list and swap sort orders
+    const idx = filtered.findIndex(i => i.id === item.id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= filtered.length) return;
+    const swapItem = filtered[swapIdx];
+    const aOrder = item.sortOrder ?? idx;
+    const bOrder = swapItem.sortOrder ?? swapIdx;
+    await Promise.all([
+      updateMenuItem(rid, item.id,     { sortOrder: bOrder }),
+      updateMenuItem(rid, swapItem.id, { sortOrder: aOrder }),
+    ]);
+    await load();
+  };
+
   const toggleActive = async (item) => {
     await updateMenuItem(rid, item.id, { isActive: !item.isActive });
     await load();
   };
-
-
-  /* ─── CSV Import ─── */
-  const parseCSV = (text) => {
-    const lines = text.trim().split(/\r?\n/);
-    if (lines.length < 2) return { error: 'CSV must have a header row and at least one item.' };
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z]/g,''));
-    const required = ['name'];
-    const missing  = required.filter(r => !headers.includes(r));
-    if (missing.length) return { error: `Missing required column: ${missing.join(', ')}` };
-
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      // Handle quoted fields
-      const cols = [];
-      let cur = '', inQ = false;
-      for (const ch of lines[i] + ',') {
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
-        cur += ch;
-      }
-      const obj = {};
-      headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
-      if (!obj.name) continue;
-      rows.push({
-        name:        obj.name,
-        category:    obj.category    || '',
-        price:       obj.price       ? Number(obj.price) : null,
-        description: obj.description || '',
-        spiceLevel:  obj.spicelevel  || obj.spice || 'None',
-        isVeg:       obj.isveg !== undefined ? (obj.isveg.toLowerCase() === 'true' || obj.isveg === '1' || obj.isveg.toLowerCase() === 'yes') : null,
-        prepTime:    obj.preptime    || obj.prep || '',
-        calories:    obj.calories    ? Number(obj.calories) : null,
-      });
-    }
-    if (!rows.length) return { error: 'No valid rows found in CSV.' };
-    return { rows };
-  };
-
-  const handleCSVFile = (file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const { rows, error } = parseCSV(e.target.result);
-      if (error) { setCsvError(error); setCsvPreview([]); }
-      else        { setCsvError('');   setCsvPreview(rows); }
-      setCsvModal(true);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleCSVImport = async () => {
-    if (!csvPreview.length || !rid) return;
-    setCsvImporting(true);
-    try {
-      await Promise.all(csvPreview.map(row => createMenuItem(rid, row)));
-      toast.success(`${csvPreview.length} items imported!`);
-      setCsvModal(false);
-      setCsvPreview([]);
-      await load();
-    } catch (e) {
-      toast.error('Import failed: ' + e.message);
-    } finally {
-      setCsvImporting(false);
-    }
-  };
-
-  const draggingItem = activeItemId ? filtered.find(i => i.id === activeItemId) : null;
 
   return (
     <AdminLayout>
@@ -327,49 +177,29 @@ export default function AdminItems() {
               <h1 style={S.h1}>Menu Items</h1>
               <p style={S.sub}>Manage, edit, reorder and add offers to your approved AR menu items.</p>
             </div>
-            <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-              <div style={{ padding:'10px 18px', borderRadius:12, background:'rgba(143,196,168,0.15)', border:'1px solid rgba(143,196,168,0.35)', fontSize:13, fontWeight:600, color:'#1A5A38' }}>
-                {items.filter(i=>i.isActive).length} active · {items.length} total
-              </div>
-              <button onClick={() => csvInputRef.current?.click()} style={{ padding:'10px 18px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'#fff', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.7)', cursor:'pointer', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }} onMouseOver={e=>e.currentTarget.style.borderColor='#E05A3A'} onMouseOut={e=>e.currentTarget.style.borderColor='rgba(42,31,16,0.12)'}>
-                📥 Import CSV
-              </button>
-              <input type='file' accept='.csv,text/csv' style={{ display:'none' }} ref={csvInputRef} onChange={e => handleCSVFile(e.target.files[0])} />
+            <div style={{ padding:'10px 18px', borderRadius:12, background:'rgba(143,196,168,0.15)', border:'1px solid rgba(143,196,168,0.35)', fontSize:13, fontWeight:600, color:'#1A5A38' }}>
+              {items.filter(i=>i.isActive).length} active · {items.length} total
             </div>
           </div>
 
-          {/* Search */}
-          <div style={{ marginBottom:14 }}>
-            <div style={{ position:'relative' }}>
-              <span style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'rgba(42,31,16,0.35)', fontSize:15 }}>&#128269;</span>
+          {/* Search + filter bar */}
+          <div style={{ display:'flex', gap:10, marginBottom:20, flexWrap:'wrap' }}>
+            <div style={{ position:'relative', flex:1, minWidth:200 }}>
+              <span style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'rgba(42,31,16,0.35)', fontSize:15 }}>🔍</span>
               <input className="inp" style={{ ...S.input, paddingLeft:38, borderRadius:30 }} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search items…" />
             </div>
-          </div>
-
-          {/* Drag-sortable category pills */}
-          <div style={{ marginBottom:20 }}>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCatDragEnd}>
-              <SortableContext items={catOrder} strategy={horizontalListSortingStrategy}>
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
-                  <button
-                    onClick={() => setCatFilter('all')}
-                    style={{ padding:'9px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', background:catFilter==='all'?'#1E1B18':'#fff', color:catFilter==='all'?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow:catFilter==='all'?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s', whiteSpace:'nowrap' }}>
-                    All ({items.length})
-                  </button>
-                  {catOrder.map(c => (
-                    <SortableCatPill key={c} id={c} label={c} isActive={catFilter === c} totalCount={items.length} onClick={() => setCatFilter(c)} />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-            <p style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:8, marginBottom:0 }}>
-              💡 Drag category pills to reorder them
-            </p>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {categories.map(c => (
+                <button key={c} onClick={()=>setCatFilter(c)} style={{ padding:'9px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background:catFilter===c?'#1E1B18':'#fff', color:catFilter===c?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow:catFilter===c?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
+                  {c === 'all' ? `All (${items.length})` : c}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Legend */}
           <div style={{ display:'flex', gap:16, marginBottom:16, flexWrap:'wrap' }}>
-            {[['⠿ drag','Reorder items'],['⬆⬇ arrows','Quick reorder'],['✦','Popular badge'],['🏷','Offer / badge'],['◐','Active toggle']].map(([icon,label])=>(
+            {[['⬆⬇ arrows','Reorder priority'],['✦','Popular badge'],['🏷','Offer / badge'],['◐','Active toggle']].map(([icon,label])=>(
               <div key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(42,31,16,0.4)' }}>
                 <span style={{ fontSize:12 }}>{icon}</span>{label}
               </div>
@@ -388,194 +218,217 @@ export default function AdminItems() {
           ) : (
             <div style={{ ...S.card, overflow:'hidden' }}>
               {/* Table header */}
-              <div style={{ display:'grid', gridTemplateColumns:'36px 40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'11px 18px', borderBottom:'1px solid rgba(42,31,16,0.06)', background:'#FAFAF8' }}>
-                {['⠿','⇕','','Item','Category','Prep','Spice','Status','Actions'].map(h=>(
+              <div style={{ display:'grid', gridTemplateColumns:'40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'11px 18px', borderBottom:'1px solid rgba(42,31,16,0.06)', background:'#FAFAF8' }}>
+                {['↕','','Item','Category','Prep','Spice','Status','Actions'].map(h=>(
                   <div key={h} style={{ fontSize:10, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase' }}>{h}</div>
                 ))}
               </div>
 
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={({ active }) => setActiveItemId(active.id)}
-                onDragEnd={handleItemDragEnd}
-                onDragCancel={() => setActiveItemId(null)}
-              >
-                <SortableContext items={filtered.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                  {filtered.map((item, idx) => {
-                    const isEdit = editId === item.id;
-                    return (
-                      <SortableItemRow key={item.id} id={item.id}>
-                        {({ dragHandleProps, isDragging }) => (
-                          <div style={{ opacity: isDragging ? 0.4 : item.isActive ? 1 : 0.5 }}>
+              {filtered.map((item, idx) => {
+                const isEdit = editId === item.id;
+                const popularity = (item.views||0) + (item.arViews||0)*2;
+                return (
+                  <div key={item.id}>
+                    {/* Main row */}
+                    <div className="item-row" style={{ display:'grid', gridTemplateColumns:'40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'13px 18px', borderBottom: isEdit ? 'none' : '1px solid rgba(42,31,16,0.05)', alignItems:'center', background:'#fff', transition:'background 0.12s', opacity: item.isActive ? 1 : 0.5 }}>
 
-                            <div className="item-row" style={{ display:'grid', gridTemplateColumns:'36px 40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'13px 18px', borderBottom: isEdit ? 'none' : '1px solid rgba(42,31,16,0.05)', alignItems:'center', background: isDragging ? '#FFF8F0' : '#fff', transition:'background 0.12s' }}>
+                      {/* Reorder arrows */}
+                      <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                        <button className="act-btn" onClick={()=>moveItem(item,'up')} disabled={idx===0} style={{ width:22, height:22, borderRadius:6, border:'1px solid rgba(42,31,16,0.1)', background:'transparent', cursor:'pointer', fontSize:10, color:'rgba(42,31,16,0.45)', opacity:idx===0?0.25:0.7, display:'flex', alignItems:'center', justifyContent:'center' }}>▲</button>
+                        <button className="act-btn" onClick={()=>moveItem(item,'down')} disabled={idx===filtered.length-1} style={{ width:22, height:22, borderRadius:6, border:'1px solid rgba(42,31,16,0.1)', background:'transparent', cursor:'pointer', fontSize:10, color:'rgba(42,31,16,0.45)', opacity:idx===filtered.length-1?0.25:0.7, display:'flex', alignItems:'center', justifyContent:'center' }}>▼</button>
+                      </div>
 
-                              {/* Drag handle */}
-                              <div
-                                {...dragHandleProps}
-                                title="Drag to reorder"
-                                style={{ display:'flex', alignItems:'center', justifyContent:'center', cursor: isDragging ? 'grabbing' : 'grab', touchAction:'none', color:'rgba(42,31,16,0.3)', fontSize:16, userSelect:'none' }}
-                              >
-                                ⠿
-                              </div>
+                      {/* Image */}
+                      <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                        {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🍽️</div>}
+                      </div>
 
-                              {/* Arrow buttons */}
-                              <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                                <button className="act-btn" onClick={()=>moveItem(item,'up')} disabled={idx===0} style={{ width:22, height:22, borderRadius:6, border:'1px solid rgba(42,31,16,0.1)', background:'transparent', cursor:'pointer', fontSize:10, color:'rgba(42,31,16,0.45)', opacity:idx===0?0.25:0.7, display:'flex', alignItems:'center', justifyContent:'center' }}>▲</button>
-                                <button className="act-btn" onClick={()=>moveItem(item,'down')} disabled={idx===filtered.length-1} style={{ width:22, height:22, borderRadius:6, border:'1px solid rgba(42,31,16,0.1)', background:'transparent', cursor:'pointer', fontSize:10, color:'rgba(42,31,16,0.45)', opacity:idx===filtered.length-1?0.25:0.7, display:'flex', alignItems:'center', justifyContent:'center' }}>▼</button>
-                              </div>
+                      {/* Name + badges */}
+                      <div style={{ minWidth:0, paddingRight:8 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                          <span style={{ fontWeight:600, fontSize:13, color:'#1E1B18', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</span>
+                          {item.isPopular && <span style={{ fontSize:10, fontWeight:700, color:'#E05A3A', background:'rgba(224,90,58,0.1)', borderRadius:20, padding:'2px 7px', flexShrink:0 }}>✦ Popular</span>}
+                          {item.offerBadge && item.offerLabel && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background: item.offerColor||'#E05A3A', borderRadius:20, padding:'2px 8px', flexShrink:0 }}>🏷 {item.offerLabel}</span>}
+                        </div>
+                        {item.description && <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.description}</div>}
+                        <div style={{ display:'flex', gap:8, marginTop:3 }}>
+                          {item.price && <span style={{ fontSize:11, fontWeight:600, color:'#1E1B18' }}>₹{item.price}</span>}
+                          <span style={{ fontSize:11, color:'rgba(42,31,16,0.35)' }}>👁 {(item.views||0) + (item.arViews||0)} views</span>
+                        </div>
+                      </div>
 
-                              {/* Image */}
-                              <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
-                                {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🍽️</div>}
-                              </div>
+                      {/* Category */}
+                      <div style={{ fontSize:12, color:'rgba(42,31,16,0.55)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.category || '—'}</div>
 
-                              {/* Name + badges */}
-                              <div style={{ minWidth:0, paddingRight:8 }}>
-                                <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                                  <span style={{ fontWeight:600, fontSize:13, color:'#1E1B18', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</span>
-                                  {item.isPopular && <span style={{ fontSize:10, fontWeight:700, color:'#E05A3A', background:'rgba(224,90,58,0.1)', borderRadius:20, padding:'2px 7px', flexShrink:0 }}>✦ Popular</span>}
-                                  {item.offerBadge && item.offerLabel && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background: item.offerColor||'#E05A3A', borderRadius:20, padding:'2px 8px', flexShrink:0 }}>🏷 {item.offerLabel}</span>}
-                                </div>
-                                {item.description && <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.description}</div>}
-                                <div style={{ display:'flex', gap:8, marginTop:3 }}>
-                                  {item.price && <span style={{ fontSize:11, fontWeight:600, color:'#1E1B18' }}>₹{item.price}</span>}
-                                  <span style={{ fontSize:11, color:'rgba(42,31,16,0.35)' }}>👁 {(item.views||0)+(item.arViews||0)} views</span>
-                                </div>
-                              </div>
+                      {/* Prep time */}
+                      <div style={{ fontSize:11, color:'rgba(42,31,16,0.5)' }}>{item.prepTime ? `⏱ ${item.prepTime}` : '—'}</div>
 
-                              <div style={{ fontSize:12, color:'rgba(42,31,16,0.55)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.category || '—'}</div>
-                              <div style={{ fontSize:11, color:'rgba(42,31,16,0.5)' }}>{item.prepTime ? `⏱ ${item.prepTime}` : '—'}</div>
-                              <div>
-                                {item.spiceLevel && item.spiceLevel !== 'None'
-                                  ? <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20, background:(SPICE_COLORS[item.spiceLevel]||'#ccc')+'22', color:SPICE_COLORS[item.spiceLevel]||'#999', border:`1px solid ${(SPICE_COLORS[item.spiceLevel]||'#ccc')}44` }}>{item.spiceLevel}</span>
-                                  : <span style={{ fontSize:11, color:'rgba(42,31,16,0.3)' }}>—</span>}
-                              </div>
+                      {/* Spice */}
+                      <div>
+                        {item.spiceLevel && item.spiceLevel !== 'None' ? (
+                          <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20, background:(SPICE_COLORS[item.spiceLevel]||'#ccc')+'22', color:SPICE_COLORS[item.spiceLevel]||'#999', border:`1px solid ${(SPICE_COLORS[item.spiceLevel]||'#ccc')}44` }}>{item.spiceLevel}</span>
+                        ) : <span style={{ fontSize:11, color:'rgba(42,31,16,0.3)' }}>—</span>}
+                      </div>
 
-                              {/* Active toggle */}
-                              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                                <div onClick={()=>toggleActive(item)} style={{ width:36, height:20, borderRadius:99, background:item.isActive?'#8FC4A8':'rgba(42,31,16,0.15)', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
-                                  <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:item.isActive?19:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }} />
-                                </div>
-                                <span style={{ fontSize:11, color:'rgba(42,31,16,0.4)' }}>{item.isActive?'On':'Off'}</span>
-                              </div>
+                      {/* Active toggle */}
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <div onClick={()=>toggleActive(item)} style={{ width:36, height:20, borderRadius:99, background:item.isActive?'#8FC4A8':'rgba(42,31,16,0.15)', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
+                          <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:item.isActive?19:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }} />
+                        </div>
+                        <span style={{ fontSize:11, color:'rgba(42,31,16,0.4)' }}>{item.isActive?'On':'Off'}</span>
+                      </div>
 
-                              {/* Actions */}
-                              <div style={{ display:'flex', gap:6 }}>
-                                <button onClick={()=>isEdit?cancelEdit():startEdit(item)} style={{ padding:'6px 12px', borderRadius:9, border:'1.5px solid rgba(42,31,16,0.12)', background:isEdit?'rgba(224,90,58,0.08)':'transparent', color:isEdit?'#C04A28':'rgba(42,31,16,0.6)', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.12s' }}>
-                                  {isEdit ? 'Cancel' : 'Edit'}
-                                </button>
-                                <button onClick={()=>handleDelete(item)} disabled={deleting===item.id} style={{ padding:'6px 10px', borderRadius:9, border:'1.5px solid rgba(244,160,176,0.4)', background:'rgba(244,160,176,0.08)', color:'#8B1A2A', fontSize:12, fontWeight:600, cursor:'pointer', opacity:deleting===item.id?0.5:1 }}>
-                                  {deleting===item.id?'…':'×'}
-                                </button>
-                              </div>
+                      {/* Actions */}
+                      <div style={{ display:'flex', gap:6 }}>
+                        <button onClick={()=>isEdit?cancelEdit():startEdit(item)} style={{ padding:'6px 12px', borderRadius:9, border:'1.5px solid rgba(42,31,16,0.12)', background: isEdit?'rgba(224,90,58,0.08)':'transparent', color: isEdit?'#C04A28':'rgba(42,31,16,0.6)', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.12s' }}>
+                          {isEdit ? 'Cancel' : 'Edit'}
+                        </button>
+                        <button onClick={()=>handleDelete(item)} disabled={deleting===item.id} style={{ padding:'6px 10px', borderRadius:9, border:'1.5px solid rgba(244,160,176,0.4)', background:'rgba(244,160,176,0.08)', color:'#8B1A2A', fontSize:12, fontWeight:600, cursor:'pointer', opacity:deleting===item.id?0.5:1 }}>
+                          {deleting===item.id?'…':'✕'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Edit panel */}
+                    {isEdit && (
+                      <div style={{ background:'#F7F5F2', borderBottom:'1px solid rgba(42,31,16,0.06)', padding:'20px 18px 24px' }}>
+                        <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color:'#1E1B18', marginBottom:18 }}>✏️ Editing: {item.name}</div>
+
+                        {/* Cover image upload */}
+                        <div style={{ background:'#fff', borderRadius:14, padding:16, marginBottom:16, border:'1px solid rgba(42,31,16,0.07)' }}>
+                          <label style={{ ...S.label, marginBottom:10 }}>📸 Cover Image</label>
+                          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                            <div style={{ width:64, height:64, borderRadius:14, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
+                              {item.imageURL
+                                ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                                : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28 }}>🍽️</div>}
                             </div>
+                            <div>
+                              <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginBottom:8 }}>JPG, PNG · Max 5MB · Shown on menu card</div>
+                              <input
+                                type="file" accept="image/*" style={{ display:'none' }}
+                                ref={el => { if(el) imgInputRef.current[item.id]=el; }}
+                                onChange={e => handleImageUpload(item, e.target.files[0])}
+                              />
+                              <button
+                                onClick={() => imgInputRef.current[item.id]?.click()}
+                                disabled={imgUpload[item.id]?.uploading}
+                                style={{ padding:'8px 16px', borderRadius:10, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer', opacity:imgUpload[item.id]?.uploading?0.6:1 }}>
+                                {imgUpload[item.id]?.uploading ? `Uploading ${imgUpload[item.id].progress}%…` : item.imageURL ? '↑ Replace Image' : '↑ Upload Image'}
+                              </button>
+                            </div>
+                          </div>
+                          {imgUpload[item.id]?.uploading && (
+                            <div style={{ height:4, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden', marginTop:10 }}>
+                              <div style={{ height:'100%', background:'#E05A3A', borderRadius:99, width:`${imgUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
+                          <div>
+                            <label style={S.label}>Item Name *</label>
+                            <input className="inp" style={S.input} value={editData.name} onChange={e=>setEditData(d=>({...d,name:e.target.value}))} />
+                          </div>
+                          <div>
+                            <label style={S.label}>Category <span style={{color:'#E05A3A'}}>*</span></label>
+                            <input className="inp" style={{...S.input, borderColor:!editData.category?.trim()?'rgba(224,90,58,0.4)':undefined}} value={editData.category} onChange={e=>setEditData(d=>({...d,category:e.target.value}))} placeholder="e.g. Main Course" />
+                          </div>
+                          <div>
+                            <label style={S.label}>Price (₹)</label>
+                            <input className="inp" style={S.input} type="number" min="0" value={editData.price} onChange={e=>setEditData(d=>({...d,price:e.target.value}))} placeholder="e.g. 299" />
+                          </div>
+                        </div>
+                        <div style={{ marginBottom:14 }}>
+                          <label style={S.label}>Description</label>
+                          <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={editData.description} onChange={e=>setEditData(d=>({...d,description:e.target.value}))} placeholder="Short description…" />
+                        </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
+                          <div>
+                            <label style={S.label}>⏱ Prep Time</label>
+                            <input className="inp" style={S.input} value={editData.prepTime} onChange={e=>setEditData(d=>({...d,prepTime:e.target.value}))} placeholder="10–15 minutes" />
+                          </div>
+                          <div>
+                            <label style={S.label}>🌶 Spice Level <span style={{color:'#E05A3A'}}>*</span></label>
+                            <select className="inp" style={S.input} value={editData.spiceLevel} onChange={e=>setEditData(d=>({...d,spiceLevel:e.target.value}))}>
+                              {SPICE_LEVELS.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={S.label}>Priority Order</label>
+                            <input className="inp" style={S.input} type="number" min="1" value={editData.sortOrder} onChange={e=>setEditData(d=>({...d,sortOrder:e.target.value}))} placeholder="1 = first" />
+                          </div>
+                        </div>
 
-                            {/* Edit panel */}
-                            {isEdit && (
-                              <div style={{ background:'#F7F5F2', borderBottom:'1px solid rgba(42,31,16,0.06)', padding:'20px 18px 24px' }}>
-                                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color:'#1E1B18', marginBottom:18 }}>✏️ Editing: {item.name}</div>
-                                <div style={{ background:'#fff', borderRadius:14, padding:16, marginBottom:16, border:'1px solid rgba(42,31,16,0.07)' }}>
-                                  <label style={{ ...S.label, marginBottom:10 }}>📸 Cover Image</label>
-                                  <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-                                    <div style={{ width:64, height:64, borderRadius:14, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
-                                      {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28 }}>🍽️</div>}
-                                    </div>
-                                    <div>
-                                      <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginBottom:8 }}>JPG, PNG · Max 5MB · Shown on menu card</div>
-                                      <input type="file" accept="image/*" style={{ display:'none' }} ref={el => { if(el) imgInputRef.current[item.id]=el; }} onChange={e => handleImageUpload(item, e.target.files[0])} />
-                                      <button onClick={() => imgInputRef.current[item.id]?.click()} disabled={imgUpload[item.id]?.uploading} style={{ padding:'8px 16px', borderRadius:10, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer', opacity:imgUpload[item.id]?.uploading?0.6:1 }}>
-                                        {imgUpload[item.id]?.uploading ? `Uploading ${imgUpload[item.id].progress}%…` : item.imageURL ? '↑ Replace Image' : '↑ Upload Image'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                  {imgUpload[item.id]?.uploading && (
-                                    <div style={{ height:4, background:'rgba(42,31,16,0.07)', borderRadius:99, overflow:'hidden', marginTop:10 }}>
-                                      <div style={{ height:'100%', background:'#E05A3A', borderRadius:99, width:`${imgUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
-                                    </div>
-                                  )}
-                                </div>
-                                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
-                                  <div><label style={S.label}>Item Name *</label><input className="inp" style={S.input} value={editData.name} onChange={e=>setEditData(d=>({...d,name:e.target.value}))} /></div>
-                                  <div><label style={S.label}>Category</label><input className="inp" style={S.input} value={editData.category} onChange={e=>setEditData(d=>({...d,category:e.target.value}))} placeholder="e.g. Main Course" /></div>
-                                  <div><label style={S.label}>Price (₹)</label><input className="inp" style={S.input} type="number" min="0" value={editData.price} onChange={e=>setEditData(d=>({...d,price:e.target.value}))} placeholder="e.g. 299" /></div>
-                                </div>
-                                <div style={{ marginBottom:14 }}>
-                                  <label style={S.label}>Description</label>
-                                  <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={editData.description} onChange={e=>setEditData(d=>({...d,description:e.target.value}))} placeholder="Short description…" />
-                                </div>
-                                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
-                                  <div><label style={S.label}>⏱ Prep Time</label><input className="inp" style={S.input} value={editData.prepTime} onChange={e=>setEditData(d=>({...d,prepTime:e.target.value}))} placeholder="10–15 minutes" /></div>
-                                  <div>
-                                    <label style={S.label}>🌶 Spice Level</label>
-                                    <select className="inp" style={S.input} value={editData.spiceLevel} onChange={e=>setEditData(d=>({...d,spiceLevel:e.target.value}))}>
-                                      {SPICE_LEVELS.map(s=><option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                  </div>
-                                  <div><label style={S.label}>Priority Order</label><input className="inp" style={S.input} type="number" min="1" value={editData.sortOrder} onChange={e=>setEditData(d=>({...d,sortOrder:e.target.value}))} placeholder="1 = first" /></div>
-                                </div>
-                                <div style={{ background:'#fff', borderRadius:14, padding:'16px', marginBottom:14, border:'1px solid rgba(42,31,16,0.07)' }}>
-                                  <label style={{ ...S.label, marginBottom:10 }}>🏷 Offer / Badge</label>
-                                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:editData.offerBadge==='Custom…'?12:0 }}>
-                                    <button onClick={()=>setEditData(d=>({...d,offerBadge:'',offerLabel:''}))} style={{ padding:'6px 14px', borderRadius:20, border:`1.5px solid ${!editData.offerBadge?'rgba(42,31,16,0.4)':'rgba(42,31,16,0.1)'}`, background:!editData.offerBadge?'rgba(42,31,16,0.07)':'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer' }}>None</button>
-                                    {OFFER_BADGES.map(b=>(
-                                      <button key={b.label} onClick={()=>setEditData(d=>({...d,offerBadge:b.label,offerLabel:b.label==='Custom…'?d.offerLabel:b.label,offerColor:b.color}))} style={{ padding:'6px 14px', borderRadius:20, border:`1.5px solid ${editData.offerBadge===b.label?b.color:'rgba(42,31,16,0.1)'}`, background:editData.offerBadge===b.label?b.color+'22':'transparent', fontSize:12, fontWeight:700, color:editData.offerBadge===b.label?b.color:'rgba(42,31,16,0.5)', cursor:'pointer' }}>
-                                        {b.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  {editData.offerBadge === 'Custom…' && (
-                                    <input className="inp" style={{ ...S.input, marginTop:8 }} value={customBadge} onChange={e=>setCustomBadge(e.target.value)} placeholder="Enter custom badge text e.g. '30% Off Tonight'" />
-                                  )}
-                                </div>
-                                <div style={{ display:'flex', gap:16, marginBottom:18, flexWrap:'wrap' }}>
-                                  {[['isPopular','✦ Mark as Popular','Show popular badge on menu'],['isFeatured','⭐ Feature this item','Appear at top of category'],['isActive','👁 Visible on menu','Customers can see this item']].map(([key,title,desc])=>(
-                                    <div key={key} onClick={()=>setEditData(d=>({...d,[key]:!d[key]}))} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderRadius:12, border:`1.5px solid ${editData[key]?'rgba(224,90,58,0.35)':'rgba(42,31,16,0.09)'}`, background:editData[key]?'rgba(224,90,58,0.05)':'#fff', cursor:'pointer', transition:'all 0.15s' }}>
-                                      <div style={{ width:32, height:18, borderRadius:99, background:editData[key]?'#E05A3A':'rgba(42,31,16,0.15)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
-                                        <div style={{ width:12, height:12, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:editData[key]?17:3, transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
-                                      </div>
-                                      <div>
-                                        <div style={{ fontSize:12, fontWeight:700, color:'#1E1B18' }}>{title}</div>
-                                        <div style={{ fontSize:10, color:'rgba(42,31,16,0.4)' }}>{desc}</div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div style={{ display:'flex', gap:10 }}>
-                                  <button onClick={saveEdit} disabled={saving} style={{ padding:'11px 28px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:saving?0.6:1 }}>
-                                    {saving ? 'Saving…' : 'Save Changes'}
-                                  </button>
-                                  <button onClick={cancelEdit} style={{ padding:'11px 20px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.55)', cursor:'pointer' }}>
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
+                        {/* Veg / Non-Veg required field */}
+                        <div style={{ marginBottom:14 }}>
+                          <label style={{ ...S.label, marginBottom:8 }}>Veg / Non-Veg <span style={{color:'#E05A3A'}}>*</span></label>
+                          <div style={{ display:'flex', gap:10 }}>
+                            {[{val:true,label:'🟢 Veg',bg:'#2D8B4E'},{val:false,label:'🔴 Non-Veg',bg:'#C0392B'}].map(({val,label,bg})=>(
+                              <button key={String(val)}
+                                onClick={()=>setEditData(d=>({...d,isVeg:val}))}
+                                style={{
+                                  padding:'9px 22px', borderRadius:50, border:`2px solid ${editData.isVeg===val?bg:'rgba(42,31,16,0.12)'}`,
+                                  background: editData.isVeg===val ? bg+'18' : '#fff',
+                                  fontSize:13, fontWeight:700, color: editData.isVeg===val ? bg : 'rgba(42,31,16,0.45)',
+                                  cursor:'pointer', transition:'all 0.15s'
+                                }}>
+                                {label}
+                              </button>
+                            ))}
+                            {(editData.isVeg === undefined || editData.isVeg === null || editData.isVeg === '') && (
+                              <span style={{ fontSize:11, color:'#E05A3A', alignSelf:'center', marginLeft:4 }}>Required</span>
                             )}
                           </div>
-                        )}
-                      </SortableItemRow>
-                    );
-                  })}
-                </SortableContext>
+                        </div>
 
-                <DragOverlay adjustScale={false}>
-                  {draggingItem ? (
-                    <div style={{ display:'grid', gridTemplateColumns:'36px 40px 56px 1fr', gap:0, padding:'13px 18px', alignItems:'center', background:'#fff', borderRadius:14, boxShadow:'0 16px 48px rgba(42,31,16,0.22)', border:'1.5px solid rgba(247,155,61,0.3)', opacity:0.97 }}>
-                      <div style={{ color:'rgba(42,31,16,0.4)', fontSize:16, textAlign:'center' }}>⠿</div>
-                      <div />
-                      <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#F2F0EC' }}>
-                        {draggingItem.imageURL ? <img src={draggingItem.imageURL} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🍽️</div>}
+                        {/* Offer badge section */}
+                        <div style={{ background:'#fff', borderRadius:14, padding:'16px', marginBottom:14, border:'1px solid rgba(42,31,16,0.07)' }}>
+                          <label style={{ ...S.label, marginBottom:10 }}>🏷 Offer / Badge</label>
+                          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:editData.offerBadge==='Custom…'?12:0 }}>
+                            <button onClick={()=>setEditData(d=>({...d,offerBadge:'',offerLabel:''}))} style={{ padding:'6px 14px', borderRadius:20, border:`1.5px solid ${!editData.offerBadge?'rgba(42,31,16,0.4)':'rgba(42,31,16,0.1)'}`, background:!editData.offerBadge?'rgba(42,31,16,0.07)':'transparent', fontSize:12, fontWeight:600, color:'rgba(42,31,16,0.6)', cursor:'pointer' }}>None</button>
+                            {OFFER_BADGES.map(b=>(
+                              <button key={b.label} onClick={()=>setEditData(d=>({...d,offerBadge:b.label,offerLabel:b.label==='Custom…'?d.offerLabel:b.label,offerColor:b.color}))} style={{ padding:'6px 14px', borderRadius:20, border:`1.5px solid ${editData.offerBadge===b.label?b.color:'rgba(42,31,16,0.1)'}`, background:editData.offerBadge===b.label?b.color+'22':'transparent', fontSize:12, fontWeight:700, color:editData.offerBadge===b.label?b.color:'rgba(42,31,16,0.5)', cursor:'pointer' }}>
+                                {b.label}
+                              </button>
+                            ))}
+                          </div>
+                          {editData.offerBadge === 'Custom…' && (
+                            <input className="inp" style={{ ...S.input, marginTop:8 }} value={customBadge} onChange={e=>setCustomBadge(e.target.value)} placeholder="Enter custom badge text e.g. '30% Off Tonight'" />
+                          )}
+                        </div>
+
+                        {/* Flags row */}
+                        <div style={{ display:'flex', gap:16, marginBottom:18, flexWrap:'wrap' }}>
+                          {[['isPopular','✦ Mark as Popular','Show popular badge on menu'],['isFeatured','⭐ Feature this item','Appear at top of category'],['isActive','👁 Visible on menu','Customers can see this item']].map(([key,title,desc])=>(
+                            <div key={key} onClick={()=>setEditData(d=>({...d,[key]:!d[key]}))} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderRadius:12, border:`1.5px solid ${editData[key]?'rgba(224,90,58,0.35)':'rgba(42,31,16,0.09)'}`, background:editData[key]?'rgba(224,90,58,0.05)':'#fff', cursor:'pointer', transition:'all 0.15s' }}>
+                              <div style={{ width:32, height:18, borderRadius:99, background:editData[key]?'#E05A3A':'rgba(42,31,16,0.15)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
+                                <div style={{ width:12, height:12, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:editData[key]?17:3, transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
+                              </div>
+                              <div>
+                                <div style={{ fontSize:12, fontWeight:700, color:'#1E1B18' }}>{title}</div>
+                                <div style={{ fontSize:10, color:'rgba(42,31,16,0.4)' }}>{desc}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{ display:'flex', gap:10 }}>
+                          <button onClick={saveEdit} disabled={saving} style={{ padding:'11px 28px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:saving?0.6:1 }}>
+                            {saving ? 'Saving…' : 'Save Changes'}
+                          </button>
+                          <button onClick={cancelEdit} style={{ padding:'11px 20px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.55)', cursor:'pointer' }}>
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ fontWeight:600, fontSize:13, color:'#1E1B18', paddingLeft:8, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{draggingItem.name}</div>
-                    </div>
-                  ) : null}
-                </DragOverlay>
-              </DndContext>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Popularity insight */}
+          {/* Popularity insight card */}
           {!loading && items.length > 0 && (
             <div style={{ ...S.card, padding:24, marginTop:20 }}>
               <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:16 }}>📊 Most Popular Items</div>
@@ -585,7 +438,8 @@ export default function AdminItems() {
                   .slice(0,5)
                   .map((item, i) => {
                     const score = (item.views||0) + (item.arViews||0)*2;
-                    const pct   = Math.max(8, Math.round((score / Math.max(...items.map(x=>(x.views||0)+(x.arViews||0)*2),1)) * 100));
+                    const maxScore = (items[0]?.views||0) + (items[0]?.arViews||0)*2 || 1;
+                    const pct = Math.max(8, Math.round((score / Math.max(...items.map(x=>(x.views||0)+(x.arViews||0)*2),1)) * 100));
                     return (
                       <div key={item.id} style={{ display:'flex', alignItems:'center', gap:12 }}>
                         <span style={{ fontSize:11, color:'rgba(42,31,16,0.35)', width:16, textAlign:'right', flexShrink:0 }}>#{i+1}</span>
@@ -604,83 +458,6 @@ export default function AdminItems() {
                       </div>
                     );
                   })}
-              </div>
-            </div>
-          )}
-
-          {/* ─── CSV Import Modal ─── */}
-          {csvModal && (
-            <div style={{ position:'fixed', inset:0, zIndex:100, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-              <div style={{ background:'#fff', borderRadius:20, padding:28, width:'100%', maxWidth:640, maxHeight:'80vh', display:'flex', flexDirection:'column', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-                  <div>
-                    <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#1E1B18' }}>📥 Import Menu Items</div>
-                    <div style={{ fontSize:12, color:'rgba(42,31,16,0.45)', marginTop:3 }}>
-                      CSV columns: <code style={{ background:'#F7F5F2', padding:'1px 6px', borderRadius:4 }}>name, category, price, description, spiceLevel, isVeg, prepTime, calories</code>
-                    </div>
-                  </div>
-                  <button onClick={() => { setCsvModal(false); setCsvPreview([]); setCsvError(''); }} style={{ width:32, height:32, borderRadius:'50%', border:'1px solid rgba(42,31,16,0.12)', background:'transparent', cursor:'pointer', fontSize:14, color:'rgba(42,31,16,0.5)' }}>✕</button>
-                </div>
-
-                {csvError && (
-                  <div style={{ padding:'12px 16px', background:'rgba(139,26,42,0.08)', border:'1px solid rgba(139,26,42,0.2)', borderRadius:10, color:'#8B1A2A', fontSize:13, marginBottom:16 }}>
-                    ⚠ {csvError}
-                  </div>
-                )}
-
-                {csvPreview.length > 0 && (
-                  <>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#1E1B18', marginBottom:10 }}>
-                      Preview — {csvPreview.length} items ready to import
-                    </div>
-                    <div style={{ flex:1, overflowY:'auto', border:'1px solid rgba(42,31,16,0.08)', borderRadius:12, marginBottom:18 }}>
-                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                        <thead>
-                          <tr style={{ background:'#FAFAF8', borderBottom:'1px solid rgba(42,31,16,0.08)' }}>
-                            {['Name','Category','Price','Spice','Veg'].map(h => (
-                              <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.05em', textTransform:'uppercase', fontSize:10 }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {csvPreview.map((row, i) => (
-                            <tr key={i} style={{ borderBottom:'1px solid rgba(42,31,16,0.05)' }}>
-                              <td style={{ padding:'9px 14px', fontWeight:600, color:'#1E1B18' }}>{row.name}</td>
-                              <td style={{ padding:'9px 14px', color:'rgba(42,31,16,0.55)' }}>{row.category || '—'}</td>
-                              <td style={{ padding:'9px 14px', color:'rgba(42,31,16,0.55)' }}>{row.price ? `₹${row.price}` : '—'}</td>
-                              <td style={{ padding:'9px 14px', color:'rgba(42,31,16,0.55)' }}>{row.spiceLevel || '—'}</td>
-                              <td style={{ padding:'9px 14px' }}>
-                                {row.isVeg === true  ? <span style={{ color:'#2A8048', fontWeight:600 }}>● Veg</span>   :
-                                 row.isVeg === false ? <span style={{ color:'#C03020', fontWeight:600 }}>● Non-Veg</span> :
-                                 <span style={{ color:'rgba(42,31,16,0.3)' }}>—</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div style={{ display:'flex', gap:10 }}>
-                      <button onClick={handleCSVImport} disabled={csvImporting} style={{ padding:'12px 28px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:csvImporting?0.6:1 }}>
-                        {csvImporting ? 'Importing…' : `Import ${csvPreview.length} Items`}
-                      </button>
-                      <button onClick={() => { setCsvModal(false); setCsvPreview([]); }} style={{ padding:'12px 20px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(42,31,16,0.55)', cursor:'pointer' }}>
-                        Cancel
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {!csvPreview.length && !csvError && (
-                  <div style={{ textAlign:'center', padding:'40px 0', color:'rgba(42,31,16,0.4)' }}>
-                    <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
-                    <p style={{ fontSize:14 }}>Select a CSV file to preview items before importing.</p>
-                    <a href="data:text/csv;charset=utf-8,name,category,price,description,spiceLevel,isVeg,prepTime%0AGrilled Fish,Chef's Special,690,Grilled with herbs,Mild,false,20 mins"
-                       download="menu_template.csv"
-                       style={{ fontSize:12, color:'#E05A3A', textDecoration:'none', fontWeight:600 }}>
-                      ↓ Download template CSV
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
           )}

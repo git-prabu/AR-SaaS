@@ -22,6 +22,8 @@ export default function SuperAdminRequests() {
   const [modelFiles, setModelFiles] = useState({});
   const [uploading,  setUploading]  = useState(null);
   const [progress,   setProgress]   = useState(0);
+  const [generating, setGenerating] = useState(null); // reqId of AR being generated
+  const [genStatus,  setGenStatus]  = useState({});   // { [reqId]: 'generating'|'done'|'error' }
 
   const load = async () => {
     setLoading(true);
@@ -66,6 +68,41 @@ export default function SuperAdminRequests() {
       load();
     } catch (err) { toast.error('Approval failed: '+err.message); }
     finally { setUploading(null); setProgress(0); }
+  };
+
+
+  const handleGenerateModel = async (req) => {
+    if (!req.imageURL) { toast.error('No dish photo found — upload a photo to the item first'); return; }
+    setGenerating(req.id);
+    setGenStatus(s => ({ ...s, [req.id]: 'generating' }));
+    const toastId = toast.loading('Generating 3D model (this takes ~2 min)…');
+    try {
+      const res = await fetch('/api/generate-model', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ imageUrl: req.imageURL, itemName: req.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.code === 'NO_API_KEY') {
+          toast.error('MESHY_API_KEY not configured in .env — see Vercel environment variables', { id: toastId, duration: 6000 });
+        } else {
+          toast.error(data.error || 'Generation failed', { id: toastId });
+        }
+        setGenStatus(s => ({ ...s, [req.id]: 'error' }));
+        return;
+      }
+      // Fetch the generated .glb as a File so it can be used with existing handleApprove
+      const glbRes = await fetch(data.modelUrl);
+      const blob   = await glbRes.blob();
+      const file   = new File([blob], `${req.name.replace(/\s+/g, '_')}_ar.glb`, { type: 'model/gltf-binary' });
+      setModelFiles(f => ({ ...f, [req.id]: file }));
+      setGenStatus(s => ({ ...s, [req.id]: 'done' }));
+      toast.success('3D model generated! Review and click Approve & Publish.', { id: toastId, duration: 5000 });
+    } catch (err) {
+      toast.error('Generation error: ' + err.message, { id: toastId });
+      setGenStatus(s => ({ ...s, [req.id]: 'error' }));
+    } finally { setGenerating(null); }
   };
 
   const handleReject = async (req) => {
@@ -181,6 +218,38 @@ export default function SuperAdminRequests() {
                                   <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#E05A3A,#F07050)', width:`${progress}%`, transition:'width 0.3s' }} />
                                 </div>
                               )}
+                              {/* AI Generate from Photo */}
+                              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                                <div style={{ flex:1, height:1, background:'rgba(42,31,16,0.08)' }}/>
+                                <span style={{ fontSize:10, color:'rgba(42,31,16,0.35)', fontWeight:600, letterSpacing:'0.05em' }}>OR</span>
+                                <div style={{ flex:1, height:1, background:'rgba(42,31,16,0.08)' }}/>
+                              </div>
+                              <button
+                                onClick={()=>handleGenerateModel(req)}
+                                disabled={!!generating || !!uploading}
+                                style={{
+                                  width:'100%', padding:'12px', borderRadius:12,
+                                  border:'1.5px solid rgba(247,155,61,0.4)',
+                                  background: genStatus[req.id]==='done' ? 'rgba(45,139,78,0.08)' : genStatus[req.id]==='error' ? 'rgba(200,30,30,0.06)' : 'rgba(247,155,61,0.07)',
+                                  cursor: (!!generating || !!uploading) ? 'not-allowed' : 'pointer',
+                                  opacity: (!!generating || !!uploading) ? 0.6 : 1,
+                                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                                  transition:'all 0.2s'
+                                }}>
+                                <span style={{ fontSize:16 }}>
+                                  {generating===req.id ? '⏳' : genStatus[req.id]==='done' ? '✅' : genStatus[req.id]==='error' ? '❌' : '🤖'}
+                                </span>
+                                <div>
+                                  <div style={{ fontSize:13, fontWeight:700, fontFamily:'Poppins,sans-serif', color: genStatus[req.id]==='done'?'#1A6B3A':genStatus[req.id]==='error'?'#8B1A1A':'#A06010' }}>
+                                    {generating===req.id ? 'Generating 3D Model…' : genStatus[req.id]==='done' ? '3D Model Ready ↓ Approve to publish' : genStatus[req.id]==='error' ? 'Generation failed — try again' : 'Generate 3D from Dish Photo'}
+                                  </div>
+                                  {generating!==req.id && genStatus[req.id]!=='done' && (
+                                    <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', textAlign:'left' }}>
+                                      {req.imageURL ? 'Uses AI to auto-create a .glb from the dish photo (~2 min)' : '⚠️ No dish photo — upload one first'}
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
                               <div style={{ display:'flex', gap:10 }}>
                                 <button onClick={()=>handleApprove(req)} disabled={!modelFiles[req.id]||uploading===req.id} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#4ABA70,#2A9A50)', color:'#fff', fontSize:13, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:(!modelFiles[req.id]||uploading===req.id)?0.45:1 }}>
                                   {uploading===req.id?'Publishing…':'✓ Approve & Publish'}
