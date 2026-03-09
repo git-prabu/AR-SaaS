@@ -363,47 +363,67 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
     finally { setWaiterSending(false); }
   }, [restaurant?.id, restaurant?.name, waiterReason, waiterTable]);
 
-  /* ─── AI Upsell fetcher ─── */
-  const fetchUpsell = useCallback(async (item) => {
+  /* ─── Smart Rule-Based Upsell ─── */
+  const fetchUpsell = useCallback((item) => {
     if (!menuItems?.length) return;
     setUpsellItems([]);
-    setUpsellLoading(true);
-    try {
-      const otherItems = (menuItems || [])
-        .filter(i => i.id !== item.id && i.isActive !== false)
-        .map(i => `${i.name} (${i.category || 'other'})`);
-      if (otherItems.length < 2) { setUpsellLoading(false); return; }
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 200,
-          messages: [{
-            role: 'user',
-            content: `A customer is looking at "${item.name}" (${item.category || 'food'}). From this restaurant menu, pick exactly 2-3 items that pair well with it. Reply ONLY with a JSON array of item names, no explanation. Menu: ${otherItems.slice(0, 40).join(', ')}`
-          }]
-        })
-      });
-      const data  = await response.json();
-      const text  = data.content?.[0]?.text || '';
-      const clean = text.replace(/```json|```/g, '').trim();
-      const names = JSON.parse(clean);
-      // Match names back to full item objects
-      const matched = names
-        .map(n => (menuItems || []).find(i => i.name === n || i.name.toLowerCase() === n.toLowerCase()))
-        .filter(Boolean)
-        .slice(0, 3);
-      setUpsellItems(matched);
-    } catch (e) {
-      // Fallback: same-category items
-      const same = (menuItems || []).filter(i => i.id !== item.id && i.category === item.category).slice(0, 2);
-      const diff = (menuItems || []).filter(i => i.id !== item.id && i.category !== item.category).slice(0, 1);
-      setUpsellItems([...same, ...diff].slice(0, 3));
-    } finally {
-      setUpsellLoading(false);
+    const cat  = (item.category || '').toLowerCase();
+    const name = (item.name || '').toLowerCase();
+    const all  = (menuItems || []).filter(i => i.id !== item.id && i.isActive !== false);
+
+    // Category affinity map — what goes well with what
+    const AFFINITY = {
+      'pizza':        ['starters','mocktails','beverages','cocktails','desserts'],
+      'pasta':        ['starters','beverages','mocktails','desserts'],
+      'burgers':      ['starters','mocktails','beverages','desserts'],
+      'starters':     ['mocktails','beverages','cocktails','main course','pasta'],
+      'main course':  ['starters','beverages','mocktails','desserts'],
+      "chef's special":['starters','beverages','mocktails','desserts'],
+      'breakfast':    ['beverages','mocktails','desserts'],
+      'desserts':     ['mocktails','beverages','cocktails'],
+      'mocktails':    ['starters','pizza','burgers','pasta'],
+      'cocktails':    ['starters','pizza','burgers'],
+      'beverages':    ['starters','pizza','pasta','main course'],
+      'side dish':    ['main course',"chef's special",'pizza','pasta'],
+    };
+
+    // Score every item
+    const scored = all.map(candidate => {
+      const ccat = (candidate.category || '').toLowerCase();
+      let score   = 0;
+
+      // 1. Affinity match — preferred category pairing
+      const affinityList = AFFINITY[cat] || [];
+      if (affinityList.includes(ccat)) score += 30;
+
+      // 2. Popularity signals
+      score += Math.min((candidate.views || 0) * 0.5, 15);
+      score += Math.min((candidate.arViews || 0) * 1.0, 10);
+      score += Math.min((candidate.ratingAvg || 0) * 3, 15);
+
+      // 3. Don't suggest exact same category (unless no affinities matched)
+      if (ccat === cat) score += 5;
+
+      // 4. Slight penalty for very similar names (e.g. "Pasta X" → "Pasta Y" less interesting)
+      const sharedWords = name.split(' ').filter(w => w.length > 3 && ccat.includes(w));
+      score -= sharedWords.length * 8;
+
+      // 5. Prefer items with images
+      if (candidate.imageURL) score += 5;
+
+      return { ...candidate, _score: score };
+    });
+
+    // Sort by score, take top 3, shuffle top 5 slightly for variety
+    scored.sort((a, b) => b._score - a._score);
+    const top5    = scored.slice(0, 5);
+    // Fisher-Yates shuffle on top5 then take 3
+    for (let i = top5.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [top5[i], top5[j]] = [top5[j], top5[i]];
     }
+    setUpsellItems(top5.slice(0, 3));
   }, [menuItems]);
 
   const openItem = useCallback(async (item) => {
@@ -815,10 +835,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
         .ar-hint { text-align:center; font-size:11px; color:#7A7A7A; margin-top:9px; letter-spacing:-0.1px; }
 
         /* ─────────── FAB — properly centered ─────────── */
-        .fab-wrap { display:flex; flex-direction:row; align-items:center; gap:12px; justify-content:center;
+        .fab-wrap {
           position: fixed;
           bottom: 28px; left: 0; right: 0;
-          display: flex; justify-content: center;
+          display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 12px;
           z-index: 45;
           pointer-events: none;
         }
@@ -830,6 +850,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
           font-size: 20px; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: all 0.2s; flex-shrink: 0;
+          pointer-events: all;
         }
         .waiter-fab:hover  { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
         .waiter-fab:active { transform: scale(0.96); }
@@ -1650,17 +1671,12 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
               )}
 
               {/* ─── AI Upsell ─── */}
-              {!showAR && (upsellLoading || upsellItems.length > 0) && (
+              {!showAR && upsellItems.length > 0 && (
                 <div style={{ margin:'8px 0 4px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
                   <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:12 }}>
                     ✨ Pairs Well With
                   </div>
-                  {upsellLoading ? (
-                    <div style={{ display:'flex', gap:8 }}>
-                      {[1,2,3].map(i => <div key={i} style={{ height:60, flex:1, background:'rgba(42,31,16,0.06)', borderRadius:12, animation:'pulse 1.4s ease infinite' }}/>)}
-                    </div>
-                  ) : (
-                    <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
+                  <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
                       {upsellItems.map(u => (
                         <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'rgba(247,155,61,0.07)', border:'1.5px solid rgba(247,155,61,0.2)', borderRadius:14, cursor:'pointer', transition:'all 0.15s', textAlign:'left' }}
                           onMouseOver={e => { e.currentTarget.style.background='rgba(247,155,61,0.14)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.45)'; }}
@@ -1677,7 +1693,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, error })
                         </button>
                       ))}
                     </div>
-                  )}
                 </div>
               )}
             </div>
