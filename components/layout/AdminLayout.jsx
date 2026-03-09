@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 const navItems = [
   { href: '/admin',                  label: 'Overview',       icon: '▦' },
-  { href: '/admin/requests',         label: 'Requests',       icon: '◈' },
+  { href: '/admin/requests',         label: 'Add Item',       icon: '➕' },
   { href: '/admin/items',            label: 'Menu Items',     icon: '🍽' },
   { href: '/admin/combos',           label: 'Combo Builder',  icon: '🍱' },
   { href: '/admin/analytics',        label: 'Analytics',      icon: '◎' },

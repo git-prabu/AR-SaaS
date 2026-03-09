@@ -33,8 +33,13 @@ export default function AdminDashboard() {
   const pendingCount = requests.filter(r => r.status === 'pending').length;
   const storageUsedPct = restaurant ? Math.round(((restaurant.storageUsedMB||0)/(restaurant.maxStorageMB||500))*100) : 0;
   const itemsPct = restaurant ? Math.round(((restaurant.itemsUsed||0)/(restaurant.maxItems||10))*100) : 0;
-  const planColors = { basic:'#A08060', pro:'#E05A3A', premium:'#C4A020' };
-  const planColor = planColors[restaurant?.plan] || '#A08060';
+  const PLAN_MAP = {
+    starter: { label:'Starter', color:'#5A8AC4', bg:'rgba(90,138,196,0.12)' },
+    growth:  { label:'Growth',  color:'#E05A3A', bg:'rgba(224,90,58,0.12)'  },
+    pro:     { label:'Pro',     color:'#8A5AC4', bg:'rgba(138,90,196,0.12)' },
+  };
+  const planInfo  = PLAN_MAP[restaurant?.plan] || PLAN_MAP['starter'];
+  const planColor = planInfo.color;
 
   // Subscription expiry
   const subEnd    = restaurant?.subscriptionEnd;
@@ -48,7 +53,7 @@ export default function AdminDashboard() {
     { label:'Visits (7d)', value:totalVisits, icon:'👁', bg:'rgba(255,255,255,0.65)', accent:'#E05A3A' },
     { label:'Menu Items',  value:restaurant?.itemsUsed||menuItems.length, icon:'🍽️', bg:'rgba(143,196,168,0.3)', accent:'#4A7A5A' },
     { label:'Pending',     value:pendingCount, icon:'📋', bg:'rgba(244,200,100,0.3)', accent:'#B07820' },
-    { label:'Plan',        value:(restaurant?.plan||'basic').toUpperCase(), icon:'💳', bg:'rgba(196,181,212,0.35)', accent:'#7A5A9A' },
+    { label:'Plan', value:planInfo.label, icon:'💳', bg:planInfo.bg, accent:planInfo.color },
   ];
 
   const actions = [
@@ -82,7 +87,7 @@ export default function AdminDashboard() {
           </div>
           <div style={{display:'flex',gap:8}}>
             <span style={{padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,textTransform:'capitalize',background:`${planColor}18`,color:planColor,border:`1.5px solid ${planColor}30`}}>
-              {restaurant?.plan||'basic'} plan
+              {planInfo.label} Plan
             </span>
             <span style={{padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,background:restaurant?.isActive?'rgba(74,122,90,0.12)':'rgba(160,120,80,0.1)',color:restaurant?.isActive?'#3A6A48':'rgba(100,60,30,0.5)',border:`1.5px solid ${restaurant?.isActive?'rgba(74,122,90,0.3)':'rgba(160,120,80,0.2)'}`}}>
               {restaurant?.isActive?'● Active':'○ Inactive'}
