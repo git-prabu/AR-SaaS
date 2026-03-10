@@ -74,6 +74,7 @@ export default function AdminItems() {
       prepTime:    item.prepTime    || '',
       spiceLevel:  item.spiceLevel  || 'None',
       isVeg:       item.isVeg !== undefined ? item.isVeg : '',
+      pairsWith:   item.pairsWith   || [],
       offerBadge:  item.offerBadge  || '',
       offerLabel:  item.offerLabel  || '',
       offerColor:  item.offerColor  || '#E05A3A',
@@ -119,6 +120,7 @@ export default function AdminItems() {
         offerBadge: !!finalLabel,
         sortOrder:  editData.sortOrder !== '' ? Number(editData.sortOrder) : null,
         price:      editData.price !== '' ? Number(editData.price) : null,
+        pairsWith:  editData.pairsWith || [],
       });
       toast.success('Item updated!');
       setEditId(null);
@@ -410,6 +412,37 @@ export default function AdminItems() {
                               </div>
                             </div>
                           ))}
+                        </div>
+
+                        {/* ── Pairs Well With ── */}
+                        <div style={{ background:'#fff', borderRadius:14, padding:'16px', marginBottom:14, border:'1px solid rgba(42,31,16,0.07)' }}>
+                          <label style={{ ...S.label, marginBottom:10 }}>✨ Pairs Well With <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>— pick up to 3 items shown in modal</span></label>
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                            {items.filter(i => i.id !== editId).map(i => {
+                              const sel = (editData.pairsWith||[]).includes(i.id);
+                              const maxed = (editData.pairsWith||[]).length >= 3 && !sel;
+                              return (
+                                <button key={i.id}
+                                  onClick={() => {
+                                    if (maxed) return;
+                                    setEditData(d => ({
+                                      ...d,
+                                      pairsWith: sel
+                                        ? (d.pairsWith||[]).filter(x => x !== i.id)
+                                        : [...(d.pairsWith||[]), i.id]
+                                    }));
+                                  }}
+                                  style={{ padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor: maxed?'not-allowed':'pointer', border:`1.5px solid ${sel?'rgba(247,155,61,0.6)':'rgba(42,31,16,0.1)'}`, background: sel?'rgba(247,155,61,0.1)':'#F7F5F2', color: sel?'#A06010':'rgba(42,31,16,0.5)', opacity: maxed?0.4:1, transition:'all 0.15s' }}>
+                                  {sel ? '✓ ' : ''}{i.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {(editData.pairsWith||[]).length > 0 && (
+                            <div style={{ marginTop:8, fontSize:11, color:'rgba(42,31,16,0.4)' }}>
+                              Selected: {(editData.pairsWith||[]).map(id => items.find(i=>i.id===id)?.name).filter(Boolean).join(', ')}
+                            </div>
+                          )}
                         </div>
 
                         <div style={{ display:'flex', gap:10 }}>

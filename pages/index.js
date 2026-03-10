@@ -522,12 +522,29 @@ export default function HomePage() {
                   <p style={{fontSize:16,color:'rgba(42,31,16,0.58)',lineHeight:1.7,marginBottom:32,maxWidth:380}}>
                     Join 500+ restaurants already growing revenue with AR menus, AI upselling, and real-time analytics.
                   </p>
-                  <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                  <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:28}}>
                     <Link href="/admin/login">
                       <button className="btn-dark" style={{padding:'15px 32px',fontSize:15}}>Start Free Trial →</button>
                     </Link>
-                    <a href="mailto:hello@advertradical.com">
-                      <button className="btn-outline" style={{padding:'15px 24px',fontSize:15}}>Talk to us</button>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                    <a href="mailto:hello@advertradical.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:12,padding:'14px 18px',background:'#FFFFFF',borderRadius:14,border:'1px solid rgba(42,31,16,0.08)',boxShadow:'0 2px 10px rgba(42,31,16,0.05)',transition:'all 0.18s'}}
+                      onMouseOver={e=>e.currentTarget.style.boxShadow='0 6px 20px rgba(42,31,16,0.1)'}
+                      onMouseOut={e=>e.currentTarget.style.boxShadow='0 2px 10px rgba(42,31,16,0.05)'}>
+                      <div style={{width:38,height:38,borderRadius:10,background:'rgba(247,155,61,0.12)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>✉️</div>
+                      <div>
+                        <div style={{fontSize:11,fontWeight:600,color:'rgba(42,31,16,0.45)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>Email Us</div>
+                        <div style={{fontSize:14,fontWeight:700,color:'#1E1B18'}}>hello@advertradical.com</div>
+                      </div>
+                    </a>
+                    <a href="tel:+919876543210" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:12,padding:'14px 18px',background:'#FFFFFF',borderRadius:14,border:'1px solid rgba(42,31,16,0.08)',boxShadow:'0 2px 10px rgba(42,31,16,0.05)',transition:'all 0.18s'}}
+                      onMouseOver={e=>e.currentTarget.style.boxShadow='0 6px 20px rgba(42,31,16,0.1)'}
+                      onMouseOut={e=>e.currentTarget.style.boxShadow='0 2px 10px rgba(42,31,16,0.05)'}>
+                      <div style={{width:38,height:38,borderRadius:10,background:'rgba(45,139,78,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📞</div>
+                      <div>
+                        <div style={{fontSize:11,fontWeight:600,color:'rgba(42,31,16,0.45)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>Call Us</div>
+                        <div style={{fontSize:14,fontWeight:700,color:'#1E1B18'}}>+91 98765 43210</div>
+                      </div>
                     </a>
                   </div>
                 </div>

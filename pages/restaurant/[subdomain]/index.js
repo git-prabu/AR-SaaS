@@ -307,9 +307,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const [waiterTable,   setWaiterTable]   = useState('');
   const [waiterSent,    setWaiterSent]    = useState(false);
   const [waiterSending, setWaiterSending] = useState(false);
-  // AI upsell
-  const [upsellItems,   setUpsellItems]   = useState([]);
-  const [upsellLoading, setUpsellLoading] = useState(false);
+  // Pairs Well With (manual, set by admin per item)
+  // Cart (order tracker — state only, not sent anywhere)
+  const [cart,          setCart]          = useState([]); // [{id,name,price,qty,imageURL}]
+  const [cartOpen,      setCartOpen]      = useState(false);
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -364,72 +365,30 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   }, [restaurant?.id, restaurant?.name, waiterReason, waiterTable]);
 
   /* ─── Smart Rule-Based Upsell ─── */
-  const fetchUpsell = useCallback((item) => {
-    if (!menuItems?.length) return;
-    setUpsellItems([]);
-
-    const cat  = (item.category || '').toLowerCase();
-    const name = (item.name || '').toLowerCase();
-    const all  = (menuItems || []).filter(i => i.id !== item.id && i.isActive !== false);
-
-    // Category affinity map — what goes well with what
-    const AFFINITY = {
-      'pizza':        ['starters','mocktails','beverages','cocktails','desserts'],
-      'pasta':        ['starters','beverages','mocktails','desserts'],
-      'burgers':      ['starters','mocktails','beverages','desserts'],
-      'starters':     ['mocktails','beverages','cocktails','main course','pasta'],
-      'main course':  ['starters','beverages','mocktails','desserts'],
-      "chef's special":['starters','beverages','mocktails','desserts'],
-      'breakfast':    ['beverages','mocktails','desserts'],
-      'desserts':     ['mocktails','beverages','cocktails'],
-      'mocktails':    ['starters','pizza','burgers','pasta'],
-      'cocktails':    ['starters','pizza','burgers'],
-      'beverages':    ['starters','pizza','pasta','main course'],
-      'side dish':    ['main course',"chef's special",'pizza','pasta'],
-    };
-
-    // Score every item
-    const scored = all.map(candidate => {
-      const ccat = (candidate.category || '').toLowerCase();
-      let score   = 0;
-
-      // 1. Affinity match — preferred category pairing
-      const affinityList = AFFINITY[cat] || [];
-      if (affinityList.includes(ccat)) score += 30;
-
-      // 2. Popularity signals
-      score += Math.min((candidate.views || 0) * 0.5, 15);
-      score += Math.min((candidate.arViews || 0) * 1.0, 10);
-      score += Math.min((candidate.ratingAvg || 0) * 3, 15);
-
-      // 3. Don't suggest exact same category (unless no affinities matched)
-      if (ccat === cat) score += 5;
-
-      // 4. Slight penalty for very similar names (e.g. "Pasta X" → "Pasta Y" less interesting)
-      const sharedWords = name.split(' ').filter(w => w.length > 3 && ccat.includes(w));
-      score -= sharedWords.length * 8;
-
-      // 5. Prefer items with images
-      if (candidate.imageURL) score += 5;
-
-      return { ...candidate, _score: score };
+  // ── Cart helpers ─────────────────────────────────────────
+  const addToCart = useCallback((item) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.id === item.id);
+      if (existing) return prev.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c);
+      return [...prev, { id:item.id, name:item.name, price:item.price||0, qty:1, imageURL:item.imageURL||null }];
     });
+  }, []);
+  const removeFromCart = useCallback((id) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.id === id);
+      if (existing?.qty > 1) return prev.map(c => c.id === id ? { ...c, qty: c.qty - 1 } : c);
+      return prev.filter(c => c.id !== id);
+    });
+  }, []);
+  const clearCart  = useCallback(() => setCart([]), []);
+  const cartTotal  = cart.reduce((s, c) => s + c.qty, 0);
+  const cartPrice  = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
+  // ─────────────────────────────────────────────────────────
 
-    // Sort by score, take top 3, shuffle top 5 slightly for variety
-    scored.sort((a, b) => b._score - a._score);
-    const top5    = scored.slice(0, 5);
-    // Fisher-Yates shuffle on top5 then take 3
-    for (let i = top5.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [top5[i], top5[j]] = [top5[j], top5[i]];
-    }
-    setUpsellItems(top5.slice(0, 3));
-  }, [menuItems]);
 
   const openItem = useCallback(async (item) => {
     setSelectedItem(item); setShowAR(false);
     if (restaurant?.id) incrementItemView(restaurant.id, item.id).catch(()=>{});
-    fetchUpsell(item);
   }, [restaurant?.id]);
   const closeItem     = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
   const handleARLaunch = useCallback(async () => {
@@ -881,6 +840,42 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
         .waiter-fab:hover  { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
         .waiter-fab:active { transform: scale(0.96); }
+        /* ─────────── CART ─────────── */
+        .cart-fab {
+          pointer-events: all;
+          display: flex; align-items: center; gap: 8px;
+          padding: 12px 22px; border-radius: 50px; border: none;
+          background: #1E1B18; color: #FFF5E8;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px;
+          cursor: pointer; white-space: nowrap;
+          box-shadow: 0 6px 24px rgba(30,27,24,0.35);
+          transition: transform 0.2s, box-shadow 0.2s;
+          animation: fadeUp 0.4s ease both;
+          position: relative;
+        }
+        .cart-fab:hover  { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(30,27,24,0.45); }
+        .cart-fab:active { transform: scale(0.97); }
+        .cart-badge {
+          position: absolute; top: -6px; right: -6px;
+          width: 20px; height: 20px; border-radius: 50%;
+          background: #F79B3D; color: #fff;
+          font-size: 11px; font-weight: 800;
+          display: flex; align-items: center; justify-content: center;
+          border: 2px solid #1E1B18;
+        }
+        .cart-item-row {
+          display: flex; align-items: center; gap: 12px;
+          padding: 12px 0; border-bottom: 1px solid rgba(42,31,16,0.07);
+        }
+        .cart-item-row:last-child { border-bottom: none; }
+        .qty-btn {
+          width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid rgba(42,31,16,0.15);
+          background: #F7F5F2; font-size: 15px; font-weight: 700; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s; flex-shrink: 0;
+        }
+        .qty-btn:hover { border-color: #E05A3A; color: #E05A3A; }
+
         .sma-fab {
           pointer-events: all;
           display: flex; align-items: center; gap: 8px;
@@ -1497,13 +1492,23 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
       <main className="main">
 
-        {/* Offer */}
-        {offers?.[0] && (
-          <div className="offer-bar">
-            <span style={{fontSize:20}}>🎉</span>
-            <div>
-              <div className="offer-bar-title">{offers[0].title}</div>
-              {offers[0].description && <div className="offer-bar-desc">{offers[0].description}</div>}
+        {/* ── Offers Horizontal Scroll Strip ── */}
+        {(offers||[]).length > 0 && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, paddingInline:4 }}>
+              <span style={{ fontSize:14 }}>🎉</span>
+              <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#FFF5E8':'#1E1B18' }}>Today's Offers</span>
+            </div>
+            <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
+              {(offers||[]).map((offer, i) => (
+                <div key={offer.id||i} style={{ flexShrink:0, minWidth:220, maxWidth:260, padding:'12px 16px', borderRadius:16, background: darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)', border:'1.5px solid rgba(247,155,61,0.3)', display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ fontSize:22, flexShrink:0 }}>🏷️</div>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontWeight:700, fontSize:13, color: darkMode?'#F4D080':'#8B6010', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.title}</div>
+                    {offer.description && <div style={{ fontSize:11, color: darkMode?'rgba(255,220,100,0.6)':'#B09040', marginTop:2, lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.description}</div>}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1636,9 +1641,20 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
       {/* ─── FABs: SMA + Waiter Call ─── */}
       {!selectedItem && !smaOpen && (
         <div className="fab-wrap">
-          <button className="waiter-fab" onClick={() => setWaiterModal(true)} title="Call Waiter">
-            🔔
+          {/* Waiter call — pill shaped, labelled */}
+          <button className="waiter-fab" onClick={() => setWaiterModal(true)}
+            style={{ width:'auto', borderRadius:50, padding:'10px 18px', gap:7, display:'flex', alignItems:'center', background:'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', fontSize:13, fontWeight:700, fontFamily:'Inter,sans-serif', color:'#1E1B18', whiteSpace:'nowrap' }}>
+            🙋 Need Help?
           </button>
+          {/* Cart FAB — only show when cart has items */}
+          {cartTotal > 0 && (
+            <button className="cart-fab" onClick={() => setCartOpen(true)}>
+              <span>🛒</span>
+              <span>{cartTotal} item{cartTotal!==1?'s':''}</span>
+              {cartPrice > 0 && <span style={{ color:'#F79B3D', marginLeft:2 }}>· ₹{cartPrice}</span>}
+              <div className="cart-badge">{cartTotal}</div>
+            </button>
+          )}
           <button className="sma-fab" onClick={openSMA}>
             <span className="sma-fab-icon">✨</span>
             Help Me Choose
@@ -1704,6 +1720,32 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               </>)}
               {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch}/>}
 
+              {/* ── Add to Order List ── */}
+              {(() => {
+                const inCart = cart.find(c => c.id === selectedItem.id);
+                return (
+                  <div style={{ display:'flex', alignItems:'center', gap:10, margin:'16px 0 8px', flexWrap:'wrap' }}>
+                    {inCart ? (
+                      <>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(42,31,16,0.05)', borderRadius:50 }}>
+                          <button className="qty-btn" onClick={()=>removeFromCart(selectedItem.id)}>−</button>
+                          <span style={{ fontWeight:800, fontSize:16, color:'#1E1B18', minWidth:20, textAlign:'center' }}>{inCart.qty}</span>
+                          <button className="qty-btn" onClick={()=>addToCart(selectedItem)}>+</button>
+                        </div>
+                        <span style={{ fontSize:13, color:'rgba(42,31,16,0.5)', fontWeight:600 }}>in your order list</span>
+                      </>
+                    ) : (
+                      <button onClick={()=>addToCart(selectedItem)} style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:50, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
+                        🛒 Add to Order List
+                      </button>
+                    )}
+                    {(selectedItem.price > 0) && (
+                      <span style={{ fontSize:18, fontWeight:800, color:'#E05A3A', fontFamily:'Poppins,sans-serif', marginLeft:'auto' }}>₹{selectedItem.price}</span>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* ─── Star Rating ─── */}
               {!showAR && (
                 <div style={{ margin:'20px 0 8px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
@@ -1738,14 +1780,19 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                 </div>
               )}
 
-              {/* ─── AI Upsell ─── */}
-              {!showAR && upsellItems.length > 0 && (
-                <div style={{ margin:'8px 0 4px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:12 }}>
-                    ✨ Pairs Well With
-                  </div>
-                  <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
-                      {upsellItems.map(u => (
+              {/* ─── Pairs Well With (manual) ─── */}
+              {!showAR && (selectedItem.pairsWith||[]).length > 0 && (() => {
+                const paired = (selectedItem.pairsWith||[])
+                  .map(id => (menuItems||[]).find(i => i.id === id))
+                  .filter(Boolean);
+                if (!paired.length) return null;
+                return (
+                  <div style={{ margin:'8px 0 4px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:12 }}>
+                      ✨ Pairs Well With
+                    </div>
+                    <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
+                      {paired.map(u => (
                         <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'rgba(247,155,61,0.07)', border:'1.5px solid rgba(247,155,61,0.2)', borderRadius:14, cursor:'pointer', transition:'all 0.15s', textAlign:'left' }}
                           onMouseOver={e => { e.currentTarget.style.background='rgba(247,155,61,0.14)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.45)'; }}
                           onMouseOut={e  => { e.currentTarget.style.background='rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.2)'; }}>
@@ -1761,11 +1808,70 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                         </button>
                       ))}
                     </div>
-                </div>
-              )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </SwipeableSheet>
+      )}
+
+
+      {/* ─── CART DRAWER ─── */}
+      {cartOpen && (
+        <div style={{ position:'fixed', inset:0, zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center', background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.18s ease' }}
+          onClick={e => { if(e.target===e.currentTarget) setCartOpen(false); }}>
+          <div style={{ width:'100%', maxWidth:440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius:'24px 24px 0 0', padding:'24px 24px 40px', boxShadow:'0 -8px 40px rgba(0,0,0,0.18)', animation:'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight:'70vh', display:'flex', flexDirection:'column' }}>
+            {/* Handle */}
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
+              <div style={{ width:40, height:5, borderRadius:3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }}/>
+            </div>
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div>
+                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:17, color: darkMode?'#FFF5E8':'#1E1B18' }}>🛒 My Order List</div>
+                <div style={{ fontSize:12, color:'rgba(42,31,16,0.45)', marginTop:2 }}>Show this to your waiter when they come</div>
+              </div>
+              <button onClick={() => setCartOpen(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'rgba(42,31,16,0.4)', lineHeight:1 }}>✕</button>
+            </div>
+            {/* Items */}
+            <div style={{ flex:1, overflowY:'auto', marginBottom:16 }}>
+              {cart.map(c => (
+                <div key={c.id} className="cart-item-row">
+                  {c.imageURL && (
+                    <div style={{ width:44, height:44, borderRadius:10, overflow:'hidden', flexShrink:0 }}>
+                      <img src={c.imageURL} alt={c.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    </div>
+                  )}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14, fontWeight:600, color: darkMode?'#FFF5E8':'#1E1B18', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</div>
+                    {c.price > 0 && <div style={{ fontSize:12, color:'#F79B3D', fontWeight:700 }}>₹{c.price} each</div>}
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                    <button className="qty-btn" onClick={()=>removeFromCart(c.id)}>−</button>
+                    <span style={{ fontWeight:800, fontSize:15, color: darkMode?'#FFF5E8':'#1E1B18', minWidth:18, textAlign:'center' }}>{c.qty}</span>
+                    <button className="qty-btn" onClick={()=>addToCart({ id:c.id, name:c.name, price:c.price, imageURL:c.imageURL })}>+</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Footer */}
+            {cartPrice > 0 && (
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderTop:'1px solid rgba(42,31,16,0.08)', marginBottom:12 }}>
+                <span style={{ fontSize:14, fontWeight:600, color:'rgba(42,31,16,0.55)' }}>Estimated Total</span>
+                <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#E05A3A' }}>₹{cartPrice}</span>
+              </div>
+            )}
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={clearCart} style={{ flex:1, padding:'12px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:14, fontWeight:600, fontFamily:'Inter,sans-serif', cursor:'pointer', color:'rgba(42,31,16,0.55)' }}>
+                Clear List
+              </button>
+              <button onClick={()=>setCartOpen(false)} style={{ flex:2, padding:'12px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
+                ✓ Done — Show to Waiter
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ─── WAITER CALL MODAL ─── */}
