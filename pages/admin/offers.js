@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllOffers, createOffer, deleteOffer } from '../../lib/db';
+import { getAllOffers, createOffer, deleteOffer, getAllMenuItems } from '../../lib/db';
 import toast from 'react-hot-toast';
 
 const S = {
@@ -14,29 +14,45 @@ const S = {
   btn:   { padding:'11px 22px', borderRadius:12, fontSize:14, fontWeight:600, fontFamily:'Poppins,sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
 };
 
+const BLANK = { title:'', description:'', startDate:'', endDate:'', linkedItemId:'', discountedPrice:'' };
+
 export default function AdminOffers() {
   const { userData } = useAuth();
-  const [offers, setOffers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title:'', description:'', startDate:'', endDate:'' });
-  const [saving, setSaving] = useState(false);
+  const [offers,    setOffers]    = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [showForm,  setShowForm]  = useState(false);
+  const [form,      setForm]      = useState(BLANK);
+  const [saving,    setSaving]    = useState(false);
   const rid = userData?.restaurantId;
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     if (!rid) return;
-    getAllOffers(rid).then(o => { setOffers(o); setLoading(false); });
+    Promise.all([getAllOffers(rid), getAllMenuItems(rid)]).then(([o, m]) => {
+      setOffers(o);
+      setMenuItems(m.filter(i => i.isActive !== false).sort((a,b) => (a.name||'').localeCompare(b.name||'')));
+      setLoading(false);
+    });
   }, [rid]);
+
+  const linkedItem = menuItems.find(i => i.id === form.linkedItemId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.title || !form.endDate) return;
     setSaving(true);
     try {
-      await createOffer(rid, form);
+      await createOffer(rid, {
+        ...form,
+        discountedPrice: form.discountedPrice !== '' ? Number(form.discountedPrice) : null,
+        linkedItemId:    form.linkedItemId || null,
+        linkedItemName:  linkedItem?.name || null,
+        linkedItemImage: linkedItem?.imageURL || null,
+        linkedItemPrice: linkedItem?.price || null,
+      });
       toast.success('Offer created!');
-      setForm({ title:'', description:'', startDate:'', endDate:'' });
+      setForm(BLANK);
       setShowForm(false);
       setOffers(await getAllOffers(rid));
     } catch { toast.error('Failed to create offer'); }
@@ -61,7 +77,7 @@ export default function AdminOffers() {
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
             <div>
               <h1 style={S.h1}>Offers & Promotions</h1>
-              <p style={S.sub}>Active offers display as banners on your live menu page.</p>
+              <p style={S.sub}>Active offers display as a horizontal strip on your live menu. Link a dish to make it clickable.</p>
             </div>
             <button onClick={()=>setShowForm(!showForm)} style={{ ...S.btn, background:showForm?'#F2F0EC':'#1E1B18', color:showForm?'#1E1B18':'#FFF5E8', border:showForm?'1.5px solid rgba(42,31,16,0.12)':'none' }}>
               {showForm ? '✕ Cancel' : '+ New Offer'}
@@ -70,19 +86,30 @@ export default function AdminOffers() {
 
           {/* Form */}
           {showForm && (
-            <div style={{ ...S.card, padding:28, marginBottom:24 }}>
+            <div style={{ ...S.card, padding:28, marginBottom:24, border:'1.5px solid rgba(247,155,61,0.3)' }}>
               <h2 style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', marginBottom:22 }}>Create Offer</h2>
-              {/* Preview banner */}
+
+              {/* Preview */}
               {form.title && (
-                <div style={{ background:'linear-gradient(135deg,#E05A3A,#F07050)', borderRadius:12, padding:'12px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:10 }}>
-                  <span style={{ fontSize:20 }}>🎉</span>
-                  <div>
+                <div style={{ background:'linear-gradient(135deg,#E05A3A,#F07050)', borderRadius:12, padding:'12px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
+                  {linkedItem?.imageURL && (
+                    <img src={linkedItem.imageURL} alt={linkedItem.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }} />
+                  )}
+                  <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontWeight:700, fontSize:14, color:'#fff' }}>{form.title}</div>
                     {form.description && <div style={{ fontSize:12, color:'rgba(255,255,255,0.8)', marginTop:2 }}>{form.description}</div>}
+                    {linkedItem && (
+                      <div style={{ fontSize:11, color:'rgba(255,255,255,0.75)', marginTop:3 }}>
+                        {linkedItem.name}
+                        {linkedItem.price && <span style={{ textDecoration:'line-through', marginLeft:6 }}>₹{linkedItem.price}</span>}
+                        {form.discountedPrice && <span style={{ fontWeight:800, marginLeft:6 }}>→ ₹{form.discountedPrice}</span>}
+                      </div>
+                    )}
                   </div>
-                  <span style={{ marginLeft:'auto', fontSize:11, color:'rgba(255,255,255,0.7)' }}>Preview</span>
+                  <span style={{ fontSize:11, color:'rgba(255,255,255,0.6)', flexShrink:0 }}>Preview</span>
                 </div>
               )}
+
               <form onSubmit={handleSubmit}>
                 <div style={{ marginBottom:14 }}>
                   <label style={S.label}>Title *</label>
@@ -90,8 +117,26 @@ export default function AdminOffers() {
                 </div>
                 <div style={{ marginBottom:14 }}>
                   <label style={S.label}>Description</label>
-                  <input className="inp" style={S.input} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Show this banner to avail the offer at checkout" />
+                  <input className="inp" style={S.input} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Tap to see the dish and add to your order list" />
                 </div>
+
+                {/* Link to a dish */}
+                <div style={{ marginBottom:14, padding:'16px', background:'rgba(247,155,61,0.05)', borderRadius:14, border:'1px solid rgba(247,155,61,0.2)' }}>
+                  <label style={S.label}>🔗 Link to a Dish <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(optional — makes card clickable, shows dish modal)</span></label>
+                  <select className="inp" style={S.input} value={form.linkedItemId} onChange={e=>setForm(f=>({...f,linkedItemId:e.target.value,discountedPrice:''}))}>
+                    <option value="">— No linked dish —</option>
+                    {menuItems.map(i => (
+                      <option key={i.id} value={i.id}>{i.name}{i.price ? ` (₹${i.price})` : ''}</option>
+                    ))}
+                  </select>
+                  {form.linkedItemId && (
+                    <div style={{ marginTop:10 }}>
+                      <label style={S.label}>Offer Price ₹ <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(shown as discounted price on the card)</span></label>
+                      <input className="inp" style={S.input} type="number" min="0" value={form.discountedPrice} onChange={e=>setForm(f=>({...f,discountedPrice:e.target.value}))} placeholder={linkedItem?.price ? `Original ₹${linkedItem.price} — enter discounted price` : 'Enter offer price'} />
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20 }}>
                   <div>
                     <label style={S.label}>Start Date</label>
@@ -117,7 +162,7 @@ export default function AdminOffers() {
           ) : offers.length === 0 ? (
             <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
               <div style={{ fontSize:40, marginBottom:12 }}>🎁</div>
-              <p style={{ fontSize:14 }}>No offers yet. Create one to display as a banner on your menu.</p>
+              <p style={{ fontSize:14 }}>No offers yet. Create one to display on your menu.</p>
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -125,11 +170,21 @@ export default function AdminOffers() {
                 const isActive = offer.endDate >= today && (!offer.startDate || offer.startDate <= today);
                 return (
                   <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16 }}>
-                    <div style={{ width:44, height:44, borderRadius:14, background:'rgba(224,90,58,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>
+                    {offer.linkedItemImage
+                      ? <img src={offer.linkedItemImage} alt={offer.linkedItemName} style={{ width:52, height:52, borderRadius:14, objectFit:'cover', flexShrink:0 }} />
+                      : <div style={{ width:52, height:52, borderRadius:14, background:'rgba(224,90,58,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>
+                    }
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontWeight:600, fontSize:14, color:'#1E1B18' }}>{offer.title}</div>
-                      {offer.description && <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)', marginTop:3 }}>{offer.description}</div>}
-                      <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:6 }}>
+                      <div style={{ fontWeight:700, fontSize:14, color:'#1E1B18' }}>{offer.title}</div>
+                      {offer.description && <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)', marginTop:2 }}>{offer.description}</div>}
+                      {offer.linkedItemName && (
+                        <div style={{ fontSize:11, color:'#E05A3A', fontWeight:600, marginTop:3 }}>
+                          🔗 {offer.linkedItemName}
+                          {offer.linkedItemPrice && <span style={{ color:'rgba(42,31,16,0.4)', textDecoration:'line-through', marginLeft:6 }}>₹{offer.linkedItemPrice}</span>}
+                          {offer.discountedPrice && <span style={{ color:'#2D8B4E', fontWeight:800, marginLeft:6 }}>→ ₹{offer.discountedPrice}</span>}
+                        </div>
+                      )}
+                      <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:4 }}>
                         {offer.startDate ? `${offer.startDate} → ${offer.endDate}` : `Ends ${offer.endDate}`}
                       </div>
                     </div>

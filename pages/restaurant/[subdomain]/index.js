@@ -632,7 +632,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         .offer-bar-desc  { font-size: 11px; color: #B09040; margin-top: 1px; }
 
         /* ─────────── GRID ─────────── */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
         @media (min-width: 600px) and (max-width: 899px) {
           .grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
         }
@@ -823,10 +823,17 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────── FAB — properly centered ─────────── */
         .fab-wrap {
           position: fixed;
-          bottom: 28px; left: 0; right: 0;
-          display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 12px;
+          bottom: 20px; left: 0; right: 0;
+          display: flex; flex-direction: row; justify-content: center; align-items: center;
+          gap: 8px; flex-wrap: nowrap; padding: 0 12px;
           z-index: 45;
           pointer-events: none;
+        }
+        @media (max-width: 480px) {
+          .fab-wrap { gap: 6px; bottom: 16px; }
+          .waiter-fab { padding: 9px 13px !important; font-size: 12px !important; }
+          .cart-fab { padding: 10px 14px !important; font-size: 13px !important; }
+          .sma-fab { padding: 10px 16px !important; font-size: 13px !important; }
         }
 
         .waiter-fab {
@@ -1500,15 +1507,39 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#FFF5E8':'#1E1B18' }}>Today's Offers</span>
             </div>
             <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
-              {(offers||[]).map((offer, i) => (
-                <div key={offer.id||i} style={{ flexShrink:0, minWidth:220, maxWidth:260, padding:'12px 16px', borderRadius:16, background: darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)', border:'1.5px solid rgba(247,155,61,0.3)', display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ fontSize:22, flexShrink:0 }}>🏷️</div>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:13, color: darkMode?'#F4D080':'#8B6010', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.title}</div>
-                    {offer.description && <div style={{ fontSize:11, color: darkMode?'rgba(255,220,100,0.6)':'#B09040', marginTop:2, lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.description}</div>}
+              {(offers||[]).map((offer, i) => {
+                const linked = offer.linkedItemId ? (menuItems||[]).find(m => m.id === offer.linkedItemId) : null;
+                const isClickable = !!offer.linkedItemId;
+                return (
+                  <div key={offer.id||i}
+                    onClick={() => { if (linked) openItem(linked); }}
+                    style={{ flexShrink:0, minWidth:200, maxWidth:250, padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)', border:'1.5px solid rgba(247,155,61,0.3)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
+                    onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode?'rgba(255,200,80,0.18)':'rgba(247,155,61,0.16)'; e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(247,155,61,0.2)'; } }}
+                    onMouseOut={e  => { e.currentTarget.style.background = darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)'; e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}>
+                    {/* Dish image or emoji */}
+                    {(offer.linkedItemImage || linked?.imageURL)
+                      ? <img src={offer.linkedItemImage||linked?.imageURL} alt={offer.linkedItemName||linked?.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(247,155,61,0.25)' }} />
+                      : <div style={{ fontSize:22, flexShrink:0 }}>🏷️</div>
+                    }
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontWeight:700, fontSize:13, color: darkMode?'#F4D080':'#8B6010', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.title}</div>
+                      {offer.description && <div style={{ fontSize:11, color: darkMode?'rgba(255,220,100,0.65)':'#B09040', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.description}</div>}
+                      {/* Price display */}
+                      {(offer.discountedPrice || (linked?.price && offer.linkedItemId)) && (
+                        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3 }}>
+                          {(offer.linkedItemPrice || linked?.price) && (
+                            <span style={{ fontSize:11, color: darkMode?'rgba(255,220,100,0.45)':'rgba(42,31,16,0.4)', textDecoration:'line-through' }}>₹{offer.linkedItemPrice||linked?.price}</span>
+                          )}
+                          {offer.discountedPrice && (
+                            <span style={{ fontSize:13, fontWeight:800, color: darkMode?'#7EE0A0':'#1A7A40' }}>₹{offer.discountedPrice}</span>
+                          )}
+                        </div>
+                      )}
+                      {isClickable && <div style={{ fontSize:10, fontWeight:700, color: darkMode?'rgba(255,220,100,0.5)':'rgba(139,96,16,0.6)', marginTop:2 }}>Tap to view →</div>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1643,7 +1674,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         <div className="fab-wrap">
           {/* Waiter call — pill shaped, labelled */}
           <button className="waiter-fab" onClick={() => setWaiterModal(true)}
-            style={{ width:'auto', borderRadius:50, padding:'10px 18px', gap:7, display:'flex', alignItems:'center', background:'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', fontSize:13, fontWeight:700, fontFamily:'Inter,sans-serif', color:'#1E1B18', whiteSpace:'nowrap' }}>
+            style={{ width:'auto', borderRadius:50, padding:'10px 18px', gap:7, display:'flex', alignItems:'center', background: darkMode?'#2A2520':'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', fontSize:13, fontWeight:700, fontFamily:'Inter,sans-serif', color: darkMode?'#FFF5E8':'#1E1B18', whiteSpace:'nowrap' }}>
             🙋 Need Help?
           </button>
           {/* Cart FAB — only show when cart has items */}
@@ -1651,7 +1682,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
             <button className="cart-fab" onClick={() => setCartOpen(true)}>
               <span>🛒</span>
               <span>{cartTotal} item{cartTotal!==1?'s':''}</span>
-              {cartPrice > 0 && <span style={{ color:'#F79B3D', marginLeft:2 }}>· ₹{cartPrice}</span>}
               <div className="cart-badge">{cartTotal}</div>
             </button>
           )}
@@ -1729,10 +1759,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                       <>
                         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(42,31,16,0.05)', borderRadius:50 }}>
                           <button className="qty-btn" onClick={()=>removeFromCart(selectedItem.id)}>−</button>
-                          <span style={{ fontWeight:800, fontSize:16, color:'#1E1B18', minWidth:20, textAlign:'center' }}>{inCart.qty}</span>
+                          <span style={{ fontWeight:800, fontSize:16, color:'var(--text-1,#1E1B18)', minWidth:20, textAlign:'center' }}>{inCart.qty}</span>
                           <button className="qty-btn" onClick={()=>addToCart(selectedItem)}>+</button>
                         </div>
-                        <span style={{ fontSize:13, color:'rgba(42,31,16,0.5)', fontWeight:600 }}>in your order list</span>
+                        <span style={{ fontSize:13, color:'var(--text-muted,rgba(42,31,16,0.5))', fontWeight:600 }}>in your order list</span>
                       </>
                     ) : (
                       <button onClick={()=>addToCart(selectedItem)} style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:50, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
@@ -1787,22 +1817,22 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                   .filter(Boolean);
                 if (!paired.length) return null;
                 return (
-                  <div style={{ margin:'8px 0 4px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:12 }}>
+                  <div style={{ margin:'8px 0 4px', padding:'16px 0', borderTop:'1px solid var(--divider,rgba(42,31,16,0.08))' }}>
+                    <div className="sec-lbl" style={{ fontSize:11, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:12 }}>
                       ✨ Pairs Well With
                     </div>
                     <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
                       {paired.map(u => (
-                        <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'rgba(247,155,61,0.07)', border:'1.5px solid rgba(247,155,61,0.2)', borderRadius:14, cursor:'pointer', transition:'all 0.15s', textAlign:'left' }}
-                          onMouseOver={e => { e.currentTarget.style.background='rgba(247,155,61,0.14)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.45)'; }}
-                          onMouseOut={e  => { e.currentTarget.style.background='rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.2)'; }}>
+                        <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background: darkMode?'rgba(247,155,61,0.12)':'rgba(247,155,61,0.07)', border:'1.5px solid rgba(247,155,61,0.25)', borderRadius:14, cursor:'pointer', transition:'all 0.15s', textAlign:'left' }}
+                          onMouseOver={e => { e.currentTarget.style.background='rgba(247,155,61,0.22)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.55)'; }}
+                          onMouseOut={e  => { e.currentTarget.style.background= darkMode?'rgba(247,155,61,0.12)':'rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.25)'; }}>
                           {u.imageURL && (
                             <div style={{ width:36, height:36, borderRadius:9, overflow:'hidden', flexShrink:0 }}>
                               <img src={u.imageURL} alt={u.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                             </div>
                           )}
                           <div>
-                            <div style={{ fontSize:12, fontWeight:600, color:'#1E1B18', whiteSpace:'nowrap' }}>{u.name}</div>
+                            <div className="m-title" style={{ fontSize:12, fontWeight:600, whiteSpace:'nowrap' }}>{u.name}</div>
                             {u.price && <div style={{ fontSize:11, color:'#F79B3D', fontWeight:700 }}>₹{u.price}</div>}
                           </div>
                         </button>
