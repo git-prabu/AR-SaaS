@@ -1886,7 +1886,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                 </div>
               ))}
             </div>
-            {/* No total shown — customer decides what to order with waiter */
+            {/* No total shown — customer decides what to order with waiter */}
             <div style={{ display:'flex', gap:10 }}>
               <button onClick={clearCart} style={{ flex:1, padding:'12px', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,245,232,0.15)':'rgba(42,31,16,0.12)'}`, background:'transparent', fontSize:14, fontWeight:600, fontFamily:'Inter,sans-serif', cursor:'pointer', color: darkMode?'rgba(255,245,232,0.6)':'rgba(42,31,16,0.55)' }}>
                 Clear List
