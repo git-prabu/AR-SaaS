@@ -1515,8 +1515,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                   <div key={offer.id||i}
                     onClick={() => { if (linked) openItem(linked); }}
                     style={{ flexShrink:0, minWidth:200, maxWidth:250, padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)', border:'1.5px solid rgba(247,155,61,0.3)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
-                    onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode?'rgba(255,200,80,0.18)':'rgba(247,155,61,0.16)'; e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(247,155,61,0.2)'; } }}
-                    onMouseOut={e  => { e.currentTarget.style.background = darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)'; e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}>
+                    onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(255,200,80,0.18)' : 'rgba(247,155,61,0.16)'; e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(247,155,61,0.2)'; } }}
+                    onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(255,200,80,0.1)' : 'rgba(247,155,61,0.08)'; e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}>
                     {/* Dish image or emoji */}
                     {(offer.linkedItemImage || linked?.imageURL)
                       ? <img src={offer.linkedItemImage||linked?.imageURL} alt={offer.linkedItemName||linked?.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(247,155,61,0.25)' }} />
@@ -1826,7 +1826,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                       {paired.map(u => (
                         <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background: darkMode?'rgba(247,155,61,0.12)':'rgba(247,155,61,0.07)', border:'1.5px solid rgba(247,155,61,0.25)', borderRadius:14, cursor:'pointer', transition:'all 0.15s', textAlign:'left' }}
                           onMouseOver={e => { e.currentTarget.style.background='rgba(247,155,61,0.22)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.55)'; }}
-                          onMouseOut={e  => { e.currentTarget.style.background= darkMode?'rgba(247,155,61,0.12)':'rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.25)'; }}>
+                          onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.25)'; }}>
                           {u.imageURL && (
                             <div style={{ width:36, height:36, borderRadius:9, overflow:'hidden', flexShrink:0 }}>
                               <img src={u.imageURL} alt={u.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
