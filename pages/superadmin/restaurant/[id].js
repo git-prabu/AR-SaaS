@@ -153,7 +153,20 @@ export default function RestaurantDetail() {
   const saveItemEdit = async () => {
     setItemSaving(true);
     try {
-      await updateMenuItem(id, itemEdit.id, itemData);
+      const saveData = {
+        ...itemData,
+        price:      itemData.price !== '' ? Number(itemData.price) : null,
+        ingredients: itemData.ingredients ? itemData.ingredients.split(',').map(s=>s.trim()).filter(Boolean) : [],
+        nutritionalData: {
+          calories: Number(itemData.calories)||null,
+          protein:  Number(itemData.protein)||null,
+          carbs:    Number(itemData.carbs)||null,
+          fats:     Number(itemData.fats)||null,
+        },
+        pairsWith: itemData.pairsWith||[],
+        isVeg:     itemData.isVeg,
+      };
+      await updateMenuItem(id, itemEdit.id, saveData);
       toast.success('Item updated!');
       setItemEdit(null);
       const data = await getAllMenuItems(id);
@@ -522,7 +535,7 @@ export default function RestaurantDetail() {
                         </div>
                         {/* Actions */}
                         <div style={{ display:'flex', gap:5 }}>
-                          <button onClick={()=>{ if(isItemEdit){setItemEdit(null)}else{setItemEdit(item);setItemData({ name:item.name, description:item.description||'', category:item.category||'', price:item.price||'', prepTime:item.prepTime||'', spiceLevel:item.spiceLevel||'None', offerBadge:item.offerBadge||false, offerLabel:item.offerLabel||'', offerColor:item.offerColor||'#E05A3A', isPopular:item.isPopular||false, isFeatured:item.isFeatured||false, isActive:item.isActive!==false })} }} style={{ padding:'6px 10px', borderRadius:8, border:'1.5px solid rgba(42,31,16,0.12)', background: isItemEdit?'rgba(224,90,58,0.08)':'transparent', color: isItemEdit?'#C04A28':'rgba(42,31,16,0.55)', fontSize:11, fontWeight:600, cursor:'pointer' }}>
+                          <button onClick={()=>{ if(isItemEdit){setItemEdit(null)}else{setItemEdit(item);setItemData({ name:item.name, description:item.description||'', category:item.category||'', price:item.price||'', prepTime:item.prepTime||'', spiceLevel:item.spiceLevel||'None', offerBadge:item.offerBadge||false, offerLabel:item.offerLabel||'', offerColor:item.offerColor||'#E05A3A', isPopular:item.isPopular||false, isFeatured:item.isFeatured||false, isActive:item.isActive!==false, isVeg:item.isVeg!==undefined?item.isVeg:'', ingredients:(item.ingredients||[]).join(', '), calories:item.nutritionalData?.calories||'', protein:item.nutritionalData?.protein||'', carbs:item.nutritionalData?.carbs||'', fats:item.nutritionalData?.fats||'', pairsWith:item.pairsWith||[] })} }} style={{ padding:'6px 10px', borderRadius:8, border:'1.5px solid rgba(42,31,16,0.12)', background: isItemEdit?'rgba(224,90,58,0.08)':'transparent', color: isItemEdit?'#C04A28':'rgba(42,31,16,0.55)', fontSize:11, fontWeight:600, cursor:'pointer' }}>
                             {isItemEdit ? 'Cancel' : 'Edit'}
                           </button>
                           <button onClick={()=>deleteItem(item)} style={{ padding:'6px 8px', borderRadius:8, border:'1.5px solid rgba(244,160,176,0.4)', background:'rgba(244,160,176,0.08)', color:'#8B1A2A', fontSize:11, fontWeight:600, cursor:'pointer' }}>✕</button>
@@ -622,6 +635,57 @@ export default function RestaurantDetail() {
                             <label style={S.label}>Description</label>
                             <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={itemData.description} onChange={e=>setItemData(d=>({...d,description:e.target.value}))} />
                           </div>
+
+                          {/* Veg / Non-Veg */}
+                          <div style={{ marginBottom:14 }}>
+                            <label style={S.label}>Veg / Non-Veg</label>
+                            <div style={{ display:'flex', gap:8 }}>
+                              {[{val:true,label:'🟢 Veg',bg:'#2D8B4E'},{val:false,label:'🔴 Non-Veg',bg:'#C0392B'}].map(({val,label,bg})=>(
+                                <button key={String(val)} onClick={()=>setItemData(d=>({...d,isVeg:val}))}
+                                  style={{ flex:1, padding:'8px', borderRadius:10, border:`2px solid ${itemData.isVeg===val?bg:'rgba(42,31,16,0.12)'}`, background:itemData.isVeg===val?bg+'18':'#fff', fontSize:12, fontWeight:700, color:itemData.isVeg===val?bg:'rgba(42,31,16,0.45)', cursor:'pointer', transition:'all 0.15s' }}>
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Ingredients */}
+                          <div style={{ marginBottom:14 }}>
+                            <label style={S.label}>Ingredients (comma-separated)</label>
+                            <input className="inp" style={S.input} value={itemData.ingredients} onChange={e=>setItemData(d=>({...d,ingredients:e.target.value}))} placeholder="Chicken, Butter, Cream…" />
+                          </div>
+
+                          {/* Nutrition */}
+                          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:14 }}>
+                            {[['calories','Calories'],['protein','Protein (g)'],['carbs','Carbs (g)'],['fats','Fats (g)']].map(([k,lbl])=>(
+                              <div key={k}>
+                                <label style={S.label}>{lbl}</label>
+                                <input className="inp" style={S.input} type="number" min="0" value={itemData[k]} onChange={e=>setItemData(d=>({...d,[k]:e.target.value}))} placeholder="0" />
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Pairs Well With */}
+                          <div style={{ marginBottom:14, padding:'12px', background:'rgba(247,155,61,0.05)', borderRadius:12, border:'1px solid rgba(247,155,61,0.2)' }}>
+                            <label style={{ ...S.label, marginBottom:8 }}>✨ Pairs Well With (up to 3)</label>
+                            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                              {items.filter(i => i.id !== itemEdit?.id).slice(0,30).map(i => {
+                                const sel = (itemData.pairsWith||[]).includes(i.id);
+                                const maxed = (itemData.pairsWith||[]).length >= 3 && !sel;
+                                return (
+                                  <button key={i.id}
+                                    onClick={()=>{
+                                      if (maxed) return;
+                                      setItemData(d=>({ ...d, pairsWith: sel ? (d.pairsWith||[]).filter(x=>x!==i.id) : [...(d.pairsWith||[]),i.id] }));
+                                    }}
+                                    style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:600, cursor:maxed?'not-allowed':'pointer', border:`1.5px solid ${sel?'rgba(247,155,61,0.6)':'rgba(42,31,16,0.1)'}`, background:sel?'rgba(247,155,61,0.1)':'#F7F5F2', color:sel?'#A06010':'rgba(42,31,16,0.5)', opacity:maxed?0.4:1, transition:'all 0.15s' }}>
+                                    {sel?'✓ ':''}{i.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
                           {/* Flags */}
                           <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
                             {[['isPopular','✦ Popular'],['isFeatured','⭐ Featured'],['isActive','👁 Visible']].map(([k,lbl])=>(

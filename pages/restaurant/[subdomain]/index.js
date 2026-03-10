@@ -872,12 +872,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
         .cart-item-row {
           display: flex; align-items: center; gap: 12px;
-          padding: 12px 0; border-bottom: 1px solid rgba(42,31,16,0.07);
+          padding: 12px 0; border-bottom: 1px solid var(--divider, rgba(42,31,16,0.07));
         }
         .cart-item-row:last-child { border-bottom: none; }
         .qty-btn {
-          width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid rgba(42,31,16,0.15);
-          background: #F7F5F2; font-size: 15px; font-weight: 700; cursor: pointer;
+          width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--divider, rgba(42,31,16,0.15));
+          background: var(--bg-elevated, #F7F5F2); color: var(--text-1, #1E1B18);
+          font-size: 15px; font-weight: 700; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: all 0.15s; flex-shrink: 0;
         }
@@ -1561,30 +1562,30 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           <div style={{marginBottom:28}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
               <span style={{fontSize:18}}>🍱</span>
-              <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:'#1E1B18'}}>Combo Deals</span>
-              <span style={{padding:'3px 10px',borderRadius:20,background:'rgba(247,155,61,0.15)',color:'#A06010',fontSize:11,fontWeight:700,border:'1px solid rgba(247,155,61,0.3)'}}>Special Offers</span>
+              <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'var(--text-1)':'#1E1B18'}}>Combo Deals</span>
+              <span style={{padding:'3px 10px',borderRadius:20,background:darkMode?'rgba(247,155,61,0.2)':'rgba(247,155,61,0.15)',color:darkMode?'#F4C050':'#A06010',fontSize:11,fontWeight:700,border:'1px solid rgba(247,155,61,0.3)'}}>Special Offers</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {(combos||[]).filter(c=>c.isActive!==false).map(combo => {
                 const comboItems = (combo.itemIds||[]).map(id=>(menuItems||[]).find(i=>i.id===id)).filter(Boolean);
                 return (
-                  <div key={combo.id} style={{background:'linear-gradient(135deg,rgba(247,155,61,0.08),rgba(224,90,58,0.05))',border:'1.5px solid rgba(247,155,61,0.3)',borderRadius:18,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+                  <div key={combo.id} style={{background:darkMode?'linear-gradient(135deg,rgba(247,155,61,0.14),rgba(224,90,58,0.10))':'linear-gradient(135deg,rgba(247,155,61,0.08),rgba(224,90,58,0.05))',border:'1.5px solid rgba(247,155,61,0.35)',borderRadius:18,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
-                        <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:'#1E1B18'}}>{combo.name}</span>
-                        {combo.tag && <span style={{padding:'2px 9px',borderRadius:20,background:'rgba(247,155,61,0.2)',color:'#A06010',fontSize:11,fontWeight:700}}>{combo.tag}</span>}
+                        <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:darkMode?'var(--text-1)':'#1E1B18'}}>{combo.name}</span>
+                        {combo.tag && <span style={{padding:'2px 9px',borderRadius:20,background:'rgba(247,155,61,0.25)',color:darkMode?'#F4C050':'#A06010',fontSize:11,fontWeight:700}}>{combo.tag}</span>}
                       </div>
-                      {combo.description && <div style={{fontSize:12,color:'rgba(42,31,16,0.55)',marginBottom:8}}>{combo.description}</div>}
+                      {combo.description && <div style={{fontSize:12,color:darkMode?'rgba(255,245,232,0.55)':'rgba(42,31,16,0.55)',marginBottom:8}}>{combo.description}</div>}
                       <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
                         {comboItems.map(item=>(
-                          <span key={item.id} style={{padding:'3px 9px',borderRadius:20,background:'rgba(42,31,16,0.06)',fontSize:12,color:'rgba(42,31,16,0.65)',fontWeight:500}}>{item.name}</span>
+                          <span key={item.id} style={{padding:'3px 9px',borderRadius:20,background:darkMode?'rgba(255,245,232,0.1)':'rgba(42,31,16,0.06)',fontSize:12,color:darkMode?'rgba(255,245,232,0.7)':'rgba(42,31,16,0.65)',fontWeight:500}}>{item.name}</span>
                         ))}
                       </div>
                     </div>
                     <div style={{textAlign:'right',flexShrink:0}}>
                       <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:22,color:'#E05A3A'}}>₹{combo.comboPrice}</div>
                       {combo.originalPrice > combo.comboPrice && (
-                        <div style={{fontSize:12,color:'rgba(42,31,16,0.35)',textDecoration:'line-through'}}>₹{combo.originalPrice}</div>
+                        <div style={{fontSize:12,color:darkMode?'rgba(255,245,232,0.35)':'rgba(42,31,16,0.35)',textDecoration:'line-through'}}>₹{combo.originalPrice}</div>
                       )}
                       {combo.savings > 0 && (
                         <div style={{fontSize:12,fontWeight:700,color:'#2D8B4E',marginTop:2}}>Save ₹{combo.savings}</div>
@@ -1860,9 +1861,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
               <div>
                 <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:17, color: darkMode?'#FFF5E8':'#1E1B18' }}>🛒 My Order List</div>
-                <div style={{ fontSize:12, color:'rgba(42,31,16,0.45)', marginTop:2 }}>Show this to your waiter when they come</div>
+                <div style={{ fontSize:12, color: darkMode?'rgba(255,245,232,0.45)':'rgba(42,31,16,0.45)', marginTop:2 }}>Show this to your waiter when they come</div>
               </div>
-              <button onClick={() => setCartOpen(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'rgba(42,31,16,0.4)', lineHeight:1 }}>✕</button>
+              <button onClick={() => setCartOpen(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color: darkMode?'rgba(255,245,232,0.4)':'rgba(42,31,16,0.4)', lineHeight:1 }}>✕</button>
             </div>
             {/* Items */}
             <div style={{ flex:1, overflowY:'auto', marginBottom:16 }}>
@@ -1885,15 +1886,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                 </div>
               ))}
             </div>
-            {/* Footer */}
-            {cartPrice > 0 && (
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderTop:'1px solid rgba(42,31,16,0.08)', marginBottom:12 }}>
-                <span style={{ fontSize:14, fontWeight:600, color:'rgba(42,31,16,0.55)' }}>Estimated Total</span>
-                <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#E05A3A' }}>₹{cartPrice}</span>
-              </div>
-            )}
+            {/* No total shown — customer decides what to order with waiter */
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={clearCart} style={{ flex:1, padding:'12px', borderRadius:12, border:'1.5px solid rgba(42,31,16,0.12)', background:'transparent', fontSize:14, fontWeight:600, fontFamily:'Inter,sans-serif', cursor:'pointer', color:'rgba(42,31,16,0.55)' }}>
+              <button onClick={clearCart} style={{ flex:1, padding:'12px', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,245,232,0.15)':'rgba(42,31,16,0.12)'}`, background:'transparent', fontSize:14, fontWeight:600, fontFamily:'Inter,sans-serif', cursor:'pointer', color: darkMode?'rgba(255,245,232,0.6)':'rgba(42,31,16,0.55)' }}>
                 Clear List
               </button>
               <button onClick={()=>setCartOpen(false)} style={{ flex:2, padding:'12px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
