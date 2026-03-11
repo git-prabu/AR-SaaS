@@ -328,25 +328,29 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   }, [selectedItem, smaOpen]);
 
 
-  // IntersectionObserver: activate shine border only on visible cards
-  useEffect(() => {
-    const cards = document.querySelectorAll('.card');
-    if (!cards.length) return;
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('shine-on');
-        } else {
-          entry.target.classList.remove('shine-on');
-        }
-      });
-    }, { threshold: 0.15 });
-    cards.forEach(c => obs.observe(c));
-    return () => obs.disconnect();
-  }, [filtered]);
-
   const cats     = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
   const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
+
+  // IntersectionObserver: activate shine border only on visible cards
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    let obs;
+    const raf = requestAnimationFrame(() => {
+      const cards = document.querySelectorAll('.card');
+      if (!cards.length) return;
+      obs = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('shine-on');
+          } else {
+            entry.target.classList.remove('shine-on');
+          }
+        });
+      }, { threshold: 0.15 });
+      cards.forEach(c => obs.observe(c));
+    });
+    return () => { cancelAnimationFrame(raf); if (obs) obs.disconnect(); };
+  }, [filtered]);
   const arCount  = (menuItems||[]).filter(i=>i.modelURL).length;
 
 
