@@ -363,6 +363,21 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const hdrRef = useRef(null);
   const lastScrollY = useRef(0);
   const scrollTicking = useRef(false);
+
+  // Set padding-top = actual header height so content isn't hidden
+  useEffect(() => {
+    const hdr = hdrRef.current;
+    if (!hdr) return;
+    const setOffset = () => {
+      const h = hdr.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--hdr-h', h + 'px');
+    };
+    setOffset();
+    const ro = new ResizeObserver(setOffset);
+    ro.observe(hdr);
+    return () => ro.disconnect();
+  }, []);
+
   useEffect(() => {
     const onScroll = () => {
       if (scrollTicking.current) return;
@@ -372,11 +387,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         const hdr = hdrRef.current;
         if (hdr) {
           const diff = current - lastScrollY.current;
-          if (diff > 4 && current > 90) {
-            // scrolling DOWN fast enough — hide
+          if (diff > 6 && current > 100) {
             hdr.classList.add('hdr-hidden');
-          } else if (diff < -4 || current < 90) {
-            // scrolling UP or near top — show
+          } else if (diff < -3 || current < 60) {
             hdr.classList.remove('hdr-hidden');
           }
           lastScrollY.current = current;
@@ -589,12 +602,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────── HEADER ─────────── */
         .hdr {
           position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-          background: rgba(255,255,255,0.95);
-          backdrop-filter: saturate(180%) blur(20px);
-          -webkit-backdrop-filter: saturate(180%) blur(20px);
-          border-bottom: 0.5px solid rgba(0,0,0,0.1);
+          background: rgba(255,255,255,0.55);
+          backdrop-filter: saturate(200%) blur(28px) brightness(1.04);
+          -webkit-backdrop-filter: saturate(200%) blur(28px) brightness(1.04);
+          border-bottom: 1px solid rgba(255,255,255,0.35);
+          box-shadow: 0 2px 24px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.6) inset;
           transform: translateY(0);
-          transition: transform 0.42s cubic-bezier(0.25,0.46,0.45,0.94), background 0.4s ease, border-color 0.4s ease;
+          transition: transform 0.38s cubic-bezier(0.4,0,0.2,1), background 0.4s ease, border-color 0.4s ease;
           will-change: transform;
         }
         .hdr.hdr-hidden {
@@ -759,7 +773,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────── CARD — Apple App Store level ─────────── */
         .card {
           background: #FFFFFF;
-          border-radius: 20px; clip-path: inset(0 round 20px);
+          border-radius: 20px; overflow: hidden;
           cursor: pointer; position: relative; text-align: left;
           display: flex; flex-direction: column;
           will-change: transform;
@@ -1161,10 +1175,11 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* ── Sticky header ── */
         .dm .hdr {
-          background: rgba(15,15,15,0.94) !important;
-          backdrop-filter: saturate(180%) blur(20px) !important;
-          -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
-          border-bottom: 0.5px solid var(--divider) !important;
+          background: rgba(10,8,5,0.55) !important;
+          backdrop-filter: saturate(180%) blur(28px) brightness(0.9) !important;
+          -webkit-backdrop-filter: saturate(180%) blur(28px) brightness(0.9) !important;
+          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+          box-shadow: 0 2px 24px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.04) inset !important;
         }
         .dm .r-name  { color: var(--text-1) !important; }
         .dm .r-sub   { color: var(--text-muted) !important; }
@@ -1722,47 +1737,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           background: rgba(8,6,4,0.62);
         }
 
-        /* ── Electric Glow Border (IntersectionObserver activated) ── */
-        /* SVG turbulence filter for card border displacement */
-        .card-turb-svg { position: absolute; width: 0; height: 0; pointer-events: none; }
-
-        @keyframes electricGlow {
-          0%,100% { opacity: 0; }
-          50%      { opacity: 1; }
-        }
-
-        /* Wrapper when card is visible */
+        /* ── Clean Glow Border on visible cards ── */
         .card.shine-on {
           animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both !important;
-          border: 2px solid rgba(221,132,72,0.85) !important;
-          filter: url(#card-turb) !important;
+          border: 1.5px solid rgba(221,132,72,0.7) !important;
+          box-shadow:
+            0 1px 3px rgba(0,0,0,0.06),
+            0 4px 16px rgba(0,0,0,0.07),
+            0 0 14px rgba(221,132,72,0.25),
+            0 0 4px rgba(221,132,72,0.15) !important;
         }
-
-        /* Glow layer 1 — blurred amber border */
-        .card.shine-on::after {
-          content: '';
-          position: absolute; inset: 0;
-          border-radius: inherit;
-          border: 2px solid rgba(221,132,72,0.6);
-          filter: blur(1px);
-          pointer-events: none;
-          z-index: 0;
-        }
-
-        /* Background ambient glow behind card */
-        .card.shine-on::before {
-          content: '';
-          position: absolute; inset: -2px;
-          border-radius: 22px;
-          filter: blur(12px);
-          transform: scale(1.05);
-          opacity: 0.35;
-          background: linear-gradient(-30deg, #F79B3D, transparent, #E05A3A);
-          pointer-events: none;
-          z-index: -1;
-        }
-
-        .card > * { position: relative; z-index: 1; }
 
         /* ── ElectricBorder ───────────────────── */
         @keyframes electricSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
@@ -1868,7 +1852,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <span style={{ fontSize:14 }}>🎉</span>
               <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#F79B3D':'#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
             </div>
-            <div style={{ display:'flex', gap:10, overflowX:'auto', overflowY:'hidden', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none', flexWrap:'nowrap' }}>
+            <div style={{ display:'flex', gap:10, overflowX:'auto', overflowY:'hidden', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none', flexWrap:'nowrap', filter:'url(#card-turb)' }}>
               {(offers||[]).map((offer, i) => {
                 const linked = offer.linkedItemId ? (menuItems||[]).find(m => m.id === offer.linkedItemId) : null;
                 const isClickable = !!offer.linkedItemId;
@@ -1928,7 +1912,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'#F79B3D':'#A06010'}}><span className="shiny-txt">Combo Deals</span></span>
               <span style={{padding:'3px 10px',borderRadius:20,background:darkMode?'rgba(247,155,61,0.2)':'rgba(247,155,61,0.15)',color:darkMode?'#F4C050':'#A06010',fontSize:11,fontWeight:700,border:'1px solid rgba(247,155,61,0.3)'}}>Special Offers</span>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'flex',flexDirection:'column',gap:12, filter:'url(#card-turb)'}}>
               {(combos||[]).filter(c=>c.isActive!==false).map(combo => {
                 const comboItems = (combo.itemIds||[]).map(id=>(menuItems||[]).find(i=>i.id===id)).filter(Boolean);
                 return (
