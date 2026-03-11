@@ -79,7 +79,7 @@ export default function HomePage() {
           .split{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:56px;}
           .split.rev{direction:rtl;} .split.rev > *{direction:ltr;}
           .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-          .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:920px;margin:0 auto;}
+          .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1100px;margin:0 auto;}
           @media(max-width:960px){
             .feat-grid{grid-template-columns:repeat(2,1fr)!important;}
             .plan-grid{grid-template-columns:repeat(2,1fr)!important;}
@@ -306,7 +306,7 @@ export default function HomePage() {
 
         {/* ══ HOW IT WORKS — split with Analytics scene ══ */}
         <section id="how" className="section" style={{background:'#F5E6D3',backdropFilter:'none',borderTop:'1px solid rgba(42,31,16,0.06)',borderBottom:'1px solid rgba(42,31,16,0.06)'}}>
-          <div className="inner">
+          <div className="inner-wide">
             <div className="split">
               {/* Text */}
               <div>
@@ -434,7 +434,7 @@ export default function HomePage() {
 
         {/* ══ FEATURES — 3-col cards with mini SVG icons ══ */}
         <section id="features" className="section">
-          <div className="inner">
+          <div className="inner-wide">
             <div style={{textAlign:'center',marginBottom:52}}>
               <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>Features</div>
               <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Every tool to grow revenue</h2>
@@ -464,7 +464,7 @@ export default function HomePage() {
 
         {/* ══ LIVE DEMO STRIP ══ */}
         <section style={{padding:'0 0 40px',position:'relative',zIndex:1}}>
-          <div className="inner">
+          <div className="inner-wide">
             <div style={{background:'linear-gradient(135deg,rgba(30,27,24,0.92),rgba(50,40,20,0.88))',backdropFilter:'blur(16px)',border:'1.5px solid rgba(247,155,61,0.3)',borderRadius:24,padding:'28px 36px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:20,flexWrap:'wrap',boxShadow:'0 8px 32px rgba(30,27,24,0.25)'}}>
               <div>
                 <div style={{fontSize:11,fontWeight:700,color:'rgba(247,155,61,0.7)',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}}>🔴 Live right now</div>
@@ -482,7 +482,7 @@ export default function HomePage() {
 
         {/* ══ PLANS — with decorative scene ══ */}
         <section id="plans" className="section" style={{background:'#F5E6D3',backdropFilter:'none',borderTop:'1px solid rgba(42,31,16,0.06)',borderBottom:'1px solid rgba(42,31,16,0.06)'}}>
-          <div className="inner">
+          <div className="inner-wide">
             <div style={{textAlign:'center',marginBottom:52}}>
               <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>Pricing</div>
               <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Simple, transparent pricing</h2>
@@ -518,7 +518,7 @@ export default function HomePage() {
 
         {/* ══ CTA — split with celebration scene ══ */}
         <section className="section">
-          <div className="inner">
+          <div className="inner-wide">
             <div style={{background:'#FFFFFF',backdropFilter:'none',border:'1.5px solid rgba(42,31,16,0.07)',borderRadius:32,padding:'56px 48px',boxShadow:'0 12px 48px rgba(120,70,30,0.14),inset 0 1px 0 rgba(255,255,255,0.7)',overflow:'hidden',position:'relative'}}>
               <div className="split" style={{gap:40}}>
                 <div>
@@ -564,7 +564,7 @@ export default function HomePage() {
 
         {/* ══ FOOTER ══ */}
         <footer style={{borderTop:'1px solid rgba(200,140,80,0.18)',padding:'28px 0',background:'#F5E6D3',backdropFilter:'none'}}>
-          <div className="inner" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
+          <div className="inner-wide" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
             <span style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:15,color:'#1E1B18'}}>
               Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F4A86A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Radical</span>
             </span>
