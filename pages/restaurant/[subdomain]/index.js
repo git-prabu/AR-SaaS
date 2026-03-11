@@ -331,6 +331,55 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const cats     = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
   const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
 
+
+  // Auto-hide header on scroll down, show on scroll up
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentY = window.scrollY;
+          const hdr = document.querySelector('.hdr');
+          if (hdr) {
+            if (currentY > lastY && currentY > 80) {
+              hdr.classList.add('hdr-hidden');
+            } else {
+              hdr.classList.remove('hdr-hidden');
+            }
+          }
+          lastY = currentY;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+
+  // Smart header: hide on scroll down, show on scroll up
+  const hdrRef = useRef(null);
+  const lastScrollY = useRef(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const current = window.scrollY;
+      const hdr = hdrRef.current;
+      if (!hdr) return;
+      if (current > lastScrollY.current && current > 80) {
+        // scrolling DOWN — hide header
+        hdr.style.transform = 'translateY(-100%)';
+      } else {
+        // scrolling UP — show header
+        hdr.style.transform = 'translateY(0)';
+      }
+      lastScrollY.current = current;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   // IntersectionObserver: activate shine border only on visible cards
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return;
@@ -497,7 +546,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
         /* Keep transform/movement transitions unaffected by the above */
         #app-root .card { transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, background-color 0.4s ease, border-color 0.4s ease !important; }
-        .sheet, .sma-sheet, .hdr { transition: background 0.4s ease, border-color 0.4s ease; }
+        .sheet, .sma-sheet { transition: background 0.4s ease, border-color 0.4s ease; }
         *, *::before, *::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
         body {
@@ -520,10 +569,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────── HEADER ─────────── */
         .hdr {
           position: sticky; top: 0; z-index: 40;
+          transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.4s ease, border-color 0.4s ease;
           background: rgba(255,255,255,0.95);
           backdrop-filter: saturate(180%) blur(20px);
           -webkit-backdrop-filter: saturate(180%) blur(20px);
           border-bottom: 0.5px solid rgba(0,0,0,0.1);
+          transform: translateY(0);
+          transition: transform 0.32s cubic-bezier(0.4,0,0.2,1), background 0.4s ease, border-color 0.4s ease;
+        }
+        .hdr.hdr-hidden {
+          transform: translateY(-100%);
         }
         .hdr-inner { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
 
@@ -636,6 +691,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           max-width: 1080px; margin: 0 auto;
           padding: 20px 18px 110px;
           background: #FAF7F2;
+          position: relative; z-index: 1;
         }
 
         /* AR strip */
@@ -1706,7 +1762,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
       `}</style>
 
       {/* ─── HEADER ─── */}
-      <header className="hdr">
+      <header className="hdr" ref={hdrRef}>
         <div className="hdr-inner">
           <div className="hdr-top">
             {/* CircularText around restaurant logo */}
@@ -1741,9 +1797,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
-            {arCount > 0 && (
-              <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
-            )}
             <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
               {/* ☀️ Sun emoji — light mode */}
               <span className="t-sun">☀️</span>
@@ -1760,6 +1813,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                 </svg>
               </span>
             </button>
+            {arCount > 0 && (
+              <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
+            )}
           </div>
           {/* Category tabs */}
           <div className="cats-outer">
