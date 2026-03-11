@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById } from '../../lib/db';
@@ -11,8 +11,47 @@ const PLANS = [
   { id:'premium', name:'Premium', price:4999, items:100, storage:5120, period:'6 months' },
 ];
 
+// Metallic tier definitions
+const METALS = {
+  basic:   {
+    name:'Silver',
+    bg:'linear-gradient(135deg,#8E9EAB 0%,#C8D6DF 35%,#FFFFFF 50%,#C0CFD8 65%,#8E9EAB 100%)',
+    sheenColor:'rgba(255,255,255,0.55)',
+    glow:'rgba(180,200,215,0.5)',
+    label:'rgba(60,80,90,0.8)',
+    accent:'#5A7A8A',
+    badge:'#B0C4CE',
+    badgeText:'#2A4050',
+    border:'rgba(180,200,215,0.6)',
+    icon:'🥈',
+  },
+  pro:     {
+    name:'Gold',
+    bg:'linear-gradient(135deg,#B8860B 0%,#DAA520 25%,#FFD700 45%,#FFFACD 50%,#FFD700 55%,#DAA520 75%,#B8860B 100%)',
+    sheenColor:'rgba(255,255,200,0.6)',
+    glow:'rgba(218,165,32,0.6)',
+    label:'rgba(100,70,0,0.85)',
+    accent:'#8B6914',
+    badge:'#DAA520',
+    badgeText:'#3A2800',
+    border:'rgba(218,165,32,0.7)',
+    icon:'🥇',
+  },
+  premium: {
+    name:'Platinum',
+    bg:'linear-gradient(135deg,#9E9E9E 0%,#CFCFCF 25%,#F8F8FF 45%,#FFFFFF 50%,#F0F0FF 55%,#CFCFCF 75%,#9E9E9E 100%)',
+    sheenColor:'rgba(230,230,255,0.65)',
+    glow:'rgba(180,180,220,0.55)',
+    label:'rgba(50,50,70,0.85)',
+    accent:'#6060A0',
+    badge:'#B0B0D0',
+    badgeText:'#1A1A3A',
+    border:'rgba(180,180,220,0.65)',
+    icon:'💎',
+  },
+};
+
 const S = {
-  card: { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
   h1:   { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
   sub:  { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
 };
@@ -56,13 +95,40 @@ export default function AdminSubscription() {
     finally { setPaying(null); }
   };
 
+  // Reflective card handlers
+  const handleCardMove = (e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const rotX = ((y - cy) / cy) * -10;
+    const rotY = ((x - cx) / cx) * 10;
+    card.style.transform = `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.03)`;
+    card.style.transition = 'transform 0.05s ease';
+    const sheen = card.querySelector('.card-sheen');
+    if (sheen) {
+      const px = (x / rect.width) * 100;
+      const py = (y / rect.height) * 100;
+      sheen.style.background = `radial-gradient(circle at ${px}% ${py}%, ${card.dataset.sheen} 0%, transparent 65%)`;
+      sheen.style.opacity = '1';
+    }
+  };
+  const handleCardLeave = (e) => {
+    const card = e.currentTarget;
+    card.style.transform = '';
+    card.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+    const sheen = card.querySelector('.card-sheen');
+    if (sheen) sheen.style.opacity = '0';
+  };
+
   const currentPlan = PLANS.find(p => p.id === restaurant?.plan) || PLANS[0];
   const subEnd      = restaurant?.subscriptionEnd;
   const subStart    = restaurant?.subscriptionStart;
   const isExpired   = subEnd && new Date(subEnd) < new Date();
   const isActive    = restaurant?.paymentStatus === 'active';
 
-  // Days remaining calculation
   const daysRemaining = subEnd ? Math.max(0, Math.ceil((new Date(subEnd) - new Date()) / (1000*60*60*24))) : null;
   const totalDays = (subStart && subEnd) ? Math.ceil((new Date(subEnd) - new Date(subStart)) / (1000*60*60*24)) : 180;
   const usedDays  = totalDays - (daysRemaining || 0);
@@ -77,7 +143,60 @@ export default function AdminSubscription() {
       </Head>
       <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
         <div style={{ maxWidth:880, margin:'0 auto' }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          <style>{`
+            @keyframes spin{to{transform:rotate(360deg)}}
+            @keyframes metalShimmer {
+              0%   { background-position: -300% center; }
+              100% { background-position: 300% center; }
+            }
+            @keyframes cardFloat {
+              0%,100% { transform: translateY(0px); }
+              50%     { transform: translateY(-4px); }
+            }
+            .reflect-card {
+              position: relative;
+              border-radius: 24px;
+              padding: 28px;
+              cursor: default;
+              transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease;
+              overflow: hidden;
+              will-change: transform;
+            }
+            .reflect-card:hover {
+              box-shadow: 0 24px 60px rgba(0,0,0,0.25) !important;
+            }
+            .card-sheen {
+              position: absolute;
+              inset: 0;
+              border-radius: 24px;
+              opacity: 0;
+              transition: opacity 0.15s ease;
+              pointer-events: none;
+              z-index: 1;
+            }
+            .card-content {
+              position: relative;
+              z-index: 2;
+            }
+            .metal-label {
+              font-size: 10px;
+              font-weight: 800;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
+              margin-bottom: 6px;
+            }
+            .plan-btn {
+              width: 100%;
+              padding: 12px;
+              border-radius: 12px;
+              font-size: 14px;
+              font-family: Poppins, sans-serif;
+              font-weight: 700;
+              border: none;
+              cursor: pointer;
+              transition: all 0.18s;
+            }
+          `}</style>
           <div style={{ marginBottom:28 }}>
             <h1 style={S.h1}>Subscription</h1>
             <p style={S.sub}>Manage your plan and billing</p>
@@ -89,7 +208,7 @@ export default function AdminSubscription() {
             </div>
           ) : (<>
             {/* Current plan */}
-            <div style={{ ...S.card, padding:28, marginBottom:28, borderLeft:`4px solid ${isExpired?'#F4A0B0':timeColor}` }}>
+            <div style={{ background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)', padding:28, marginBottom:28, borderLeft:`4px solid ${isExpired?'#F4A0B0':timeColor}` }}>
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
                 <div>
                   <div style={{ fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.4)', letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:6 }}>Current Plan</div>
@@ -118,7 +237,6 @@ export default function AdminSubscription() {
                 </div>
               </div>
 
-              {/* Time remaining bar */}
               {subEnd && (
                 <div style={{ marginBottom:20 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
@@ -145,39 +263,80 @@ export default function AdminSubscription() {
               </div>
             </div>
 
-            {/* Plan cards */}
+            {/* ── REFLECTIVE PLAN CARDS ── */}
             <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', marginBottom:16 }}>Upgrade Plan</div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:20 }}>
               {PLANS.map(plan => {
                 const isCurrent = plan.id === restaurant?.plan;
+                const metal = METALS[plan.id];
                 return (
-                  <div key={plan.id} style={{ ...S.card, padding:26, position:'relative', border: plan.popular ? '2px solid rgba(224,90,58,0.35)' : '1px solid rgba(42,31,16,0.07)', background: isCurrent ? 'rgba(143,196,168,0.06)' : '#fff' }}>
-                    {plan.popular && (
-                      <div style={{ position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', padding:'5px 16px', background:'linear-gradient(135deg,#E05A3A,#F07050)', color:'#fff', fontSize:11, fontWeight:700, borderRadius:30, whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(224,90,58,0.3)' }}>✦ Popular</div>
-                    )}
-                    {isCurrent && (
-                      <div style={{ position:'absolute', top:14, right:14, padding:'3px 10px', background:'rgba(143,196,168,0.2)', color:'#1A5A38', fontSize:10, fontWeight:700, borderRadius:20, border:'1px solid rgba(143,196,168,0.4)' }}>Current</div>
-                    )}
-                    <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:17, color:'#1E1B18', marginBottom:8 }}>{plan.name}</div>
-                    <div style={{ display:'flex', alignItems:'baseline', gap:4, marginBottom:20 }}>
-                      <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:28, color:'#1E1B18' }}>₹{plan.price.toLocaleString()}</span>
-                      <span style={{ fontSize:12, color:'rgba(42,31,16,0.4)' }}>/ {plan.period}</span>
-                    </div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:24 }}>
-                      {[`${plan.items} AR items`, `${plan.storage>=1024?plan.storage/1024+'GB':plan.storage+'MB'} storage`, 'Analytics', 'QR code & subdomain'].map(f=>(
-                        <div key={f} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'rgba(42,31,16,0.65)' }}>
-                          <span style={{ width:16, height:16, borderRadius:5, background:'rgba(224,90,58,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, color:'#E05A3A', fontWeight:700, flexShrink:0 }}>✓</span>
-                          {f}
+                  <div
+                    key={plan.id}
+                    className="reflect-card"
+                    data-sheen={metal.sheenColor}
+                    onMouseMove={handleCardMove}
+                    onMouseLeave={handleCardLeave}
+                    style={{
+                      background: metal.bg,
+                      border: `1.5px solid ${metal.border}`,
+                      boxShadow: `0 8px 32px ${metal.glow}, 0 2px 8px rgba(0,0,0,0.12)`,
+                    }}
+                  >
+                    {/* Moving sheen overlay */}
+                    <div className="card-sheen" />
+
+                    <div className="card-content">
+                      {/* Metal tier badge */}
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                          <span style={{ fontSize:20 }}>{metal.icon}</span>
+                          <div>
+                            <div className="metal-label" style={{ color:metal.label }}>{metal.name}</div>
+                            <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:17, color:metal.label }}>{plan.name}</div>
+                          </div>
                         </div>
-                      ))}
+                        {isCurrent && (
+                          <span style={{ padding:'3px 10px', background:metal.badge, color:metal.badgeText, fontSize:10, fontWeight:700, borderRadius:20 }}>Current</span>
+                        )}
+                        {plan.popular && !isCurrent && (
+                          <span style={{ padding:'3px 10px', background:metal.badge, color:metal.badgeText, fontSize:10, fontWeight:700, borderRadius:20 }}>✦ Popular</span>
+                        )}
+                      </div>
+
+                      {/* Price */}
+                      <div style={{ display:'flex', alignItems:'baseline', gap:4, marginBottom:20 }}>
+                        <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:30, color:metal.label }}>₹{plan.price.toLocaleString()}</span>
+                        <span style={{ fontSize:12, color:metal.accent }}>/ {plan.period}</span>
+                      </div>
+
+                      {/* Features */}
+                      <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:24 }}>
+                        {[`${plan.items} AR items`, `${plan.storage>=1024?plan.storage/1024+'GB':plan.storage+'MB'} storage`, 'Analytics', 'QR code & subdomain'].map(f => (
+                          <div key={f} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:metal.label }}>
+                            <span style={{ width:16, height:16, borderRadius:5, background:'rgba(0,0,0,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, color:metal.accent, fontWeight:700, flexShrink:0 }}>✓</span>
+                            {f}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* CTA Button */}
+                      <button
+                        className="plan-btn"
+                        onClick={() => !isCurrent && handleUpgrade(plan)}
+                        disabled={isCurrent || paying === plan.id}
+                        style={{
+                          background: isCurrent ? 'rgba(0,0,0,0.08)' : `rgba(0,0,0,0.15)`,
+                          color: isCurrent ? metal.accent : metal.label,
+                          border: `1.5px solid ${metal.border}`,
+                          backdropFilter: 'blur(4px)',
+                          cursor: isCurrent ? 'default' : 'pointer',
+                          opacity: paying === plan.id ? 0.7 : 1,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {isCurrent ? 'Current Plan' : paying === plan.id ? 'Opening…' : `Upgrade to ${metal.name}`}
+                      </button>
                     </div>
-                    <button
-                      onClick={()=>!isCurrent&&handleUpgrade(plan)}
-                      disabled={isCurrent||paying===plan.id}
-                      style={{ width:'100%', padding:'12px', borderRadius:12, fontSize:14, fontFamily:'Poppins,sans-serif', fontWeight:700, border:'none', cursor:isCurrent?'default':'pointer', transition:'all 0.18s', background: isCurrent?'rgba(42,31,16,0.06)':plan.popular?'linear-gradient(135deg,#E05A3A,#F07050)':'#1E1B18', color: isCurrent?'rgba(42,31,16,0.4)':'#fff', opacity:paying===plan.id?0.7:1 }}
-                    >
-                      {isCurrent ? 'Current Plan' : paying===plan.id ? 'Opening…' : 'Upgrade'}
-                    </button>
                   </div>
                 );
               })}
