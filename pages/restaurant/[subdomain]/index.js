@@ -359,22 +359,30 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   }, []);
 
 
-  // Smart header: hide on scroll down, show on scroll up
+  // Smart header: smooth hide on scroll down, show on scroll up
   const hdrRef = useRef(null);
   const lastScrollY = useRef(0);
+  const scrollTicking = useRef(false);
   useEffect(() => {
     const onScroll = () => {
-      const current = window.scrollY;
-      const hdr = hdrRef.current;
-      if (!hdr) return;
-      if (current > lastScrollY.current && current > 80) {
-        // scrolling DOWN — hide header
-        hdr.style.transform = 'translateY(-100%)';
-      } else {
-        // scrolling UP — show header
-        hdr.style.transform = 'translateY(0)';
-      }
-      lastScrollY.current = current;
+      if (scrollTicking.current) return;
+      scrollTicking.current = true;
+      requestAnimationFrame(() => {
+        const current = window.scrollY;
+        const hdr = hdrRef.current;
+        if (hdr) {
+          const diff = current - lastScrollY.current;
+          if (diff > 4 && current > 90) {
+            // scrolling DOWN fast enough — hide
+            hdr.classList.add('hdr-hidden');
+          } else if (diff < -4 || current < 90) {
+            // scrolling UP or near top — show
+            hdr.classList.remove('hdr-hidden');
+          }
+          lastScrollY.current = current;
+        }
+        scrollTicking.current = false;
+      });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -569,13 +577,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────── HEADER ─────────── */
         .hdr {
           position: sticky; top: 0; z-index: 40;
-          transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.4s ease, border-color 0.4s ease;
           background: rgba(255,255,255,0.95);
           backdrop-filter: saturate(180%) blur(20px);
           -webkit-backdrop-filter: saturate(180%) blur(20px);
           border-bottom: 0.5px solid rgba(0,0,0,0.1);
           transform: translateY(0);
-          transition: transform 0.32s cubic-bezier(0.4,0,0.2,1), background 0.4s ease, border-color 0.4s ease;
+          transition: transform 0.42s cubic-bezier(0.25,0.46,0.45,0.94), background 0.4s ease, border-color 0.4s ease;
+          will-change: transform;
         }
         .hdr.hdr-hidden {
           transform: translateY(-100%);
@@ -1483,84 +1491,66 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────────────────────────────────
            THEME TOGGLE — sky/night style (ref images)
            ───────────────────────────────────── */
-        /* ── THEME TOGGLE ── */
-        @keyframes starTwinkle {
-          0%,100% { opacity: 0.5; transform: scale(1); }
-          50%      { opacity: 1;   transform: scale(1.4); }
-        }
+        /* ── THEME TOGGLE — exact uiverse.io JustCode14 port ── */
         .theme-toggle {
+          font-size: 14px;
           margin-left: 6px; flex-shrink: 0;
-          width: 62px; height: 30px;
+          position: relative; display: inline-block;
+          width: 4em; height: 2.2em;
+          border-radius: 30px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.15);
+          border: none; padding: 0; cursor: pointer;
+          background: none; outline: none;
+          vertical-align: middle;
+        }
+        /* The slider track */
+        .tgl-slider {
+          position: absolute; cursor: pointer;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-color: #00a6ff;
+          transition: 0.4s;
+          border-radius: 30px;
+          overflow: hidden;
+        }
+        /* Dark mode: charcoal track */
+        .dm .tgl-slider { background-color: #2a2a2a; }
+        /* The ball — sun in light, moon in dark */
+        .tgl-slider:before {
+          position: absolute; content: "";
+          height: 1.2em; width: 1.2em;
           border-radius: 20px;
-          border: 1px solid rgba(247,155,61,0.3);
-          position: relative; cursor: pointer; padding: 0;
-          /* Light mode: sky blue → sunny yellow */
-          background: linear-gradient(135deg, #87CEEB 0%, #FCD34D 100%);
-          box-shadow: 0 2px 8px rgba(247,200,61,0.3);
-          transition: background 0.5s ease, box-shadow 0.45s ease, border-color 0.4s ease;
-          overflow: hidden; outline: none;
+          left: 0.5em; bottom: 0.5em;
+          transition: 0.4s;
+          transition-timing-function: cubic-bezier(0.81, -0.04, 0.38, 1.5);
+          /* Light mode: sun — yellow filled circle */
+          box-shadow: inset 15px -4px 0px 15px #ffcf48;
+          transform: translateX(1.8em);
         }
-        .dm .theme-toggle {
-          /* Dark mode: deep charcoal exactly like reference */
-          background: #2A2A2A;
-          border-color: rgba(255,255,255,0.08);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        /* Dark mode: moon — white inset shadow crescent */
+        .dm .tgl-slider:before {
+          transform: translateX(0);
+          box-shadow: inset 8px -4px 0px 0px #fff;
         }
-        /* ☀️ Sun icon — light mode left side */
-        .theme-toggle .t-sun {
-          position: absolute; left: 7px; top: 50%;
-          transform: translateY(-50%) scale(1) rotate(0deg);
-          font-size: 13px; line-height: 1;
-          opacity: 1;
-          transition: opacity 0.3s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
-          pointer-events: none; z-index: 2;
-        }
-        .dm .theme-toggle .t-sun {
-          opacity: 0; transform: translateY(-50%) scale(0.3) rotate(90deg);
-        }
-        /* Star dots — dark mode right side, 3 dots like reference */
-        .theme-toggle .t-moon {
-          position: absolute; right: 6px; top: 50%;
-          transform: translateY(-50%);
-          opacity: 0;
-          display: flex; flex-direction: column; gap: 2px; align-items: center;
-          transition: opacity 0.3s ease 0.1s;
-          pointer-events: none; z-index: 2;
-        }
-        .dm .theme-toggle .t-moon { opacity: 1; }
-        .t-star {
-          background: #FFFFFF; border-radius: 50%;
-          display: block;
-        }
-        .t-star.s1 { width: 3px; height: 3px; animation: starTwinkle 2s ease-in-out infinite; }
-        .t-star.s2 { width: 2px; height: 2px; animation: starTwinkle 2s ease-in-out 0.6s infinite; }
-        .t-star.s3 { width: 2px; height: 2px; animation: starTwinkle 2s ease-in-out 1.2s infinite; }
-        /* Thumb — sun ball in light, moon crescent SVG in dark */
-        .theme-toggle .t-thumb {
-          position: absolute; top: 3px; right: 3px;
-          width: 24px; height: 24px; border-radius: 50%;
-          background: radial-gradient(circle at 35% 30%, #FFE566, #F5A623 60%, #E08B10);
-          box-shadow: 0 2px 6px rgba(220,140,0,0.45), inset 0 1px 2px rgba(255,255,255,0.5);
-          transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
-                      background 0.4s ease, box-shadow 0.4s ease;
-          pointer-events: none; z-index: 3;
-          display: flex; align-items: center; justify-content: center; overflow: hidden;
-        }
-        /* Moon SVG inside thumb — hidden in light, shown in dark */
-        .t-thumb .t-moon-svg {
-          opacity: 0; transform: scale(0.5) rotate(-30deg);
-          transition: opacity 0.35s ease 0.1s, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+        /* Stars — hidden in light, visible in dark */
+        .tgl-star {
+          background-color: #fff;
+          border-radius: 50%;
           position: absolute;
+          width: 5px; height: 5px;
+          transition: all 0.4s;
+          opacity: 0;
         }
-        .dm .t-thumb .t-moon-svg {
-          opacity: 1; transform: scale(1) rotate(0deg);
+        .dm .tgl-star { opacity: 1; }
+        .tgl-star-1 { left: 2.5em; top: 0.5em; }
+        .tgl-star-2 { left: 2.2em; top: 1.2em; }
+        .tgl-star-3 { left: 3em;   top: 0.9em; }
+        /* Cloud — visible in light, hidden in dark */
+        .tgl-cloud {
+          width: 3.5em; position: absolute;
+          bottom: -1.4em; left: -1.1em;
+          opacity: 1; transition: all 0.4s;
         }
-        .dm .theme-toggle .t-thumb {
-          /* Slide left */
-          transform: translateX(-32px);
-          background: #FFFFFF;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-        }
+        .dm .tgl-cloud { opacity: 0; }
 
 
 
@@ -1797,25 +1787,19 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
-            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
-              {/* ☀️ Sun emoji — light mode */}
-              <span className="t-sun">☀️</span>
-              {/* ✦ Star dots — dark mode right side */}
-              <span className="t-moon">
-                <span className="t-star s1"/>
-                <span className="t-star s2"/>
-                <span className="t-star s3"/>
-              </span>
-              {/* Thumb with crescent moon SVG inside */}
-              <span className="t-thumb">
-                <svg className="t-moon-svg" width="14" height="14" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-              </span>
-            </button>
             {arCount > 0 && (
               <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
             )}
+            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
+              <span className="tgl-slider">
+                <span className="tgl-star tgl-star-1"/>
+                <span className="tgl-star tgl-star-2"/>
+                <span className="tgl-star tgl-star-3"/>
+                <svg viewBox="0 0 16 16" className="tgl-cloud">
+                  <path transform="matrix(.77976 0 0 .78395-299.99-418.63)" fill="#fff" d="m391.84 540.91c-.421-.329-.949-.524-1.523-.524-1.351 0-2.451 1.084-2.485 2.435-1.395.526-2.388 1.88-2.388 3.466 0 1.874 1.385 3.423 3.182 3.667v.034h12.73v-.006c1.775-.104 3.182-1.584 3.182-3.395 0-1.747-1.309-3.186-2.994-3.379.007-.106.011-.214.011-.322 0-2.707-2.271-4.901-5.072-4.901-2.073 0-3.856 1.202-4.643 2.925"/>
+                </svg>
+              </span>
+            </button>
           </div>
           {/* Category tabs */}
           <div className="cats-outer">
