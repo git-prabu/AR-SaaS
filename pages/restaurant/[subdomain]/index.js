@@ -339,43 +339,27 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const lastScrollY = useRef(0);
   const scrollTicking = useRef(false);
 
-  // Set padding-top = actual header height so content isn't hidden
-  useEffect(() => {
-    const hdr = hdrRef.current;
-    if (!hdr) return;
-    const setOffset = () => {
-      const h = hdr.getBoundingClientRect().height;
-      document.documentElement.style.setProperty('--hdr-h', (h + 8) + 'px');
-    };
-    setOffset();
-    const ro = new ResizeObserver(setOffset);
-    ro.observe(hdr);
-    return () => ro.disconnect();
-  }, []);
+
 
   useEffect(() => {
-    let hidden = false;
+    // Medium-style header: tracks scroll pixel-by-pixel, no snap
+    let prevY = window.scrollY;
+    let translationY = 0;
     const onScroll = () => {
       if (scrollTicking.current) return;
       scrollTicking.current = true;
       requestAnimationFrame(() => {
-        const current = window.scrollY;
+        const currentY = window.scrollY;
         const hdr = hdrRef.current;
         if (hdr) {
-          const diff = current - lastScrollY.current;
-          const hdrH = hdr.getBoundingClientRect().height;
-          if (!hidden && diff > 6 && current > hdrH) {
-            // Scrolling down past header — slide up smoothly
-            hdr.style.transition = 'transform 0.38s cubic-bezier(0.4,0,0.2,1)';
-            hdr.style.transform = 'translateY(-100%)';
-            hidden = true;
-          } else if (hidden && (diff < -4 || current < hdrH)) {
-            // Scrolling up or near top — slide back down
-            hdr.style.transition = 'transform 0.42s cubic-bezier(0.0,0,0.2,1)';
-            hdr.style.transform = 'translateY(0)';
-            hidden = false;
-          }
-          lastScrollY.current = current;
+          const height = hdr.getBoundingClientRect().height;
+          const diff = currentY - prevY;
+          // Clamp between -height (fully hidden) and 0 (fully visible)
+          translationY = Math.min(Math.max(translationY - diff, -height), 0);
+          // No CSS transition — movement follows finger exactly
+          hdr.style.transform = `translateY(${translationY}px)`;
+          prevY = currentY;
+          lastScrollY.current = currentY;
         }
         scrollTicking.current = false;
       });
@@ -528,7 +512,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className={darkMode ? 'dm' : ''} id="app-root" style={{position:'relative', paddingTop:'var(--hdr-h, 140px)'}}>
+      <div className={darkMode ? 'dm' : ''} id="app-root" style={{position:'relative'}}>
         {/* Plasma background — shows only in dark mode via CSS */}
         <div className="plasma-bg" aria-hidden="true">
           <div className="plasma-blob pb1"/>
@@ -550,7 +534,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         </svg>
       <style>{`
         html, body { margin:0; padding:0; }
-        :root { --hdr-h: 140px; }
         #app-root { transition: background 0.4s ease, color 0.4s ease; }
         #app-root *, #app-root *::before, #app-root *::after {
           transition:
@@ -584,7 +567,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* ─────────── HEADER ─────────── */
         .hdr {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+          position: sticky; top: 0; z-index: 40;
           background: rgba(255,255,255,0.55);
           backdrop-filter: saturate(200%) blur(28px) brightness(1.04);
           -webkit-backdrop-filter: saturate(200%) blur(28px) brightness(1.04);
