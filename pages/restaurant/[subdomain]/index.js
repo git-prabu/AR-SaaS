@@ -544,7 +544,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         .ar-badge {
           margin-left: auto; flex-shrink: 0;
           display: flex; align-items: center; gap: 5px;
-          padding: 6px 13px; border-radius: 20px;
+          padding: 5px 12px; border-radius: 20px;
           background: rgba(247,155,61,0.1);
           border: 1px solid rgba(247,155,61,0.25);
           font-size: 11px; font-weight: 600; color: #E07020;
@@ -1080,8 +1080,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
 
         /* ── Page shell ── */
-        #app-root.dm               { background: var(--bg-base); }
-        .dm .main                  { background: var(--bg-base) !important; }
+        #app-root.dm               { background: transparent; }
+        .dm .main                  { background: transparent !important; }
 
         /* ── Sticky header ── */
         .dm .hdr {
@@ -1122,6 +1122,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* ── AR strip & offer bar ── */
         .dm .ar-strip {
+          backdrop-filter: blur(12px);
           background: var(--bg-card) !important;
           border-color: rgba(247,155,61,0.18) !important;
           box-shadow: 0 2px 16px rgba(0,0,0,0.4) !important;
@@ -1139,7 +1140,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* ── CARDS — cinematic District treatment ── */
         .dm .card {
-          background: var(--bg-card) !important;
+          background: rgba(18,14,10,0.82) !important;
           border-color: rgba(255,255,255,0.05) !important;
           box-shadow: var(--shadow-card) !important;
         }
@@ -1424,64 +1425,58 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         .dm ::-webkit-scrollbar-thumb:hover { background: var(--accent) !important; }
 
         /* ─────────────────────────────────────
-           THEME TOGGLE — sky/night style
+           THEME TOGGLE — sky/night style (ref images)
            ───────────────────────────────────── */
         .theme-toggle {
-          margin-left: 10px; flex-shrink: 0;
-          width: 72px; height: 36px;
-          border-radius: 99px; border: none;
+          margin-left: 6px; flex-shrink: 0;
+          width: 60px; height: 30px;
+          border-radius: 20px; border: 1px solid rgba(247,155,61,0.25);
           position: relative; cursor: pointer; padding: 0;
-          background: linear-gradient(to right, #48B4E8 0%, #76CDEE 100%);
-          box-shadow: inset 0 -2px 4px rgba(0,0,0,0.15), 0 2px 8px rgba(72,180,232,0.4);
+          background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%);
+          box-shadow: 0 2px 8px rgba(41,182,246,0.3);
           transition: background 0.5s ease, box-shadow 0.4s ease;
           overflow: hidden; outline: none;
         }
         .dm .theme-toggle {
-          background: linear-gradient(to right, #232336 0%, #2E2E4A 100%);
-          box-shadow: inset 0 -2px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.5);
+          background: linear-gradient(135deg, #1C1C2E 0%, #252540 100%);
+          box-shadow: inset 0 -2px 4px rgba(0,0,0,0.4), 0 2px 10px rgba(0,0,0,0.6);
         }
-        /* Cloud decoration — light mode */
+        /* ☁️ Cloud — visible in light mode, hidden in dark */
         .theme-toggle .t-sun {
-          position: absolute; left: 8px; top: 50%;
-          transform: translateY(-50%);
-          font-size: 18px; line-height: 1;
-          transition: opacity 0.35s ease, transform 0.4s ease;
-          pointer-events: none; z-index: 2;
-          opacity: 1;
-          filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+          position: absolute; left: 6px; top: 52%;
+          transform: translateY(-50%) scale(1);
+          font-size: 17px; line-height: 1;
+          transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+          pointer-events: none; z-index: 2; opacity: 1;
         }
         .dm .theme-toggle .t-sun {
-          opacity: 0;
-          transform: translateY(-50%) translateX(-8px);
+          opacity: 0; transform: translateY(-50%) scale(0.5);
         }
-        /* Moon + stars — dark mode */
+        /* 🌙 Moon + dots — hidden in light, visible in dark */
         .theme-toggle .t-moon {
-          position: absolute; left: 8px; top: 50%;
-          transform: translateY(-50%) translateX(8px);
-          font-size: 15px; line-height: 1;
-          transition: opacity 0.35s ease 0.05s, transform 0.4s ease;
-          pointer-events: none; z-index: 2;
-          opacity: 0;
-          letter-spacing: 1px;
+          position: absolute; left: 7px; top: 50%;
+          transform: translateY(-50%) scale(0.5);
+          font-size: 14px; line-height: 1;
+          transition: opacity 0.3s ease 0.05s, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+          pointer-events: none; z-index: 2; opacity: 0;
         }
         .dm .theme-toggle .t-moon {
-          opacity: 1;
-          transform: translateY(-50%) translateX(0);
+          opacity: 1; transform: translateY(-50%) scale(1);
         }
-        /* Thumb — yellow in light, dark in dark */
+        /* Thumb — sunny yellow ball in light, dark grey in dark */
         .theme-toggle .t-thumb {
-          position: absolute; top: 4px; right: 4px;
-          width: 28px; height: 28px; border-radius: 50%;
-          background: radial-gradient(circle at 35% 35%, #FFE066, #F5A623);
-          box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.5);
+          position: absolute; top: 3px; right: 3px;
+          width: 24px; height: 24px; border-radius: 50%;
+          background: radial-gradient(circle at 38% 32%, #FFE566, #F5A623 60%, #E08B10);
+          box-shadow: 0 2px 8px rgba(220,140,0,0.5), inset 0 1px 3px rgba(255,255,255,0.6);
           transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
                       background 0.4s ease, box-shadow 0.4s ease;
           pointer-events: none; z-index: 3;
         }
         .dm .theme-toggle .t-thumb {
-          transform: translateX(-36px);
-          background: radial-gradient(circle at 35% 35%, #4A4A6A, #2E2E4A);
-          box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);
+          transform: translateX(-30px);
+          background: radial-gradient(circle at 38% 32%, #3A3A55, #252538);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.04);
         }
 
 
@@ -1719,14 +1714,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
-            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
-              <span className="t-sun">⛅</span>
-              <span className="t-moon">🌙 ·· </span>
-              <span className="t-thumb" />
-            </button>
             {arCount > 0 && (
               <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
             )}
+            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
+              <span className="t-sun">☀️</span>
+              <span className="t-moon">🌙</span>
+              <span className="t-thumb" />
+            </button>
           </div>
           {/* Category tabs */}
           <div className="cats-outer">
@@ -1759,7 +1754,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                   <div key={offer.id||i} style={{ flexShrink:0, minWidth:200, maxWidth:250, borderRadius:18, border:'1.5px solid rgba(247,155,61,0.35)', overflow:'hidden' }}>
                     <div
                       onClick={() => { if (linked) openItem(linked); }}
-                      style={{ padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(30,27,24,0.95)':'rgba(255,252,248,0.98)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
+                      style={{ padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(18,14,10,0.80)':'rgba(255,252,248,0.98)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
                       onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(50,38,20,0.98)' : 'rgba(247,240,225,0.98)'; e.currentTarget.style.transform='translateY(-2px)'; } }}
                       onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(30,27,24,0.95)' : 'rgba(255,252,248,0.98)'; e.currentTarget.style.transform=''; }}>
                     {/* Dish image or emoji */}
@@ -1815,7 +1810,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               {(combos||[]).filter(c=>c.isActive!==false).map(combo => {
                 const comboItems = (combo.itemIds||[]).map(id=>(menuItems||[]).find(i=>i.id===id)).filter(Boolean);
                 return (
-                  <div key={combo.id} style={{borderRadius:18, border:'1.5px solid rgba(247,155,61,0.35)', background:darkMode?'linear-gradient(135deg,rgba(30,27,24,0.97),rgba(40,30,18,0.97))':'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))',padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+                  <div key={combo.id} style={{borderRadius:18, border:'1.5px solid rgba(247,155,61,0.35)', background:darkMode?'linear-gradient(135deg,rgba(18,14,10,0.80),rgba(28,20,10,0.80))':'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))',backdropFilter:darkMode?'blur(12px)':'none',WebkitBackdropFilter:darkMode?'blur(12px)':'none',padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
                         <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:darkMode?'var(--text-1)':'#1E1B18'}}>{combo.name}</span>
@@ -2395,5 +2390,3 @@ export async function getServerSideProps({ params }) {
     return { props:{restaurant:null,menuItems:[],offers:[],error:err.message} };
   }
 }
-
-
