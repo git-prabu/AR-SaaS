@@ -1662,8 +1662,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                       )}
                       {isClickable && <div style={{ fontSize:10, fontWeight:700, color: darkMode?'rgba(255,220,100,0.5)':'rgba(139,96,16,0.6)', marginTop:2 }}>Tap to view →</div>}
                     </div>
-                    </div>{/* elec-inner */}
-                  </div>{/* elec-wrap */}
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -1718,8 +1718,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                         <div style={{fontSize:12,fontWeight:700,color:'#2D8B4E',marginTop:2}}>Save ₹{combo.savings}</div>
                       )}
                     </div>
-                    </div>{/* elec-inner */}
-                  </div>{/* elec-wrap */}
+                    </div>
+                  </div>
                 );
               })}
             </div>
