@@ -1563,7 +1563,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
       <div className="gb-top" />
       <div className="gb-bottom" />
 
-      {/* ─── HEADER ─── */
+      {/* ─── HEADER ─── */}
       <header className="hdr">
         <div className="hdr-inner">
           <div className="hdr-top">
