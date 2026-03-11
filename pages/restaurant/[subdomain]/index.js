@@ -1424,67 +1424,64 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         .dm ::-webkit-scrollbar-thumb:hover { background: var(--accent) !important; }
 
         /* ─────────────────────────────────────
-           THEME TOGGLE — animated ☀️ / 🌙
+           THEME TOGGLE — sky/night style
            ───────────────────────────────────── */
         .theme-toggle {
           margin-left: 10px; flex-shrink: 0;
-          width: 70px; height: 34px;
+          width: 72px; height: 36px;
           border-radius: 99px; border: none;
           position: relative; cursor: pointer; padding: 0;
-          background: linear-gradient(135deg, #6EC6F5 0%, #F7C948 100%);
-          box-shadow: 0 2px 12px rgba(247,185,61,0.35), inset 0 1px 2px rgba(255,255,255,0.4);
-          transition: background 0.55s ease, box-shadow 0.4s ease;
-          overflow: hidden;
-          outline: none;
-        }
-        .theme-toggle:focus-visible {
-          box-shadow: 0 0 0 3px rgba(247,155,61,0.5);
-        }
-        /* Stars background in dark mode */
-        .theme-toggle::after {
-          content: '✦ ✦ ✦';
-          position: absolute; top: 50%; left: 6px;
-          transform: translateY(-50%);
-          font-size: 6px; letter-spacing: 3px;
-          color: rgba(255,255,255,0.7);
-          opacity: 0;
-          transition: opacity 0.4s ease 0.1s;
-          pointer-events: none;
-          white-space: nowrap;
+          background: linear-gradient(to right, #48B4E8 0%, #76CDEE 100%);
+          box-shadow: inset 0 -2px 4px rgba(0,0,0,0.15), 0 2px 8px rgba(72,180,232,0.4);
+          transition: background 0.5s ease, box-shadow 0.4s ease;
+          overflow: hidden; outline: none;
         }
         .dm .theme-toggle {
-          background: linear-gradient(135deg, #0F0C1A 0%, #1C1040 100%);
-          box-shadow: 0 2px 12px rgba(100,80,200,0.4), inset 0 1px 2px rgba(255,255,255,0.05);
+          background: linear-gradient(to right, #232336 0%, #2E2E4A 100%);
+          box-shadow: inset 0 -2px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.5);
         }
-        .dm .theme-toggle::after { opacity: 1; }
-        /* Icons */
-        .theme-toggle .t-sun,
-        .theme-toggle .t-moon {
-          position: absolute; top: 50%;
-          font-size: 14px; line-height: 1;
-          transform: translateY(-50%) scale(1);
-          transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+        /* Cloud decoration — light mode */
+        .theme-toggle .t-sun {
+          position: absolute; left: 8px; top: 50%;
+          transform: translateY(-50%);
+          font-size: 18px; line-height: 1;
+          transition: opacity 0.35s ease, transform 0.4s ease;
           pointer-events: none; z-index: 2;
+          opacity: 1;
+          filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
         }
-        .theme-toggle .t-sun  { right: 8px; opacity: 1; }
-        .theme-toggle .t-moon { right: 8px; opacity: 0; transform: translateY(-50%) scale(0) rotate(-90deg); }
-        .dm .theme-toggle .t-sun  { opacity: 0; transform: translateY(-50%) scale(0) rotate(90deg); }
-        .dm .theme-toggle .t-moon { opacity: 1; transform: translateY(-50%) scale(1) rotate(0deg); }
-        /* Sliding thumb */
+        .dm .theme-toggle .t-sun {
+          opacity: 0;
+          transform: translateY(-50%) translateX(-8px);
+        }
+        /* Moon + stars — dark mode */
+        .theme-toggle .t-moon {
+          position: absolute; left: 8px; top: 50%;
+          transform: translateY(-50%) translateX(8px);
+          font-size: 15px; line-height: 1;
+          transition: opacity 0.35s ease 0.05s, transform 0.4s ease;
+          pointer-events: none; z-index: 2;
+          opacity: 0;
+          letter-spacing: 1px;
+        }
+        .dm .theme-toggle .t-moon {
+          opacity: 1;
+          transform: translateY(-50%) translateX(0);
+        }
+        /* Thumb — yellow in light, dark in dark */
         .theme-toggle .t-thumb {
-          position: absolute; top: 3px; left: 3px;
+          position: absolute; top: 4px; right: 4px;
           width: 28px; height: 28px; border-radius: 50%;
-          background: linear-gradient(145deg, #FFFFFF, #F0ECE4);
-          box-shadow: 0 3px 8px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.12);
+          background: radial-gradient(circle at 35% 35%, #FFE066, #F5A623);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.5);
           transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
-                      background 0.45s ease,
-                      box-shadow 0.4s ease;
+                      background 0.4s ease, box-shadow 0.4s ease;
           pointer-events: none; z-index: 3;
         }
         .dm .theme-toggle .t-thumb {
-          transform: translateX(36px);
-          background: linear-gradient(145deg, #E8E4FF, #C8C0F0);
-          box-shadow: 0 3px 8px rgba(0,0,0,0.4), 0 0 8px rgba(160,140,255,0.4);
+          transform: translateX(-36px);
+          background: radial-gradient(circle at 35% 35%, #4A4A6A, #2E2E4A);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);
         }
 
 
@@ -1647,11 +1644,12 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* ── Shine Border (IntersectionObserver activated) ───── */
         @keyframes shinePulse {
-          0%,100% { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.07), 0 0 0px rgba(0,229,255,0); border-color: rgba(0,229,255,0); }
-          50%     { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.09), 0 0 18px rgba(0,229,255,0.35), 0 0 6px rgba(0,229,255,0.2); border-color: rgba(0,229,255,0.45); }
+          0%,100% { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.07), 0 0 0px rgba(0,229,255,0) !important; border-color: rgba(0,229,255,0) !important; }
+          50%     { box-shadow: 0 4px 20px rgba(0,0,0,0.1), 0 0 22px rgba(0,229,255,0.55), 0 0 8px rgba(0,229,255,0.3) !important; border-color: rgba(0,229,255,0.6) !important; }
         }
         .card.shine-on {
-          animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both, shinePulse 10s ease-in-out infinite;
+          animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both, shinePulse 6s ease-in-out infinite !important;
+          border-width: 1.5px !important;
         }
 
         /* ── ElectricBorder ───────────────────── */
@@ -1722,8 +1720,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
             <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
-              <span className="t-sun">☀️</span>
-              <span className="t-moon">🌙</span>
+              <span className="t-sun">⛅</span>
+              <span className="t-moon">🌙 ·· </span>
               <span className="t-thumb" />
             </button>
             {arCount > 0 && (
@@ -1748,7 +1746,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         {/* ── Offers Horizontal Scroll Strip ── */}
         {(offers||[]).length > 0 && (
-          <div style={{ marginBottom:14 }}>
+          <div className="offers-section-wrap" style={{ marginBottom:14 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, paddingInline:4 }}>
               <span style={{ fontSize:14 }}>🎉</span>
               <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#F79B3D':'#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
@@ -1807,7 +1805,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         {/* ── Combos Section ───────────────────────────────────── */}
         {(combos||[]).filter(c=>c.isActive!==false).length > 0 && activeCat === 'All' && (
-          <div style={{marginBottom:28}}>
+          <div className="combos-section-wrap" style={{marginBottom:28}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
               <span style={{fontSize:18}}>🍱</span>
               <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'#F79B3D':'#A06010'}}><span className="shiny-txt">Combo Deals</span></span>
@@ -2397,3 +2395,5 @@ export async function getServerSideProps({ params }) {
     return { props:{restaurant:null,menuItems:[],offers:[],error:err.message} };
   }
 }
+
+
