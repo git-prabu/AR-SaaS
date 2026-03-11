@@ -2046,7 +2046,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           </button>
           {/* Cart FAB — only show when cart has items */}
           {cartTotal > 0 && (
-            <button className="cart-fab" onClick={() => setCartOpen(true)}>
+            <button className="cart-fab" onClick={() => setCartOpen(true)} style={{background: darkMode?'#2A2520':'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', color: darkMode?'#FFF5E8':'#1E1B18'}}>
               <span>🛒</span>
               <span>{cartTotal} item{cartTotal!==1?'s':''}</span>
               <div className="cart-badge">{cartTotal}</div>
@@ -2132,7 +2132,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                         <span style={{ fontSize:13, color:'var(--text-muted,rgba(42,31,16,0.5))', fontWeight:600 }}>in your order list</span>
                       </>
                     ) : (
-                      <button onClick={()=>addToCart(selectedItem)} style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:50, border:'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer', boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)' }}>
+                      <button onClick={()=>addToCart(selectedItem)} style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:50, border:'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#ffffff' : '#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer', boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)' }}>
                         🛒 Add to Order List
                       </button>
                     )}
@@ -2257,7 +2257,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <button onClick={clearCart} style={{ flex:1, padding:'12px', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,245,232,0.15)':'rgba(42,31,16,0.12)'}`, background:'transparent', fontSize:14, fontWeight:600, fontFamily:'Inter,sans-serif', cursor:'pointer', color: darkMode?'rgba(255,245,232,0.6)':'rgba(42,31,16,0.55)' }}>
                 Clear List
               </button>
-              <button onClick={()=>setCartOpen(false)} style={{ flex:2, padding:'12px', borderRadius:12, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
+              <button onClick={()=>setCartOpen(false)} style={{ flex:2, padding:'12px', borderRadius:12, border:'none', background:'#1E1B18', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,245,232,0.15)':'rgba(42,31,16,0.12)'}`, color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
                 ✓ Done — Show to Waiter
               </button>
             </div>
@@ -2287,7 +2287,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               </div>
             ) : (
               <>
-                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:20, color: darkMode?'#FFF5E8':'#1E1B18', marginBottom:6 }}>
+                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:20, color: darkMode?'#FFF5E8':'#4e4740', marginBottom:6 }}>
                   🔔 Call Waiter
                 </div>
                 <div style={{ fontSize:13, color:'rgba(42,31,16,0.45)', marginBottom:22 }}>
@@ -2324,7 +2324,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                 <button
                   onClick={handleWaiterCall}
                   disabled={!waiterReason || waiterSending}
-                  style={{ width:'100%', padding:'14px', borderRadius:14, border:'none', background: waiterReason ? 'linear-gradient(135deg,#F79B3D,#F48A1E)' : 'rgba(42,31,16,0.1)', color: waiterReason ? '#fff' : 'rgba(42,31,16,0.3)', fontSize:15, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition:'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(247,155,61,0.35)' : 'none' }}>
+                  style={{ width:'100%', padding:'14px', borderRadius:14, border:'none', background: waiterReason ? 'linear-gradient(135deg,#F79B3D,#F48A1E)' : 'rgba(92, 92, 92, 0.5)', color: waiterReason ? '#fff' : 'rgba(255, 255, 255, 0.57)', fontSize:15, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition:'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(247,155,61,0.35)' : 'none' }}>
                   {waiterSending ? 'Sending…' : '🔔 Call Waiter'}
                 </button>
               </>
