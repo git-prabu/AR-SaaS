@@ -332,31 +332,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
 
 
-  // Auto-hide header on scroll down, show on scroll up
-  useEffect(() => {
-    let lastY = window.scrollY;
-    let ticking = false;
-    const onScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentY = window.scrollY;
-          const hdr = document.querySelector('.hdr');
-          if (hdr) {
-            if (currentY > lastY && currentY > 80) {
-              hdr.classList.add('hdr-hidden');
-            } else {
-              hdr.classList.remove('hdr-hidden');
-            }
-          }
-          lastY = currentY;
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
 
   // Smart header: smooth hide on scroll down, show on scroll up
@@ -370,7 +345,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
     if (!hdr) return;
     const setOffset = () => {
       const h = hdr.getBoundingClientRect().height;
-      document.documentElement.style.setProperty('--hdr-h', h + 'px');
+      document.documentElement.style.setProperty('--hdr-h', (h + 8) + 'px');
     };
     setOffset();
     const ro = new ResizeObserver(setOffset);
@@ -379,6 +354,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   }, []);
 
   useEffect(() => {
+    let hidden = false;
     const onScroll = () => {
       if (scrollTicking.current) return;
       scrollTicking.current = true;
@@ -387,10 +363,17 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         const hdr = hdrRef.current;
         if (hdr) {
           const diff = current - lastScrollY.current;
-          if (diff > 6 && current > 100) {
-            hdr.classList.add('hdr-hidden');
-          } else if (diff < -3 || current < 60) {
-            hdr.classList.remove('hdr-hidden');
+          const hdrH = hdr.getBoundingClientRect().height;
+          if (!hidden && diff > 6 && current > hdrH) {
+            // Scrolling down past header — slide up smoothly
+            hdr.style.transition = 'transform 0.38s cubic-bezier(0.4,0,0.2,1)';
+            hdr.style.transform = 'translateY(-100%)';
+            hidden = true;
+          } else if (hidden && (diff < -4 || current < hdrH)) {
+            // Scrolling up or near top — slide back down
+            hdr.style.transition = 'transform 0.42s cubic-bezier(0.0,0,0.2,1)';
+            hdr.style.transform = 'translateY(0)';
+            hidden = false;
           }
           lastScrollY.current = current;
         }
@@ -608,12 +591,10 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           border-bottom: 1px solid rgba(255,255,255,0.35);
           box-shadow: 0 2px 24px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.6) inset;
           transform: translateY(0);
-          transition: transform 0.38s cubic-bezier(0.4,0,0.2,1), background 0.4s ease, border-color 0.4s ease;
+          transition: background 0.4s ease, border-color 0.4s ease;
           will-change: transform;
         }
-        .hdr.hdr-hidden {
-          transform: translateY(-100%);
-        }
+        /* hdr-hidden removed — handled via inline style for smooth transition */
         .hdr-inner { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
 
         .hdr-top {
