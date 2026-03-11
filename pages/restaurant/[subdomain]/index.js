@@ -1427,56 +1427,83 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────────────────────────────────
            THEME TOGGLE — sky/night style (ref images)
            ───────────────────────────────────── */
+        /* ── THEME TOGGLE ── */
+        @keyframes starTwinkle {
+          0%,100% { opacity: 0.5; transform: scale(1); }
+          50%      { opacity: 1;   transform: scale(1.4); }
+        }
         .theme-toggle {
           margin-left: 6px; flex-shrink: 0;
-          width: 60px; height: 30px;
-          border-radius: 20px; border: 1px solid rgba(247,155,61,0.25);
+          width: 62px; height: 30px;
+          border-radius: 20px;
+          border: 1px solid rgba(247,155,61,0.3);
           position: relative; cursor: pointer; padding: 0;
-          background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%);
-          box-shadow: 0 2px 8px rgba(41,182,246,0.3);
-          transition: background 0.5s ease, box-shadow 0.4s ease;
+          /* Light mode: sky blue → sunny yellow */
+          background: linear-gradient(135deg, #87CEEB 0%, #FCD34D 100%);
+          box-shadow: 0 2px 8px rgba(247,200,61,0.3);
+          transition: background 0.5s ease, box-shadow 0.45s ease, border-color 0.4s ease;
           overflow: hidden; outline: none;
         }
         .dm .theme-toggle {
-          background: linear-gradient(135deg, #1C1C2E 0%, #252540 100%);
-          box-shadow: inset 0 -2px 4px rgba(0,0,0,0.4), 0 2px 10px rgba(0,0,0,0.6);
+          /* Dark mode: deep charcoal exactly like reference */
+          background: #2A2A2A;
+          border-color: rgba(255,255,255,0.08);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
-        /* ☁️ Cloud — visible in light mode, hidden in dark */
+        /* ☀️ Sun icon — light mode left side */
         .theme-toggle .t-sun {
-          position: absolute; left: 6px; top: 52%;
-          transform: translateY(-50%) scale(1);
-          font-size: 17px; line-height: 1;
-          transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
-          pointer-events: none; z-index: 2; opacity: 1;
+          position: absolute; left: 7px; top: 50%;
+          transform: translateY(-50%) scale(1) rotate(0deg);
+          font-size: 13px; line-height: 1;
+          opacity: 1;
+          transition: opacity 0.3s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+          pointer-events: none; z-index: 2;
         }
         .dm .theme-toggle .t-sun {
-          opacity: 0; transform: translateY(-50%) scale(0.5);
+          opacity: 0; transform: translateY(-50%) scale(0.3) rotate(90deg);
         }
-        /* 🌙 Moon + dots — hidden in light, visible in dark */
+        /* Star dots — dark mode right side, 3 dots like reference */
         .theme-toggle .t-moon {
-          position: absolute; left: 7px; top: 50%;
-          transform: translateY(-50%) scale(0.5);
-          font-size: 14px; line-height: 1;
-          transition: opacity 0.3s ease 0.05s, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
-          pointer-events: none; z-index: 2; opacity: 0;
+          position: absolute; right: 6px; top: 50%;
+          transform: translateY(-50%);
+          opacity: 0;
+          display: flex; flex-direction: column; gap: 2px; align-items: center;
+          transition: opacity 0.3s ease 0.1s;
+          pointer-events: none; z-index: 2;
         }
-        .dm .theme-toggle .t-moon {
-          opacity: 1; transform: translateY(-50%) scale(1);
+        .dm .theme-toggle .t-moon { opacity: 1; }
+        .t-star {
+          background: #FFFFFF; border-radius: 50%;
+          display: block;
         }
-        /* Thumb — sunny yellow ball in light, dark grey in dark */
+        .t-star.s1 { width: 3px; height: 3px; animation: starTwinkle 2s ease-in-out infinite; }
+        .t-star.s2 { width: 2px; height: 2px; animation: starTwinkle 2s ease-in-out 0.6s infinite; }
+        .t-star.s3 { width: 2px; height: 2px; animation: starTwinkle 2s ease-in-out 1.2s infinite; }
+        /* Thumb — sun ball in light, moon crescent SVG in dark */
         .theme-toggle .t-thumb {
           position: absolute; top: 3px; right: 3px;
           width: 24px; height: 24px; border-radius: 50%;
-          background: radial-gradient(circle at 38% 32%, #FFE566, #F5A623 60%, #E08B10);
-          box-shadow: 0 2px 8px rgba(220,140,0,0.5), inset 0 1px 3px rgba(255,255,255,0.6);
+          background: radial-gradient(circle at 35% 30%, #FFE566, #F5A623 60%, #E08B10);
+          box-shadow: 0 2px 6px rgba(220,140,0,0.45), inset 0 1px 2px rgba(255,255,255,0.5);
           transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
                       background 0.4s ease, box-shadow 0.4s ease;
           pointer-events: none; z-index: 3;
+          display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        /* Moon SVG inside thumb — hidden in light, shown in dark */
+        .t-thumb .t-moon-svg {
+          opacity: 0; transform: scale(0.5) rotate(-30deg);
+          transition: opacity 0.35s ease 0.1s, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+          position: absolute;
+        }
+        .dm .t-thumb .t-moon-svg {
+          opacity: 1; transform: scale(1) rotate(0deg);
         }
         .dm .theme-toggle .t-thumb {
-          transform: translateX(-30px);
-          background: radial-gradient(circle at 38% 32%, #3A3A55, #252538);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.04);
+          /* Slide left */
+          transform: translateX(-32px);
+          background: #FFFFFF;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.35);
         }
 
 
@@ -1718,9 +1745,20 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
             )}
             <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
+              {/* ☀️ Sun emoji — light mode */}
               <span className="t-sun">☀️</span>
-              <span className="t-moon">🌙</span>
-              <span className="t-thumb" />
+              {/* ✦ Star dots — dark mode right side */}
+              <span className="t-moon">
+                <span className="t-star s1"/>
+                <span className="t-star s2"/>
+                <span className="t-star s3"/>
+              </span>
+              {/* Thumb with crescent moon SVG inside */}
+              <span className="t-thumb">
+                <svg className="t-moon-svg" width="14" height="14" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              </span>
             </button>
           </div>
           {/* Category tabs */}
