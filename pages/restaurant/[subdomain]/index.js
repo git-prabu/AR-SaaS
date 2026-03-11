@@ -532,7 +532,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className={darkMode ? 'dm' : ''} id="app-root" style={{position:'relative'}}>
+      <div className={darkMode ? 'dm' : ''} id="app-root" style={{position:'relative', paddingTop:'var(--hdr-h, 140px)'}}>
         {/* Plasma background — shows only in dark mode via CSS */}
         <div className="plasma-bg" aria-hidden="true">
           <div className="plasma-blob pb1"/>
@@ -541,8 +541,20 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           <div className="plasma-blob pb4"/>
           <div className="plasma-overlay"/>
         </div>
+        {/* SVG turbulence filter for electric card borders */}
+        <svg className="card-turb-svg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="card-turb" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="4" result="noise1" seed="1">
+                <animate attributeName="baseFrequency" values="0.02;0.025;0.02" dur="6s" repeatCount="indefinite"/>
+              </feTurbulence>
+              <feDisplacementMap in="SourceGraphic" in2="noise1" scale="2" xChannelSelector="R" yChannelSelector="B"/>
+            </filter>
+          </defs>
+        </svg>
       <style>{`
         html, body { margin:0; padding:0; }
+        :root { --hdr-h: 140px; }
         #app-root { transition: background 0.4s ease, color 0.4s ease; }
         #app-root *, #app-root *::before, #app-root *::after {
           transition:
@@ -576,7 +588,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* ─────────── HEADER ─────────── */
         .hdr {
-          position: sticky; top: 0; z-index: 40;
+          position: fixed; top: 0; left: 0; right: 0; z-index: 40;
           background: rgba(255,255,255,0.95);
           backdrop-filter: saturate(180%) blur(20px);
           -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -747,7 +759,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────── CARD — Apple App Store level ─────────── */
         .card {
           background: #FFFFFF;
-          border-radius: 20px; overflow: hidden;
+          border-radius: 20px; clip-path: inset(0 round 20px);
           cursor: pointer; position: relative; text-align: left;
           display: flex; flex-direction: column;
           will-change: transform;
@@ -1710,15 +1722,47 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           background: rgba(8,6,4,0.62);
         }
 
-        /* ── Shine Border (IntersectionObserver activated) ───── */
-        @keyframes shinePulse {
-          0%,100% { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.07), 0 0 0px rgba(0,229,255,0) !important; border-color: rgba(0,229,255,0) !important; }
-          50%     { box-shadow: 0 4px 20px rgba(0,0,0,0.1), 0 0 22px rgba(0,229,255,0.55), 0 0 8px rgba(0,229,255,0.3) !important; border-color: rgba(0,229,255,0.6) !important; }
+        /* ── Electric Glow Border (IntersectionObserver activated) ── */
+        /* SVG turbulence filter for card border displacement */
+        .card-turb-svg { position: absolute; width: 0; height: 0; pointer-events: none; }
+
+        @keyframes electricGlow {
+          0%,100% { opacity: 0; }
+          50%      { opacity: 1; }
         }
+
+        /* Wrapper when card is visible */
         .card.shine-on {
-          animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both, shinePulse 6s ease-in-out infinite !important;
-          border-width: 1.5px !important;
+          animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both !important;
+          border: 2px solid rgba(221,132,72,0.85) !important;
+          filter: url(#card-turb) !important;
         }
+
+        /* Glow layer 1 — blurred amber border */
+        .card.shine-on::after {
+          content: '';
+          position: absolute; inset: 0;
+          border-radius: inherit;
+          border: 2px solid rgba(221,132,72,0.6);
+          filter: blur(1px);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Background ambient glow behind card */
+        .card.shine-on::before {
+          content: '';
+          position: absolute; inset: -2px;
+          border-radius: 22px;
+          filter: blur(12px);
+          transform: scale(1.05);
+          opacity: 0.35;
+          background: linear-gradient(-30deg, #F79B3D, transparent, #E05A3A);
+          pointer-events: none;
+          z-index: -1;
+        }
+
+        .card > * { position: relative; z-index: 1; }
 
         /* ── ElectricBorder ───────────────────── */
         @keyframes electricSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
@@ -1787,9 +1831,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
-            {arCount > 0 && (
-              <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
-            )}
             <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
               <span className="tgl-slider">
                 <span className="tgl-star tgl-star-1"/>
@@ -1800,6 +1841,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                 </svg>
               </span>
             </button>
+            {arCount > 0 && (
+              <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
+            )}
           </div>
           {/* Category tabs */}
           <div className="cats-outer">
