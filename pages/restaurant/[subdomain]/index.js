@@ -1466,135 +1466,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* Sheet uses modalIn (already has slideUp, keep as is) */
 
-
-        /* ── CircularText ─────────────────────── */
-        @keyframes circTextSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        .circ-ring {
-          position:absolute; inset:0; pointer-events:none;
-          animation: circTextSpin 18s linear infinite;
-        }
-
-        /* ── ShinyText ────────────────────────── */
-        @keyframes shineMove {
-          0%   { background-position: -200% center; }
-          100% { background-position:  200% center; }
-        }
-        .shiny-txt {
-          background: linear-gradient(90deg, currentColor 30%, rgba(255,255,255,0.92) 50%, currentColor 70%);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          background-clip: text;
-          -webkit-text-fill-color: transparent;
-          animation: shineMove 2.8s linear infinite;
-          display: inline-block;
-        }
-
-        /* ── ElectricBorder ───────────────────── */
-        @keyframes electricSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        .elec-wrap { position:relative; }
-        .elec-ring {
-          position:absolute; inset:-2px; border-radius:inherit;
-          background: conic-gradient(
-            from 0deg,
-            transparent 0deg,
-            #F79B3D 50deg,
-            #FFD056 110deg,
-            #E05A3A 170deg,
-            transparent 230deg,
-            transparent 290deg,
-            #F79B3D 340deg,
-            transparent 360deg
-          );
-          animation: electricSpin 3.2s linear infinite;
-          z-index: 0;
-        }
-        .elec-inner {
-          position:relative; z-index:1;
-        }
-
-        /* ── GradualBlur on category scroll ───── */
-        .cats-outer {
-          -webkit-mask-image: linear-gradient(to right, transparent 0px, black 32px, black calc(100% - 32px), transparent 100%);
-          mask-image: linear-gradient(to right, transparent 0px, black 32px, black calc(100% - 32px), transparent 100%);
-        }
-
-
-        /* ── ELECTRIC BORDER ── */
-        @keyframes electric {
-          0%,100% {
-            box-shadow: 0 0 6px rgba(247,155,61,0.4), 0 0 18px rgba(247,155,61,0.15), inset 0 0 6px rgba(247,155,61,0.04);
-            border-color: rgba(247,155,61,0.35);
-          }
-          25% {
-            box-shadow: 0 0 12px rgba(224,90,58,0.7), 0 0 30px rgba(224,90,58,0.25), inset 0 0 10px rgba(224,90,58,0.06);
-            border-color: rgba(224,90,58,0.55);
-          }
-          50% {
-            box-shadow: 0 0 18px rgba(247,155,61,0.9), 0 0 45px rgba(247,155,61,0.35), inset 0 0 14px rgba(247,155,61,0.08);
-            border-color: rgba(247,155,61,0.75);
-          }
-          75% {
-            box-shadow: 0 0 10px rgba(244,192,80,0.6), 0 0 24px rgba(244,192,80,0.2), inset 0 0 8px rgba(244,192,80,0.05);
-            border-color: rgba(244,192,80,0.5);
-          }
-        }
-        .electric-card { animation: electric 2.8s ease-in-out infinite; }
-
-        /* ── GRADUAL BLUR STRIPS ── */
-        .gb-top {
-          position: fixed; top: 0; left: 0; right: 0; height: 72px;
-          pointer-events: none; z-index: 15;
-          -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
-          mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-        .gb-bottom {
-          position: fixed; bottom: 0; left: 0; right: 0; height: 72px;
-          pointer-events: none; z-index: 15;
-          -webkit-mask-image: linear-gradient(to top, black 0%, transparent 100%);
-          mask-image: linear-gradient(to top, black 0%, transparent 100%);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
       `}</style>
-
-      {/* ─── GRADUAL BLUR STRIPS ─── */}
-      <div className="gb-top" />
-      <div className="gb-bottom" />
 
       {/* ─── HEADER ─── */}
       <header className="hdr">
         <div className="hdr-inner">
           <div className="hdr-top">
-            {/* CircularText around restaurant logo */}
-            <div style={{ position:'relative', width:80, height:80, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {/* Spinning ring of text */}
-              <div className="circ-ring">
-                {(() => {
-                  const txt = '• AR MENU • EXPLORE • ';
-                  const chars = txt.split('');
-                  const radius = 36;
-                  return chars.map((ch, i) => {
-                    const angle = (i * 360) / chars.length;
-                    const rad = (angle * Math.PI) / 180;
-                    const x = Math.sin(rad) * radius;
-                    const y = -Math.cos(rad) * radius;
-                    return (
-                      <span key={i} style={{
-                        position:'absolute', left:`calc(50% + ${x}px)`, top:`calc(50% + ${y}px)`,
-                        transform:`translate(-50%,-50%) rotate(${angle}deg)`,
-                        fontSize:8, fontWeight:800, letterSpacing:0.5, userSelect:'none',
-                        color: darkMode ? 'rgba(247,155,61,0.7)' : 'rgba(247,155,61,0.85)',
-                        lineHeight:1,
-                      }}>{ch}</span>
-                    );
-                  });
-                })()}
-              </div>
-              {/* Logo sits in center */}
-              <div className="r-logo" style={{ position:'relative', zIndex:1, width:44, height:44 }}>🍽️</div>
-            </div>
+            <div className="r-logo">🍽️</div>
             <div>
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
@@ -1603,7 +1481,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               {darkMode ? "☀️" : "🌙"}
             </button>
             {arCount > 0 && (
-              <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
+              <div className="ar-badge"><span className="ar-dot"/>AR Live</div>
             )}
           </div>
           {/* Category tabs */}
@@ -1627,20 +1505,18 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           <div style={{ marginBottom:14 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, paddingInline:4 }}>
               <span style={{ fontSize:14 }}>🎉</span>
-              <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#F79B3D':'#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
+              <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#FFF5E8':'#1E1B18' }}>Today's Offers</span>
             </div>
             <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
               {(offers||[]).map((offer, i) => {
                 const linked = offer.linkedItemId ? (menuItems||[]).find(m => m.id === offer.linkedItemId) : null;
                 const isClickable = !!offer.linkedItemId;
                 return (
-                  <div key={offer.id||i} className="elec-wrap" style={{ flexShrink:0, minWidth:200, maxWidth:250, borderRadius:18 }}>
-                    <div className="elec-ring" style={{ borderRadius:20 }}/>
-                    <div className="elec-inner"
-                      onClick={() => { if (linked) openItem(linked); }}
-                      style={{ padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(30,27,24,0.95)':'rgba(255,252,248,0.98)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
-                      onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(50,38,20,0.98)' : 'rgba(247,240,225,0.98)'; e.currentTarget.style.transform='translateY(-2px)'; } }}
-                      onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(30,27,24,0.95)' : 'rgba(255,252,248,0.98)'; e.currentTarget.style.transform=''; }}>
+                  <div key={offer.id||i}
+                    onClick={() => { if (linked) openItem(linked); }}
+                    style={{ flexShrink:0, minWidth:200, maxWidth:250, padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)', border:'1.5px solid rgba(247,155,61,0.3)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
+                    onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(255,200,80,0.18)' : 'rgba(247,155,61,0.16)'; e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(247,155,61,0.2)'; } }}
+                    onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(255,200,80,0.1)' : 'rgba(247,155,61,0.08)'; e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}>
                     {/* Dish image or emoji */}
                     {(offer.linkedItemImage || linked?.imageURL)
                       ? <img src={offer.linkedItemImage||linked?.imageURL} alt={offer.linkedItemName||linked?.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(247,155,61,0.25)' }} />
@@ -1661,7 +1537,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                         </div>
                       )}
                       {isClickable && <div style={{ fontSize:10, fontWeight:700, color: darkMode?'rgba(255,220,100,0.5)':'rgba(139,96,16,0.6)', marginTop:2 }}>Tap to view →</div>}
-                    </div>
                     </div>
                   </div>
                 );
@@ -1687,16 +1562,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           <div style={{marginBottom:28}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
               <span style={{fontSize:18}}>🍱</span>
-              <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'#F79B3D':'#A06010'}}><span className="shiny-txt">Combo Deals</span></span>
+              <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'var(--text-1)':'#1E1B18'}}>Combo Deals</span>
               <span style={{padding:'3px 10px',borderRadius:20,background:darkMode?'rgba(247,155,61,0.2)':'rgba(247,155,61,0.15)',color:darkMode?'#F4C050':'#A06010',fontSize:11,fontWeight:700,border:'1px solid rgba(247,155,61,0.3)'}}>Special Offers</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {(combos||[]).filter(c=>c.isActive!==false).map(combo => {
                 const comboItems = (combo.itemIds||[]).map(id=>(menuItems||[]).find(i=>i.id===id)).filter(Boolean);
                 return (
-                  <div key={combo.id} className="elec-wrap" style={{borderRadius:20}}>
-                    <div className="elec-ring" style={{borderRadius:22}}/>
-                    <div className="elec-inner" style={{background:darkMode?'linear-gradient(135deg,rgba(30,27,24,0.97),rgba(40,30,18,0.97))':'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))',borderRadius:18,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+                  <div key={combo.id} style={{background:darkMode?'linear-gradient(135deg,rgba(247,155,61,0.14),rgba(224,90,58,0.10))':'linear-gradient(135deg,rgba(247,155,61,0.08),rgba(224,90,58,0.05))',border:'1.5px solid rgba(247,155,61,0.35)',borderRadius:18,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
                         <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:darkMode?'var(--text-1)':'#1E1B18'}}>{combo.name}</span>
@@ -1717,7 +1590,6 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                       {combo.savings > 0 && (
                         <div style={{fontSize:12,fontWeight:700,color:'#2D8B4E',marginTop:2}}>Save ₹{combo.savings}</div>
                       )}
-                    </div>
                     </div>
                   </div>
                 );

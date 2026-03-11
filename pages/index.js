@@ -82,51 +82,6 @@ export default function HomePage() {
             .feat-grid{grid-template-columns:repeat(2,1fr)!important;}
             .plan-grid{grid-template-columns:repeat(2,1fr)!important;}
           }
-
-          /* ── PLASMA blobs ── */
-          @keyframes plasma1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(50px,-40px) scale(1.18)} 66%{transform:translate(-30px,35px) scale(0.88)} }
-          @keyframes plasma2 { 0%,100%{transform:translate(0,0) scale(1)} 40%{transform:translate(-60px,30px) scale(1.22)} 80%{transform:translate(40px,-25px) scale(0.92)} }
-          @keyframes plasma3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(35px,50px) scale(0.85) rotate(20deg)} }
-          @keyframes plasma4 { 0%,100%{transform:translate(0,0) scale(1)} 30%{transform:translate(-45px,-35px) scale(1.15)} 70%{transform:translate(25px,45px) scale(0.9)} }
-          .plasma-blob { position:absolute; border-radius:50%; filter:blur(60px); pointer-events:none; mix-blend-mode:multiply; }
-
-          /* ── SHINY TEXT ── */
-          @keyframes shine {
-            0%   { background-position: -300% center; }
-            100% { background-position: 300% center; }
-          }
-          .shiny-h2 {
-            background: linear-gradient(90deg,
-              #1E1B18 20%,
-              #F79B3D 38%,
-              #FFE8A0 45%,
-              #FFFFFF 50%,
-              #FFE8A0 55%,
-              #F79B3D 62%,
-              #1E1B18 80%
-            );
-            background-size: 250% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shine 5s linear infinite;
-          }
-
-          /* ── CIRCULAR TEXT ── */
-          @keyframes rotateCW  { from{transform:rotate(0deg)}  to{transform:rotate(360deg)} }
-          @keyframes rotateCCW { from{transform:rotate(0deg)}  to{transform:rotate(-360deg)} }
-
-          /* ── PRISM ── */
-          @keyframes prismRot {
-            0%   { transform: rotate(0deg);   opacity:0.12; }
-            50%  { opacity:0.22; }
-            100% { transform: rotate(360deg); opacity:0.12; }
-          }
-          @keyframes prismPulse {
-            0%,100% { opacity:0.08; }
-            50%     { opacity:0.18; }
-          }
-
           @media(max-width:680px){
             .split{grid-template-columns:1fr!important;gap:32px;}
             .split.rev{direction:ltr;}
@@ -135,19 +90,9 @@ export default function HomePage() {
           }
         `}</style>
 
-        {/* ── PLASMA BACKGROUND ── */}
-        <div style={{position:'fixed',inset:0,overflow:'hidden',pointerEvents:'none',zIndex:0}}>
-          {/* Main warm amber plasma */}
-          <div className="plasma-blob" style={{width:520,height:520,background:'radial-gradient(ellipse,rgba(247,155,61,0.22),transparent 70%)',top:'5%',right:'-5%',animation:'plasma1 12s ease-in-out infinite'}}/>
-          {/* Coral accent blob */}
-          <div className="plasma-blob" style={{width:440,height:440,background:'radial-gradient(ellipse,rgba(224,90,58,0.16),transparent 70%)',top:'-8%',left:'-4%',animation:'plasma2 15s ease-in-out 2s infinite'}}/>
-          {/* Peach mid blob */}
-          <div className="plasma-blob" style={{width:380,height:380,background:'radial-gradient(ellipse,rgba(244,184,80,0.14),transparent 70%)',bottom:'20%',left:'10%',animation:'plasma3 18s ease-in-out 4s infinite'}}/>
-          {/* Purple hint blob (bottom right) */}
-          <div className="plasma-blob" style={{width:320,height:320,background:'radial-gradient(ellipse,rgba(196,181,212,0.12),transparent 70%)',bottom:'-5%',right:'15%',animation:'plasma4 14s ease-in-out 1s infinite'}}/>
-          {/* Small hot spot */}
-          <div className="plasma-blob" style={{width:200,height:200,background:'radial-gradient(ellipse,rgba(247,155,61,0.18),transparent 70%)',top:'50%',left:'45%',animation:'plasma1 10s ease-in-out 3s infinite'}}/>
-        </div>
+        {/* Background blobs — subtle, not cluttered */}
+        <div style={{position:'fixed',bottom:'-15%',right:'-6%',width:480,height:480,borderRadius:'50%',background:'rgba(247,155,61,0.07)',pointerEvents:'none',zIndex:0}}/>
+        <div style={{position:'fixed',top:'-10%',left:'-5%',width:360,height:360,borderRadius:'50%',background:'rgba(224,90,58,0.06)',pointerEvents:'none',zIndex:0}}/>
 
         {/* ══ NAV ══ */}
         <nav className="nav">
@@ -212,20 +157,6 @@ export default function HomePage() {
 
               {/* RIGHT — 3D Clay Food Scene */}
               <div style={{position:'relative',animation:'fadeUp 1s ease 0.15s both'}}>
-              {/* ── CIRCULAR TEXT ── floating badge */}
-              <div style={{position:'absolute',bottom:'-10px',right:'-10px',width:110,height:110,zIndex:2,animation:'rotateCCW 0.5s linear infinite'}}>
-                <svg viewBox="0 0 110 110" width="110" height="110">
-                  <defs>
-                    <path id="circlePathHero" d="M 55 55 m -42,0 a 42,42 0 1,1 84,0 a 42,42 0 1,1 -84,0"/>
-                  </defs>
-                  <text fontSize="8.5" fill="#E05A3A" fontFamily="Poppins,sans-serif" fontWeight="700" letterSpacing="2.5">
-                    <textPath href="#circlePathHero">• AR MENU • NO APP NEEDED • SCAN NOW •&nbsp;</textPath>
-                  </text>
-                </svg>
-              </div>
-              {/* Inner static center dot */}
-              <div style={{position:'absolute',bottom:'30px',right:'30px',width:24,height:24,borderRadius:'50%',background:'linear-gradient(135deg,#F79B3D,#E05A3A)',boxShadow:'0 4px 14px rgba(247,155,61,0.5)',zIndex:3}}/>
-
                 <div style={{position:'absolute',top:'8%',left:'8%',right:'8%',bottom:'5%',background:'radial-gradient(ellipse,rgba(255,255,255,0.32),transparent 68%)',filter:'blur(18px)',borderRadius:'50%',pointerEvents:'none'}}/>
                 <svg viewBox="0 0 580 500" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'auto',filter:'drop-shadow(0 20px 44px rgba(120,70,30,0.2))',position:'relative'}}>
                   <defs>
@@ -500,7 +431,7 @@ export default function HomePage() {
           <div className="inner">
             <div style={{textAlign:'center',marginBottom:52}}>
               <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>Features</div>
-              <h2 className="shiny-h2" style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',marginBottom:14}}>Every tool to grow revenue</h2>
+              <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Every tool to grow revenue</h2>
               <p style={{fontSize:16,color:'rgba(42,31,16,0.55)',maxWidth:520,margin:'0 auto'}}>AR menus, AI upselling, real-time analytics, waiter call system — all in one platform built for Indian restaurants.</p>
             </div>
             <div className="feat-grid">
@@ -548,7 +479,7 @@ export default function HomePage() {
           <div className="inner">
             <div style={{textAlign:'center',marginBottom:52}}>
               <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>Pricing</div>
-              <h2 className="shiny-h2" style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',marginBottom:14}}>Simple, transparent pricing</h2>
+              <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Simple, transparent pricing</h2>
               <p style={{fontSize:16,color:'rgba(42,31,16,0.55)'}}>Monthly plans. No hidden fees. Cancel anytime.</p>
             </div>
             <div className="plan-grid">
@@ -583,17 +514,7 @@ export default function HomePage() {
         <section className="section">
           <div className="inner">
             <div style={{background:'#FFFFFF',backdropFilter:'none',border:'1.5px solid rgba(42,31,16,0.07)',borderRadius:32,padding:'56px 48px',boxShadow:'0 12px 48px rgba(120,70,30,0.14),inset 0 1px 0 rgba(255,255,255,0.7)',overflow:'hidden',position:'relative'}}>
-              {/* ── PRISM RAYS ── */}
-              <div style={{position:'absolute',inset:0,borderRadius:32,overflow:'hidden',pointerEvents:'none',zIndex:0}}>
-                {/* Conic rainbow from top-right corner */}
-                <div style={{position:'absolute',top:'-50%',right:'-20%',width:'140%',height:'200%',background:'conic-gradient(from 200deg at 85% 20%, rgba(255,0,128,0.05) 0deg, rgba(255,120,0,0.07) 40deg, rgba(255,230,0,0.06) 80deg, rgba(0,200,100,0.05) 120deg, rgba(0,180,255,0.07) 160deg, rgba(120,0,255,0.05) 200deg, rgba(255,0,200,0.04) 240deg, transparent 280deg)',animation:'prismRot 25s linear infinite',transformOrigin:'85% 20%'}}/>
-                {/* Secondary ray burst from bottom-left */}
-                <div style={{position:'absolute',bottom:'-30%',left:'-10%',width:'80%',height:'160%',background:'conic-gradient(from 30deg at 10% 90%, rgba(255,200,0,0.06) 0deg, rgba(255,80,0,0.05) 50deg, rgba(200,0,255,0.04) 100deg, transparent 140deg)',animation:'prismRot 35s linear 5s infinite',transformOrigin:'10% 90%'}}/>
-                {/* Diagonal light streaks */}
-                <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,background:'repeating-linear-gradient(105deg, transparent, transparent 80px, rgba(247,155,61,0.03) 81px, rgba(247,155,61,0.03) 82px)',animation:'prismPulse 8s ease-in-out infinite'}}/>
-                <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,background:'repeating-linear-gradient(75deg, transparent, transparent 120px, rgba(100,160,255,0.025) 121px, rgba(100,160,255,0.025) 122px)',animation:'prismPulse 12s ease-in-out 3s infinite'}}/>
-              </div>
-              <div className="split" style={{gap:40,position:'relative',zIndex:1}}>
+              <div className="split" style={{gap:40}}>
                 <div>
                   <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:'clamp(28px,3.5vw,46px)',color:'#1E1B18',lineHeight:1.1,marginBottom:16}}>
                     Ready to bring your menu to life?
