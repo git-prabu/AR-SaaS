@@ -342,9 +342,23 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
 
   useEffect(() => {
-    // Medium-style header: tracks scroll pixel-by-pixel, no snap
+    // Medium-style: pixel-by-pixel tracking + snap-to-complete on scroll end
     let prevY = window.scrollY;
     let translationY = 0;
+    let snapTimer = null;
+
+    const snapComplete = (hdr, height) => {
+      // Snap to nearest boundary — never leave half-hidden
+      const target = translationY < -height / 2 ? -height : 0;
+      if (translationY !== target) {
+        hdr.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+        hdr.style.transform = `translateY(${target}px)`;
+        translationY = target;
+        // Clear transition after animation so finger-tracking resumes cleanly
+        setTimeout(() => { if (hdrRef.current) hdrRef.current.style.transition = 'none'; }, 320);
+      }
+    };
+
     const onScroll = () => {
       if (scrollTicking.current) return;
       scrollTicking.current = true;
@@ -354,18 +368,34 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         if (hdr) {
           const height = hdr.getBoundingClientRect().height;
           const diff = currentY - prevY;
-          // Clamp between -height (fully hidden) and 0 (fully visible)
-          translationY = Math.min(Math.max(translationY - diff, -height), 0);
-          // No CSS transition — movement follows finger exactly
-          hdr.style.transform = `translateY(${translationY}px)`;
+
+          // At very top: always fully visible
+          if (currentY <= 0) {
+            translationY = 0;
+            hdr.style.transition = 'none';
+            hdr.style.transform = 'translateY(0)';
+          } else {
+            hdr.style.transition = 'none';
+            translationY = Math.min(Math.max(translationY - diff, -height), 0);
+            hdr.style.transform = `translateY(${translationY}px)`;
+          }
+
           prevY = currentY;
           lastScrollY.current = currentY;
+
+          // Snap to complete after 180ms of no scrolling
+          clearTimeout(snapTimer);
+          snapTimer = setTimeout(() => snapComplete(hdr, height), 180);
         }
         scrollTicking.current = false;
       });
     };
+
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      clearTimeout(snapTimer);
+    };
   }, []);
 
   // IntersectionObserver: activate shine border only on visible cards
@@ -882,8 +912,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         .m-pills { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
         .m-pill  { display:flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; background:#F5F0EA; color:#2B2B2B; }
 
-        .m-price     { text-align:center; font-size:34px; font-weight:800; color:#F79B3D; letter-spacing:-0.6px; }
-        .m-price-sub { text-align:center; font-size:11px; color:#7A7A7A; margin-top:2px; margin-bottom:14px; }
+        .m-price     { display:block; width:100%; text-align:center; font-size:34px; font-weight:800; color:#F79B3D; letter-spacing:-0.6px; }
+        .m-price-sub { display:block; width:100%; text-align:center; font-size:11px; color:#7A7A7A; margin-top:2px; margin-bottom:14px; }
         .m-desc      { font-size:14px; color:#5A5A5A; line-height:1.7; text-align:center; margin-bottom:20px; letter-spacing:-0.1px; }
 
         .divider { height:0.5px; background:rgba(0,0,0,0.1); margin:16px 0; }
@@ -1253,7 +1283,20 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         .dm .sheet {
           background: var(--bg-surface) !important;
           box-shadow: 0 -12px 60px rgba(0,0,0,0.8) !important;
+          overflow: hidden !important;
         }
+        /* Plasma glow inside the sheet — matches menu page atmosphere */
+        .dm .sheet::before {
+          content: '';
+          position: absolute; inset: 0; z-index: 0;
+          pointer-events: none; border-radius: inherit;
+          background:
+            radial-gradient(ellipse 70% 40% at 20% 0%, rgba(247,155,61,0.18) 0%, transparent 70%),
+            radial-gradient(ellipse 50% 30% at 80% 10%, rgba(224,90,58,0.14) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 50% at 50% 100%, rgba(200,110,30,0.1) 0%, transparent 70%);
+        }
+        .dm .sbody { position: relative; z-index: 1; }
+        .dm .m-hero { position: relative; z-index: 1; }
         .dm .handle { background: rgba(255,255,255,0.12) !important; }
 
         /* Close button — frosted dark glass */
