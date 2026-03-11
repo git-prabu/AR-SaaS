@@ -554,7 +554,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           <div className="plasma-overlay"/>
         </div>
         {/* SVG turbulence filter for electric card borders */}
-        <svg className="card-turb-svg" xmlns="http://www.w3.org/2000/svg">
+        <svg className="card-turb-svg" xmlns="http://www.w3.org/2000/svg" style={{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}}>
           <defs>
             <filter id="card-turb" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
               <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="4" result="noise1" seed="1">
@@ -876,33 +876,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
         .sheet {
           position: relative; width: 100%; max-width: 540px;
-          background: rgba(255, 255, 255, 0.55);
-          backdrop-filter: blur(24px) saturate(180%);
-          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          background: #FFFDF9;
           border-radius: 26px 26px 0 0;
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          border-bottom: none;
           max-height: 93vh; overflow-y: auto;
           animation: slideUp 0.25s cubic-bezier(0.32,0.72,0,1);
-          box-shadow:
-            0 -8px 40px rgba(0,0,0,0.12),
-            inset 0 1px 0 rgba(255,255,255,0.7),
-            inset 0 0 28px 8px rgba(255,255,255,0.25);
+          box-shadow: 0 -8px 40px rgba(0,0,0,0.12);
         }
-        /* Glass top-edge highlight line */
-        .sheet::before {
-          content: '';
-          position: absolute; top: 0; left: 10%; right: 10%; height: 1px; z-index: 2;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent);
-          pointer-events: none;
-        }
-        /* Glass left-edge highlight */
-        .sheet::after {
-          content: '';
-          position: absolute; top: 26px; left: 0; width: 1px; height: calc(100% - 26px); z-index: 2;
-          background: linear-gradient(180deg, rgba(255,255,255,0.7), transparent, rgba(255,255,255,0.2));
-          pointer-events: none;
-        }
+        .sheet::before { content: none; }
+        .sheet::after  { content: none; }
         .handle-row { display:flex; justify-content:center; padding:12px 0 0; }
         .handle     { width:44px; height:5px; border-radius:3px; background:rgba(0,0,0,0.18); transition:width 0.2s, background 0.2s; }
         .close-btn {
@@ -1304,25 +1285,29 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           background: rgba(0,0,0,0.82) !important;
         }
         .dm .sheet {
-          background:
-            radial-gradient(ellipse 75% 30% at 20% 0%, rgba(247,155,61,0.15) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 22% at 82% 6%, rgba(224,90,58,0.12) 0%, transparent 50%),
-            rgba(18,14,10,0.78) !important;
-          backdrop-filter: blur(28px) saturate(150%) !important;
-          -webkit-backdrop-filter: blur(28px) saturate(150%) !important;
-          border: 1px solid rgba(247,155,61,0.18) !important;
+          /* Glassmorphism — transparent dark base so blurred bg shows through */
+          background: rgba(20, 15, 10, 0.65) !important;
+          backdrop-filter: blur(20px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
           border-bottom: none !important;
           box-shadow:
-            0 -12px 60px rgba(0,0,0,0.8),
-            inset 0 1px 0 rgba(247,155,61,0.25),
-            inset 0 0 32px 8px rgba(247,100,30,0.06) !important;
+            0 -12px 60px rgba(0,0,0,0.6),
+            inset 0 1px 0 rgba(255,255,255,0.12),
+            inset 0 0 40px 0px rgba(247,155,61,0.04) !important;
           overflow-y: auto !important;
         }
         .dm .sheet::before {
-          background: linear-gradient(90deg, transparent, rgba(247,155,61,0.5), transparent) !important;
+          content: '' !important;
+          position: absolute !important; top: 0 !important; left: 8% !important; right: 8% !important; height: 1px !important; z-index: 2 !important;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent) !important;
+          pointer-events: none !important;
         }
         .dm .sheet::after {
-          background: linear-gradient(180deg, rgba(247,155,61,0.4), transparent, rgba(247,155,61,0.1)) !important;
+          content: '' !important;
+          position: absolute !important; top: 26px !important; left: 0 !important; width: 1px !important; height: calc(100% - 26px) !important; z-index: 2 !important;
+          background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent) !important;
+          pointer-events: none !important;
         }
         .dm .handle { background: rgba(255,255,255,0.12) !important; }
 
