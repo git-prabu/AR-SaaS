@@ -455,9 +455,18 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
       <div className={darkMode ? 'dm' : ''} id="app-root">
       <style>{`
         html, body { margin:0; padding:0; }
-        #app-root { transition: background 0.35s ease; }
-        .sheet, .sma-sheet, .hdr { transition: background 0.3s ease, border-color 0.3s ease; }
-        .card { transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, background 0.3s ease, border-color 0.3s ease !important; }
+        #app-root { transition: background 0.4s ease, color 0.4s ease; }
+        #app-root *, #app-root *::before, #app-root *::after {
+          transition:
+            background-color 0.4s ease,
+            background 0.4s ease,
+            color 0.4s ease,
+            border-color 0.4s ease,
+            box-shadow 0.4s ease !important;
+        }
+        /* Keep transform/movement transitions unaffected by the above */
+        #app-root .card { transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, background-color 0.4s ease, border-color 0.4s ease !important; }
+        .sheet, .sma-sheet, .hdr { transition: background 0.4s ease, border-color 0.4s ease; }
         *, *::before, *::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
         body {
@@ -1216,6 +1225,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           border: 1px solid var(--divider) !important;
         }
 
+
+        /* Rating section dark mode */
+        .dm .rate-section { border-top-color: var(--divider) !important; }
+        .dm .rate-label   { color: var(--text-muted) !important; }
+        .dm .rate-thanks  { color: var(--text-muted) !important; }
+        .dm .rate-count   { color: var(--text-muted) !important; }
+        .dm .rate-star-empty { color: rgba(255,255,255,0.2) !important; }
+
+        /* Add to order qty row */
+        .dm .qty-row { background: rgba(255,255,255,0.07) !important; }
         /* AR button in modal */
         .dm .ar-btn {
           background: var(--accent) !important;
@@ -1376,20 +1395,44 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         /* ─────────────────────────────────────
            THEME TOGGLE BUTTON
            ───────────────────────────────────── */
+        /* ── Animated theme toggler ── */
         .theme-toggle {
           margin-left: 10px; flex-shrink: 0;
-          width: 36px; height: 36px; border-radius: 50%; border: none;
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer; font-size: 16px;
-          background: rgba(247,155,61,0.1);
-          transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+          width: 64px; height: 32px; border-radius: 99px; border: none;
+          position: relative; cursor: pointer; padding: 0;
+          background: linear-gradient(135deg, #87CEEB, #FFD700);
+          box-shadow: inset 0 1px 3px rgba(0,0,0,0.15), 0 2px 8px rgba(247,155,61,0.25);
+          transition: background 0.5s ease, box-shadow 0.4s ease;
+          overflow: hidden;
         }
-        .theme-toggle:hover {
-          background: rgba(247,155,61,0.18);
-          transform: rotate(20deg) scale(1.1);
+        .dm .theme-toggle {
+          background: linear-gradient(135deg, #1A1A2E, #16213E);
+          box-shadow: inset 0 1px 3px rgba(0,0,0,0.4), 0 2px 8px rgba(100,120,200,0.3);
         }
-        .dm .theme-toggle  { background: rgba(255,255,255,0.07); }
-        .dm .theme-toggle:hover { background: rgba(255,255,255,0.12); transform: rotate(20deg) scale(1.1); }
+        /* Track icons */
+        .theme-toggle .t-sun,
+        .theme-toggle .t-moon {
+          position: absolute; top: 50%; font-size: 13px; line-height: 1;
+          transform: translateY(-50%); transition: opacity 0.3s ease, transform 0.4s ease;
+          pointer-events: none;
+        }
+        .theme-toggle .t-sun  { left: 6px;  opacity: 1; }
+        .theme-toggle .t-moon { right: 6px; opacity: 0; }
+        .dm .theme-toggle .t-sun  { opacity: 0; transform: translateY(-50%) rotate(90deg); }
+        .dm .theme-toggle .t-moon { opacity: 1; transform: translateY(-50%) rotate(0deg); }
+        /* Sliding thumb */
+        .theme-toggle .t-thumb {
+          position: absolute; top: 3px; left: 3px;
+          width: 26px; height: 26px; border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), background 0.4s ease;
+          pointer-events: none;
+        }
+        .dm .theme-toggle .t-thumb {
+          transform: translateX(32px);
+          background: #F0F0FF;
+        }
 
 
 
@@ -1466,22 +1509,103 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* Sheet uses modalIn (already has slideUp, keep as is) */
 
+
+        /* ── CircularText ─────────────────────── */
+        @keyframes circTextSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .circ-ring {
+          position:absolute; inset:0; pointer-events:none;
+          animation: circTextSpin 18s linear infinite;
+        }
+
+        /* ── ShinyText ────────────────────────── */
+        @keyframes shineMove {
+          0%   { background-position: -200% center; }
+          100% { background-position:  200% center; }
+        }
+        .shiny-txt {
+          background: linear-gradient(90deg, currentColor 30%, rgba(255,255,255,0.92) 50%, currentColor 70%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shineMove 2.8s linear infinite;
+          display: inline-block;
+        }
+
+        /* ── ElectricBorder ───────────────────── */
+        @keyframes electricSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .elec-wrap { position:relative; }
+        .elec-ring {
+          position:absolute; inset:-2px; border-radius:inherit;
+          background: conic-gradient(
+            from 0deg,
+            transparent 0deg,
+            #F79B3D 50deg,
+            #FFD056 110deg,
+            #E05A3A 170deg,
+            transparent 230deg,
+            transparent 290deg,
+            #F79B3D 340deg,
+            transparent 360deg
+          );
+          animation: electricSpin 3.2s linear infinite;
+          z-index: 0;
+        }
+        .elec-inner {
+          position:relative; z-index:1;
+        }
+
+        /* ── GradualBlur on category scroll ───── */
+        .cats-outer {
+          -webkit-mask-image: linear-gradient(to right, transparent 0px, black 32px, black calc(100% - 32px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0px, black 32px, black calc(100% - 32px), transparent 100%);
+        }
+
       `}</style>
 
       {/* ─── HEADER ─── */}
       <header className="hdr">
         <div className="hdr-inner">
           <div className="hdr-top">
-            <div className="r-logo">🍽️</div>
+            {/* CircularText around restaurant logo */}
+            <div style={{ position:'relative', width:80, height:80, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {/* Spinning ring of text */}
+              <div className="circ-ring">
+                {(() => {
+                  const txt = '• AR MENU • EXPLORE • ';
+                  const chars = txt.split('');
+                  const radius = 36;
+                  return chars.map((ch, i) => {
+                    const angle = (i * 360) / chars.length;
+                    const rad = (angle * Math.PI) / 180;
+                    const x = Math.sin(rad) * radius;
+                    const y = -Math.cos(rad) * radius;
+                    return (
+                      <span key={i} style={{
+                        position:'absolute', left:`calc(50% + ${x}px)`, top:`calc(50% + ${y}px)`,
+                        transform:`translate(-50%,-50%) rotate(${angle}deg)`,
+                        fontSize:8, fontWeight:800, letterSpacing:0.5, userSelect:'none',
+                        color: darkMode ? 'rgba(247,155,61,0.7)' : 'rgba(247,155,61,0.85)',
+                        lineHeight:1,
+                      }}>{ch}</span>
+                    );
+                  });
+                })()}
+              </div>
+              {/* Logo sits in center */}
+              <div className="r-logo" style={{ position:'relative', zIndex:1, width:44, height:44 }}>🍽️</div>
+            </div>
             <div>
               <div className="r-name">{restaurant.name}</div>
               <div className="r-sub">Tap any dish · See it in AR on your table</div>
             </div>
-            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"}>
-              {darkMode ? "☀️" : "🌙"}
+            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
+              <span className="t-sun">☀️</span>
+              <span className="t-moon">🌙</span>
+              <span className="t-thumb" />
             </button>
             {arCount > 0 && (
-              <div className="ar-badge"><span className="ar-dot"/>AR Live</div>
+              <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
             )}
           </div>
           {/* Category tabs */}
@@ -1505,18 +1629,20 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           <div style={{ marginBottom:14 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, paddingInline:4 }}>
               <span style={{ fontSize:14 }}>🎉</span>
-              <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#FFF5E8':'#1E1B18' }}>Today's Offers</span>
+              <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#F79B3D':'#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
             </div>
             <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
               {(offers||[]).map((offer, i) => {
                 const linked = offer.linkedItemId ? (menuItems||[]).find(m => m.id === offer.linkedItemId) : null;
                 const isClickable = !!offer.linkedItemId;
                 return (
-                  <div key={offer.id||i}
-                    onClick={() => { if (linked) openItem(linked); }}
-                    style={{ flexShrink:0, minWidth:200, maxWidth:250, padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(255,200,80,0.1)':'rgba(247,155,61,0.08)', border:'1.5px solid rgba(247,155,61,0.3)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
-                    onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(255,200,80,0.18)' : 'rgba(247,155,61,0.16)'; e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 6px 18px rgba(247,155,61,0.2)'; } }}
-                    onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(255,200,80,0.1)' : 'rgba(247,155,61,0.08)'; e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; }}>
+                  <div key={offer.id||i} className="elec-wrap" style={{ flexShrink:0, minWidth:200, maxWidth:250, borderRadius:18 }}>
+                    <div className="elec-ring" style={{ borderRadius:20 }}/>
+                    <div className="elec-inner"
+                      onClick={() => { if (linked) openItem(linked); }}
+                      style={{ padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(30,27,24,0.95)':'rgba(255,252,248,0.98)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
+                      onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(50,38,20,0.98)' : 'rgba(247,240,225,0.98)'; e.currentTarget.style.transform='translateY(-2px)'; } }}
+                      onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(30,27,24,0.95)' : 'rgba(255,252,248,0.98)'; e.currentTarget.style.transform=''; }}>
                     {/* Dish image or emoji */}
                     {(offer.linkedItemImage || linked?.imageURL)
                       ? <img src={offer.linkedItemImage||linked?.imageURL} alt={offer.linkedItemName||linked?.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(247,155,61,0.25)' }} />
@@ -1538,7 +1664,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                       )}
                       {isClickable && <div style={{ fontSize:10, fontWeight:700, color: darkMode?'rgba(255,220,100,0.5)':'rgba(139,96,16,0.6)', marginTop:2 }}>Tap to view →</div>}
                     </div>
-                  </div>
+                    </div>{/* elec-inner */}
+                  </div>{/* elec-wrap */}
                 );
               })}
             </div>
@@ -1562,14 +1689,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           <div style={{marginBottom:28}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
               <span style={{fontSize:18}}>🍱</span>
-              <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'var(--text-1)':'#1E1B18'}}>Combo Deals</span>
+              <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'#F79B3D':'#A06010'}}><span className="shiny-txt">Combo Deals</span></span>
               <span style={{padding:'3px 10px',borderRadius:20,background:darkMode?'rgba(247,155,61,0.2)':'rgba(247,155,61,0.15)',color:darkMode?'#F4C050':'#A06010',fontSize:11,fontWeight:700,border:'1px solid rgba(247,155,61,0.3)'}}>Special Offers</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {(combos||[]).filter(c=>c.isActive!==false).map(combo => {
                 const comboItems = (combo.itemIds||[]).map(id=>(menuItems||[]).find(i=>i.id===id)).filter(Boolean);
                 return (
-                  <div key={combo.id} style={{background:darkMode?'linear-gradient(135deg,rgba(247,155,61,0.14),rgba(224,90,58,0.10))':'linear-gradient(135deg,rgba(247,155,61,0.08),rgba(224,90,58,0.05))',border:'1.5px solid rgba(247,155,61,0.35)',borderRadius:18,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+                  <div key={combo.id} className="elec-wrap" style={{borderRadius:20}}>
+                    <div className="elec-ring" style={{borderRadius:22}}/>
+                    <div className="elec-inner" style={{background:darkMode?'linear-gradient(135deg,rgba(30,27,24,0.97),rgba(40,30,18,0.97))':'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))',borderRadius:18,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
                         <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:darkMode?'var(--text-1)':'#1E1B18'}}>{combo.name}</span>
@@ -1591,7 +1720,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                         <div style={{fontSize:12,fontWeight:700,color:'#2D8B4E',marginTop:2}}>Save ₹{combo.savings}</div>
                       )}
                     </div>
-                  </div>
+                    </div>{/* elec-inner */}
+                  </div>{/* elec-wrap */}
                 );
               })}
             </div>
@@ -1758,7 +1888,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                   <div style={{ display:'flex', alignItems:'center', gap:10, margin:'16px 0 8px', flexWrap:'wrap' }}>
                     {inCart ? (
                       <>
-                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(42,31,16,0.05)', borderRadius:50 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.05)', borderRadius:50 }}>
                           <button className="qty-btn" onClick={()=>removeFromCart(selectedItem.id)}>−</button>
                           <span style={{ fontWeight:800, fontSize:16, color:'var(--text-1,#1E1B18)', minWidth:20, textAlign:'center' }}>{inCart.qty}</span>
                           <button className="qty-btn" onClick={()=>addToCart(selectedItem)}>+</button>
@@ -1766,7 +1896,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                         <span style={{ fontSize:13, color:'var(--text-muted,rgba(42,31,16,0.5))', fontWeight:600 }}>in your order list</span>
                       </>
                     ) : (
-                      <button onClick={()=>addToCart(selectedItem)} style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:50, border:'none', background:'#1E1B18', color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
+                      <button onClick={()=>addToCart(selectedItem)} style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:50, border:'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer', boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)' }}>
                         🛒 Add to Order List
                       </button>
                     )}
@@ -1779,30 +1909,30 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
               {/* ─── Star Rating ─── */}
               {!showAR && (
-                <div style={{ margin:'20px 0 8px', padding:'16px 0', borderTop:'1px solid rgba(42,31,16,0.08)' }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:10 }}>Rate This Dish</div>
+                <div style={{ margin:'20px 0 8px', padding:'16px 0', borderTop: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(42,31,16,0.08)' }}>
+                  <div style={{ fontSize:11, fontWeight:700, color: darkMode ? 'rgba(255,255,255,0.45)' : 'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:10 }}>Rate This Dish</div>
                   {userRatings[selectedItem.id] ? (
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <div style={{ display:'flex', gap:3 }}>
                         {[1,2,3,4,5].map(s => (
-                          <span key={s} style={{ fontSize:22, color: s <= userRatings[selectedItem.id] ? '#F79B3D' : 'rgba(42,31,16,0.15)' }}>★</span>
+                          <span key={s} style={{ fontSize:22, color: s <= userRatings[selectedItem.id] ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.15)' }}>★</span>
                         ))}
                       </div>
-                      <span style={{ fontSize:12, color:'rgba(42,31,16,0.45)', fontWeight:500 }}>Thanks for rating!</span>
+                      <span style={{ fontSize:12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', fontWeight:500 }}>Thanks for rating!</span>
                     </div>
                   ) : (
                     <div>
                       <div style={{ display:'flex', gap:4, marginBottom:8 }}>
                         {[1,2,3,4,5].map(s => (
-                          <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize:26, background:'none', border:'none', cursor:'pointer', color:'rgba(42,31,16,0.15)', padding:'2px 3px', transition:'color 0.1s, transform 0.1s', lineHeight:1 }}
-                            onMouseOver={e => { for(let i=0;i<5;i++) { const btn=e.currentTarget.parentNode.children[i]; btn.style.color = i<s ? '#F79B3D' : 'rgba(42,31,16,0.15)'; } }}
-                            onMouseOut={e  => { for(let i=0;i<5;i++) { e.currentTarget.parentNode.children[i].style.color='rgba(42,31,16,0.15)'; } }}>
+                          <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize:26, background:'none', border:'none', cursor:'pointer', color: darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)', padding:'2px 3px', transition:'color 0.1s, transform 0.1s', lineHeight:1 }}
+                            onMouseOver={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for(let i=0;i<5;i++) { const btn=e.currentTarget.parentNode.children[i]; btn.style.color = i<s ? '#F79B3D' : empty; } }}
+                            onMouseOut={e  => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for(let i=0;i<5;i++) { e.currentTarget.parentNode.children[i].style.color=empty; } }}>
                             ★
                           </button>
                         ))}
                       </div>
                       {selectedItem.ratingCount > 0 && (
-                        <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)' }}>
+                        <div style={{ fontSize:11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>
                           {selectedItem.ratingAvg?.toFixed(1)} ★ · {selectedItem.ratingCount} {selectedItem.ratingCount === 1 ? 'rating' : 'ratings'}
                         </div>
                       )}
