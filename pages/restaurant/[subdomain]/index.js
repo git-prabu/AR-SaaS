@@ -1695,9 +1695,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               {(combos||[]).filter(c=>c.isActive!==false).map(combo => {
                 const comboItems = (combo.itemIds||[]).map(id=>(menuItems||[]).find(i=>i.id===id)).filter(Boolean);
                 return (
-                  <div key={combo.id} className="elec-wrap" style={{borderRadius:20}}>
-                    <div className="elec-ring" style={{borderRadius:22}}/>
-                    <div className="elec-inner" style={{background:darkMode?'linear-gradient(135deg,rgba(30,27,24,0.97),rgba(40,30,18,0.97))':'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))',borderRadius:18,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+                  <div key={combo.id} style={{borderRadius:18, border:'1.5px solid rgba(247,155,61,0.35)', background:darkMode?'linear-gradient(135deg,rgba(30,27,24,0.97),rgba(40,30,18,0.97))':'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))',padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
                         <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:darkMode?'var(--text-1)':'#1E1B18'}}>{combo.name}</span>
@@ -1719,8 +1717,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                         <div style={{fontSize:12,fontWeight:700,color:'#2D8B4E',marginTop:2}}>Save ₹{combo.savings}</div>
                       )}
                     </div>
-                    </div>
-                  </div>
+                </div>
                 );
               })}
             </div>
