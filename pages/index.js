@@ -72,6 +72,8 @@ export default function HomePage() {
           .btn-coral:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(224,90,58,0.45);}
 
           .inner{max-width:1080px;margin:0 auto;padding:0 32px;}
+          .inner-wide{max-width:1440px;margin:0 auto;padding:0 48px;}
+          .hero-split{display:grid;grid-template-columns:1fr 1.1fr;align-items:center;gap:40px;}
           .section{padding:80px 0;position:relative;z-index:1;}
           /* Split layout */
           .split{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:56px;}
@@ -81,12 +83,16 @@ export default function HomePage() {
           @media(max-width:960px){
             .feat-grid{grid-template-columns:repeat(2,1fr)!important;}
             .plan-grid{grid-template-columns:repeat(2,1fr)!important;}
+            .hero-split{grid-template-columns:1fr 1fr!important;gap:28px;}
+            .inner-wide{padding:0 32px;}
           }
           @media(max-width:680px){
             .split{grid-template-columns:1fr!important;gap:32px;}
             .split.rev{direction:ltr;}
             .feat-grid{grid-template-columns:1fr!important;}
             .plan-grid{grid-template-columns:1fr!important;}
+            .hero-split{grid-template-columns:1fr!important;gap:28px;}
+            .inner-wide{padding:0 20px;}
           }
         `}</style>
 
@@ -109,8 +115,8 @@ export default function HomePage() {
 
         {/* ══ HERO ══ */}
         <section style={{paddingTop:108,paddingBottom:64,position:'relative',zIndex:1}}>
-          <div className="inner">
-            <div className="split">
+          <div className="inner-wide">
+            <div className="hero-split">
 
               {/* LEFT — clean, minimal */}
               <div style={{animation:'fadeUp 0.8s ease forwards'}}>
