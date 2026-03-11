@@ -475,7 +475,15 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className={darkMode ? 'dm' : ''} id="app-root">
+      <div className={darkMode ? 'dm' : ''} id="app-root" style={{position:'relative'}}>
+        {/* Plasma background — shows only in dark mode via CSS */}
+        <div className="plasma-bg" aria-hidden="true">
+          <div className="plasma-blob pb1"/>
+          <div className="plasma-blob pb2"/>
+          <div className="plasma-blob pb3"/>
+          <div className="plasma-blob pb4"/>
+          <div className="plasma-overlay"/>
+        </div>
       <style>{`
         html, body { margin:0; padding:0; }
         #app-root { transition: background 0.4s ease, color 0.4s ease; }
@@ -1416,45 +1424,67 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         .dm ::-webkit-scrollbar-thumb:hover { background: var(--accent) !important; }
 
         /* ─────────────────────────────────────
-           THEME TOGGLE BUTTON
+           THEME TOGGLE — animated ☀️ / 🌙
            ───────────────────────────────────── */
-        /* ── Animated theme toggler ── */
         .theme-toggle {
           margin-left: 10px; flex-shrink: 0;
-          width: 64px; height: 32px; border-radius: 99px; border: none;
+          width: 70px; height: 34px;
+          border-radius: 99px; border: none;
           position: relative; cursor: pointer; padding: 0;
-          background: linear-gradient(135deg, #87CEEB, #FFD700);
-          box-shadow: inset 0 1px 3px rgba(0,0,0,0.15), 0 2px 8px rgba(247,155,61,0.25);
-          transition: background 0.5s ease, box-shadow 0.4s ease;
+          background: linear-gradient(135deg, #6EC6F5 0%, #F7C948 100%);
+          box-shadow: 0 2px 12px rgba(247,185,61,0.35), inset 0 1px 2px rgba(255,255,255,0.4);
+          transition: background 0.55s ease, box-shadow 0.4s ease;
           overflow: hidden;
+          outline: none;
+        }
+        .theme-toggle:focus-visible {
+          box-shadow: 0 0 0 3px rgba(247,155,61,0.5);
+        }
+        /* Stars background in dark mode */
+        .theme-toggle::after {
+          content: '✦ ✦ ✦';
+          position: absolute; top: 50%; left: 6px;
+          transform: translateY(-50%);
+          font-size: 6px; letter-spacing: 3px;
+          color: rgba(255,255,255,0.7);
+          opacity: 0;
+          transition: opacity 0.4s ease 0.1s;
+          pointer-events: none;
+          white-space: nowrap;
         }
         .dm .theme-toggle {
-          background: linear-gradient(135deg, #1A1A2E, #16213E);
-          box-shadow: inset 0 1px 3px rgba(0,0,0,0.4), 0 2px 8px rgba(100,120,200,0.3);
+          background: linear-gradient(135deg, #0F0C1A 0%, #1C1040 100%);
+          box-shadow: 0 2px 12px rgba(100,80,200,0.4), inset 0 1px 2px rgba(255,255,255,0.05);
         }
-        /* Track icons */
+        .dm .theme-toggle::after { opacity: 1; }
+        /* Icons */
         .theme-toggle .t-sun,
         .theme-toggle .t-moon {
-          position: absolute; top: 50%; font-size: 13px; line-height: 1;
-          transform: translateY(-50%); transition: opacity 0.3s ease, transform 0.4s ease;
-          pointer-events: none;
+          position: absolute; top: 50%;
+          font-size: 14px; line-height: 1;
+          transform: translateY(-50%) scale(1);
+          transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1);
+          pointer-events: none; z-index: 2;
         }
-        .theme-toggle .t-sun  { left: 6px;  opacity: 1; }
-        .theme-toggle .t-moon { right: 6px; opacity: 0; }
-        .dm .theme-toggle .t-sun  { opacity: 0; transform: translateY(-50%) rotate(90deg); }
-        .dm .theme-toggle .t-moon { opacity: 1; transform: translateY(-50%) rotate(0deg); }
+        .theme-toggle .t-sun  { right: 8px; opacity: 1; }
+        .theme-toggle .t-moon { right: 8px; opacity: 0; transform: translateY(-50%) scale(0) rotate(-90deg); }
+        .dm .theme-toggle .t-sun  { opacity: 0; transform: translateY(-50%) scale(0) rotate(90deg); }
+        .dm .theme-toggle .t-moon { opacity: 1; transform: translateY(-50%) scale(1) rotate(0deg); }
         /* Sliding thumb */
         .theme-toggle .t-thumb {
           position: absolute; top: 3px; left: 3px;
-          width: 26px; height: 26px; border-radius: 50%;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-          transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), background 0.4s ease;
-          pointer-events: none;
+          width: 28px; height: 28px; border-radius: 50%;
+          background: linear-gradient(145deg, #FFFFFF, #F0ECE4);
+          box-shadow: 0 3px 8px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.12);
+          transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
+                      background 0.45s ease,
+                      box-shadow 0.4s ease;
+          pointer-events: none; z-index: 3;
         }
         .dm .theme-toggle .t-thumb {
-          transform: translateX(32px);
-          background: #F0F0FF;
+          transform: translateX(36px);
+          background: linear-gradient(145deg, #E8E4FF, #C8C0F0);
+          box-shadow: 0 3px 8px rgba(0,0,0,0.4), 0 0 8px rgba(160,140,255,0.4);
         }
 
 
@@ -1581,7 +1611,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
         .plasma-bg {
           display: none;
-          position: fixed; inset: 0; z-index: 0;
+          position: fixed; inset: 0; z-index: 0; will-change: transform;
           overflow: hidden; pointer-events: none;
           background: #0D0B08;
         }
