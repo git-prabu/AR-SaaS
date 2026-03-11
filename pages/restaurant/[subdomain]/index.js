@@ -339,6 +339,20 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const lastScrollY = useRef(0);
   const scrollTicking = useRef(false);
 
+  // Measure real header height → set as padding-top on page so nothing hides behind it
+  useEffect(() => {
+    const hdr = hdrRef.current;
+    if (!hdr) return;
+    const apply = () => {
+      const h = hdr.getBoundingClientRect().height;
+      document.getElementById('app-root').style.paddingTop = h + 'px';
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(hdr);
+    return () => ro.disconnect();
+  }, []);
+
 
 
   useEffect(() => {
@@ -597,7 +611,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         /* ─────────── HEADER ─────────── */
         .hdr {
-          position: sticky; top: 0; z-index: 40;
+          position: fixed; top: 0; left: 0; right: 0; z-index: 40;
           background: rgba(255,255,255,0.55);
           backdrop-filter: saturate(200%) blur(28px) brightness(1.04);
           -webkit-backdrop-filter: saturate(200%) blur(28px) brightness(1.04);
@@ -874,11 +888,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
         .sheet {
           position: relative; width: 100%; max-width: 540px;
-          background: #FFFDF9;
+          background: rgba(255,253,249,0.88);
+          backdrop-filter: saturate(180%) blur(28px);
+          -webkit-backdrop-filter: saturate(180%) blur(28px);
           border-radius: 26px 26px 0 0;
           max-height: 93vh; overflow-y: auto;
           animation: slideUp 0.25s cubic-bezier(0.32,0.72,0,1);
-          box-shadow: 0 -8px 40px rgba(0,0,0,0.14);
+          box-shadow: 0 -8px 40px rgba(0,0,0,0.14), 0 0 0 0.5px rgba(255,255,255,0.6) inset;
         }
         .handle-row { display:flex; justify-content:center; padding:12px 0 0; }
         .handle     { width:44px; height:5px; border-radius:3px; background:rgba(0,0,0,0.18); transition:width 0.2s, background 0.2s; }
@@ -1281,22 +1297,17 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           background: rgba(0,0,0,0.82) !important;
         }
         .dm .sheet {
-          background: var(--bg-surface) !important;
-          box-shadow: 0 -12px 60px rgba(0,0,0,0.8) !important;
-          overflow: hidden !important;
-        }
-        /* Plasma glow inside the sheet — matches menu page atmosphere */
-        .dm .sheet::before {
-          content: '';
-          position: absolute; inset: 0; z-index: 0;
-          pointer-events: none; border-radius: inherit;
+          /* Glassmorphism + plasma glow — scrolling preserved */
           background:
-            radial-gradient(ellipse 70% 40% at 20% 0%, rgba(247,155,61,0.18) 0%, transparent 70%),
-            radial-gradient(ellipse 50% 30% at 80% 10%, rgba(224,90,58,0.14) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 50% at 50% 100%, rgba(200,110,30,0.1) 0%, transparent 70%);
+            radial-gradient(ellipse 80% 35% at 25% 0%, rgba(247,155,61,0.14) 0%, transparent 65%),
+            radial-gradient(ellipse 55% 25% at 78% 8%, rgba(224,90,58,0.11) 0%, transparent 55%),
+            radial-gradient(ellipse 60% 40% at 50% 100%, rgba(180,90,20,0.09) 0%, transparent 65%),
+            rgba(22,18,14,0.82) !important;
+          backdrop-filter: saturate(160%) blur(24px) !important;
+          -webkit-backdrop-filter: saturate(160%) blur(24px) !important;
+          box-shadow: 0 -12px 60px rgba(0,0,0,0.8), 0 0 0 0.5px rgba(247,155,61,0.15) inset !important;
+          overflow-y: auto !important;
         }
-        .dm .sbody { position: relative; z-index: 1; }
-        .dm .m-hero { position: relative; z-index: 1; }
         .dm .handle { background: rgba(255,255,255,0.12) !important; }
 
         /* Close button — frosted dark glass */
