@@ -1528,7 +1528,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
-          animation: shineMove 2.8s linear infinite;
+          animation: shineMove 7s linear infinite;
           display: inline-block;
         }
 
@@ -1631,14 +1631,13 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
               <span style={{ fontSize:14 }}>🎉</span>
               <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#F79B3D':'#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
             </div>
-            <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
+            <div style={{ display:'flex', gap:10, overflowX:'auto', overflowY:'hidden', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none', flexWrap:'nowrap' }}>
               {(offers||[]).map((offer, i) => {
                 const linked = offer.linkedItemId ? (menuItems||[]).find(m => m.id === offer.linkedItemId) : null;
                 const isClickable = !!offer.linkedItemId;
                 return (
-                  <div key={offer.id||i} className="elec-wrap" style={{ flexShrink:0, minWidth:200, maxWidth:250, borderRadius:18 }}>
-                    <div className="elec-ring" style={{ borderRadius:20 }}/>
-                    <div className="elec-inner"
+                  <div key={offer.id||i} style={{ flexShrink:0, minWidth:200, maxWidth:250, borderRadius:18, border:'1.5px solid rgba(247,155,61,0.35)', overflow:'hidden' }}>
+                    <div
                       onClick={() => { if (linked) openItem(linked); }}
                       style={{ padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(30,27,24,0.95)':'rgba(255,252,248,0.98)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
                       onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(50,38,20,0.98)' : 'rgba(247,240,225,0.98)'; e.currentTarget.style.transform='translateY(-2px)'; } }}
