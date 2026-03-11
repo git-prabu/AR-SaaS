@@ -313,8 +313,9 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const [cartOpen,      setCartOpen]      = useState(false);
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('ar_theme') === 'dark';
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem('ar_theme');
+    return stored !== 'light'; // dark by default
   });
 
   useEffect(() => {
@@ -325,6 +326,24 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
     document.body.style.overflow = (selectedItem||smaOpen) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [selectedItem, smaOpen]);
+
+
+  // IntersectionObserver: activate shine border only on visible cards
+  useEffect(() => {
+    const cards = document.querySelectorAll('.card');
+    if (!cards.length) return;
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('shine-on');
+        } else {
+          entry.target.classList.remove('shine-on');
+        }
+      });
+    }, { threshold: 0.15 });
+    cards.forEach(c => obs.observe(c));
+    return () => obs.disconnect();
+  }, [filtered]);
 
   const cats     = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
   const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
@@ -1530,6 +1549,75 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           -webkit-text-fill-color: transparent;
           animation: shineMove 7s linear infinite;
           display: inline-block;
+        }
+
+
+        /* ── Plasma Background (dark mode only) ─────────────── */
+        @keyframes plasma1 {
+          0%   { transform: translate(0%,   0%)   scale(1);    }
+          33%  { transform: translate(8%,  -12%)  scale(1.15); }
+          66%  { transform: translate(-6%,  10%)  scale(0.92); }
+          100% { transform: translate(0%,   0%)   scale(1);    }
+        }
+        @keyframes plasma2 {
+          0%   { transform: translate(0%,   0%)   scale(1);    }
+          40%  { transform: translate(-10%, 8%)   scale(1.2);  }
+          80%  { transform: translate(6%,  -6%)   scale(0.88); }
+          100% { transform: translate(0%,   0%)   scale(1);    }
+        }
+        @keyframes plasma3 {
+          0%   { transform: translate(0%,   0%)   scale(1);    }
+          50%  { transform: translate(12%, 14%)   scale(1.1);  }
+          100% { transform: translate(0%,   0%)   scale(1);    }
+        }
+        @keyframes plasma4 {
+          0%   { transform: translate(0%,   0%)   scale(1);    }
+          60%  { transform: translate(-8%, -10%)  scale(1.18); }
+          100% { transform: translate(0%,   0%)   scale(1);    }
+        }
+        .plasma-bg {
+          display: none;
+          position: fixed; inset: 0; z-index: 0;
+          overflow: hidden; pointer-events: none;
+          background: #0D0B08;
+        }
+        .dm .plasma-bg { display: block; }
+        .plasma-blob {
+          position: absolute; border-radius: 50%;
+          filter: blur(80px); opacity: 0.45; mix-blend-mode: screen;
+        }
+        .pb1 {
+          width: 70vw; height: 70vw; top: -20%; left: -15%;
+          background: radial-gradient(circle, #F79B3D 0%, #E05A3A 50%, transparent 75%);
+          animation: plasma1 18s ease-in-out infinite;
+        }
+        .pb2 {
+          width: 55vw; height: 55vw; top: 30%; right: -10%;
+          background: radial-gradient(circle, #FF6B35 0%, #C8370A 50%, transparent 75%);
+          animation: plasma2 14s ease-in-out infinite;
+        }
+        .pb3 {
+          width: 60vw; height: 60vw; bottom: -20%; left: 20%;
+          background: radial-gradient(circle, #FFB347 0%, #F79B3D 45%, transparent 75%);
+          animation: plasma3 16s ease-in-out infinite;
+        }
+        .pb4 {
+          width: 40vw; height: 40vw; top: 10%; right: 25%;
+          background: radial-gradient(circle, #FF8C42 0%, #D4500A 55%, transparent 75%);
+          animation: plasma4 20s ease-in-out infinite;
+        }
+        .plasma-overlay {
+          position: absolute; inset: 0;
+          background: rgba(8,6,4,0.62);
+        }
+
+        /* ── Shine Border (IntersectionObserver activated) ───── */
+        @keyframes shinePulse {
+          0%,100% { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.07), 0 0 0px rgba(0,229,255,0); border-color: rgba(0,229,255,0); }
+          50%     { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.09), 0 0 18px rgba(0,229,255,0.35), 0 0 6px rgba(0,229,255,0.2); border-color: rgba(0,229,255,0.45); }
+        }
+        .card.shine-on {
+          animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both, shinePulse 10s ease-in-out infinite;
         }
 
         /* ── ElectricBorder ───────────────────── */
