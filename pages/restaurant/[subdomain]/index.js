@@ -1289,7 +1289,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
           background: rgba(20, 15, 10, 0.65) !important;
           backdrop-filter: blur(20px) saturate(180%) !important;
           -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          border: 2px solid rgba(255, 255, 255, 0.18) !important;
           border-bottom: none !important;
           box-shadow:
             0 -12px 60px rgba(0,0,0,0.6),
@@ -1335,7 +1335,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
         }
 
         /* Modal body */
-        .dm .sbody         { background: var(--bg-surface) !important; }
+        .dm .sbody         { background:  !important; }
         .dm .m-title       { color: var(--text-1) !important; }
         .dm .m-desc        { color: var(--text-2) !important; }
         .dm .m-price       { color: var(--accent) !important; }
@@ -2160,7 +2160,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                     <div>
                       <div style={{ display:'flex', gap:4, marginBottom:8 }}>
                         {[1,2,3,4,5].map(s => (
-                          <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize:26, background:'none', border:'none', cursor:'pointer', color: darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)', padding:'2px 3px', transition:'color 0.1s, transform 0.1s', lineHeight:1 }}
+                          <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize:33, background:'none', border:'none', cursor:'pointer', color: darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)', padding:'2px 3px 2px 0px', transition:'color 0.1s, transform 0.1s', lineHeight:1 }}
                             onMouseOver={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for(let i=0;i<5;i++) { const btn=e.currentTarget.parentNode.children[i]; btn.style.color = i<s ? '#F79B3D' : empty; } }}
                             onMouseOut={e  => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for(let i=0;i<5;i++) { e.currentTarget.parentNode.children[i].style.color=empty; } }}>
                             ★

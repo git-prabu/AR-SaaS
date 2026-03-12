@@ -2,36 +2,13 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getRequests, submitRequest } from '../../lib/db';
+import { getRequests, submitRequest, getAllMenuItems } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
-const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'', isVeg:'', spiceLevel:'' };
+const USDA_KEY = 'fea6TbAGJ03EOEWPtWzEQ31VclGeRYsNqVhrWQ2A';
 
-// ── Calorie estimator using Open Food Facts API ──────────────────
-async function estimateNutrition(dishName, ingredients) {
-  const query = ingredients?.trim() ? ingredients.split(',')[0].trim() : dishName;
-  try {
-    const res = await fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5&fields=product_name,nutriments`
-    );
-    const data = await res.json();
-    const products = (data.products || []).filter(p => p.nutriments);
-    if (products.length === 0) return null;
-    // Average top 3 results for better accuracy
-    const top = products.slice(0, 3);
-    const avg = (key) => {
-      const vals = top.map(p => p.nutriments[key]).filter(v => typeof v === 'number' && v > 0);
-      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0) / vals.length) : null;
-    };
-    return {
-      calories: avg('energy-kcal_100g') || avg('energy_100g') ? Math.round((avg('energy-kcal_100g') || avg('energy_100g') / 4.184)) : null,
-      protein:  avg('proteins_100g'),
-      carbs:    avg('carbohydrates_100g'),
-      fats:     avg('fat_100g'),
-    };
-  } catch { return null; }
-}
+const BLANK = { name:'', description:'', category:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'' };
 
 const S = {
   page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
@@ -42,6 +19,72 @@ const S = {
   input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(42,31,16,0.09)', borderRadius:12, fontSize:14, color:'#1E1B18', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
   btn:   { padding:'11px 22px', borderRadius:12, fontSize:14, fontWeight:600, fontFamily:'Poppins,sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
 };
+
+// Parse ingredient string — extract name and optional grams
+// Supports: "Flour 150g", "150g Flour", "Flour" (fallback to smart default)
+function parseIngredient(raw) {
+  const gramsMatch = raw.match(/(\d+(?:\.\d+)?)\s*g/i);
+  const grams = gramsMatch ? parseFloat(gramsMatch[1]) : null;
+  const name = raw.replace(/\d+(?:\.\d+)?\s*g/i, '').replace(/\s+/g, ' ').trim();
+  return { name, grams };
+}
+
+// Smart default weight per ingredient type when no grams given (in grams)
+function smartDefault(name) {
+  const n = name.toLowerCase();
+  if (n.match(/butter|oil|ghee|cream|sauce|paste|syrup/)) return 20;
+  if (n.match(/salt|pepper|spice|powder|cumin|turmeric|masala|seed/)) return 5;
+  if (n.match(/garlic|ginger|chilli|chili|herb|leaf|leaves/)) return 10;
+  if (n.match(/egg/)) return 55;
+  if (n.match(/milk|water|stock|broth/)) return 60;
+  if (n.match(/cheese/)) return 30;
+  if (n.match(/flour|rice|pasta|noodle|grain|lentil|dal|bread/)) return 80;
+  if (n.match(/chicken|meat|fish|prawn|beef|lamb|pork|paneer|tofu/)) return 120;
+  if (n.match(/onion|tomato|potato|carrot|vegetable|veggie|capsicum|spinach/)) return 80;
+  return 60; // generic fallback
+}
+
+// Fetch nutrition for a single ingredient from USDA FoodData Central
+async function fetchIngredientNutrition(ingredientRaw) {
+  const { name, grams: specifiedGrams } = parseIngredient(ingredientRaw);
+  const portionGrams = specifiedGrams ?? smartDefault(name);
+
+  try {
+    const searchRes = await fetch(
+      `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(name)}&pageSize=1&api_key=${USDA_KEY}`
+    );
+    const searchData = await searchRes.json();
+    const food = searchData.foods?.[0];
+    if (!food) return null;
+
+    // USDA values are per 100g — scale to actual portion
+    const scale = portionGrams / 100;
+    const nutrients = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+
+    (food.foodNutrients || []).forEach(n => {
+      const name  = (n.nutrientName || '').toLowerCase();
+      const unit  = (n.unitName    || '').toLowerCase();
+      const val   = n.value || 0;
+      // Energy: nutrientName = "Energy", unitName = "KCAL" (not in the name itself)
+      if (name === 'energy' && unit === 'kcal')          nutrients.calories = val;
+      // Some entries use "Energy (Atwater General Factors)" etc
+      if (name.startsWith('energy') && unit === 'kcal' && nutrients.calories === 0) nutrients.calories = val;
+      if (name === 'protein')                             nutrients.protein  = val;
+      if (name.includes('carbohydrate, by difference'))   nutrients.carbs    = val;
+      if (name === 'total lipid (fat)')                   nutrients.fats     = val;
+    });
+
+    return {
+      calories: nutrients.calories * scale,
+      protein:  nutrients.protein  * scale,
+      carbs:    nutrients.carbs    * scale,
+      fats:     nutrients.fats     * scale,
+      portionGrams,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function AdminRequests() {
   const { userData } = useAuth();
@@ -54,12 +97,21 @@ export default function AdminRequests() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filter, setFilter] = useState('all');
-  const [estimating, setEstimating] = useState(false);
+  const [calcLoading, setCalcLoading] = useState(false);
+  const [calcDetail, setCalcDetail] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [showCatDrop, setShowCatDrop] = useState(false);
+  const [newCatInput, setNewCatInput] = useState('');
   const rid = userData?.restaurantId;
 
   useEffect(() => {
     if (!rid) return;
     getRequests(rid).then(r => { setRequests(r); setLoading(false); });
+    // Load existing categories from approved menu items
+    getAllMenuItems(rid).then(items => {
+      const cats = [...new Set(items.map(i => i.category).filter(Boolean))].sort();
+      setCategories(cats);
+    });
   }, [rid]);
 
   const handleImageChange = (e) => {
@@ -70,32 +122,68 @@ export default function AdminRequests() {
     setImagePreview(URL.createObjectURL(f));
   };
 
-  const handleEstimate = async () => {
-    if (!form.name.trim() && !form.ingredients.trim()) {
-      toast.error('Enter a dish name or ingredients first'); return;
+  // Auto-calculate nutrition from USDA FoodData Central
+  const handleAutoCalc = async () => {
+    const rawIngredients = form.ingredients.trim();
+    if (!rawIngredients) {
+      toast.error('Add ingredients first (comma-separated)');
+      return;
     }
-    setEstimating(true);
-    const result = await estimateNutrition(form.name, form.ingredients);
-    setEstimating(false);
-    if (!result || (!result.calories && !result.protein && !result.carbs && !result.fats)) {
-      toast.error("Couldn't estimate — try adding more ingredients"); return;
+    const list = rawIngredients.split(',').map(s => s.trim()).filter(Boolean);
+    if (list.length === 0) {
+      toast.error('No valid ingredients found');
+      return;
     }
+
+    setCalcLoading(true);
+    setCalcDetail('Starting…');
+
+    let totals = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+    let found = 0;
+    const missed = [];
+
+    for (const ingredient of list) {
+      const { name: ingName } = parseIngredient(ingredient);
+      setCalcDetail(`Looking up: ${ingName}`);
+      const data = await fetchIngredientNutrition(ingredient);
+      if (data && (data.calories || data.protein || data.carbs || data.fats)) {
+        // Scaling is already handled inside fetchIngredientNutrition based on grams
+        totals.calories += data.calories || 0;
+        totals.protein  += data.protein  || 0;
+        totals.carbs    += data.carbs    || 0;
+        totals.fats     += data.fats     || 0;
+        found++;
+      } else {
+        missed.push(ingName);
+      }
+    }
+
+    setCalcLoading(false);
+    setCalcDetail('');
+
+    if (found === 0) {
+      toast.error('Could not find any ingredients. Try simpler names (e.g. "chicken" not "grilled chicken breast")');
+      return;
+    }
+
     setForm(f => ({
       ...f,
-      calories: result.calories != null ? String(result.calories) : f.calories,
-      protein:  result.protein  != null ? String(result.protein)  : f.protein,
-      carbs:    result.carbs    != null ? String(result.carbs)    : f.carbs,
-      fats:     result.fats     != null ? String(result.fats)     : f.fats,
+      calories: Math.round(totals.calories).toString(),
+      protein:  Math.round(totals.protein).toString(),
+      carbs:    Math.round(totals.carbs).toString(),
+      fats:     Math.round(totals.fats).toString(),
     }));
-    toast.success('Nutrition estimated! Review and adjust if needed.');
+
+    if (missed.length > 0) {
+      toast.success(`Calculated! ${missed.length} ingredient${missed.length > 1 ? 's' : ''} not found: ${missed.join(', ')} — adjust manually`);
+    } else {
+      toast.success(`Nutrition calculated from ${found} ingredient${found > 1 ? 's' : ''}! Adjust if needed.`);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.name.trim()) { toast.error('Item name is required'); return; }
-    if (!form.category.trim()) { toast.error('Category is required'); return; }
-    if (form.isVeg === '') { toast.error('Please select Veg or Non-Veg'); return; }
-    if (!form.spiceLevel) { toast.error('Spice level is required'); return; }
     setSubmitting(true);
     try {
       let imageURL = null;
@@ -107,8 +195,6 @@ export default function AdminRequests() {
       await submitRequest(rid, {
         name: form.name.trim(), description: form.description.trim(), category: form.category.trim(), ingredients,
         prepTime: form.prepTime.trim() || null,
-        isVeg: form.isVeg === 'true',
-        spiceLevel: form.spiceLevel,
         nutritionalData: { calories: Number(form.calories)||null, protein: Number(form.protein)||null, carbs: Number(form.carbs)||null, fats: Number(form.fats)||null },
         imageURL,
       });
@@ -132,6 +218,7 @@ export default function AdminRequests() {
             .inp:focus{border-color:rgba(224,90,58,0.5)!important;box-shadow:0 0 0 3px rgba(224,90,58,0.08)}
             .inp::placeholder{color:rgba(42,31,16,0.3)}
             .upload-zone:hover{border-color:rgba(224,90,58,0.4)!important;background:#FFF8F5!important}
+            .calc-btn:hover:not(:disabled){background:#E05A3A!important;color:#fff!important;border-color:#E05A3A!important}
           `}</style>
 
           {/* Header */}
@@ -155,36 +242,109 @@ export default function AdminRequests() {
                     <label style={S.label}>Item Name *</label>
                     <input className="inp" style={S.input} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Butter Chicken" required />
                   </div>
-                  <div>
-                    <label style={S.label}>Category *</label>
-                    <input className="inp" style={S.input} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} placeholder="e.g. Main Course" />
+                  <div style={{ position:'relative' }}>
+                    <label style={S.label}>Category</label>
+                    <div
+                      onClick={() => setShowCatDrop(d => !d)}
+                      style={{ ...S.input, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', userSelect:'none', background: form.category ? '#F7F5F2' : '#F7F5F2' }}
+                    >
+                      <span style={{ color: form.category ? '#1E1B18' : 'rgba(42,31,16,0.3)' }}>
+                        {form.category || 'Select or type new…'}
+                      </span>
+                      <span style={{ fontSize:10, color:'rgba(42,31,16,0.4)', marginLeft:8 }}>{showCatDrop ? '▲' : '▼'}</span>
+                    </div>
+                    {showCatDrop && (
+                      <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:'#fff', border:'1.5px solid rgba(42,31,16,0.1)', borderRadius:12, boxShadow:'0 8px 24px rgba(42,31,16,0.12)', marginTop:4, overflow:'hidden' }}>
+                        {/* Type new category */}
+                        <div style={{ padding:'10px 12px', borderBottom:'1px solid rgba(42,31,16,0.07)', display:'flex', gap:8 }}>
+                          <input
+                            autoFocus
+                            style={{ flex:1, padding:'7px 10px', fontSize:13, border:'1.5px solid rgba(42,31,16,0.12)', borderRadius:8, outline:'none', fontFamily:'Inter,sans-serif', color:'#1E1B18' }}
+                            placeholder="Type new category…"
+                            value={newCatInput}
+                            onChange={e => setNewCatInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && newCatInput.trim()) {
+                                const cat = newCatInput.trim();
+                                setForm(f => ({...f, category: cat}));
+                                if (!categories.includes(cat)) setCategories(c => [...c, cat].sort());
+                                setNewCatInput(''); setShowCatDrop(false);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!newCatInput.trim()) return;
+                              const cat = newCatInput.trim();
+                              setForm(f => ({...f, category: cat}));
+                              if (!categories.includes(cat)) setCategories(c => [...c, cat].sort());
+                              setNewCatInput(''); setShowCatDrop(false);
+                            }}
+                            style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#1E1B18', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', flexShrink:0 }}
+                          >Add</button>
+                        </div>
+                        {/* Existing categories */}
+                        <div style={{ maxHeight:180, overflowY:'auto' }}>
+                          {categories.length === 0 && (
+                            <div style={{ padding:'12px 14px', fontSize:12, color:'rgba(42,31,16,0.4)' }}>No categories yet — type above to add one</div>
+                          )}
+                          {categories.map(cat => (
+                            <div
+                              key={cat}
+                              onClick={() => { setForm(f => ({...f, category: cat})); setShowCatDrop(false); setNewCatInput(''); }}
+                              style={{ padding:'10px 14px', fontSize:13, color:'#1E1B18', cursor:'pointer', background: form.category === cat ? '#FFF5F0' : 'transparent', fontWeight: form.category === cat ? 600 : 400 }}
+                              onMouseEnter={e => e.currentTarget.style.background='#F7F5F2'}
+                              onMouseLeave={e => e.currentTarget.style.background = form.category === cat ? '#FFF5F0' : 'transparent'}
+                            >
+                              {cat} {form.category === cat && <span style={{ color:'#E05A3A' }}>✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
-                  <div>
-                    <label style={S.label}>Veg / Non-Veg *</label>
-                    <select className="inp" style={S.input} value={form.isVeg} onChange={e=>setForm(f=>({...f,isVeg:e.target.value}))}>
-                      <option value="">Select…</option>
-                      <option value="true">🟢 Vegetarian</option>
-                      <option value="false">🔴 Non-Vegetarian</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={S.label}>Spice Level *</label>
-                    <select className="inp" style={S.input} value={form.spiceLevel} onChange={e=>setForm(f=>({...f,spiceLevel:e.target.value}))}>
-                      <option value="">Select…</option>
-                      {['None','Mild','Medium','Spicy','Very Spicy'].map(s=><option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                </div>
+
                 <div style={{ marginBottom:16 }}>
                   <label style={S.label}>Description</label>
                   <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Brief description of the dish…" />
                 </div>
+
+                {/* Ingredients + Auto Calc button */}
                 <div style={{ marginBottom:16 }}>
-                  <label style={S.label}>Ingredients (comma-separated)</label>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                    <label style={{ ...S.label, marginBottom:0 }}>Ingredients (comma-separated)</label>
+                    <button
+                      type="button"
+                      className="calc-btn"
+                      onClick={handleAutoCalc}
+                      disabled={calcLoading}
+                      style={{
+                        padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600,
+                        fontFamily:'Inter,sans-serif', border:'1.5px solid rgba(224,90,58,0.4)',
+                        background:'#FFF5F2', color:'#E05A3A', cursor: calcLoading ? 'not-allowed' : 'pointer',
+                        opacity: calcLoading ? 0.7 : 1, transition:'all 0.15s',
+                        display:'flex', alignItems:'center', gap:6, flexShrink:0,
+                      }}
+                    >
+                      {calcLoading
+                        ? <><span style={{ width:11, height:11, border:'2px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Calculating…</>
+                        : '✦ Auto Calculate'
+                      }
+                    </button>
+                  </div>
                   <input className="inp" style={S.input} value={form.ingredients} onChange={e=>setForm(f=>({...f,ingredients:e.target.value}))} placeholder="Chicken, Butter, Cream, Tomato, Spices" />
+                  {calcLoading && calcDetail && (
+                    <div style={{ fontSize:11, color:'rgba(224,90,58,0.7)', marginTop:5, fontStyle:'italic' }}>
+                      {calcDetail}
+                    </div>
+                  )}
+                  <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:4 }}>
+                    For accurate nutrition add weight: <strong>Flour 150g, Garlic 10g, Butter 20g</strong> — or just names for estimates
+                  </div>
                 </div>
+
                 <div style={{ marginBottom:16 }}>
                   <label style={S.label}>Preparation Time</label>
                   <div style={{ position:'relative' }}>
@@ -193,29 +353,36 @@ export default function AdminRequests() {
                   </div>
                   <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:4 }}>Shown on menu card so customers know how long to wait</div>
                 </div>
+
+                {/* Nutrition fields — green tint when auto-filled */}
                 <div style={{ marginBottom:16 }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                    <label style={S.label}>Nutrition Info</label>
-                    <button type="button" onClick={handleEstimate} disabled={estimating}
-                      style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', borderRadius:10, border:'1.5px solid #E05A3A', background: estimating ? 'rgba(224,90,58,0.08)' : 'rgba(224,90,58,0.06)', color:'#C04A28', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Inter,sans-serif', transition:'all 0.15s' }}>
-                      {estimating
-                        ? <><span style={{ width:12, height:12, border:'2px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.7s linear infinite', display:'inline-block' }}/> Estimating…</>
-                        : <>✨ Auto Estimate</>
-                      }
-                    </button>
-                  </div>
-                  <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginBottom:10 }}>
-                    Enter dish name or ingredients above, then click Auto Estimate. You can always edit the values manually.
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                    <label style={{ ...S.label, marginBottom:0 }}>Nutrition (per serving)</label>
+                    {(form.calories || form.protein || form.carbs || form.fats) && (
+                      <span style={{ fontSize:11, color:'#5A9A78', fontWeight:600 }}>✓ Values filled — edit if needed</span>
+                    )}
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
-                    {['calories','protein','carbs','fats'].map(n=>(
+                    {['calories','protein','carbs','fats'].map(n => (
                       <div key={n}>
                         <label style={S.label}>{n.charAt(0).toUpperCase()+n.slice(1)}</label>
-                        <input className="inp" style={{...S.input, borderColor: form[n] ? 'rgba(42,31,16,0.09)' : 'rgba(42,31,16,0.09)'}} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
+                        <input
+                          className="inp"
+                          style={{
+                            ...S.input,
+                            background: form[n] ? '#F0FBF5' : '#F7F5F2',
+                            borderColor: form[n] ? 'rgba(90,154,120,0.4)' : undefined,
+                          }}
+                          type="number" min="0"
+                          value={form[n]}
+                          onChange={e=>setForm(f=>({...f,[n]:e.target.value}))}
+                          placeholder="0"
+                        />
                       </div>
                     ))}
                   </div>
                 </div>
+
                 <div style={{ marginBottom:20 }}>
                   <label style={S.label}>Food Photo</label>
                   <div className="upload-zone" onClick={()=>document.getElementById('img-upload').click()} style={{ border:'2px dashed rgba(42,31,16,0.15)', borderRadius:14, padding:24, textAlign:'center', cursor:'pointer', background:'#F7F5F2', transition:'all 0.15s' }}>
@@ -247,7 +414,7 @@ export default function AdminRequests() {
             ))}
           </div>
 
-          {/* List */}
+          {/* Request list */}
           {loading ? (
             <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
               <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
@@ -273,6 +440,15 @@ export default function AdminRequests() {
                       <StatusBadge status={req.status} />
                     </div>
                     {req.description && <p style={{ fontSize:12, color:'rgba(42,31,16,0.5)', marginTop:6, lineHeight:1.5 }}>{req.description}</p>}
+                    {req.nutritionalData && Object.values(req.nutritionalData).some(v => v != null) && (
+                      <div style={{ display:'flex', gap:10, marginTop:8, flexWrap:'wrap' }}>
+                        {Object.entries(req.nutritionalData).map(([k,v]) => v != null && (
+                          <span key={k} style={{ fontSize:11, color:'rgba(42,31,16,0.5)', background:'#F7F5F2', borderRadius:6, padding:'2px 8px' }}>
+                            {k.charAt(0).toUpperCase()+k.slice(1)}: <strong>{v}</strong>{k==='calories'?'kcal':'g'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:8 }}>
                       Submitted {req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleDateString() : 'recently'}
                     </div>
