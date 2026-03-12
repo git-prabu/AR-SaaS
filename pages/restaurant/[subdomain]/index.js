@@ -307,6 +307,8 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   const [waiterTable,   setWaiterTable]   = useState('');
   const [waiterSent,    setWaiterSent]    = useState(false);
   const [waiterSending, setWaiterSending] = useState(false);
+  // Derived from Firestore via restaurant prop — admin can toggle in Notifications page
+  const waiterCallsEnabled = restaurant?.waiterCallsEnabled !== false;
   // Pairs Well With (manual, set by admin per item)
   // Cart (order tracker — state only, not sent anywhere)
   const [cart,          setCart]          = useState([]); // [{id,name,price,qty,imageURL}]
@@ -2040,10 +2042,12 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
       {!selectedItem && !smaOpen && (
         <div className="fab-wrap">
           {/* Waiter call — pill shaped, labelled */}
+          {waiterCallsEnabled && (
           <button className="waiter-fab" onClick={() => setWaiterModal(true)}
             style={{ width:'auto', borderRadius:50, padding:'10px 18px', gap:7, display:'flex', alignItems:'center', background: darkMode?'#2A2520':'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', fontSize:13, fontWeight:700, fontFamily:'Inter,sans-serif', color: darkMode?'#FFF5E8':'#1E1B18', whiteSpace:'nowrap' }}>
             🙋 Need Help?
           </button>
+          )}
           {/* Cart FAB — only show when cart has items */}
           {cartTotal > 0 && (
             <button className="cart-fab" onClick={() => setCartOpen(true)} style={{background: darkMode?'#2A2520':'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', color: darkMode?'#FFF5E8':'#1E1B18'}}>
@@ -2266,7 +2270,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
       )}
 
       {/* ─── WAITER CALL MODAL ─── */}
-      {waiterModal && (
+      {waiterCallsEnabled && waiterModal && (
         <div style={{ position:'fixed', inset:0, zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center', background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.18s ease' }}
           onClick={e => { if(e.target===e.currentTarget) { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); } }}>
           <div style={{ width:'100%', maxWidth:440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius:'24px 24px 0 0', padding:'28px 24px 40px', boxShadow:'0 -8px 40px rgba(0,0,0,0.18)', animation:'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)' }}>
