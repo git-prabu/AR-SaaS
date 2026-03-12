@@ -38,7 +38,10 @@ export default function AdminItems() {
   const [deleting,  setDeleting]  = useState(null);
   const [customBadge, setCustomBadge] = useState('');
   const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { progress, uploading } }
-  const imgInputRef = useRef({});
+  const imgInputRef  = useRef({});
+  const dragItem     = useRef(null);
+  const dragOverItem = useRef(null);
+  const [dragging,   setDragging]   = useState(null);
   const rid = userData?.restaurantId;
 
   const load = async () => {
@@ -155,6 +158,36 @@ export default function AdminItems() {
     await load();
   };
 
+  const handleDragEnd = async () => {
+    const fromId = dragItem.current;
+    const toId   = dragOverItem.current;
+    setDragging(null);
+    if (!fromId || !toId || fromId === toId) { dragItem.current = null; dragOverItem.current = null; return; }
+
+    const fromIdx = filtered.findIndex(i => i.id === fromId);
+    const toIdx   = filtered.findIndex(i => i.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const reordered = [...filtered];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    // Optimistic UI update
+    const updatedIds = reordered.map(i => i.id);
+    setItems(prev => {
+      const rest = prev.filter(i => !updatedIds.includes(i.id));
+      return [...reordered, ...rest];
+    });
+
+    // Persist sortOrder
+    await Promise.all(
+      reordered.map((item, idx) => updateMenuItem(rid, item.id, { sortOrder: idx + 1 }))
+    );
+
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
+
   const toggleActive = async (item) => {
     await updateMenuItem(rid, item.id, { isActive: !item.isActive });
     await load();
@@ -171,6 +204,7 @@ export default function AdminItems() {
             .inp::placeholder{color:rgba(42,31,16,0.3)}
             .item-row:hover{background:#FAFAF8!important}
             .act-btn:hover{opacity:1!important}
+            [draggable]{user-select:none}
           `}</style>
 
           {/* Header */}
@@ -201,7 +235,7 @@ export default function AdminItems() {
 
           {/* Legend */}
           <div style={{ display:'flex', gap:16, marginBottom:16, flexWrap:'wrap' }}>
-            {[['⬆⬇ arrows','Reorder priority'],['✦','Popular badge'],['🏷','Offer / badge'],['◐','Active toggle']].map(([icon,label])=>(
+            {[['⠿ drag','Reorder priority'],['✦','Popular badge'],['🏷','Offer / badge'],['◐','Active toggle']].map(([icon,label])=>(
               <div key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(42,31,16,0.4)' }}>
                 <span style={{ fontSize:12 }}>{icon}</span>{label}
               </div>
@@ -232,13 +266,17 @@ export default function AdminItems() {
                 return (
                   <div key={item.id}>
                     {/* Main row */}
-                    <div className="item-row" style={{ display:'grid', gridTemplateColumns:'40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'13px 18px', borderBottom: isEdit ? 'none' : '1px solid rgba(42,31,16,0.05)', alignItems:'center', background:'#fff', transition:'background 0.12s', opacity: item.isActive ? 1 : 0.5 }}>
+                    <div
+                      className="item-row"
+                      draggable
+                      onDragStart={() => { dragItem.current = item.id; setDragging(item.id); }}
+                      onDragEnter={() => { dragOverItem.current = item.id; }}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={e => e.preventDefault()}
+                      style={{ display:'grid', gridTemplateColumns:'40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'13px 18px', borderBottom: isEdit ? 'none' : '1px solid rgba(42,31,16,0.05)', alignItems:'center', background: dragging === item.id ? '#FFF5F0' : dragOverItem.current === item.id && dragging && dragging !== item.id ? '#F0F7F3' : '#fff', transition:'background 0.12s', opacity: item.isActive ? 1 : 0.5, cursor: dragging ? 'grabbing' : 'default', outline: dragOverItem.current === item.id && dragging && dragging !== item.id ? '2px dashed rgba(143,196,168,0.6)' : 'none' }}>
 
-                      {/* Reorder arrows */}
-                      <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                        <button className="act-btn" onClick={()=>moveItem(item,'up')} disabled={idx===0} style={{ width:22, height:22, borderRadius:6, border:'1px solid rgba(42,31,16,0.1)', background:'transparent', cursor:'pointer', fontSize:10, color:'rgba(42,31,16,0.45)', opacity:idx===0?0.25:0.7, display:'flex', alignItems:'center', justifyContent:'center' }}>▲</button>
-                        <button className="act-btn" onClick={()=>moveItem(item,'down')} disabled={idx===filtered.length-1} style={{ width:22, height:22, borderRadius:6, border:'1px solid rgba(42,31,16,0.1)', background:'transparent', cursor:'pointer', fontSize:10, color:'rgba(42,31,16,0.45)', opacity:idx===filtered.length-1?0.25:0.7, display:'flex', alignItems:'center', justifyContent:'center' }}>▼</button>
-                      </div>
+                      {/* Drag handle */}
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', cursor:'grab', color:'rgba(42,31,16,0.25)', fontSize:16, userSelect:'none' }} title="Drag to reorder">⠿</div>
 
                       {/* Image */}
                       <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
