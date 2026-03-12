@@ -5,6 +5,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { getRequests, submitRequest, getAllMenuItems } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 const USDA_KEY = 'fea6TbAGJ03EOEWPtWzEQ31VclGeRYsNqVhrWQ2A';
 
@@ -98,6 +99,8 @@ export default function AdminRequests() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filter, setFilter] = useState('all');
   const [calcLoading, setCalcLoading] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done:0, total:0, current:'' });
   const [calcDetail, setCalcDetail] = useState('');
   const [categories, setCategories] = useState([]);
   const [showCatDrop, setShowCatDrop] = useState(false);
@@ -181,6 +184,109 @@ export default function AdminRequests() {
     }
   };
 
+
+  // ── Bulk upload from Excel ──
+  const handleBulkUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const wb   = XLSX.read(ev.target.result, { type: 'array' });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (!rows.length) { toast.error('No data found in the sheet'); return; }
+
+        // Validate required columns
+        const sample = rows[0];
+        if (!('name' in sample) || !('category' in sample) || !('price' in sample)) {
+          toast.error('Sheet must have columns: name, category, price — check the template');
+          return;
+        }
+
+        const SPICE = ['None','Mild','Medium','Spicy','Very Spicy'];
+        const BADGES = ['Best Seller',"Chef's Special",'Must Try','New','Limited'];
+
+        // Filter valid rows
+        const valid = rows.filter(r => String(r.name||'').trim() && String(r.category||'').trim() && r.price);
+        if (!valid.length) { toast.error('No valid rows found — name, category and price are required'); return; }
+
+        setBulkUploading(true);
+        setBulkProgress({ done:0, total:valid.length, current:'' });
+
+        let success = 0, failed = 0;
+        for (const row of valid) {
+          const name = String(row.name||'').trim();
+          setBulkProgress(p => ({ ...p, current: name }));
+          try {
+            const ingredients = String(row.ingredients||'').split(',').map(s=>s.trim()).filter(Boolean);
+            const spice = SPICE.includes(String(row.spiceLevel||'').trim()) ? String(row.spiceLevel).trim() : null;
+            const badge = BADGES.includes(String(row.badge||'').trim()) ? String(row.badge).trim() : null;
+            const isVeg = String(row.isVeg||'').trim().toLowerCase() === 'yes';
+
+            // Auto-calculate missing nutrition from ingredients
+            let cal  = Number(row.calories) || null;
+            let prot = Number(row.protein)  || null;
+            let carb = Number(row.carbs)    || null;
+            let fat  = Number(row.fats)     || null;
+
+            const needsCalc = (!cal || !prot || !carb || !fat) && ingredients.length > 0;
+            if (needsCalc) {
+              setBulkProgress(p => ({ ...p, current: `${name} — calculating nutrition…` }));
+              let totals = { calories:0, protein:0, carbs:0, fats:0 };
+              let found = 0;
+              for (const ing of ingredients) {
+                const data = await fetchIngredientNutrition(ing);
+                if (data && (data.calories || data.protein || data.carbs || data.fats)) {
+                  totals.calories += data.calories || 0;
+                  totals.protein  += data.protein  || 0;
+                  totals.carbs    += data.carbs    || 0;
+                  totals.fats     += data.fats     || 0;
+                  found++;
+                }
+              }
+              if (found > 0) {
+                if (!cal)  cal  = Math.round(totals.calories);
+                if (!prot) prot = Math.round(totals.protein);
+                if (!carb) carb = Math.round(totals.carbs);
+                if (!fat)  fat  = Math.round(totals.fats);
+              }
+            }
+
+            await submitRequest(rid, {
+              name,
+              category:    String(row.category||'').trim(),
+              description: String(row.description||'').trim(),
+              price:       Number(row.price) || 0,
+              ingredients,
+              prepTime:    String(row.prepTime||'').trim() || null,
+              spiceLevel:  spice,
+              isVeg,
+              badge,
+              nutritionalData: { calories: cal, protein: prot, carbs: carb, fats: fat },
+            });
+            success++;
+          } catch { failed++; }
+          setBulkProgress(p => ({ ...p, done: p.done + 1 }));
+        }
+
+        setBulkUploading(false);
+        setBulkProgress({ done:0, total:0, current:'' });
+        const updated = await getRequests(rid);
+        setRequests(updated);
+        if (failed === 0) toast.success(`${success} item${success>1?'s':''} submitted successfully!`);
+        else toast.success(`${success} submitted, ${failed} failed — check those rows`);
+      } catch (err) {
+        setBulkUploading(false);
+        toast.error('Could not read file — make sure it is a valid .xlsx file');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.name.trim()) { toast.error('Item name is required'); return; }
@@ -227,10 +333,34 @@ export default function AdminRequests() {
               <h1 style={S.h1}>Menu Requests</h1>
               <p style={S.sub}>Submit dishes for AR listing. Our team 3D-scans and publishes them.</p>
             </div>
-            <button onClick={() => setShowForm(!showForm)} style={{ ...S.btn, background: showForm ? '#F2F0EC' : '#1E1B18', color: showForm ? '#1E1B18' : '#FFF5E8', border: showForm ? '1.5px solid rgba(42,31,16,0.12)' : 'none' }}>
-              {showForm ? '✕ Cancel' : '+ New Request'}
-            </button>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {/* Bulk Upload */}
+              <label style={{ ...S.btn, background:'#5A8A6A', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:7, padding:'11px 18px' }}>
+                {bulkUploading
+                  ? <><span style={{ width:13, height:13, border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Uploading {bulkProgress.done}/{bulkProgress.total}…</>
+                  : <><span style={{ fontSize:16 }}>📥</span> Bulk Upload</>
+                }
+                <input type="file" accept=".xlsx,.xls" onChange={handleBulkUpload} style={{ display:'none' }} disabled={bulkUploading} />
+              </label>
+              <button onClick={() => setShowForm(!showForm)} style={{ ...S.btn, background: showForm ? '#F2F0EC' : '#1E1B18', color: showForm ? '#1E1B18' : '#FFF5E8', border: showForm ? '1.5px solid rgba(42,31,16,0.12)' : 'none' }}>
+                {showForm ? '✕ Cancel' : '+ New Request'}
+              </button>
+            </div>
           </div>
+
+          {/* Bulk upload progress */}
+          {bulkUploading && (
+            <div style={{ background:'#fff', borderRadius:14, padding:'16px 20px', marginBottom:16, border:'1px solid rgba(90,138,106,0.2)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:'#1E1B18' }}>Uploading items…</span>
+                <span style={{ fontSize:12, color:'rgba(42,31,16,0.5)' }}>{bulkProgress.done} / {bulkProgress.total}</span>
+              </div>
+              <div style={{ height:5, background:'rgba(42,31,16,0.08)', borderRadius:99, overflow:'hidden' }}>
+                <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#5A8A6A,#7ABB8A)', width:`${bulkProgress.total ? (bulkProgress.done/bulkProgress.total)*100 : 0}%`, transition:'width 0.25s' }} />
+              </div>
+              {bulkProgress.current && <div style={{ fontSize:11, color:'rgba(42,31,16,0.45)', marginTop:6 }}>Adding: {bulkProgress.current}</div>}
+            </div>
+          )}
 
           {/* Form */}
           {showForm && (
