@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getWaiterCalls, resolveWaiterCall, deleteWaiterCall } from '../../lib/db';
+import { getWaiterCalls, resolveWaiterCall, deleteWaiterCall, getRestaurantById, updateRestaurant } from '../../lib/db';
 import toast from 'react-hot-toast';
 
 const REASON_MAP = {
@@ -27,16 +27,85 @@ function timeAgo(seconds) {
   return `${Math.floor(diff/86400)}d ago`;
 }
 
+function ToggleSwitch({ enabled, onToggle, disabled }) {
+  return (
+    <div
+      onClick={disabled ? undefined : onToggle}
+      style={{
+        width:44, height:24, borderRadius:12, flexShrink:0,
+        background: enabled ? '#1E1B18' : 'rgba(42,31,16,0.18)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        position:'relative', transition:'background 0.22s',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <div style={{
+        position:'absolute', top:3,
+        left: enabled ? 23 : 3,
+        width:18, height:18, borderRadius:'50%',
+        background:'#fff', transition:'left 0.22s',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.22)',
+      }} />
+    </div>
+  );
+}
+
 export default function AdminNotifications() {
-  const { userData }                  = useAuth();
-  const [calls,     setCalls]         = useState([]);
-  const [loading,   setLoading]       = useState(true);
-  const [resolving, setResolving]     = useState(null);
-  const [tab,       setTab]           = useState('pending'); // 'pending' | 'resolved'
-  const prevCountRef                  = useRef(0);
+  const { userData }                               = useAuth();
+  const [calls,              setCalls]             = useState([]);
+  const [loading,            setLoading]           = useState(true);
+  const [resolving,          setResolving]         = useState(null);
+  const [tab,                setTab]               = useState('pending');
+  const [soundEnabled,       setSoundEnabled]      = useState(true);
+  const [waiterCallsEnabled, setWaiterCallsEnabled]= useState(true);
+  const [togglingCalls,      setTogglingCalls]     = useState(false);
+  const prevCountRef = useRef(0);
+  const soundEnabledRef = useRef(true); // ref so polling closure always reads latest value
   const rid = userData?.restaurantId;
 
+  // ── Sound preference: per-device, stored in localStorage ──────────────────
+  useEffect(() => {
+    const stored = localStorage.getItem('ar_sound_enabled');
+    const val = stored !== null ? stored === 'true' : true;
+    setSoundEnabled(val);
+    soundEnabledRef.current = val;
+  }, []);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    soundEnabledRef.current = next;
+    localStorage.setItem('ar_sound_enabled', String(next));
+    toast(next ? '🔔 Bell sound on' : '🔕 Bell sound off', { duration: 2000 });
+  };
+
+  // ── Waiter calls toggle: cross-device, stored in Firestore ────────────────
+  useEffect(() => {
+    if (!rid) return;
+    getRestaurantById(rid).then(r => {
+      setWaiterCallsEnabled(r?.waiterCallsEnabled !== false);
+    });
+  }, [rid]);
+
+  const toggleWaiterCalls = async () => {
+    if (togglingCalls) return;
+    const next = !waiterCallsEnabled;
+    setTogglingCalls(true);
+    try {
+      await updateRestaurant(rid, { waiterCallsEnabled: next });
+      setWaiterCallsEnabled(next);
+      toast(next
+        ? '✅ Waiter calls enabled'
+        : "⛔ Waiter calls paused — customers won't see the call button",
+        { duration: 3000 }
+      );
+    } catch { toast.error('Failed to update setting'); }
+    finally { setTogglingCalls(false); }
+  };
+
+  // ── Bell synthesizer ──────────────────────────────────────────────────────
   const playBell = () => {
+    if (!soundEnabledRef.current) return;
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const playTone = (freq, startTime, duration, gainPeak) => {
@@ -52,24 +121,20 @@ export default function AdminNotifications() {
         osc.start(startTime);
         osc.stop(startTime + duration);
       };
-      // Two-tone bell: fundamental + octave harmonic
       playTone(880,  ctx.currentTime,        1.4, 0.55);
       playTone(1760, ctx.currentTime,        0.7, 0.25);
-      // Second ding after 0.55s for a classic double-bell effect
       playTone(880,  ctx.currentTime + 0.55, 1.2, 0.45);
       playTone(1760, ctx.currentTime + 0.55, 0.6, 0.2);
-    } catch (e) {
-      // AudioContext not available (e.g. server-side) — silently ignore
-    }
+    } catch (e) {}
   };
 
+  // ── Data loading & polling ────────────────────────────────────────────────
   const load = async (silent = false) => {
     if (!rid) return;
     if (!silent) setLoading(true);
     try {
       const data = await getWaiterCalls(rid);
       const pending = data.filter(c => c.status === 'pending');
-      // Play sound if new pending calls appeared
       if (silent && pending.length > prevCountRef.current) {
         playBell();
         toast('🔔 New waiter call!', { icon: '🔔', duration: 4000 });
@@ -83,13 +148,13 @@ export default function AdminNotifications() {
 
   useEffect(() => { load(); }, [rid]);
 
-  // Poll every 15 seconds for new calls
   useEffect(() => {
     if (!rid) return;
     const timer = setInterval(() => load(true), 15000);
     return () => clearInterval(timer);
   }, [rid]);
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   const handleResolve = async (call) => {
     setResolving(call.id);
     try {
@@ -119,10 +184,13 @@ export default function AdminNotifications() {
 
       <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
         <div style={{ maxWidth:800, margin:'0 auto' }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
+          <style>{`
+            @keyframes spin   { to { transform:rotate(360deg) } }
+            @keyframes fadeIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+          `}</style>
 
-          {/* Header */}
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
+          {/* ── Header ─────────────────────────────────────────────────── */}
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
             <div>
               <h1 style={S.h1}>🔔 Notifications</h1>
               <p style={S.sub}>Live waiter call requests from your customers. Auto-refreshes every 15 seconds.</p>
@@ -139,7 +207,58 @@ export default function AdminNotifications() {
             </div>
           </div>
 
-          {/* Tabs */}
+          {/* ── Settings Panel ─────────────────────────────────────────── */}
+          <div style={{ ...S.card, padding:'18px 24px', marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:14 }}>
+              Settings
+            </div>
+
+            {/* Sound toggle */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, paddingBottom:14, borderBottom:'1px solid rgba(42,31,16,0.06)' }}>
+              <div>
+                <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                  <span style={{ fontSize:17 }}>{soundEnabled ? '🔔' : '🔕'}</span>
+                  <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:600, fontSize:13, color:'#1E1B18' }}>Bell Sound</span>
+                  <span style={{
+                    fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
+                    background: soundEnabled ? 'rgba(90,154,120,0.1)' : 'rgba(42,31,16,0.06)',
+                    color: soundEnabled ? '#1A5A38' : 'rgba(42,31,16,0.4)',
+                  }}>
+                    {soundEnabled ? 'On' : 'Off'}
+                  </span>
+                </div>
+                <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:3, paddingLeft:24 }}>
+                  Play a bell chime when new customer requests arrive
+                </div>
+              </div>
+              <ToggleSwitch enabled={soundEnabled} onToggle={toggleSound} />
+            </div>
+
+            {/* Waiter calls toggle */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, paddingTop:14 }}>
+              <div>
+                <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                  <span style={{ fontSize:17 }}>{waiterCallsEnabled ? '🙋' : '⛔'}</span>
+                  <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:600, fontSize:13, color:'#1E1B18' }}>Customer Waiter Calls</span>
+                  <span style={{
+                    fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
+                    background: waiterCallsEnabled ? 'rgba(90,154,120,0.1)' : 'rgba(224,90,58,0.1)',
+                    color: waiterCallsEnabled ? '#1A5A38' : '#C04A28',
+                  }}>
+                    {waiterCallsEnabled ? 'Enabled' : 'Paused'}
+                  </span>
+                </div>
+                <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:3, paddingLeft:24 }}>
+                  {waiterCallsEnabled
+                    ? 'Customers can tap "Need Help" on the menu page'
+                    : 'The call button is hidden from customers right now'}
+                </div>
+              </div>
+              <ToggleSwitch enabled={waiterCallsEnabled} onToggle={toggleWaiterCalls} disabled={togglingCalls} />
+            </div>
+          </div>
+
+          {/* ── Tabs ───────────────────────────────────────────────────── */}
           <div style={{ display:'flex', gap:8, marginBottom:20 }}>
             {[['pending','Pending',pending.length],['resolved','Resolved',resolved.length]].map(([id,label,count]) => (
               <button key={id} onClick={() => setTab(id)}
@@ -149,6 +268,7 @@ export default function AdminNotifications() {
             ))}
           </div>
 
+          {/* ── Call List ──────────────────────────────────────────────── */}
           {loading ? (
             <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
               <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
@@ -166,12 +286,9 @@ export default function AdminNotifications() {
                 const secs = call.createdAt?.seconds || 0;
                 return (
                   <div key={call.id} style={{ ...S.card, padding:'18px 22px', display:'flex', alignItems:'center', gap:16, animation:'fadeIn 0.25s ease' }}>
-                    {/* Reason badge */}
                     <div style={{ width:52, height:52, borderRadius:16, background:info.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
                       {info.emoji}
                     </div>
-
-                    {/* Details */}
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                         <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:15, color:'#1E1B18' }}>{info.label}</span>
@@ -187,8 +304,6 @@ export default function AdminNotifications() {
                         <span style={{ fontSize:12, color:'rgba(42,31,16,0.4)' }}>🕐 {timeAgo(secs)}</span>
                       </div>
                     </div>
-
-                    {/* Actions */}
                     <div style={{ display:'flex', gap:8, flexShrink:0 }}>
                       {call.status === 'pending' && (
                         <button onClick={() => handleResolve(call)} disabled={resolving===call.id}
@@ -207,7 +322,7 @@ export default function AdminNotifications() {
             </div>
           )}
 
-          {/* How it works hint */}
+          {/* ── Footer hint ────────────────────────────────────────────── */}
           <div style={{ marginTop:28, padding:'16px 20px', borderRadius:14, background:'rgba(247,155,61,0.07)', border:'1px solid rgba(247,155,61,0.2)', fontSize:12, color:'rgba(42,31,16,0.55)' }}>
             <strong style={{ color:'#1E1B18' }}>How it works:</strong> Customers tap the 🔔 button on your menu page, choose a reason, and their request appears here instantly. Keep this page open on a tablet at your restaurant for live monitoring.
           </div>
