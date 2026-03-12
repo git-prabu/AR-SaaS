@@ -1,881 +1,773 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 
 const plans = [
-  { name:'Starter', price:'₹999',   per:'/month', items:20,  storage:'1GB',  tag:null,
-    features:['20 menu items','1 GB storage','QR code menu','Smart Menu Assistant','Basic analytics'] },
-  { name:'Growth',  price:'₹2,499', per:'/month', items:60,  storage:'3GB',  tag:'Popular',
-    features:['60 menu items','3 GB storage','AR food visualization','AI upselling','Dish ratings','Waiter call system'] },
-  { name:'Pro',     price:'₹4,999', per:'/month', items:150, storage:'10GB', tag:'Best Value',
-    features:['150 menu items','10 GB storage','CSV menu import','Advanced analytics','Priority support','Custom branding'] },
+  {
+    name: 'Starter', price: '₹999', per: '/month',
+    desc: 'Perfect for small restaurants just getting started.',
+    features: ['20 menu items', '1 GB storage', 'QR code menu', 'Smart Menu Assistant', 'Basic analytics'],
+    cta: 'Get started',
+  },
+  {
+    name: 'Growth', price: '₹2,499', per: '/month',
+    desc: 'The complete AR experience for growing restaurants.',
+    tag: 'Most popular',
+    features: ['60 menu items', '3 GB storage', 'AR food visualization', 'AI upselling', 'Dish ratings', 'Waiter call system'],
+    cta: 'Get started',
+  },
+  {
+    name: 'Pro', price: '₹4,999', per: '/month',
+    desc: 'Full power for high-volume multi-location operations.',
+    features: ['150 menu items', '10 GB storage', 'CSV menu import', 'Advanced analytics', 'Priority support', 'Custom branding'],
+    cta: 'Get started',
+  },
+];
+
+const MARQUEE_ITEMS = [
+  '🍛 Biryani House', '🌶️ Spice Garden', '🍢 The Curry Co.',
+  '🍲 Masala Junction', '👑 Royal Kitchen', '🚌 Dhaba Express',
+  '🌿 Green Leaf Bistro', '🔥 Tandoor Palace', '⭐ Star Dining',
+  '🍱 Thali World', '🥘 Curry Republic', '🫕 Pot & Pan',
 ];
 
 export default function HomePage() {
+  const heroRef     = useRef(null);
+  const revealRefs  = useRef([]);
+  const countersRef = useRef(null);
+  const countsDone  = useRef(false);
+
+  // Scroll reveal
+  useEffect(() => {
+    const els = revealRefs.current.filter(Boolean);
+    const io = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('ar-revealed'); io.unobserve(e.target); } }),
+      { threshold: 0.12 }
+    );
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
+  // Animated counters
+  useEffect(() => {
+    const el = countersRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !countsDone.current) {
+        countsDone.current = true;
+        el.querySelectorAll('[data-to]').forEach(node => {
+          const to = +node.dataset.to, suffix = node.dataset.suffix || '';
+          let start; const dur = 1400;
+          const tick = (ts) => {
+            if (!start) start = ts;
+            const p = Math.min((ts - start) / dur, 1);
+            const eased = 1 - Math.pow(1 - p, 4);
+            node.textContent = Math.round(to * eased) + suffix;
+            if (p < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+      }
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const addReveal = (el) => { if (el && !revealRefs.current.includes(el)) revealRefs.current.push(el); };
+
   return (
     <>
       <Head>
         <title>Advert Radical — AR Menus for Restaurants</title>
-        <meta name="description" content="Give your restaurant an AR-powered menu. Customers scan, see food in 3D."/>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+        <meta name="description" content="Give your restaurant an AR-powered menu. Customers scan, see food in 3D, and order more."/>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
       </Head>
 
-      <div style={{minHeight:'100vh',background:'#FAF7F2',fontFamily:'Inter,sans-serif',color:'#2A1F10',overflowX:'hidden',position:'relative'}}>
+      <div style={{ background:'#FAF7F2', fontFamily:'Inter,sans-serif', color:'#1A1208', overflowX:'hidden', minHeight:'100vh' }}>
         <style>{`
-          *{box-sizing:border-box;margin:0;padding:0} a{text-decoration:none}
-          @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
-          @keyframes floatR{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-8px) rotate(6deg)}}
-          @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
-          @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-          .float{animation:float 5s ease-in-out infinite}
-          .float2{animation:float 7s ease-in-out 1.8s infinite}
-          .floatR{animation:floatR 6s ease-in-out 0.7s infinite}
-
-          /* NAV */
-          .nav{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:50;
-            background:rgba(255,255,255,0.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-            border:1.5px solid rgba(42,31,16,0.1);border-radius:50px;
-            padding:8px 10px 8px 20px;display:flex;align-items:center;gap:2px;
-            box-shadow:0 6px 28px rgba(120,70,30,0.13),inset 0 1px 0 rgba(255,255,255,0.65);
-            width:auto;white-space:nowrap;}
-          .nlnk{font-size:14px;color:rgba(42,31,16,0.55);font-weight:500;transition:color 0.15s;padding:6px 14px;border-radius:30px;}
-          .nlnk:hover{color:#2A1F10;background:rgba(42,31,16,0.06);}
-
-          /* Clay card */
-          .cc{background:#FFFFFF;
-            border:1.5px solid rgba(42,31,16,0.08);border-radius:20px;
-            box-shadow:0 2px 16px rgba(42,31,16,0.07);
-            transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
-          .cc:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(42,31,16,0.13);}
-
-          /* Plan card */
-          .pc{background:#FFFFFF;
-            border:1.5px solid rgba(42,31,16,0.08);border-radius:20px;padding:32px;position:relative;
-            box-shadow:0 2px 16px rgba(42,31,16,0.07);
-            transition:all 0.22s;}
-          .pc.pop{border-color:rgba(247,155,61,0.5);box-shadow:0 8px 32px rgba(247,155,61,0.18);}
-          .pc:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(42,31,16,0.12);}
-
-          /* Buttons */
-          .btn-dark{background:#1E1B18;color:#FFF5E8;border:none;border-radius:50px;
-            font-family:Poppins,sans-serif;font-weight:700;cursor:pointer;transition:all 0.2s;
-            box-shadow:0 6px 20px rgba(30,27,24,0.3);}
-          .btn-dark:hover{background:#2E2B28;transform:translateY(-2px);}
-
-          .btn-outline{background:#FFFFFF;color:#1E1B18;border:1.5px solid rgba(42,31,16,0.18);
-            border-radius:50px;font-weight:600;cursor:pointer;transition:all 0.2s;
-            font-family:Poppins,sans-serif;}
-          .btn-outline:hover{background:#F7F5F2;border-color:rgba(42,31,16,0.3);}
-
-          .btn-coral{background:linear-gradient(135deg,#E05A3A,#F07050);color:#fff;border:none;border-radius:14px;
-            font-family:Poppins,sans-serif;font-weight:700;cursor:pointer;transition:all 0.2s;
-            box-shadow:0 8px 24px rgba(224,90,58,0.35);}
-          .btn-coral:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(224,90,58,0.45);}
-
-          .inner{max-width:1080px;margin:0 auto;padding:0 32px;}
-          .inner-wide{max-width:1440px;margin:0 auto;padding:0 48px;}
-          .hero-split{display:grid;grid-template-columns:1fr 1.1fr;align-items:center;gap:40px;}
-          .section{padding:80px 0;position:relative;z-index:1;}
-          /* Split layout */
-          .split{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:56px;}
-          .split.rev{direction:rtl;} .split.rev > *{direction:ltr;}
-          .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-          .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1100px;margin:0 auto;}
-          @media(max-width:960px){
-            .feat-grid{grid-template-columns:repeat(2,1fr)!important;}
-            .plan-grid{grid-template-columns:repeat(2,1fr)!important;}
-            .hero-split{grid-template-columns:1fr 1fr!important;gap:28px;}
-            .inner-wide{padding:0 32px;}
+          :root {
+            --dark:   #0C0A08;
+            --dark2:  #141008;
+            --cream:  #FAF7F2;
+            --amber:  #F79B3D;
+            --coral:  #E05A3A;
+            --border-dark: rgba(255,245,220,0.1);
+            --border-light: rgba(26,18,8,0.08);
+            --text-dark-muted: rgba(255,245,220,0.5);
           }
-          @media(max-width:680px){
-            .split{grid-template-columns:1fr!important;gap:32px;}
-            .split.rev{direction:ltr;}
-            .feat-grid{grid-template-columns:1fr!important;}
-            .plan-grid{grid-template-columns:1fr!important;}
-            .hero-split{grid-template-columns:1fr!important;gap:28px;}
-            .inner-wide{padding:0 20px;}
+          *{box-sizing:border-box;margin:0;padding:0} a{text-decoration:none; color:inherit;}
+
+          /* ── Reveal ── */
+          .ar-reveal { opacity:0; transform:translateY(30px); transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1); }
+          .ar-reveal.ar-revealed { opacity:1; transform:none; }
+          .ar-reveal.d1 { transition-delay:0.1s; }
+          .ar-reveal.d2 { transition-delay:0.2s; }
+          .ar-reveal.d3 { transition-delay:0.3s; }
+          .ar-reveal.d4 { transition-delay:0.4s; }
+          .ar-reveal.d5 { transition-delay:0.5s; }
+
+          /* ── Keyframes ── */
+          @keyframes fadeUp { from{opacity:0;transform:translateY(32px)} to{opacity:1;transform:none} }
+          @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0.2} }
+          @keyframes float  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+          @keyframes floatB { 0%,100%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(-9px) rotate(1deg)} }
+          @keyframes shimmerBtn { 0%{background-position:200% center} 100%{background-position:-200% center} }
+          @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+          @keyframes pulse  { 0%,100%{box-shadow:0 0 0 0 rgba(247,155,61,0.4)} 50%{box-shadow:0 0 0 8px rgba(247,155,61,0)} }
+          @keyframes glow   { 0%,100%{opacity:0.6} 50%{opacity:1} }
+          @keyframes heroFade { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:none} }
+
+          /* ── Nav ── */
+          .nav {
+            position:fixed; top:0; left:0; right:0; z-index:100;
+            padding:0 40px; height:68px;
+            display:flex; align-items:center; justify-content:space-between;
+            background:rgba(12,10,8,0.85); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+            border-bottom:1px solid rgba(255,245,220,0.07);
+          }
+          .nav-logo { font-family:Poppins,sans-serif; font-weight:800; font-size:17px; color:#FFF5E8; letter-spacing:-0.01em; }
+          .nav-links { display:flex; align-items:center; gap:2px; }
+          .nav-link { font-size:14px; color:rgba(255,245,220,0.55); font-weight:500; padding:7px 16px; border-radius:8px; transition:all 0.15s; }
+          .nav-link:hover { color:#FFF5E8; background:rgba(255,255,255,0.06); }
+          .nav-cta {
+            padding:9px 22px; background:var(--amber); color:#1A1208;
+            border-radius:10px; font-size:13px; font-weight:700; font-family:Poppins,sans-serif;
+            box-shadow:0 4px 16px rgba(247,155,61,0.35); transition:all 0.2s;
+          }
+          .nav-cta:hover { background:#F4A730; transform:translateY(-1px); box-shadow:0 8px 24px rgba(247,155,61,0.45); }
+
+          /* ── Hero ── */
+          .hero-section {
+            background:var(--dark2);
+            padding:160px 56px 100px;
+            position:relative; overflow:hidden; min-height:100vh;
+            display:flex; align-items:center;
+          }
+          .hero-content { max-width:1400px; margin:0 auto; width:100%; display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center; }
+          .hero-badge {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:6px 14px 6px 10px; border-radius:30px;
+            background:rgba(247,155,61,0.12); border:1px solid rgba(247,155,61,0.25);
+            font-size:12px; font-weight:600; color:rgba(255,200,120,0.9);
+            letter-spacing:0.02em; margin-bottom:28px;
+            animation:heroFade 0.6s ease both;
+          }
+          .hero-h1 {
+            font-family:Poppins,sans-serif; font-weight:900;
+            font-size:clamp(40px,4.8vw,68px);
+            line-height:1.0; letter-spacing:-0.03em;
+            color:#FFF5E8; margin-bottom:24px;
+            animation:heroFade 0.7s ease 0.1s both;
+          }
+          .hero-sub {
+            font-size:17px; color:rgba(255,245,220,0.52); line-height:1.85;
+            max-width:440px; margin-bottom:40px;
+            animation:heroFade 0.7s ease 0.2s both;
+          }
+          .hero-actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; animation:heroFade 0.7s ease 0.3s both; }
+
+          /* ── Buttons ── */
+          .btn-amber {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:14px 28px; border-radius:12px; border:none;
+            background:linear-gradient(90deg,#E05A3A,#F79B3D,#E05A3A);
+            background-size:200% auto;
+            color:#fff; font-family:Poppins,sans-serif; font-weight:700; font-size:15px;
+            cursor:pointer; animation:shimmerBtn 2.5s linear infinite;
+            box-shadow:0 8px 24px rgba(224,90,58,0.4);
+            transition:transform 0.2s, box-shadow 0.2s;
+          }
+          .btn-amber:hover { transform:translateY(-2px); box-shadow:0 14px 36px rgba(224,90,58,0.52); }
+          .btn-ghost {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:14px 24px; border-radius:12px;
+            background:rgba(255,245,220,0.07); border:1px solid rgba(255,245,220,0.15);
+            color:rgba(255,245,220,0.8); font-family:Poppins,sans-serif; font-weight:600; font-size:15px;
+            cursor:pointer; transition:all 0.2s;
+          }
+          .btn-ghost:hover { background:rgba(255,245,220,0.12); border-color:rgba(255,245,220,0.25); color:#FFF5E8; }
+          .btn-outline-light {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:13px 26px; border-radius:12px;
+            background:#fff; border:1.5px solid rgba(26,18,8,0.14);
+            color:#1A1208; font-family:Poppins,sans-serif; font-weight:600; font-size:15px;
+            cursor:pointer; transition:all 0.2s;
+          }
+          .btn-outline-light:hover { border-color:rgba(26,18,8,0.28); background:#F7F4EF; }
+
+          /* ── Marquee ── */
+          .marquee-wrap { overflow:hidden; position:relative; }
+          .marquee-track { display:flex; width:max-content; animation:marquee 30s linear infinite; }
+          .marquee-track:hover { animation-play-state:paused; }
+          .marquee-item {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:8px 18px; margin:0 6px;
+            background:rgba(255,255,255,0.6); border:1px solid rgba(26,18,8,0.07);
+            border-radius:30px; font-size:13px; font-weight:600; color:rgba(26,18,8,0.55);
+            white-space:nowrap; backdrop-filter:blur(8px);
+          }
+
+          /* ── Stats band ── */
+          .stats-band {
+            background:var(--dark); padding:64px 56px;
+            border-top:1px solid rgba(255,245,220,0.06);
+            border-bottom:1px solid rgba(255,245,220,0.06);
+          }
+          .stats-grid { max-width:1400px; margin:0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
+          .stat-item { padding:0 40px; position:relative; }
+          .stat-item + .stat-item::before { content:''; position:absolute; left:0; top:10%; height:80%; width:1px; background:rgba(255,245,220,0.1); }
+          .stat-num { font-family:Poppins,sans-serif; font-weight:900; font-size:clamp(36px,3.5vw,52px); color:#FFF5E8; letter-spacing:-0.03em; line-height:1; margin-bottom:10px; }
+          .stat-label { font-size:14px; color:rgba(255,245,220,0.45); font-weight:500; line-height:1.5; }
+
+          /* ── Section utils ── */
+          .section-inner { max-width:1400px; margin:0 auto; padding:0 56px; }
+          .section-tag {
+            display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.1em;
+            text-transform:uppercase; color:var(--coral); margin-bottom:14px;
+          }
+          .section-h2 { font-family:Poppins,sans-serif; font-weight:800; font-size:clamp(28px,3.2vw,44px); color:#1A1208; line-height:1.1; letter-spacing:-0.02em; }
+          .section-h2-dark { font-family:Poppins,sans-serif; font-weight:800; font-size:clamp(28px,3.2vw,44px); color:#FFF5E8; line-height:1.1; letter-spacing:-0.02em; }
+
+          /* ── Bento ── */
+          .bento { display:grid; grid-template-columns:1.55fr 1fr 1fr; grid-template-rows:auto auto; gap:14px; }
+          .bento-tall { grid-row:span 2; }
+          .bento-card {
+            background:#fff; border:1.5px solid rgba(26,18,8,0.07); border-radius:22px;
+            padding:30px; overflow:hidden; position:relative;
+            transition:all 0.28s cubic-bezier(0.34,1.56,0.64,1);
+            box-shadow:0 1px 12px rgba(26,18,8,0.05);
+          }
+          .bento-card:hover { transform:translateY(-5px); box-shadow:0 18px 44px rgba(26,18,8,0.12); border-color:rgba(247,155,61,0.28); }
+          .bento-card.dark { background:var(--dark); border-color:rgba(255,245,220,0.08); }
+          .bento-card.dark:hover { border-color:rgba(247,155,61,0.3); box-shadow:0 20px 48px rgba(0,0,0,0.4); }
+          .bento-icon { width:50px; height:50px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:20px; }
+
+          /* ── How it works ── */
+          .how-grid { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; }
+          .step-line { position:relative; }
+          .step-line::after { content:''; position:absolute; left:23px; top:52px; bottom:8px; width:2px; background:linear-gradient(180deg,rgba(224,90,58,0.4),transparent); }
+          .step-row { display:flex; gap:20px; align-items:flex-start; }
+          .step-num-box {
+            width:46px; height:46px; border-radius:14px; flex-shrink:0;
+            background:linear-gradient(135deg,var(--coral),var(--amber));
+            display:flex; align-items:center; justify-content:center;
+            font-family:Poppins,sans-serif; font-weight:800; font-size:13px; color:#fff;
+            box-shadow:0 6px 18px rgba(224,90,58,0.35); position:relative; z-index:1;
+          }
+
+          /* ── Pricing ── */
+          .plan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; max-width:1060px; margin:0 auto; }
+          .plan-card { border-radius:24px; padding:36px 32px; position:relative; overflow:visible; transition:all 0.25s; }
+          .plan-card.light { background:#fff; border:1.5px solid rgba(26,18,8,0.08); box-shadow:0 2px 16px rgba(26,18,8,0.06); }
+          .plan-card.light:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(26,18,8,0.1); }
+          .plan-card.dark-card { background:var(--dark); border:1.5px solid rgba(247,155,61,0.3); box-shadow:0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(247,155,61,0.1); }
+          .plan-card.dark-card:hover { transform:translateY(-6px); box-shadow:0 20px 56px rgba(0,0,0,0.45), 0 0 0 1px rgba(247,155,61,0.2); }
+          .check-light { width:20px; height:20px; border-radius:6px; background:rgba(26,18,8,0.07); display:flex; align-items:center; justify-content:center; font-size:10px; color:rgba(26,18,8,0.5); font-weight:800; flex-shrink:0; }
+          .check-dark  { width:20px; height:20px; border-radius:6px; background:rgba(247,155,61,0.18); display:flex; align-items:center; justify-content:center; font-size:10px; color:#F79B3D; font-weight:800; flex-shrink:0; }
+
+          /* ── Layouts ── */
+          @media(max-width:1100px) {
+            .bento { grid-template-columns:1fr 1fr; }
+            .bento-tall { grid-row:span 1; }
+            .plan-grid { grid-template-columns:1fr; max-width:420px; }
+            .stats-grid { grid-template-columns:1fr 1fr; gap:32px; }
+            .stat-item + .stat-item::before { display:none; }
+            .stat-item { padding:0 24px; }
+          }
+          @media(max-width:820px) {
+            .hero-content { grid-template-columns:1fr!important; }
+            .hero-section  { padding:120px 24px 80px; }
+            .how-grid { grid-template-columns:1fr!important; gap:40px; }
+            .nav { padding:0 20px; }
+            .nav-links .nav-link { display:none; }
+            .section-inner { padding:0 24px; }
+            .stats-band { padding:48px 24px; }
+            .bento { grid-template-columns:1fr; }
           }
         `}</style>
 
-        {/* Background blobs — subtle, not cluttered */}
-        <div style={{position:'fixed',bottom:'-15%',right:'-6%',width:480,height:480,borderRadius:'50%',background:'rgba(247,155,61,0.07)',pointerEvents:'none',zIndex:0}}/>
-        <div style={{position:'fixed',top:'-10%',left:'-5%',width:360,height:360,borderRadius:'50%',background:'rgba(224,90,58,0.06)',pointerEvents:'none',zIndex:0}}/>
-
-        {/* ══ NAV ══ */}
+        {/* ── NAV ── */}
         <nav className="nav">
-          <span style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:16,color:'#1E1B18',flexShrink:0,marginRight:8}}>
-            Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F4A86A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Radical</span>
+          <span className="nav-logo">
+            Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
           </span>
-          <div style={{flex:1}}/>
-          <a href="#features" className="nlnk">Features</a>
-          <a href="#how" className="nlnk">How it works</a>
-          <a href="#plans" className="nlnk">Pricing</a>
-          <Link href="/admin/login" className="nlnk">Sign in</Link>
-          <Link href="/admin/login" style={{marginLeft:6,padding:'9px 20px',background:'#1E1B18',color:'#FFF5E8',borderRadius:30,fontSize:13,fontWeight:700,letterSpacing:'0.01em',boxShadow:'0 4px 14px rgba(30,27,24,0.25)'}}>Get Started</Link>
+          <div className="nav-links">
+            <a href="#how"      className="nav-link">How it works</a>
+            <a href="#features" className="nav-link">Features</a>
+            <a href="#plans"    className="nav-link">Pricing</a>
+            <Link href="/admin/login" className="nav-link">Sign in</Link>
+          </div>
+          <Link href="/admin/login" className="nav-cta">Get started →</Link>
         </nav>
 
         {/* ══ HERO ══ */}
-        <section style={{paddingTop:108,paddingBottom:64,position:'relative',zIndex:1}}>
-          <div className="inner-wide">
-            <div className="hero-split">
+        <section className="hero-section">
+          {/* Background radial glows */}
+          <div style={{position:'absolute', top:'-10%', right:'-5%', width:700, height:700, borderRadius:'50%', background:'radial-gradient(circle, rgba(247,155,61,0.12) 0%, transparent 65%)', pointerEvents:'none'}}/>
+          <div style={{position:'absolute', bottom:'-15%', left:'-8%', width:600, height:600, borderRadius:'50%', background:'radial-gradient(circle, rgba(224,90,58,0.1) 0%, transparent 65%)', pointerEvents:'none'}}/>
+          {/* Subtle grid */}
+          <div style={{position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(255,245,220,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,245,220,0.025) 1px, transparent 1px)', backgroundSize:'64px 64px', pointerEvents:'none'}}/>
 
-              {/* LEFT — clean, minimal */}
-              <div style={{animation:'fadeUp 0.8s ease forwards'}}>
-                <div style={{display:'inline-flex',alignItems:'center',gap:7,padding:'6px 14px',borderRadius:30,background:'rgba(247,155,61,0.1)',border:'1px solid rgba(247,155,61,0.3)',fontSize:12,fontWeight:600,color:'#8B4020',marginBottom:24,letterSpacing:'0.02em'}}>
-                  <span style={{width:6,height:6,borderRadius:'50%',background:'#E05A3A',animation:'blink 2s infinite'}}/>
-                  🥽 AR + AI Revenue Platform
+          <div style={{maxWidth:1400, margin:'0 auto', width:'100%', position:'relative', zIndex:1}}>
+            <div className="hero-content">
+
+              {/* LEFT */}
+              <div>
+                <div className="hero-badge">
+                  <span style={{width:8, height:8, borderRadius:'50%', background:'#F79B3D', animation:'pulse 2s infinite', flexShrink:0}}/>
+                  AR + AI Revenue Platform
                 </div>
 
-                <h1 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(30px,3.6vw,50px)',lineHeight:1.1,letterSpacing:'-0.02em',color:'#1E1B18',marginBottom:20}}>
-                  Turn Your Menu Into an<br/>
-                  <span style={{background:'linear-gradient(135deg,#E05A3A,#F07050)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>AR-Powered Revenue</span><br/>Machine
+                <h1 className="hero-h1">
+                  The AR Menu<br/>
+                  <span style={{background:'linear-gradient(90deg,#F79B3D,#E05A3A)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>
+                    That Sells
+                  </span><br/>
+                  More Food.
                 </h1>
 
-                <p style={{fontSize:16,color:'rgba(42,31,16,0.62)',lineHeight:1.75,marginBottom:36,maxWidth:440}}>
-                  Customers scan your QR code, watch dishes appear in 3D AR, get AI upsell suggestions — and order more. No app needed.
+                <p className="hero-sub">
+                  Customers scan your QR, watch dishes appear life-size in 3D on their table, get AI-powered suggestions — and order more. No app. No friction.
                 </p>
 
-                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:40,flexWrap:'wrap'}}>
+                <div className="hero-actions">
                   <Link href="/admin/login">
-                    <button className="btn-dark" style={{padding:'14px 28px',fontSize:15}}>Start Free Trial</button>
+                    <button className="btn-amber">Start free trial</button>
                   </Link>
                   <a href="https://ar-saa-s-kbzn.vercel.app/restaurant/spot" target="_blank" rel="noreferrer">
-                    <button className="btn-outline" style={{padding:'14px 24px',fontSize:15}}>See Live Demo →</button>
+                    <button className="btn-ghost">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      See live demo
+                    </button>
                   </a>
                 </div>
 
-                <div style={{display:'flex',alignItems:'center',gap:16,paddingTop:20,borderTop:'1px solid rgba(42,31,16,0.08)'}}>
-                  <div style={{textAlign:'center'}}>
-                    <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:22,color:'#1E1B18'}}>↑ 28%</div>
-                    <div style={{fontSize:12,color:'rgba(42,31,16,0.5)',marginTop:2}}>Avg order value</div>
+                {/* Social proof avatars */}
+                <div style={{display:'flex', alignItems:'center', gap:14, marginTop:36, paddingTop:28, borderTop:'1px solid rgba(255,245,220,0.08)'}}>
+                  <div style={{display:'flex'}}>
+                    {['🧑‍🍳','👨‍🍳','👩‍🍳','🧑‍🍳'].map((e,i) => (
+                      <div key={i} style={{width:30, height:30, borderRadius:'50%', background:`hsl(${30+i*20},60%,${30+i*5}%)`, border:'2px solid #1A1208', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, marginLeft:i===0?0:-8, position:'relative', zIndex:4-i}}>
+                        {e}
+                      </div>
+                    ))}
                   </div>
-                  <div style={{width:1,height:32,background:'rgba(42,31,16,0.12)'}}/>
-                  <div style={{textAlign:'center'}}>
-                    <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:22,color:'#1E1B18'}}>5 min</div>
-                    <div style={{fontSize:12,color:'rgba(42,31,16,0.5)',marginTop:2}}>Setup time</div>
-                  </div>
-                  <div style={{width:1,height:32,background:'rgba(42,31,16,0.12)'}}/>
-                  <div style={{textAlign:'center'}}>
-                    <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:22,color:'#1E1B18'}}>500+</div>
-                    <div style={{fontSize:12,color:'rgba(42,31,16,0.5)',marginTop:2}}>Restaurants live</div>
+                  <div>
+                    <div style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#FFF5E8', lineHeight:1}}>500+ restaurants</div>
+                    <div style={{fontSize:12, color:'rgba(255,245,220,0.42)', marginTop:3}}>already growing with Advert Radical</div>
                   </div>
                 </div>
               </div>
 
-              {/* RIGHT — 3D Clay Food Scene */}
-              <div style={{position:'relative',animation:'fadeUp 1s ease 0.15s both'}}>
-                <div style={{position:'absolute',top:'8%',left:'8%',right:'8%',bottom:'5%',background:'radial-gradient(ellipse,rgba(255,255,255,0.32),transparent 68%)',filter:'blur(18px)',borderRadius:'50%',pointerEvents:'none'}}/>
-                <svg viewBox="0 0 580 500" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'auto',filter:'drop-shadow(0 20px 44px rgba(120,70,30,0.2))',position:'relative'}}>
-                  <defs>
-                    <filter id="sf"><feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="rgba(120,70,30,0.16)"/></filter>
-                    <filter id="sf2"><feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="rgba(120,70,30,0.12)"/></filter>
-                    <radialGradient id="gT" cx="50%" cy="40%"><stop offset="0%" stopColor="#FFF5DC"/><stop offset="100%" stopColor="#F4D898"/></radialGradient>
-                    <radialGradient id="gB" cx="35%" cy="30%"><stop offset="0%" stopColor="#FFECD0"/><stop offset="100%" stopColor="#E8906A"/></radialGradient>
-                    <radialGradient id="gG" cx="35%" cy="30%"><stop offset="0%" stopColor="#B8E4CC"/><stop offset="100%" stopColor="#5A9A78"/></radialGradient>
-                  </defs>
-                  {/* bg blobs */}
-                  <ellipse cx="310" cy="285" rx="230" ry="172" fill="rgba(255,255,255,0.15)"/>
-                  {/* TABLE */}
-                  <polygon points="90,228 310,108 530,228 310,348" fill="url(#gT)" filter="url(#sf)"/>
-                  <polygon points="90,228 310,348 310,408 90,288" fill="#DEB870"/>
-                  <polygon points="530,228 310,348 310,408 530,288" fill="#C8A050"/>
-                  <polygon points="90,228 310,108 530,228 310,348" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5"/>
-                  <rect x="145" y="394" width="11" height="52" rx="5.5" fill="#C8A050"/>
-                  <rect x="456" y="394" width="11" height="52" rx="5.5" fill="#C8A050"/>
-                  <rect x="254" y="426" width="11" height="28" rx="5.5" fill="#C8A050"/>
-                  <rect x="344" y="426" width="11" height="28" rx="5.5" fill="#C8A050"/>
-                  {/* BIRYANI BOWL */}
-                  <ellipse cx="368" cy="306" rx="60" ry="19" fill="rgba(160,90,30,0.18)"/>
-                  <path d="M308,253 C308,253 305,308 368,313 C431,308 428,253 428,253 C428,229 400,217 368,217 C336,217 308,229 308,253Z" fill="url(#gB)" filter="url(#sf2)"/>
-                  <ellipse cx="368" cy="250" rx="60" ry="21" fill="#F5AA7A"/>
-                  <ellipse cx="368" cy="244" rx="53" ry="17" fill="#F4D070"/>
-                  <ellipse cx="350" cy="240" rx="12" ry="4.5" fill="#E8C040" opacity="0.85"/>
-                  <ellipse cx="381" cy="242" rx="10" ry="4" fill="#F0D060" opacity="0.9"/>
-                  <ellipse cx="362" cy="248" rx="9" ry="3.5" fill="#D4A820" opacity="0.7"/>
-                  <ellipse cx="370" cy="236" rx="10" ry="4.5" fill="#6AB090" opacity="0.95"/>
-                  <ellipse cx="354" cy="241" rx="6" ry="2.8" fill="#5A9A78" opacity="0.8"/>
-                  <ellipse cx="383" cy="246" rx="5" ry="2" fill="#E05A3A" opacity="0.7"/>
-                  <path d="M354,213 Q348,196 356,180 Q362,166 356,152" stroke="rgba(255,255,255,0.5)" strokeWidth="2.4" strokeLinecap="round" fill="none"/>
-                  <path d="M373,208 Q367,190 376,174 Q383,160 377,146" stroke="rgba(255,255,255,0.38)" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                  <path d="M391,214 Q385,198 393,183 Q399,170 394,156" stroke="rgba(255,255,255,0.3)" strokeWidth="1.7" strokeLinecap="round" fill="none"/>
-                  {/* SALAD BOWL */}
-                  <ellipse cx="214" cy="270" rx="48" ry="15" fill="rgba(160,90,30,0.13)"/>
-                  <path d="M166,226 C166,226 163,268 214,272 C265,268 262,226 262,226 C262,207 240,197 214,197 C188,197 166,207 166,226Z" fill="#8FC4A8" filter="url(#sf2)"/>
-                  <ellipse cx="214" cy="224" rx="48" ry="17" fill="#AAD4BC"/>
-                  <ellipse cx="214" cy="218" rx="41" ry="13" fill="#6AB090"/>
-                  <ellipse cx="200" cy="214" rx="11" ry="4.5" fill="#4A8A68" opacity="0.85"/>
-                  <ellipse cx="226" cy="216" rx="9" ry="3.5" fill="#F4A0B0" opacity="0.9"/>
-                  <ellipse cx="212" cy="222" rx="8" ry="3" fill="#F4D070" opacity="0.85"/>
-                  <circle cx="217" cy="210" r="4" fill="#E05A3A" opacity="0.75"/>
-                  {/* PHONE */}
-                  <ellipse cx="166" cy="196" rx="27" ry="8.5" fill="rgba(0,0,0,0.09)"/>
-                  <rect x="141" y="103" width="50" height="91" rx="10" fill="#1E1B18" filter="url(#sf2)"/>
-                  <rect x="147" y="111" width="38" height="65" rx="6" fill="#1A2A4A"/>
-                  <rect x="152" y="116" width="28" height="15" rx="3" fill="rgba(100,200,255,0.22)"/>
-                  <text x="166" y="127" textAnchor="middle" fill="rgba(100,220,255,0.9)" fontSize="6.5" fontWeight="700">AR VIEW</text>
-                  <ellipse cx="166" cy="151" rx="12" ry="8" fill="rgba(244,168,106,0.45)"/>
-                  <rect x="155" y="142" width="21" height="9" rx="4.5" fill="rgba(224,90,58,0.52)"/>
-                  <ellipse cx="166" cy="142" rx="12" ry="5.5" fill="rgba(255,220,140,0.7)"/>
-                  <line x1="152" y1="163" x2="186" y2="163" stroke="rgba(100,200,255,0.28)" strokeWidth="1.4"/>
-                  <line x1="152" y1="168" x2="178" y2="168" stroke="rgba(100,200,255,0.22)" strokeWidth="1.4"/>
-                  <line x1="152" y1="173" x2="170" y2="173" stroke="rgba(100,200,255,0.18)" strokeWidth="1.4"/>
-                  <rect x="158" y="190" width="16" height="2" rx="1" fill="rgba(255,255,255,0.16)"/>
-                  {/* HOLOGRAM */}
-                  <g opacity="0.88">
-                    <ellipse cx="202" cy="86" rx="28" ry="10" fill="rgba(100,210,255,0.1)" stroke="rgba(100,210,255,0.42)" strokeWidth="1.1"/>
-                    <ellipse cx="202" cy="76" rx="17" ry="6.5" fill="rgba(244,168,106,0.72)"/>
-                    <rect x="186" y="65" width="32" height="10" rx="5" fill="rgba(140,70,30,0.62)"/>
-                    <rect x="184" y="60" width="36" height="7" rx="3.5" fill="rgba(100,180,120,0.68)"/>
-                    <ellipse cx="202" cy="60" rx="19" ry="7.5" fill="rgba(255,210,120,0.84)"/>
-                    <line x1="175" y1="86" x2="157" y2="122" stroke="rgba(100,210,255,0.22)" strokeWidth="0.8"/>
-                    <line x1="229" y1="86" x2="186" y2="122" stroke="rgba(100,210,255,0.22)" strokeWidth="0.8"/>
-                    <circle cx="168" cy="53" r="2.8" fill="rgba(100,210,255,0.58)"/>
-                    <circle cx="237" cy="68" r="1.9" fill="rgba(100,210,255,0.48)"/>
-                    <circle cx="212" cy="40" r="2.2" fill="rgba(100,210,255,0.52)"/>
-                  </g>
-                  {/* PLANT */}
-                  <path d="M456,316 L450,350 Q450,356 463,358 Q476,358 482,358 Q495,358 495,350 L489,316Z" fill="#F4A0B0" filter="url(#sf2)"/>
-                  <rect x="448" y="312" width="46" height="8" rx="4" fill="#FFBCC8"/>
-                  <ellipse cx="472" cy="312" rx="23" ry="6.5" fill="#8B6040"/>
-                  <ellipse cx="472" cy="292" rx="21" ry="16" fill="url(#gG)"/>
-                  <ellipse cx="457" cy="280" rx="14" ry="11" fill="#5A9A78"/>
-                  <ellipse cx="488" cy="283" rx="12" ry="9.5" fill="#4A8A68"/>
-                  <ellipse cx="470" cy="273" rx="10" ry="8.5" fill="#6AB090"/>
-                  {/* QR CARD */}
-                  <rect x="430" y="158" width="66" height="66" rx="12" fill="rgba(255,248,232,0.94)" filter="url(#sf)"/>
-                  <rect x="438" y="166" width="19" height="19" rx="2.5" fill="#1E1B18"/>
-                  <rect x="441" y="169" width="13" height="13" rx="1.5" fill="rgba(255,248,232,0.94)"/>
-                  <rect x="444" y="172" width="7" height="7" rx="1" fill="#1E1B18"/>
-                  <rect x="465" y="166" width="19" height="19" rx="2.5" fill="#1E1B18"/>
-                  <rect x="468" y="169" width="13" height="13" rx="1.5" fill="rgba(255,248,232,0.94)"/>
-                  <rect x="471" y="172" width="7" height="7" rx="1" fill="#1E1B18"/>
-                  <rect x="438" y="193" width="19" height="19" rx="2.5" fill="#1E1B18"/>
-                  <rect x="441" y="196" width="13" height="13" rx="1.5" fill="rgba(255,248,232,0.94)"/>
-                  <rect x="444" y="199" width="7" height="7" rx="1" fill="#1E1B18"/>
-                  <rect x="465" y="193" width="6" height="6" rx="1" fill="#1E1B18"/>
-                  <rect x="473" y="193" width="6" height="6" rx="1" fill="#1E1B18"/>
-                  <rect x="481" y="193" width="6" height="6" rx="1" fill="#1E1B18"/>
-                  <rect x="465" y="201" width="6" height="6" rx="1" fill="#1E1B18"/>
-                  <rect x="481" y="201" width="6" height="6" rx="1" fill="#1E1B18"/>
-                  <rect x="473" y="209" width="6" height="6" rx="1" fill="#1E1B18"/>
-                  <text x="463" y="238" textAnchor="middle" fill="#C04A28" fontSize="8" fontWeight="700" fontFamily="Inter,sans-serif">SCAN ME</text>
-                  {/* PIZZA (top right) */}
-                  <g transform="translate(478,60) rotate(-18)">
-                    <polygon points="0,0 42,15 21,52" fill="#F5A876" filter="url(#sf2)"/>
-                    <polygon points="0,0 42,15 36,7" fill="#E07850"/>
-                    <circle cx="21" cy="25" r="5.5" fill="#F4D070"/>
-                    <circle cx="30" cy="36" r="4.5" fill="#F4D070"/>
-                    <circle cx="13" cy="36" r="3.8" fill="#F4D070"/>
-                    <circle cx="15" cy="27" r="3.2" fill="#C04A28"/>
-                    <circle cx="27" cy="19" r="2.8" fill="#C04A28"/>
-                    <circle cx="25" cy="39" r="2.8" fill="#C04A28"/>
-                  </g>
-                  {/* BURGER (top centre) */}
-                  <g transform="translate(300,36)" filter="url(#sf2)">
-                    <ellipse cx="0" cy="31" rx="23" ry="7.5" fill="#E8A060"/>
-                    <rect x="-21" y="21" width="42" height="10" rx="5" fill="#7A4020"/>
-                    <rect x="-23" y="16" width="46" height="7" rx="3.5" fill="#80C090"/>
-                    <rect x="-21" y="10" width="42" height="8" rx="4" fill="#C04A28" opacity="0.8"/>
-                    <ellipse cx="0" cy="9" rx="23" ry="9.5" fill="#F4C060"/>
-                    <ellipse cx="-6" cy="5" rx="3.5" ry="1.6" fill="#D4A030" transform="rotate(-18,-6,5)"/>
-                    <ellipse cx="6" cy="4" rx="3.5" ry="1.6" fill="#D4A030" transform="rotate(18,6,4)"/>
-                    <ellipse cx="0" cy="3" rx="3.5" ry="1.6" fill="#D4A030"/>
-                  </g>
-                  {/* NOODLE BOWL (top left) */}
-                  <g transform="translate(78,116)" filter="url(#sf2)">
-                    <ellipse cx="0" cy="15" rx="29" ry="9.5" fill="rgba(120,70,30,0.1)"/>
-                    <path d="M-29,0 C-29,0 -29,27 0,29 C29,27 29,0 29,0 C29,-13 15.5,-17 0,-17 C-15.5,-17 -29,-13 -29,0Z" fill="#F4A0B0"/>
-                    <ellipse cx="0" cy="0" rx="29" ry="10.5" fill="#FFBCC8"/>
-                    <path d="M-17,-3 Q-4,7 11,-2 Q21,-9 19,4" stroke="#F4D070" strokeWidth="3.2" fill="none" strokeLinecap="round"/>
-                    <path d="M-11,3 Q2,11 17,3" stroke="#F4D070" strokeWidth="2.8" fill="none" strokeLinecap="round"/>
-                    <circle cx="2" cy="-4" r="5" fill="#C04A28" opacity="0.8"/>
-                    <circle cx="-9" cy="3" r="3.8" fill="#8FC4A8" opacity="0.9"/>
-                  </g>
-                  {/* Sparkle dots */}
-                  <circle cx="100" cy="78" r="4.5" fill="#F4D070" opacity="0.72"/>
-                  <circle cx="106" cy="71" r="2.8" fill="#F4D070" opacity="0.48"/>
-                  <circle cx="538" cy="168" r="5.5" fill="#C4B5D4" opacity="0.68"/>
-                  <circle cx="131" cy="308" r="3.8" fill="#F4A0B0" opacity="0.62"/>
-                  <circle cx="520" cy="318" r="4.5" fill="#8FC4A8" opacity="0.58"/>
-                  <g transform="translate(546,98)" fill="#F4D070" opacity="0.68"><polygon points="0,-7 1.8,-1.8 7,0 1.8,1.8 0,7 -1.8,1.8 -7,0 -1.8,-1.8"/></g>
-                  <g transform="translate(108,398)" fill="#F4A0B0" opacity="0.62"><polygon points="0,-5.5 1.4,-1.4 5.5,0 1.4,1.4 0,5.5 -1.4,1.4 -5.5,0 -1.4,-1.4"/></g>
-                </svg>
+              {/* RIGHT — Phone Mockup */}
+              <div style={{display:'flex', justifyContent:'center', alignItems:'center', position:'relative'}}>
+                {/* Ambient glow behind phone */}
+                <div style={{position:'absolute', inset:0, background:'radial-gradient(ellipse at 50% 50%, rgba(247,155,61,0.18) 0%, transparent 65%)', filter:'blur(20px)', borderRadius:'50%', pointerEvents:'none'}}/>
+
+                <div className="float" style={{position:'relative', zIndex:2}}>
+                  {/* Phone shell */}
+                  <div style={{width:260, height:520, borderRadius:44, background:'#0C0A08', boxShadow:'0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07), inset 0 0 0 2px rgba(255,255,255,0.04)', position:'relative', overflow:'hidden'}}>
+                    {/* Dynamic Island */}
+                    <div style={{position:'absolute', top:12, left:'50%', transform:'translateX(-50%)', width:96, height:28, background:'#0C0A08', borderRadius:14, zIndex:20, boxShadow:'0 0 0 1px rgba(255,255,255,0.08)'}}/>
+                    {/* Screen */}
+                    <div style={{position:'absolute', top:0, left:0, right:0, bottom:0, background:'linear-gradient(180deg,#0E1828,#0A1220)', borderRadius:44, overflow:'hidden'}}>
+                      <div style={{padding:'52px 16px 20px', height:'100%', display:'flex', flexDirection:'column'}}>
+
+                        {/* Header */}
+                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
+                          <div>
+                            <div style={{fontSize:9, fontWeight:700, color:'rgba(255,245,220,0.35)', letterSpacing:'0.08em', marginBottom:3}}>THE SPOT RESTAURANT</div>
+                            <div style={{fontSize:17, fontWeight:800, color:'#FFF5E8', fontFamily:'Poppins,sans-serif', letterSpacing:'-0.02em'}}>AR Menu</div>
+                          </div>
+                          <div style={{width:34, height:34, borderRadius:12, background:'rgba(247,155,61,0.15)', border:'1px solid rgba(247,155,61,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16}}>🥽</div>
+                        </div>
+
+                        {/* Category pills */}
+                        <div style={{display:'flex', gap:6, marginBottom:14}}>
+                          {['All','Biryani','Starters','Desserts'].map((c,i) => (
+                            <div key={c} style={{padding:'5px 11px', borderRadius:20, background:i===0?'#F79B3D':'rgba(255,255,255,0.07)', fontSize:9, fontWeight:700, color:i===0?'#1A1208':'rgba(255,245,220,0.45)', letterSpacing:'0.02em', whiteSpace:'nowrap', flexShrink:0}}>
+                              {c}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Dish cards */}
+                        <div style={{display:'flex', flexDirection:'column', gap:8, flex:1}}>
+                          {[
+                            {n:'Chicken Biryani', p:'₹320', e:'🍛', r:'4.9', tag:'AR', bg:'rgba(247,155,61,0.08)', glow:'rgba(247,155,61,0.2)'},
+                            {n:'Paneer Tikka',    p:'₹240', e:'🍢', r:'4.7', tag:'Popular', bg:'rgba(224,90,58,0.08)', glow:'rgba(224,90,58,0.15)'},
+                            {n:'Dal Makhani',     p:'₹180', e:'🍲', r:'4.8', tag:'AR', bg:'rgba(100,180,120,0.08)', glow:'rgba(100,180,120,0.12)'},
+                          ].map(d => (
+                            <div key={d.n} style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:16, background:d.bg, border:`1px solid ${d.glow}`, boxShadow:`0 4px 16px ${d.glow}`}}>
+                              <div style={{width:42, height:42, borderRadius:12, background:'rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0}}>{d.e}</div>
+                              <div style={{flex:1, minWidth:0}}>
+                                <div style={{fontSize:10, fontWeight:700, color:'rgba(255,245,232,0.9)', marginBottom:3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{d.n}</div>
+                                <div style={{display:'flex', alignItems:'center', gap:6}}>
+                                  <span style={{fontSize:8, fontWeight:700, padding:'2px 6px', borderRadius:6, background:'rgba(247,155,61,0.2)', color:'#F79B3D'}}>{d.tag}</span>
+                                  <span style={{fontSize:8, color:'rgba(255,245,220,0.4)'}}>⭐ {d.r}</span>
+                                </div>
+                              </div>
+                              <div style={{fontSize:11, fontWeight:800, color:'#F79B3D', fontFamily:'Poppins,sans-serif', flexShrink:0}}>{d.p}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* AR bar */}
+                        <div style={{marginTop:12, padding:'8px 12px', borderRadius:12, background:'rgba(100,210,255,0.06)', border:'1px solid rgba(100,210,255,0.14)', display:'flex', alignItems:'center', gap:7}}>
+                          <div style={{width:7, height:7, borderRadius:'50%', background:'#64D2FF', animation:'blink 1.5s infinite', flexShrink:0}}/>
+                          <span style={{fontSize:8.5, fontWeight:700, color:'rgba(100,210,255,0.85)', letterSpacing:'0.04em'}}>AR LIVE — TAP ANY DISH TO VIEW IN 3D</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Home bar */}
+                    <div style={{position:'absolute', bottom:10, left:'50%', transform:'translateX(-50%)', width:80, height:3, background:'rgba(255,255,255,0.18)', borderRadius:2}}/>
+                  </div>
+
+                  {/* Floating cards */}
+                  <div className="floatB" style={{position:'absolute', top:'6%', right:'-22%', background:'rgba(255,255,255,0.95)', borderRadius:18, padding:'12px 16px', boxShadow:'0 12px 36px rgba(26,18,8,0.16)', border:'1px solid rgba(26,18,8,0.06)', backdropFilter:'blur(12px)', minWidth:148, zIndex:5}}>
+                    <div style={{display:'flex', alignItems:'center', gap:10}}>
+                      <div style={{width:36, height:36, borderRadius:10, background:'rgba(100,210,120,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16}}>📈</div>
+                      <div>
+                        <div style={{fontSize:9.5, fontWeight:600, color:'rgba(26,18,8,0.42)', marginBottom:2}}>Avg order value</div>
+                        <div style={{fontSize:18, fontWeight:900, color:'#1A1208', fontFamily:'Poppins,sans-serif', letterSpacing:'-0.02em'}}>↑ 28%</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{position:'absolute', bottom:'12%', left:'-20%', background:'rgba(255,255,255,0.95)', borderRadius:18, padding:'12px 16px', boxShadow:'0 12px 36px rgba(26,18,8,0.16)', border:'1px solid rgba(26,18,8,0.06)', backdropFilter:'blur(12px)', minWidth:156, zIndex:5, animation:'floatB 7s ease-in-out 1.2s infinite'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:10}}>
+                      <div style={{width:36, height:36, borderRadius:10, background:'rgba(247,155,61,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16}}>👁️</div>
+                      <div>
+                        <div style={{fontSize:9.5, fontWeight:600, color:'rgba(26,18,8,0.42)', marginBottom:2}}>AR views today</div>
+                        <div style={{fontSize:18, fontWeight:900, color:'#1A1208', fontFamily:'Poppins,sans-serif', letterSpacing:'-0.02em'}}>2,841</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ══ HOW IT WORKS — split with Analytics scene ══ */}
-        <section id="how" className="section" style={{background:'#F5E6D3',backdropFilter:'none',borderTop:'1px solid rgba(42,31,16,0.06)',borderBottom:'1px solid rgba(42,31,16,0.06)'}}>
-          <div className="inner-wide">
-            <div className="split">
-              {/* Text */}
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>How it works</div>
-                <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',lineHeight:1.12,marginBottom:20}}>
-                  From QR scan<br/>to AR in seconds
+        {/* ══ MARQUEE ══ */}
+        <div style={{background:'rgba(255,255,255,0.5)', borderTop:'1px solid rgba(26,18,8,0.06)', borderBottom:'1px solid rgba(26,18,8,0.06)', padding:'14px 0', backdropFilter:'blur(12px)'}}>
+          <div className="marquee-wrap">
+            <div className="marquee-track">
+              {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+                <span key={i} className="marquee-item">{item}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ══ STATS BAND ══ */}
+        <div className="stats-band">
+          <div ref={countersRef} className="stats-grid">
+            {[
+              { num:28,   suffix:'%',  label:'Increase in avg order value',   pre:'↑' },
+              { num:500,  suffix:'+',  label:'Restaurants on the platform',   pre:'' },
+              { num:5,    suffix:' min', label:'Average setup time',           pre:'' },
+              { num:4.8,  suffix:'★',  label:'Average customer rating',       pre:'' },
+            ].map((s, i) => (
+              <div key={i} className="stat-item ar-reveal" ref={addReveal} style={{transitionDelay:`${i*0.08}s`}}>
+                <div className="stat-num">
+                  {s.pre}<span data-to={s.num} data-suffix={s.suffix}>{s.num}{s.suffix}</span>
+                </div>
+                <div className="stat-label">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ══ HOW IT WORKS ══ */}
+        <section id="how" style={{padding:'96px 0', background:' #FAF7F2', position:'relative', zIndex:1}}>
+          <div className="section-inner">
+            <div className="how-grid">
+              <div ref={addReveal} className="ar-reveal">
+                <span className="section-tag">How it works</span>
+                <h2 className="section-h2" style={{marginBottom:16}}>
+                  From QR scan to<br/>3D AR in seconds
                 </h2>
-                <p style={{fontSize:16,color:'rgba(42,31,16,0.58)',lineHeight:1.75,marginBottom:32,maxWidth:400}}>
-                  No app downloads. No complex setup. Customers simply scan the QR code on their table and instantly see every dish in stunning 3D.
+                <p style={{fontSize:16, color:'rgba(26,18,8,0.52)', lineHeight:1.85, marginBottom:48, maxWidth:380}}>
+                  No app downloads. No tech setup. Your customers simply scan and watch their food come to life on the table.
                 </p>
-                <div style={{display:'flex',flexDirection:'column',gap:18}}>
+
+                <div style={{display:'flex', flexDirection:'column', gap:0}}>
                   {[
-                    {n:'01',t:'You upload your dishes',d:'Add photos, 3D models, prices, and nutrition info through your admin dashboard.'},
-                    {n:'02',t:'We generate your QR code',d:'A custom QR code links to your branded AR menu page instantly.'},
-                    {n:'03',t:'Customers scan & explore',d:'They point their phone at the table — food appears in real space, life-size.'},
-                  ].map(s=>(
-                    <div key={s.n} style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-                      <div style={{width:36,height:36,borderRadius:12,background:'linear-gradient(135deg,#E05A3A,#F07050)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:'0 4px 14px rgba(224,90,58,0.3)'}}>
-                        <span style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:12,color:'#fff'}}>{s.n}</span>
-                      </div>
-                      <div>
-                        <div style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:'#1E1B18',marginBottom:4}}>{s.t}</div>
-                        <div style={{fontSize:14,color:'rgba(42,31,16,0.55)',lineHeight:1.6}}>{s.d}</div>
+                    {n:'01', title:'Upload your menu', desc:'Add dish photos, 3D models, prices, and descriptions through your admin dashboard in minutes.'},
+                    {n:'02', title:'Get your QR code',  desc:'A branded QR code and custom subdomain are generated instantly — ready to place on every table.'},
+                    {n:'03', title:'Customers scan & order', desc:'They point their phone, food appears life-size in 3D right on their table, AI suggests pairings, orders go up.'},
+                  ].map((s, i) => (
+                    <div key={s.n} className={`step-line`} style={{paddingBottom: i < 2 ? 32 : 0}}>
+                      {i < 2 && <div style={{position:'absolute', left:22, top:48, height:32, width:2, background:'linear-gradient(180deg,rgba(224,90,58,0.35),transparent)'}}/>}
+                      <div className="step-row">
+                        <div className="step-num-box">{s.n}</div>
+                        <div style={{paddingTop:4}}>
+                          <div style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1A1208', marginBottom:6}}>{s.title}</div>
+                          <div style={{fontSize:14, color:'rgba(26,18,8,0.5)', lineHeight:1.75}}>{s.desc}</div>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Analytics scene SVG */}
-              <div style={{position:'relative'}}>
-                <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 50% 50%,rgba(255,255,255,0.28),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
-                <svg viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'auto',filter:'drop-shadow(0 16px 36px rgba(120,70,30,0.18))'}}>
-                  <defs>
-                    <filter id="ds"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="rgba(120,70,30,0.13)"/></filter>
-                    <filter id="ds2"><feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="rgba(120,70,30,0.1)"/></filter>
-                    <radialGradient id="scr" cx="50%" cy="0%"><stop offset="0%" stopColor="#2A3A5A"/><stop offset="100%" stopColor="#1A2A3A"/></radialGradient>
-                  </defs>
-
-                  {/* Isometric platform */}
-                  <polygon points="60,210 240,100 420,210 240,320" fill="#FFF5DC" filter="url(#ds)"/>
-                  <polygon points="60,210 240,320 240,370 60,260" fill="#DEB870"/>
-                  <polygon points="420,210 240,320 240,370 420,260" fill="#C8A050"/>
-                  <polygon points="60,210 240,100 420,210 240,320" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2"/>
-
-                  {/* Dashboard screen */}
-                  <rect x="145" y="80" width="190" height="130" rx="14" fill="url(#scr)" filter="url(#ds)"/>
-                  <rect x="145" y="80" width="190" height="18" rx="14" fill="#2A3A5A"/>
-                  <rect x="145" y="92" width="190" height="6" rx="0" fill="#2A3A5A"/>
-                  {/* dots */}
-                  <circle cx="158" cy="89" r="3.5" fill="#FF5F57" opacity="0.8"/>
-                  <circle cx="168" cy="89" r="3.5" fill="#FEBC2E" opacity="0.8"/>
-                  <circle cx="178" cy="89" r="3.5" fill="#28C840" opacity="0.8"/>
-                  {/* Screen content */}
-                  {/* Bar chart */}
-                  <rect x="162" y="155" width="14" height="38" rx="4" fill="#8FC4A8" opacity="0.9"/>
-                  <rect x="180" y="143" width="14" height="50" rx="4" fill="#F4A0B0" opacity="0.9"/>
-                  <rect x="198" y="130" width="14" height="63" rx="4" fill="#E05A3A" opacity="0.85"/>
-                  <rect x="216" y="148" width="14" height="45" rx="4" fill="#F4D070" opacity="0.9"/>
-                  <rect x="234" y="137" width="14" height="56" rx="4" fill="#C4B5D4" opacity="0.9"/>
-                  <rect x="252" y="120" width="14" height="73" rx="4" fill="#E05A3A" opacity="0.92"/>
-                  {/* Grid lines */}
-                  <line x1="155" y1="193" x2="305" y2="193" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
-                  <line x1="155" y1="175" x2="305" y2="175" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
-                  <line x1="155" y1="157" x2="305" y2="157" stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
-                  {/* Stat cards on screen */}
-                  <rect x="158" y="102" width="58" height="24" rx="6" fill="rgba(224,90,58,0.25)"/>
-                  <text x="168" y="117" fill="#F4A876" fontSize="8" fontWeight="700" fontFamily="Inter,sans-serif">↑ 24% Views</text>
-                  <rect x="222" y="102" width="58" height="24" rx="6" fill="rgba(143,196,168,0.25)"/>
-                  <text x="232" y="117" fill="#8FC4A8" fontSize="8" fontWeight="700" fontFamily="Inter,sans-serif">↑ 12% AR</text>
-                  <rect x="286" y="102" width="40" height="24" rx="6" fill="rgba(244,208,112,0.25)"/>
-                  <text x="297" y="117" fill="#F4D070" fontSize="8" fontWeight="700" fontFamily="Inter,sans-serif">98% ↑</text>
-
-                  {/* Floating stat card — left */}
-                  <rect x="32" y="155" width="110" height="68" rx="14" fill="rgba(255,248,232,0.92)" filter="url(#ds2)"/>
-                  <rect x="42" y="164" width="22" height="22" rx="8" fill="rgba(143,196,168,0.35)"/>
-                  <text x="53" y="179" textAnchor="middle" fontSize="12">🥗</text>
-                  <text x="72" y="174" fill="#1E1B18" fontSize="10" fontWeight="700" fontFamily="Poppins,sans-serif">AR Views</text>
-                  <text x="72" y="187" fill="#E05A3A" fontSize="14" fontWeight="800" fontFamily="Poppins,sans-serif">12,450</text>
-                  <text x="72" y="198" fill="rgba(42,31,16,0.45)" fontSize="8.5" fontFamily="Inter,sans-serif">this month</text>
-
-                  {/* Floating stat card — right */}
-                  <rect x="338" y="148" width="110" height="68" rx="14" fill="rgba(255,248,232,0.92)" filter="url(#ds2)"/>
-                  <rect x="348" y="157" width="22" height="22" rx="8" fill="rgba(244,160,176,0.35)"/>
-                  <text x="359" y="172" textAnchor="middle" fontSize="12">📊</text>
-                  <text x="378" y="167" fill="#1E1B18" fontSize="10" fontWeight="700" fontFamily="Poppins,sans-serif">Scans</text>
-                  <text x="378" y="180" fill="#E05A3A" fontSize="14" fontWeight="800" fontFamily="Poppins,sans-serif">3,291</text>
-                  <text x="378" y="191" fill="rgba(42,31,16,0.45)" fontSize="8.5" fontFamily="Inter,sans-serif">this week</text>
-
-                  {/* Floating QR */}
-                  <rect x="300" y="258" width="70" height="70" rx="14" fill="rgba(255,248,232,0.9)" filter="url(#ds2)"/>
-                  <rect x="308" y="266" width="20" height="20" rx="3" fill="#1E1B18"/>
-                  <rect x="311" y="269" width="14" height="14" rx="2" fill="rgba(255,248,232,0.9)"/>
-                  <rect x="314" y="272" width="8" height="8" rx="1.5" fill="#1E1B18"/>
-                  <rect x="332" y="266" width="20" height="20" rx="3" fill="#1E1B18"/>
-                  <rect x="335" y="269" width="14" height="14" rx="2" fill="rgba(255,248,232,0.9)"/>
-                  <rect x="338" y="272" width="8" height="8" rx="1.5" fill="#1E1B18"/>
-                  <rect x="308" y="290" width="20" height="20" rx="3" fill="#1E1B18"/>
-                  <rect x="311" y="293" width="14" height="14" rx="2" fill="rgba(255,248,232,0.9)"/>
-                  <rect x="314" y="296" width="8" height="8" rx="1.5" fill="#1E1B18"/>
-                  <rect x="332" y="290" width="7" height="7" rx="1.5" fill="#1E1B18"/>
-                  <rect x="341" y="290" width="7" height="7" rx="1.5" fill="#1E1B18"/>
-                  <rect x="332" y="299" width="7" height="7" rx="1.5" fill="#1E1B18"/>
-                  <rect x="341" y="306" width="7" height="7" rx="1.5" fill="#1E1B18"/>
-                  <text x="335" y="344" textAnchor="middle" fill="#C04A28" fontSize="8" fontWeight="700" fontFamily="Inter,sans-serif">YOUR QR</text>
-
-                  {/* Plants on platform */}
-                  <path d="M96,282 L91,306 Q91,311 101,312 Q111,312 115,312 Q125,312 125,306 L120,282Z" fill="#F4A0B0" filter="url(#ds2)"/>
-                  <rect x="89" y="278" width="38" height="7" rx="3.5" fill="#FFBCC8"/>
-                  <ellipse cx="108" cy="278" rx="19" ry="5.5" fill="#8B6040"/>
-                  <ellipse cx="108" cy="262" rx="17" ry="13" fill="#5A9A78"/>
-                  <ellipse cx="96" cy="252" rx="11" ry="9" fill="#4A8A68"/>
-                  <ellipse cx="120" cy="255" rx="10" ry="8" fill="#6AB090"/>
-
-                  {/* Sparkle */}
-                  <g transform="translate(442,90)" fill="#F4D070" opacity="0.65"><polygon points="0,-6 1.5,-1.5 6,0 1.5,1.5 0,6 -1.5,1.5 -6,0 -1.5,-1.5"/></g>
-                  <g transform="translate(38,110)" fill="#F4A0B0" opacity="0.6"><polygon points="0,-5 1.2,-1.2 5,0 1.2,1.2 0,5 -1.2,1.2 -5,0 -1.2,-1.2"/></g>
-                  <circle cx="450" cy="290" r="4" fill="#C4B5D4" opacity="0.6"/>
-                  <circle cx="30" cy="260" r="3.5" fill="#8FC4A8" opacity="0.55"/>
-                </svg>
+              {/* Dashboard mockup */}
+              <div ref={addReveal} className="ar-reveal d2" style={{display:'flex', justifyContent:'center'}}>
+                <div style={{width:'100%', maxWidth:460, borderRadius:24, background:'#fff', boxShadow:'0 28px 72px rgba(26,18,8,0.15)', border:'1px solid rgba(26,18,8,0.06)', overflow:'hidden'}}>
+                  {/* Titlebar */}
+                  <div style={{background:'#1A1208', padding:'14px 20px', display:'flex', alignItems:'center', gap:8}}>
+                    {['#FF5F57','#FEBC2E','#28C840'].map(c=><div key={c} style={{width:11,height:11,borderRadius:'50%',background:c}}/>)}
+                    <div style={{flex:1}}/>
+                    <div style={{fontSize:10, fontWeight:600, color:'rgba(255,245,220,0.35)', letterSpacing:'0.04em'}}>Advert Radical Dashboard</div>
+                  </div>
+                  <div style={{padding:22}}>
+                    {/* Top metrics */}
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:18}}>
+                      {[
+                        {l:'AR Views', v:'12,450', c:'↑ 24%', bg:'rgba(224,90,58,0.08)', ac:'#C04A28'},
+                        {l:'Scans',    v:'3,291',  c:'↑ 12%', bg:'rgba(143,196,168,0.12)', ac:'#1A5A38'},
+                        {l:'Rating',   v:'4.8★',   c:'Top 3%', bg:'rgba(244,208,112,0.15)', ac:'#7A5A10'},
+                      ].map(m=>(
+                        <div key={m.l} style={{background:m.bg, borderRadius:12, padding:'12px 14px'}}>
+                          <div style={{fontSize:10, color:'rgba(26,18,8,0.45)', marginBottom:4, fontWeight:600}}>{m.l}</div>
+                          <div style={{fontSize:16, fontWeight:900, color:'#1A1208', fontFamily:'Poppins,sans-serif', letterSpacing:'-0.01em', marginBottom:2}}>{m.v}</div>
+                          <div style={{fontSize:10, fontWeight:700, color:m.ac}}>{m.c}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Chart */}
+                    <div style={{background:'#1A1208', borderRadius:16, padding:18}}>
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
+                        <div style={{fontSize:11, fontWeight:700, color:'rgba(255,245,220,0.5)', letterSpacing:'0.05em'}}>WEEKLY AR VIEWS</div>
+                        <div style={{fontSize:10, color:'rgba(247,155,61,0.7)', fontWeight:600}}>↑ 18% vs last week</div>
+                      </div>
+                      <div style={{display:'flex', alignItems:'flex-end', gap:7, height:80}}>
+                        {[42,68,54,82,75,100,91].map((h,i)=>(
+                          <div key={i} style={{flex:1, borderRadius:7, background:i===5?'linear-gradient(0deg,#F79B3D,#E05A3A)':'rgba(255,255,255,0.1)', height:`${h}%`, transition:'height 0.3s'}}/>
+                        ))}
+                      </div>
+                      <div style={{display:'flex', gap:7, marginTop:8}}>
+                        {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>(
+                          <div key={i} style={{flex:1, textAlign:'center', fontSize:8, color:'rgba(255,245,220,0.3)', fontWeight:600}}>{d}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ══ FEATURES — 3-col cards with mini SVG icons ══ */}
-        <section id="features" className="section">
-          <div className="inner-wide">
-            <div style={{textAlign:'center',marginBottom:52}}>
-              <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>Features</div>
-              <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Every tool to grow revenue</h2>
-              <p style={{fontSize:16,color:'rgba(42,31,16,0.55)',maxWidth:520,margin:'0 auto'}}>AR menus, AI upselling, real-time analytics, waiter call system — all in one platform built for Indian restaurants.</p>
+        {/* ══ FEATURES BENTO ══ */}
+        <section id="features" style={{padding:'96px 0', background:'#F5E6D3', borderTop:'1px solid rgba(26,18,8,0.06)', borderBottom:'1px solid rgba(26,18,8,0.06)', position:'relative', zIndex:1}}>
+          <div className="section-inner">
+            <div ref={addReveal} className="ar-reveal" style={{marginBottom:52}}>
+              <span className="section-tag">Platform features</span>
+              <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', flexWrap:'wrap', gap:16, marginTop:0}}>
+                <h2 className="section-h2">Every tool to grow revenue</h2>
+                <p style={{fontSize:15, color:'rgba(26,18,8,0.5)', maxWidth:320, lineHeight:1.75, paddingBottom:4}}>
+                  One platform built specifically for Indian restaurants — AR menus, AI upselling, analytics, and more.
+                </p>
+              </div>
             </div>
-            <div className="feat-grid">
-              {[
-                  {title:'AR Visualization',      desc:"Dishes appear life-size in 3D on your customers' table. Android Chrome + iOS Safari. No app.",   bg:'rgba(90,138,176,0.12)',  scene:<ARScene/>},
-                {title:'AI Upselling',           desc:'When a dish is opened, Claude AI suggests complementary items — increasing average order value.',    bg:'rgba(247,155,61,0.08)',  scene:<AnalyticsScene/>},
-                {title:'Dish Ratings',           desc:'Customers rate dishes 1–5 stars. You see real feedback to help improve your menu over time.',        bg:'rgba(196,181,212,0.18)', scene:<QRScene/>},
-                {title:'Waiter Call Button',     desc:'Customers tap 🔔 to request water, bill, or assistance. Live notification to admin instantly.',      bg:'rgba(244,208,112,0.15)', scene:<LinkScene/>},
-                {title:'Menu Heatmap',           desc:"See which dishes get the most views, AR launches, and ratings — so you know what's working.",        bg:'rgba(224,90,58,0.08)',   scene:<PromoScene/>},
-                {title:'Instant QR + Subdomain', desc:'Your own menu URL and QR code in seconds. Stick the QR on tables and your menu is live.',            bg:'rgba(143,196,168,0.12)', scene:<NoAppScene/>},
-              ].map(f=>(
-                <div key={f.title} className="cc" style={{padding:'24px 22px',display:'flex',flexDirection:'column',gap:16}}>
-                  <div style={{width:'100%',height:100,borderRadius:14,background:f.bg,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    {f.scene}
-                  </div>
-                  <h3 style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:'#1E1B18'}}>{f.title}</h3>
-                  <p style={{fontSize:13.5,color:'rgba(42,31,16,0.55)',lineHeight:1.65,marginTop:-4}}>{f.desc}</p>
+
+            <div ref={addReveal} className="bento ar-reveal">
+              {/* Large card — AR */}
+              <div className="bento-card bento-tall dark" style={{display:'flex', flexDirection:'column', justifyContent:'space-between', minHeight:320}}>
+                <div>
+                  <div className="bento-icon" style={{background:'rgba(247,155,61,0.15)', border:'1px solid rgba(247,155,61,0.3)'}}>🥽</div>
+                  <h3 style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:20, color:'#FFF5E8', marginBottom:10, letterSpacing:'-0.01em'}}>AR Visualization</h3>
+                  <p style={{fontSize:14, color:'rgba(255,245,220,0.5)', lineHeight:1.8, maxWidth:320}}>
+                    Dishes appear life-size in 3D right on your customers' table. Works on Android Chrome and iOS Safari — zero app download required.
+                  </p>
                 </div>
-              ))}
-            </div>{/* feat-grid */}
+                {/* Decorative food emojis */}
+                <div style={{marginTop:32, position:'relative', height:100}}>
+                  <div style={{position:'absolute', left:'5%',  top:0,    fontSize:48, filter:'drop-shadow(0 8px 20px rgba(0,0,0,0.5))', animation:'float 5s ease-in-out infinite'}}>🍛</div>
+                  <div style={{position:'absolute', left:'38%', top:'20%', fontSize:40, filter:'drop-shadow(0 6px 16px rgba(0,0,0,0.4))', animation:'float 6.5s ease-in-out 1.2s infinite'}}>🍢</div>
+                  <div style={{position:'absolute', right:'8%', top:0,    fontSize:44, filter:'drop-shadow(0 8px 20px rgba(0,0,0,0.5))', animation:'float 5.8s ease-in-out 0.6s infinite'}}>🍕</div>
+                  <div style={{position:'absolute', left:'22%', bottom:0,  fontSize:36, opacity:0.5, animation:'float 7s ease-in-out 2s infinite'}}>🍲</div>
+                </div>
+              </div>
+
+              {/* AI Upselling */}
+              <div className="bento-card" style={{background:'linear-gradient(135deg,#FFF5E8,#FEF0DC)'}}>
+                <div className="bento-icon" style={{background:'rgba(224,90,58,0.1)', border:'1px solid rgba(224,90,58,0.2)'}}>🤖</div>
+                <h3 style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1A1208', marginBottom:8}}>AI Upselling</h3>
+                <p style={{fontSize:13.5, color:'rgba(26,18,8,0.54)', lineHeight:1.72}}>Claude AI suggests complementary dishes when a customer opens any item — proven to increase average order value.</p>
+              </div>
+
+              {/* Dish Ratings */}
+              <div className="bento-card">
+                <div className="bento-icon" style={{background:'rgba(244,208,112,0.2)', border:'1px solid rgba(244,208,112,0.4)'}}>⭐</div>
+                <h3 style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1A1208', marginBottom:8}}>Dish Ratings</h3>
+                <p style={{fontSize:13.5, color:'rgba(26,18,8,0.54)', lineHeight:1.72}}>Customers rate dishes 1–5 stars inline. Real-time feedback helps you spotlight your best performers.</p>
+              </div>
+
+              {/* Waiter Calls */}
+              <div className="bento-card" style={{background:'linear-gradient(135deg,#FFF5E8,#FEF0DC)'}}>
+                <div className="bento-icon" style={{background:'rgba(247,155,61,0.12)', border:'1px solid rgba(247,155,61,0.28)'}}>🔔</div>
+                <h3 style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1A1208', marginBottom:8}}>Waiter Call System</h3>
+                <p style={{fontSize:13.5, color:'rgba(26,18,8,0.54)', lineHeight:1.72}}>Customers tap to request water, bill, or help. Live push notification reaches your admin instantly.</p>
+              </div>
+
+              {/* Analytics */}
+              <div className="bento-card dark">
+                <div className="bento-icon" style={{background:'rgba(143,196,168,0.15)', border:'1px solid rgba(143,196,168,0.3)'}}>📊</div>
+                <h3 style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#FFF5E8', marginBottom:8}}>Menu Analytics</h3>
+                <p style={{fontSize:13.5, color:'rgba(255,245,220,0.5)', lineHeight:1.72}}>See which dishes get the most views, AR launches, and ratings — know exactly what to promote and what to change.</p>
+              </div>
+
+              {/* QR + Subdomain — full width bottom row */}
+              <div className="bento-card" style={{background:'#1A1208', gridColumn:'1 / -1', display:'flex', alignItems:'center', gap:36, flexWrap:'wrap'}}>
+                <div className="bento-icon" style={{background:'rgba(247,155,61,0.12)', border:'1px solid rgba(247,155,61,0.28)', flexShrink:0}}>⚡</div>
+                <div style={{flex:1, minWidth:220}}>
+                  <h3 style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#FFF5E8', marginBottom:8}}>Instant QR & Subdomain</h3>
+                  <p style={{fontSize:13.5, color:'rgba(255,245,220,0.46)', lineHeight:1.72, maxWidth:520}}>Your branded menu URL and QR code ready in under 5 minutes. Stick QRs on every table and your AR menu is live — no technical setup needed.</p>
+                </div>
+                <a href="/admin/login" style={{flexShrink:0, padding:'12px 26px', borderRadius:12, border:'1px solid rgba(247,155,61,0.35)', background:'rgba(247,155,61,0.08)', color:'#F79B3D', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, textDecoration:'none', whiteSpace:'nowrap', transition:'all 0.2s'}}>
+                  Get your QR →
+                </a>
+              </div>
+            </div>
           </div>
         </section>
-
 
         {/* ══ LIVE DEMO STRIP ══ */}
-        <section style={{padding:'0 0 40px',position:'relative',zIndex:1}}>
-          <div className="inner-wide">
-            <div style={{background:'linear-gradient(135deg,rgba(30,27,24,0.92),rgba(50,40,20,0.88))',backdropFilter:'blur(16px)',border:'1.5px solid rgba(247,155,61,0.3)',borderRadius:24,padding:'28px 36px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:20,flexWrap:'wrap',boxShadow:'0 8px 32px rgba(30,27,24,0.25)'}}>
-              <div>
-                <div style={{fontSize:11,fontWeight:700,color:'rgba(247,155,61,0.7)',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}}>🔴 Live right now</div>
-                <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:20,color:'#FFF5E8',marginBottom:6}}>See a real AR menu in action</div>
-                <div style={{fontSize:13,color:'rgba(255,240,200,0.55)'}}>Open on your phone for the full AR experience. No account needed.</div>
+        <div style={{background:'#0C0A08', padding:'28px 56px', borderTop:'1px solid rgba(255,245,220,0.06)'}}>
+          <div style={{maxWidth:1400, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:20}}>
+            <div>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
+                <div style={{width:8, height:8, borderRadius:'50%', background:'#F79B3D', animation:'pulse 2s infinite'}}/>
+                <span style={{fontSize:11, fontWeight:700, color:'rgba(247,155,61,0.65)', letterSpacing:'0.08em', textTransform:'uppercase'}}>Live demo</span>
               </div>
-              <a href="https://ar-saa-s-kbzn.vercel.app/restaurant/spot" target="_blank" rel="noreferrer" style={{flexShrink:0}}>
-                <button style={{padding:'14px 28px',borderRadius:14,border:'none',background:'linear-gradient(135deg,#F79B3D,#F48A1E)',color:'#fff',fontSize:14,fontWeight:700,fontFamily:'Poppins,sans-serif',cursor:'pointer',boxShadow:'0 4px 18px rgba(247,155,61,0.4)',transition:'all 0.2s',whiteSpace:'nowrap'}}>
-                  Open Live Demo →
-                </button>
-              </a>
+              <div style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:18, color:'#FFF5E8'}}>See a real AR menu in action — open on your phone</div>
             </div>
+            <a href="https://ar-saa-s-kbzn.vercel.app/restaurant/spot" target="_blank" rel="noreferrer">
+              <button style={{padding:'13px 26px', borderRadius:12, border:'1px solid rgba(247,155,61,0.4)', background:'rgba(247,155,61,0.08)', color:'#F79B3D', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', transition:'all 0.2s', whiteSpace:'nowrap'}}
+                onMouseOver={e=>{e.currentTarget.style.background='rgba(247,155,61,0.18)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.6)'}}
+                onMouseOut={e=>{e.currentTarget.style.background='rgba(247,155,61,0.08)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.4)'}}>
+                Open Live Demo →
+              </button>
+            </a>
           </div>
-        </section>
+        </div>
 
-        {/* ══ PLANS — with decorative scene ══ */}
-        <section id="plans" className="section" style={{background:'#F5E6D3',backdropFilter:'none',borderTop:'1px solid rgba(42,31,16,0.06)',borderBottom:'1px solid rgba(42,31,16,0.06)'}}>
-          <div className="inner-wide">
-            <div style={{textAlign:'center',marginBottom:52}}>
-              <div style={{fontSize:12,fontWeight:700,color:'#C04A28',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:12}}>Pricing</div>
-              <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:'clamp(28px,3.5vw,42px)',color:'#1E1B18',marginBottom:14}}>Simple, transparent pricing</h2>
-              <p style={{fontSize:16,color:'rgba(42,31,16,0.55)'}}>Monthly plans. No hidden fees. Cancel anytime.</p>
+        {/* ══ PRICING ══ */}
+        <section id="plans" style={{padding:'96px 0', background:'#FAF7F2', position:'relative', zIndex:1}}>
+          <div className="section-inner">
+            <div style={{textAlign:'center', marginBottom:56}}>
+              <div ref={addReveal} className="ar-reveal">
+                <span className="section-tag">Pricing</span>
+                <h2 className="section-h2" style={{marginBottom:12}}>Simple, transparent pricing</h2>
+                <p style={{fontSize:15, color:'rgba(26,18,8,0.5)', lineHeight:1.75}}>Monthly plans. No hidden fees. Cancel anytime.</p>
+              </div>
             </div>
-            <div className="plan-grid">
-              {plans.map(p=>(
-                <div key={p.name} className={`pc${p.tag==='Popular'?' pop':''}`}>
-                  {p.tag && <div style={{position:'absolute',top:-14,left:'50%',transform:'translateX(-50%)',padding:'5px 18px',background:'linear-gradient(135deg,#E05A3A,#F07050)',color:'#fff',fontSize:11,fontWeight:700,borderRadius:30,whiteSpace:'nowrap',boxShadow:'0 4px 14px rgba(224,90,58,0.32)'}}>✦ {p.tag}</div>}
-                  {/* Mini illustration per plan */}
-                  <div style={{width:'100%',height:88,borderRadius:14,marginBottom:20,background:p.tag==='Popular'?'rgba(224,90,58,0.08)':'rgba(255,215,155,0.18)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',padding:'0 8px'}}>
-                    <PlanIllustration name={p.name}/>
-                  </div>
-                  <div style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:17,color:'#1E1B18',marginBottom:6}}>{p.name}</div>
-                  <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:20}}>
-                    <span style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:32,color:'#1E1B18'}}>{p.price}</span>
-                    <span style={{fontSize:13,color:'rgba(42,31,16,0.42)'}}>{p.per}</span>
-                  </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:9,marginBottom:24}}>
-                    {(p.features||[`${p.items} AR menu items`,`${p.storage} storage`,'Analytics','QR code','Custom subdomain']).map(f=>(
-                      <div key={f} style={{display:'flex',alignItems:'center',gap:9,fontSize:13,color:'rgba(42,31,16,0.68)'}}>
-                        <span style={{width:17,height:17,borderRadius:5,background:'rgba(224,90,58,0.14)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#E05A3A',fontWeight:700,flexShrink:0}}>✓</span>
-                        {f}
+
+            <div ref={addReveal} className="plan-grid ar-reveal">
+              {plans.map((p, i) => {
+                const isFeatured = !!p.tag;
+                return (
+                  <div key={p.name} className={`plan-card ${isFeatured ? 'dark-card' : 'light'}`} style={{display:'flex', flexDirection:'column'}}>
+                    {p.tag && (
+                      <div style={{position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', padding:'5px 18px', background:'linear-gradient(135deg,#E05A3A,#F79B3D)', color:'#fff', fontSize:11, fontWeight:700, borderRadius:30, whiteSpace:'nowrap', boxShadow:'0 4px 14px rgba(224,90,58,0.4)'}}>
+                        ✦ {p.tag}
                       </div>
-                    ))}
-                  </div>
-                  <button className={p.tag==='Popular'?'btn-coral':'btn-outline'} style={{width:'100%',padding:'13px',borderRadius:12,fontSize:14,fontFamily:'Poppins,sans-serif',fontWeight:700}}>Get Started</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+                    )}
 
-        {/* ══ CTA — split with celebration scene ══ */}
-        <section className="section">
-          <div className="inner-wide">
-            <div style={{background:'#FFFFFF',backdropFilter:'none',border:'1.5px solid rgba(42,31,16,0.07)',borderRadius:32,padding:'56px 48px',boxShadow:'0 12px 48px rgba(120,70,30,0.14),inset 0 1px 0 rgba(255,255,255,0.7)',overflow:'hidden',position:'relative'}}>
-              <div className="split" style={{gap:40}}>
-                <div>
-                  <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:900,fontSize:'clamp(28px,3.5vw,46px)',color:'#1E1B18',lineHeight:1.1,marginBottom:16}}>
-                    Ready to bring your menu to life?
-                  </h2>
-                  <p style={{fontSize:16,color:'rgba(42,31,16,0.58)',lineHeight:1.7,marginBottom:32,maxWidth:380}}>
-                    Join 500+ restaurants already growing revenue with AR menus, AI upselling, and real-time analytics.
-                  </p>
-                  <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:28}}>
+                    {/* Accent line */}
+                    <div style={{width:36, height:4, borderRadius:2, background: isFeatured ? 'linear-gradient(90deg,#F79B3D,#E05A3A)' : 'rgba(26,18,8,0.15)', marginBottom:22, boxShadow: isFeatured ? '0 2px 10px rgba(247,155,61,0.4)' : 'none'}}/>
+
+                    <div style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:17, color: isFeatured ? '#FFF5E8' : '#1A1208', marginBottom:6}}>{p.name}</div>
+                    <p style={{fontSize:13, color: isFeatured ? 'rgba(255,245,220,0.45)' : 'rgba(26,18,8,0.45)', lineHeight:1.65, marginBottom:20}}>{p.desc}</p>
+
+                    <div style={{display:'flex', alignItems:'baseline', gap:4, marginBottom:24, paddingBottom:20, borderBottom:`1px solid ${isFeatured ? 'rgba(255,245,220,0.1)' : 'rgba(26,18,8,0.07)'}`}}>
+                      <span style={{fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:38, color: isFeatured ? '#FFF5E8' : '#1A1208', letterSpacing:'-0.03em', lineHeight:1}}>{p.price}</span>
+                      <span style={{fontSize:13, color: isFeatured ? 'rgba(255,245,220,0.4)' : 'rgba(26,18,8,0.38)', fontWeight:500}}>/month</span>
+                    </div>
+
+                    <div style={{display:'flex', flexDirection:'column', gap:10, marginBottom:28, flex:1}}>
+                      {p.features.map(f => (
+                        <div key={f} style={{display:'flex', alignItems:'center', gap:10, fontSize:13, color: isFeatured ? 'rgba(255,245,220,0.7)' : 'rgba(26,18,8,0.65)'}}>
+                          <div className={isFeatured ? 'check-dark' : 'check-light'}>✓</div>
+                          {f}
+                        </div>
+                      ))}
+                    </div>
+
                     <Link href="/admin/login">
-                      <button className="btn-dark" style={{padding:'15px 32px',fontSize:15}}>Start Free Trial →</button>
+                      <button style={{width:'100%', padding:'14px', borderRadius:12, border: isFeatured ? 'none' : '1.5px solid rgba(26,18,8,0.15)', background: isFeatured ? 'linear-gradient(135deg,#E05A3A,#F79B3D)' : '#fff', color: isFeatured ? '#fff' : '#1A1208', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', boxShadow: isFeatured ? '0 8px 24px rgba(224,90,58,0.4)' : 'none', transition:'all 0.2s'}}>
+                        {p.cta}
+                      </button>
                     </Link>
                   </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                    <a href="mailto:hello@advertradical.com" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:12,padding:'14px 18px',background:'#FFFFFF',borderRadius:14,border:'1px solid rgba(42,31,16,0.08)',boxShadow:'0 2px 10px rgba(42,31,16,0.05)',transition:'all 0.18s'}}
-                      onMouseOver={e=>e.currentTarget.style.boxShadow='0 6px 20px rgba(42,31,16,0.1)'}
-                      onMouseOut={e=>e.currentTarget.style.boxShadow='0 2px 10px rgba(42,31,16,0.05)'}>
-                      <div style={{width:38,height:38,borderRadius:10,background:'rgba(247,155,61,0.12)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>✉️</div>
-                      <div>
-                        <div style={{fontSize:11,fontWeight:600,color:'rgba(42,31,16,0.45)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>Email Us</div>
-                        <div style={{fontSize:14,fontWeight:700,color:'#1E1B18'}}>hello@advertradical.com</div>
-                      </div>
-                    </a>
-                    <a href="tel:+919876543210" style={{textDecoration:'none',display:'flex',alignItems:'center',gap:12,padding:'14px 18px',background:'#FFFFFF',borderRadius:14,border:'1px solid rgba(42,31,16,0.08)',boxShadow:'0 2px 10px rgba(42,31,16,0.05)',transition:'all 0.18s'}}
-                      onMouseOver={e=>e.currentTarget.style.boxShadow='0 6px 20px rgba(42,31,16,0.1)'}
-                      onMouseOut={e=>e.currentTarget.style.boxShadow='0 2px 10px rgba(42,31,16,0.05)'}>
-                      <div style={{width:38,height:38,borderRadius:10,background:'rgba(45,139,78,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📞</div>
-                      <div>
-                        <div style={{fontSize:11,fontWeight:600,color:'rgba(42,31,16,0.45)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>Call Us</div>
-                        <div style={{fontSize:14,fontWeight:700,color:'#1E1B18'}}>+91 98765 43210</div>
-                      </div>
-                    </a>
-                  </div>
-                </div>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <CelebrationScene/>
-                </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ══ CTA ══ */}
+        <section style={{background:' #0C0A08', padding:'96px 56px', position:'relative', overflow:'hidden', borderTop:'1px solid rgba(255,245,220,0.06)'}}>
+          {/* Glow */}
+          <div style={{position:'absolute', top:'-30%', left:'50%', transform:'translateX(-50%)', width:800, height:600, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(247,155,61,0.1) 0%, transparent 60%)', pointerEvents:'none', filter:'blur(40px)'}}/>
+          <div style={{maxWidth:800, margin:'0 auto', textAlign:'center', position:'relative', zIndex:1}}>
+            <div ref={addReveal} className="ar-reveal">
+              <div style={{display:'inline-flex', alignItems:'center', gap:7, padding:'5px 14px', borderRadius:30, background:'rgba(247,155,61,0.1)', border:'1px solid rgba(247,155,61,0.2)', fontSize:11, fontWeight:700, color:'rgba(247,155,61,0.75)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:28}}>
+                ✦ Join 500+ restaurants
+              </div>
+              <h2 className="section-h2-dark" style={{fontSize:'clamp(32px,4.5vw,60px)', letterSpacing:'-0.03em', marginBottom:20}}>
+                Ready to bring your<br/>
+                <span style={{background:'linear-gradient(90deg,#F79B3D,#E05A3A)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>menu to life?</span>
+              </h2>
+              <p style={{fontSize:17, color:'rgba(255,245,220,0.48)', lineHeight:1.85, maxWidth:480, margin:'0 auto 40px', fontWeight:400}}>
+                Start your free trial today. No credit card required. Your AR menu will be live in under 5 minutes.
+              </p>
+              <div style={{display:'flex', justifyContent:'center', gap:12, flexWrap:'wrap', marginBottom:48}}>
+                <Link href="/admin/login">
+                  <button className="btn-amber" style={{fontSize:16, padding:'16px 36px'}}>Start free trial →</button>
+                </Link>
+                <a href="mailto:hello@advertradical.com">
+                  <button className="btn-ghost" style={{fontSize:16, padding:'16px 28px'}}>Talk to us</button>
+                </a>
+              </div>
+              {/* Contact */}
+              <div style={{display:'flex', justifyContent:'center', gap:32, flexWrap:'wrap'}}>
+                {[
+                  {icon:'✉️', label:'hello@advertradical.com', href:'mailto:hello@advertradical.com'},
+                  {icon:'📞', label:'+91 98765 43210',          href:'tel:+919876543210'},
+                ].map(c=>(
+                  <a key={c.href} href={c.href} style={{display:'flex', alignItems:'center', gap:8, fontSize:14, color:'rgba(255,245,220,0.45)', transition:'color 0.15s', fontWeight:500}}
+                    onMouseOver={e=>e.currentTarget.style.color='rgba(255,245,220,0.8)'}
+                    onMouseOut={e=>e.currentTarget.style.color='rgba(255,245,220,0.45)'}>
+                    <span style={{fontSize:16}}>{c.icon}</span> {c.label}
+                  </a>
+                ))}
               </div>
             </div>
           </div>
         </section>
 
         {/* ══ FOOTER ══ */}
-        <footer style={{borderTop:'1px solid rgba(200,140,80,0.18)',padding:'28px 0',background:'#F5E6D3',backdropFilter:'none'}}>
-          <div className="inner-wide" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
-            <span style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:15,color:'#1E1B18'}}>
-              Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F4A86A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Radical</span>
+        <footer style={{background:'#0C0A08', borderTop:'1px solid rgba(255,245,220,0.07)', padding:'24px 56px'}}>
+          <div style={{maxWidth:1400, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:16}}>
+            <span style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:15, color:'#FFF5E8'}}>
+              Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
             </span>
-            <span style={{fontSize:13,color:'rgba(42,31,16,0.38)'}}>© {new Date().getFullYear()} Advert Radical. All rights reserved.</span>
-            <div style={{display:'flex',gap:24}}>
-              {['Privacy','Terms'].map(l=><a key={l} href="#" style={{fontSize:13,color:'rgba(42,31,16,0.4)'}}>{l}</a>)}
-              <Link href="/admin/login" style={{fontSize:13,color:'rgba(42,31,16,0.4)'}}>Sign in</Link>
-              <Link href="/superadmin/login" style={{fontSize:13,color:'rgba(42,31,16,0.3)'}}>Super Admin</Link>
+            <span style={{fontSize:13, color:'rgba(255,245,220,0.25)'}}>© {new Date().getFullYear()} Advert Radical. All rights reserved.</span>
+            <div style={{display:'flex', gap:24, alignItems:'center'}}>
+              {['Privacy','Terms'].map(l=>(
+                <a key={l} href="#" style={{fontSize:13, color:'rgba(255,245,220,0.3)', transition:'color 0.15s'}}
+                  onMouseOver={e=>e.currentTarget.style.color='rgba(255,245,220,0.6)'}
+                  onMouseOut={e=>e.currentTarget.style.color='rgba(255,245,220,0.3)'}>{l}</a>
+              ))}
+              <Link href="/admin/login" style={{fontSize:13, color:'rgba(255,245,220,0.3)'}}>Sign in</Link>
+              <Link href="/superadmin/login" style={{fontSize:13, color:'rgba(255,245,220,0.2)'}}>Super Admin</Link>
             </div>
           </div>
         </footer>
       </div>
     </>
-  );
-}
-
-/* ── Feature card illustrations — clean, bold, simple ── */
-function ARScene() {
-  return (
-    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
-      {/* Phone — lighter color so it's not a dark blob */}
-      <rect x="74" y="8" width="52" height="84" rx="11" fill="#3A506A"/>
-      <rect x="79" y="15" width="42" height="60" rx="7" fill="#5A8AB0"/>
-      {/* Hologram food above phone */}
-      <ellipse cx="100" cy="10" rx="20" ry="8" fill="rgba(255,210,120,0.9)"/>
-      <rect x="82" y="2" width="36" height="9" rx="4.5" fill="rgba(100,160,80,0.8)"/>
-      <ellipse cx="100" cy="2" rx="20" ry="8" fill="rgba(244,200,100,0.95)"/>
-      {/* Scan ring */}
-      <ellipse cx="100" cy="10" rx="24" ry="9" fill="none" stroke="rgba(100,210,255,0.6)" strokeWidth="1.5" strokeDasharray="4,3"/>
-      {/* Screen content — AR badge */}
-      <rect x="83" y="28" width="34" height="13" rx="4" fill="rgba(100,200,255,0.25)"/>
-      <rect x="86" y="31" width="6" height="6" rx="2" fill="rgba(100,200,255,0.5)"/>
-      <rect x="95" y="33" width="18" height="2.5" rx="1" fill="rgba(255,255,255,0.4)"/>
-      <rect x="95" y="37" width="12" height="2" rx="1" fill="rgba(255,255,255,0.25)"/>
-      {/* Screen lines */}
-      <rect x="83" y="46" width="34" height="2.5" rx="1" fill="rgba(255,255,255,0.12)"/>
-      <rect x="83" y="51" width="26" height="2.5" rx="1" fill="rgba(255,255,255,0.09)"/>
-      <rect x="83" y="56" width="20" height="2.5" rx="1" fill="rgba(255,255,255,0.07)"/>
-      {/* Home bar */}
-      <rect x="91" y="69" width="18" height="2.5" rx="1.25" fill="rgba(255,255,255,0.2)"/>
-      {/* Floating dots */}
-      <circle cx="44" cy="38" r="10" fill="#F4A0B0" opacity="0.7"/>
-      <circle cx="160" cy="45" r="8" fill="#8FC4A8" opacity="0.7"/>
-      <circle cx="38" cy="62" r="5" fill="#C4B5D4" opacity="0.6"/>
-      <circle cx="164" cy="28" r="5" fill="#F4D070" opacity="0.65"/>
-    </svg>
-  );
-}
-
-function AnalyticsScene() {
-  return (
-    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
-      {/* Chart background */}
-      <rect x="22" y="10" width="156" height="74" rx="12" fill="#2A3A5A" opacity="0.88"/>
-      {/* Top stat pills */}
-      <rect x="30" y="17" width="42" height="14" rx="5" fill="rgba(224,90,58,0.35)"/>
-      <rect x="76" y="17" width="38" height="14" rx="5" fill="rgba(143,196,168,0.3)"/>
-      <rect x="118" y="17" width="50" height="14" rx="5" fill="rgba(196,181,212,0.25)"/>
-      <rect x="32" y="21" width="10" height="5" rx="1.5" fill="#F07050" opacity="0.9"/>
-      <rect x="46" y="21" width="22" height="5" rx="1.5" fill="rgba(255,255,255,0.18)"/>
-      {/* Bar chart */}
-      <rect x="36"  y="58" width="14" height="22" rx="5" fill="#8FC4A8"/>
-      <rect x="56"  y="46" width="14" height="34" rx="5" fill="#F4A0B0"/>
-      <rect x="76"  y="36" width="14" height="44" rx="5" fill="#E05A3A"/>
-      <rect x="96"  y="50" width="14" height="30" rx="5" fill="#F4D070"/>
-      <rect x="116" y="40" width="14" height="40" rx="5" fill="#C4B5D4"/>
-      <rect x="136" y="28" width="14" height="52" rx="5" fill="#E05A3A" opacity="0.85"/>
-      {/* Floor line */}
-      <line x1="28" y1="80" x2="172" y2="80" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
-      {/* Floating dots outside */}
-      <circle cx="12" cy="55" r="5" fill="#F4D070" opacity="0.6"/>
-      <circle cx="190" cy="40" r="6" fill="#F4A0B0" opacity="0.55"/>
-    </svg>
-  );
-}
-
-function QRScene() {
-  return (
-    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
-      {/* Card bg */}
-      <rect x="60" y="5" width="80" height="86" rx="16" fill="rgba(255,248,232,0.95)"/>
-      {/* Top-left block */}
-      <rect x="71" y="16" width="24" height="24" rx="4" fill="#1E1B18"/>
-      <rect x="74" y="19" width="18" height="18" rx="3" fill="rgba(255,248,232,0.95)"/>
-      <rect x="77" y="22" width="12" height="12" rx="2" fill="#1E1B18"/>
-      {/* Top-right block */}
-      <rect x="105" y="16" width="24" height="24" rx="4" fill="#1E1B18"/>
-      <rect x="108" y="19" width="18" height="18" rx="3" fill="rgba(255,248,232,0.95)"/>
-      <rect x="111" y="22" width="12" height="12" rx="2" fill="#1E1B18"/>
-      {/* Bottom-left block */}
-      <rect x="71" y="50" width="24" height="24" rx="4" fill="#1E1B18"/>
-      <rect x="74" y="53" width="18" height="18" rx="3" fill="rgba(255,248,232,0.95)"/>
-      <rect x="77" y="56" width="12" height="12" rx="2" fill="#1E1B18"/>
-      {/* Data dots */}
-      <rect x="105" y="50" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="115" y="50" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="125" y="50" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="105" y="60" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="125" y="60" width="8" height="8" rx="2" fill="#1E1B18"/>
-      <rect x="115" y="70" width="8" height="8" rx="2" fill="#1E1B18"/>
-      {/* Label */}
-      <rect x="74" y="80" width="52" height="8" rx="4" fill="rgba(224,90,58,0.2)"/>
-      {/* Corner dots */}
-      <circle cx="38" cy="40" r="9" fill="#E05A3A" opacity="0.3"/>
-      <circle cx="166" cy="60" r="7" fill="#8FC4A8" opacity="0.35"/>
-    </svg>
-  );
-}
-
-function LinkScene() {
-  return (
-    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
-      {/* Browser bar */}
-      <rect x="18" y="30" width="164" height="40" rx="20" fill="rgba(255,248,232,0.92)"/>
-      {/* Highlight pill */}
-      <rect x="25" y="38" width="66" height="24" rx="12" fill="rgba(224,90,58,0.15)"/>
-      {/* Text labels — as blocks for clean look */}
-      <rect x="30" y="47" width="10" height="6" rx="2" fill="rgba(200,74,40,0.55)"/>
-      <rect x="44" y="47" width="40" height="6" rx="2" fill="rgba(200,74,40,0.4)"/>
-      <rect x="95" y="47" width="78" height="6" rx="2" fill="rgba(42,31,16,0.2)"/>
-      {/* Chain link icon */}
-      <rect x="87" y="43" width="12" height="12" rx="6" fill="none" stroke="rgba(42,31,16,0.25)" strokeWidth="2"/>
-      <rect x="101" y="43" width="12" height="12" rx="6" fill="none" stroke="rgba(42,31,16,0.25)" strokeWidth="2"/>
-      <line x1="93" y1="49" x2="101" y2="49" stroke="rgba(42,31,16,0.2)" strokeWidth="2"/>
-      {/* Floating spheres */}
-      <circle cx="14" cy="55" r="9" fill="#C4B5D4" opacity="0.55"/>
-      <circle cx="188" cy="38" r="7" fill="#F4D070" opacity="0.6"/>
-      <circle cx="180" cy="72" r="5" fill="#8FC4A8" opacity="0.5"/>
-      <circle cx="24" cy="20" r="5" fill="#F4A0B0" opacity="0.5"/>
-    </svg>
-  );
-}
-
-function PromoScene() {
-  return (
-    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
-      {/* Banner */}
-      <rect x="18" y="22" width="164" height="56" rx="16" fill="rgba(224,90,58,0.15)"/>
-      <rect x="28" y="32" width="144" height="36" rx="10" fill="rgba(224,90,58,0.2)"/>
-      {/* Megaphone icon */}
-      <rect x="42" y="40" width="14" height="20" rx="3" fill="#E05A3A" opacity="0.7"/>
-      <polygon points="56,38 74,28 74,62 56,52" fill="#E05A3A" opacity="0.75"/>
-      <rect x="74" y="40" width="6" height="20" rx="3" fill="#E05A3A" opacity="0.55"/>
-      {/* Stars / sparkle */}
-      <circle cx="98" cy="44" r="4" fill="#F4D070" opacity="0.85"/>
-      <circle cx="110" cy="58" r="3" fill="#F4D070" opacity="0.7"/>
-      {/* 20% OFF label blocks */}
-      <rect x="120" y="38" width="40" height="10" rx="5" fill="#E05A3A" opacity="0.25)"/>
-      <rect x="122" y="40" width="36" height="7" rx="3" fill="rgba(224,90,58,0.35)"/>
-      <rect x="120" y="52" width="30" height="6" rx="3" fill="rgba(224,90,58,0.2)"/>
-      {/* Corner circles */}
-      <circle cx="14" cy="30" r="7" fill="#F4D070" opacity="0.55"/>
-      <circle cx="188" cy="72" r="8" fill="#F4A0B0" opacity="0.5"/>
-    </svg>
-  );
-}
-
-function NoAppScene() {
-  return (
-    <svg viewBox="0 0 200 100" style={{width:'100%',height:'100%'}}>
-      {/* Phone */}
-      <rect x="106" y="6" width="48" height="82" rx="11" fill="#3A506A"/>
-      <rect x="111" y="13" width="38" height="60" rx="7" fill="#5A8AB0"/>
-      <rect x="119" y="69" width="22" height="3" rx="1.5" fill="rgba(255,255,255,0.2)"/>
-      {/* Screen content */}
-      <rect x="116" y="20" width="28" height="18" rx="5" fill="rgba(100,200,255,0.2)"/>
-      <rect x="119" y="32" width="22" height="3" rx="1.5" fill="rgba(255,255,255,0.25)"/>
-      <rect x="119" y="37" width="16" height="2.5" rx="1" fill="rgba(255,255,255,0.18)"/>
-      <rect x="116" y="44" width="28" height="3" rx="1.5" fill="rgba(255,255,255,0.12)"/>
-      <rect x="116" y="50" width="20" height="2.5" rx="1" fill="rgba(255,255,255,0.09)"/>
-      {/* No download badge */}
-      <rect x="28" y="28" width="64" height="44" rx="14" fill="rgba(255,248,232,0.92)"/>
-      {/* Cross in circle */}
-      <circle cx="60" cy="42" r="12" fill="rgba(224,90,58,0.15)" stroke="#E05A3A" strokeWidth="1.5"/>
-      <line x1="55" y1="37" x2="65" y2="47" stroke="#E05A3A" strokeWidth="2.2" strokeLinecap="round"/>
-      <line x1="65" y1="37" x2="55" y2="47" stroke="#E05A3A" strokeWidth="2.2" strokeLinecap="round"/>
-      {/* "No App" label */}
-      <rect x="34" y="58" width="52" height="7" rx="3" fill="rgba(100,60,30,0.15)"/>
-      {/* Arrow */}
-      <line x1="94" y1="50" x2="104" y2="50" stroke="rgba(224,90,58,0.5)" strokeWidth="2" strokeDasharray="3,2"/>
-      <polygon points="104,46 110,50 104,54" fill="rgba(224,90,58,0.5)"/>
-      {/* Dots */}
-      <circle cx="18" cy="35" r="6" fill="#8FC4A8" opacity="0.55"/>
-      <circle cx="186" cy="30" r="7" fill="#F4D070" opacity="0.6"/>
-    </svg>
-  );
-}
-
-function PlanIllustration({ name }) {
-  if (name === 'Starter') return (
-    <svg viewBox="0 0 260 80" style={{width:'100%',height:'100%'}}>
-      {/* Single dish icon — plate with fork/knife */}
-      <rect x="18" y="16" width="48" height="48" rx="14" fill="rgba(224,168,80,0.2)"/>
-      {/* Plate */}
-      <circle cx="42" cy="40" r="16" fill="rgba(255,230,170,0.9)"/>
-      <circle cx="42" cy="40" r="10" fill="rgba(255,215,140,0.8)"/>
-      <circle cx="42" cy="40" r="5" fill="#E8A050" opacity="0.7"/>
-      {/* Fork left */}
-      <rect x="22" y="30" width="3" height="20" rx="1.5" fill="rgba(160,100,40,0.45)"/>
-      {/* Knife right */}
-      <rect x="60" y="30" width="3" height="20" rx="1.5" fill="rgba(160,100,40,0.45)"/>
-      {/* Divider */}
-      <rect x="82" y="20" width="1.5" height="40" rx="0.75" fill="rgba(160,100,40,0.12)"/>
-      {/* Text info */}
-      <text x="98" y="36" fill="#6B4A20" fontSize="13" fontWeight="700" fontFamily="Poppins,sans-serif">20 AR items</text>
-      <text x="98" y="54" fill="rgba(100,60,30,0.5)" fontSize="11" fontFamily="Inter,sans-serif">1GB storage</text>
-    </svg>
-  );
-  if (name === 'Growth') return (
-    <svg viewBox="0 0 260 80" style={{width:'100%',height:'100%'}}>
-      {/* Two dish icons */}
-      <rect x="12" y="16" width="44" height="48" rx="13" fill="rgba(224,90,58,0.12)"/>
-      {/* Bowl 1 */}
-      <ellipse cx="34" cy="45" rx="14" ry="5" fill="#E8906A" opacity="0.6"/>
-      <path d="M20,32 C20,32 19,47 34,48 C49,47 48,32 48,32 C48,24 42,20 34,20 C26,20 20,24 20,32Z" fill="#F5AA7A"/>
-      <ellipse cx="34" cy="31" rx="14" ry="5.5" fill="#FFCCA0"/>
-      <ellipse cx="34" cy="28" rx="10" ry="4" fill="#F4D070" opacity="0.9"/>
-      {/* Bowl 2 (offset) */}
-      <rect x="60" y="18" width="40" height="44" rx="12" fill="rgba(224,90,58,0.09)"/>
-      <ellipse cx="80" cy="46" rx="12" ry="4.5" fill="#8FC4A8" opacity="0.6"/>
-      <path d="M68,34 C68,34 67,48 80,49 C93,48 92,34 92,34 C92,27 87,23 80,23 C73,23 68,27 68,34Z" fill="#AAD4BC"/>
-      <ellipse cx="80" cy="33" rx="12" ry="5" fill="#C4E8D4"/>
-      <ellipse cx="80" cy="30" rx="8" ry="3.5" fill="#6AB090" opacity="0.9"/>
-      {/* Divider */}
-      <rect x="114" y="18" width="1.5" height="44" rx="0.75" fill="rgba(160,100,40,0.12)"/>
-      {/* Text */}
-      <text x="128" y="36" fill="#8B3020" fontSize="13" fontWeight="700" fontFamily="Poppins,sans-serif">60 AR items</text>
-      <text x="128" y="54" fill="rgba(100,60,30,0.5)" fontSize="11" fontFamily="Inter,sans-serif">3GB storage</text>
-    </svg>
-  );
-  // Premium
-  return (
-    <svg viewBox="0 0 260 80" style={{width:'100%',height:'100%'}}>
-      {/* Three dish icons */}
-      <rect x="8" y="18" width="36" height="44" rx="11" fill="rgba(196,181,212,0.25)"/>
-      <ellipse cx="26" cy="44" rx="11" ry="4" fill="#E8906A" opacity="0.55"/>
-      <path d="M15,33 C15,33 14,46 26,47 C38,46 37,33 37,33 C37,26 32,22 26,22 C20,22 15,26 15,33Z" fill="#F5AA7A"/>
-      <ellipse cx="26" cy="32" rx="11" ry="4.5" fill="#FFCCA0"/>
-      <ellipse cx="26" cy="29" rx="7" ry="3" fill="#F4D070" opacity="0.9"/>
-
-      <rect x="48" y="18" width="36" height="44" rx="11" fill="rgba(196,181,212,0.2)"/>
-      <ellipse cx="66" cy="44" rx="11" ry="4" fill="#8FC4A8" opacity="0.55"/>
-      <path d="M55,33 C55,33 54,46 66,47 C78,46 77,33 77,33 C77,26 72,22 66,22 C60,22 55,26 55,33Z" fill="#AAD4BC"/>
-      <ellipse cx="66" cy="32" rx="11" ry="4.5" fill="#C4E8D4"/>
-      <ellipse cx="66" cy="29" rx="7" ry="3" fill="#6AB090" opacity="0.9"/>
-
-      <rect x="88" y="18" width="36" height="44" rx="11" fill="rgba(196,181,212,0.15)"/>
-      <ellipse cx="106" cy="44" rx="11" ry="4" fill="#F4A0B0" opacity="0.55"/>
-      <path d="M95,33 C95,33 94,46 106,47 C118,46 117,33 117,33 C117,26 112,22 106,22 C100,22 95,26 95,33Z" fill="#FFBCC8"/>
-      <ellipse cx="106" cy="32" rx="11" ry="4.5" fill="#FFD0DC"/>
-      <ellipse cx="106" cy="29" rx="7" ry="3" fill="#E8809C" opacity="0.9"/>
-
-      {/* Divider */}
-      <rect x="136" y="18" width="1.5" height="44" rx="0.75" fill="rgba(160,100,40,0.12)"/>
-      {/* Text */}
-      <text x="150" y="36" fill="#6A4A8A" fontSize="13" fontWeight="700" fontFamily="Poppins,sans-serif">150 AR items</text>
-      <text x="150" y="54" fill="rgba(100,60,30,0.5)" fontSize="11" fontFamily="Inter,sans-serif">10GB storage</text>
-    </svg>
-  );
-}
-
-function CelebrationScene() {
-  return (
-    <svg viewBox="0 0 340 240" xmlns="http://www.w3.org/2000/svg" style={{width:320,height:220,filter:'drop-shadow(0 8px 24px rgba(120,70,30,0.14))'}}>
-      <defs>
-        <filter id="cs"><feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="rgba(120,70,30,0.12)"/></filter>
-      </defs>
-      {/* Isometric mini platform */}
-      <polygon points="60,140 170,75 280,140 170,205" fill="#FFF5DC" filter="url(#cs)"/>
-      <polygon points="60,140 170,205 170,230 60,165" fill="#DEB870"/>
-      <polygon points="280,140 170,205 170,230 280,165" fill="#C8A050"/>
-      {/* 3 dish bowls on platform */}
-      <ellipse cx="130" cy="160" rx="30" ry="10" fill="rgba(160,90,30,0.1)"/>
-      <path d="M100,138 C100,138 98,162 130,164 C162,162 160,138 160,138 C160,124 147,118 130,118 C113,118 100,124 100,138Z" fill="#8FC4A8"/>
-      <ellipse cx="130" cy="136" rx="30" ry="11" fill="#AAD4BC"/>
-      <ellipse cx="130" cy="130" rx="26" ry="9" fill="#6AB090"/>
-      <circle cx="128" cy="126" r="5" fill="#E05A3A" opacity="0.75"/>
-
-      <ellipse cx="170" cy="148" rx="26" ry="9" fill="rgba(160,90,30,0.1)"/>
-      <path d="M144,128 C144,128 142,150 170,152 C198,150 196,128 196,128 C196,116 184,111 170,111 C156,111 144,116 144,128Z" fill="#E8906A"/>
-      <ellipse cx="170" cy="126" rx="26" ry="10" fill="#F5AA7A"/>
-      <ellipse cx="170" cy="121" rx="22" ry="8" fill="#F4D070"/>
-      <ellipse cx="170" cy="117" rx="10" ry="4" fill="#6AB090"/>
-      <path d="M160,110 Q158,100 161,91" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" fill="none"/>
-      <path d="M170,107 Q168,97 171,89" stroke="rgba(255,255,255,0.38)" strokeWidth="1.7" strokeLinecap="round" fill="none"/>
-
-      <ellipse cx="212" cy="158" rx="24" ry="8" fill="rgba(160,90,30,0.08)"/>
-      <path d="M188,140 C188,140 186,160 212,162 C238,160 236,140 236,140 C236,129 225,124 212,124 C199,124 188,129 188,140Z" fill="#F4A0B0"/>
-      <ellipse cx="212" cy="138" rx="24" ry="9" fill="#FFBCC8"/>
-      <ellipse cx="212" cy="133" rx="20" ry="7.5" fill="#E8809C"/>
-
-      {/* Phone */}
-      <rect x="76" y="78" width="34" height="59" rx="7" fill="#1E1B18" filter="url(#cs)"/>
-      <rect x="80" y="83" width="26" height="44" rx="5" fill="#1A2A4A"/>
-      <text x="93" y="107" textAnchor="middle" fill="rgba(100,220,255,0.9)" fontSize="5.5" fontWeight="700">AR LIVE</text>
-      <rect x="84" y="112" width="18" height="8" rx="3" fill="rgba(224,90,58,0.35)"/>
-      <line x1="84" y1="122" x2="106" y2="122" stroke="rgba(100,200,255,0.2)" strokeWidth="1"/>
-      <line x1="84" y1="127" x2="100" y2="127" stroke="rgba(100,200,255,0.15)" strokeWidth="1"/>
-
-      {/* Confetti */}
-      <rect x="40" y="60" width="8" height="8" rx="2" fill="#E05A3A" opacity="0.7" transform="rotate(25,44,64)"/>
-      <rect x="268" y="55" width="7" height="7" rx="2" fill="#8FC4A8" opacity="0.72" transform="rotate(-20,271,58)"/>
-      <rect x="290" y="90" width="6" height="6" rx="2" fill="#F4D070" opacity="0.75" transform="rotate(15,293,93)"/>
-      <rect x="30" y="110" width="6" height="6" rx="2" fill="#C4B5D4" opacity="0.7" transform="rotate(40,33,113)"/>
-      <rect x="305" y="130" width="7" height="7" rx="2" fill="#F4A0B0" opacity="0.68" transform="rotate(-30,308,133)"/>
-      <circle cx="55" cy="85" r="4" fill="#F4D070" opacity="0.65"/>
-      <circle cx="295" cy="72" r="3.5" fill="#F4A0B0" opacity="0.6"/>
-      <g transform="translate(315,105)" fill="#F4D070" opacity="0.7"><polygon points="0,-6 1.5,-1.5 6,0 1.5,1.5 0,6 -1.5,1.5 -6,0 -1.5,-1.5"/></g>
-      <g transform="translate(28,155)" fill="#8FC4A8" opacity="0.65"><polygon points="0,-5 1.2,-1.2 5,0 1.2,1.2 0,5 -1.2,1.2 -5,0 -1.2,-1.2"/></g>
-      <circle cx="170" cy="42" r="5" fill="#E05A3A" opacity="0.45"/>
-      <circle cx="310" cy="175" r="4" fill="#C4B5D4" opacity="0.5"/>
-    </svg>
   );
 }
