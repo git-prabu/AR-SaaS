@@ -34,8 +34,34 @@ export default function AdminNotifications() {
   const [resolving, setResolving]     = useState(null);
   const [tab,       setTab]           = useState('pending'); // 'pending' | 'resolved'
   const prevCountRef                  = useRef(0);
-  const audioRef                      = useRef(null);
   const rid = userData?.restaurantId;
+
+  const playBell = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const playTone = (freq, startTime, duration, gainPeak) => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+      // Two-tone bell: fundamental + octave harmonic
+      playTone(880,  ctx.currentTime,        1.4, 0.55);
+      playTone(1760, ctx.currentTime,        0.7, 0.25);
+      // Second ding after 0.55s for a classic double-bell effect
+      playTone(880,  ctx.currentTime + 0.55, 1.2, 0.45);
+      playTone(1760, ctx.currentTime + 0.55, 0.6, 0.2);
+    } catch (e) {
+      // AudioContext not available (e.g. server-side) — silently ignore
+    }
+  };
 
   const load = async (silent = false) => {
     if (!rid) return;
@@ -45,7 +71,7 @@ export default function AdminNotifications() {
       const pending = data.filter(c => c.status === 'pending');
       // Play sound if new pending calls appeared
       if (silent && pending.length > prevCountRef.current) {
-        audioRef.current?.play().catch(() => {});
+        playBell();
         toast('🔔 New waiter call!', { icon: '🔔', duration: 4000 });
       }
       prevCountRef.current = pending.length;
@@ -90,11 +116,6 @@ export default function AdminNotifications() {
   return (
     <AdminLayout>
       <Head><title>Notifications — Advert Radical</title></Head>
-
-      {/* Inaudible ping sound via oscillator — no file needed */}
-      <audio ref={audioRef} style={{ display:'none' }}>
-        <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" />
-      </audio>
 
       <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
         <div style={{ maxWidth:800, margin:'0 auto' }}>
