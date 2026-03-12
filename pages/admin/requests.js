@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getRequests, submitRequest, getAllMenuItems } from '../../lib/db';
+import { getRequests, submitRequest, getAllMenuItems, deleteRequest } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -100,6 +100,7 @@ export default function AdminRequests() {
   const [filter, setFilter] = useState('all');
   const [calcLoading, setCalcLoading] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(null); // request id to cancel
   const [bulkProgress, setBulkProgress] = useState({ done:0, total:0, current:'' });
   const [calcDetail, setCalcDetail] = useState('');
   const [categories, setCategories] = useState([]);
@@ -256,6 +257,7 @@ export default function AdminRequests() {
               }
             }
 
+            const imageURL = String(row.imageUrl || row.imageURL || row.image_url || row.Image || '').trim() || null;
             await submitRequest(rid, {
               name,
               category:    String(row.category||'').trim(),
@@ -266,6 +268,7 @@ export default function AdminRequests() {
               spiceLevel:  spice,
               isVeg,
               badge,
+              imageURL,
               nutritionalData: { calories: cal, protein: prot, carbs: carb, fats: fat },
             });
             success++;
@@ -285,6 +288,18 @@ export default function AdminRequests() {
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // Cancel (delete) a pending request
+  const handleCancelRequest = async (reqId) => {
+    try {
+      await deleteRequest(rid, reqId);
+      setRequests(r => r.filter(x => x.id !== reqId));
+      toast.success('Request cancelled');
+    } catch {
+      toast.error('Failed to cancel request');
+    }
+    setConfirmCancel(null);
   };
 
   const handleSubmit = async (e) => {
@@ -579,8 +594,23 @@ export default function AdminRequests() {
                         ))}
                       </div>
                     )}
-                    <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:8 }}>
-                      Submitted {req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleDateString() : 'recently'}
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8, flexWrap:'wrap', gap:8 }}>
+                      <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)' }}>
+                        Submitted {req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleDateString() : 'recently'}
+                      </div>
+                      {req.status === 'pending' && (
+                        confirmCancel === req.id ? (
+                          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                            <span style={{ fontSize:12, color:'rgba(42,31,16,0.6)' }}>Cancel this request?</span>
+                            <button onClick={() => handleCancelRequest(req.id)} style={{ padding:'4px 12px', borderRadius:8, border:'none', background:'#E05A3A', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>Yes, cancel</button>
+                            <button onClick={() => setConfirmCancel(null)} style={{ padding:'4px 12px', borderRadius:8, border:'1.5px solid rgba(42,31,16,0.15)', background:'transparent', color:'rgba(42,31,16,0.6)', fontSize:12, fontWeight:600, cursor:'pointer' }}>Keep</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmCancel(req.id)} style={{ padding:'4px 14px', borderRadius:8, border:'1.5px solid rgba(224,90,58,0.3)', background:'transparent', color:'#E05A3A', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
+                            Cancel Request
+                          </button>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>
