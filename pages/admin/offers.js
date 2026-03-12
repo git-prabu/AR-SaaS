@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllOffers, createOffer, deleteOffer, getAllMenuItems } from '../../lib/db';
+import { getAllOffers, createOffer, updateOffer, deleteOffer, getAllMenuItems } from '../../lib/db';
 import toast from 'react-hot-toast';
 
 const S = {
@@ -22,9 +22,10 @@ export default function AdminOffers() {
   const [menuItems, setMenuItems] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [showForm,  setShowForm]  = useState(false);
+  const [editingId, setEditingId] = useState(null); // null = create mode, string = edit mode
   const [form,      setForm]      = useState(BLANK);
   const [saving,    setSaving]    = useState(false);
-  const rid = userData?.restaurantId;
+  const rid   = userData?.restaurantId;
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
@@ -38,24 +39,55 @@ export default function AdminOffers() {
 
   const linkedItem = menuItems.find(i => i.id === form.linkedItemId);
 
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(BLANK);
+    setShowForm(true);
+  };
+
+  const openEdit = (offer) => {
+    setEditingId(offer.id);
+    setForm({
+      title:           offer.title           || '',
+      description:     offer.description     || '',
+      startDate:       offer.startDate       || '',
+      endDate:         offer.endDate         || '',
+      linkedItemId:    offer.linkedItemId    || '',
+      discountedPrice: offer.discountedPrice != null ? String(offer.discountedPrice) : '',
+    });
+    setShowForm(true);
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(BLANK);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.title || !form.endDate) return;
     setSaving(true);
     try {
-      await createOffer(rid, {
+      const payload = {
         ...form,
         discountedPrice: form.discountedPrice !== '' ? Number(form.discountedPrice) : null,
-        linkedItemId:    form.linkedItemId || null,
-        linkedItemName:  linkedItem?.name || null,
+        linkedItemId:    form.linkedItemId    || null,
+        linkedItemName:  linkedItem?.name     || null,
         linkedItemImage: linkedItem?.imageURL || null,
-        linkedItemPrice: linkedItem?.price || null,
-      });
-      toast.success('Offer created!');
-      setForm(BLANK);
-      setShowForm(false);
+        linkedItemPrice: linkedItem?.price    || null,
+      };
+      if (editingId) {
+        await updateOffer(rid, editingId, payload);
+        toast.success('Offer updated!');
+      } else {
+        await createOffer(rid, payload);
+        toast.success('Offer created!');
+      }
+      closeForm();
       setOffers(await getAllOffers(rid));
-    } catch { toast.error('Failed to create offer'); }
+    } catch { toast.error(editingId ? 'Failed to update offer' : 'Failed to create offer'); }
     finally { setSaving(false); }
   };
 
@@ -63,8 +95,11 @@ export default function AdminOffers() {
     if (!confirm('Delete this offer?')) return;
     await deleteOffer(rid, id);
     setOffers(o => o.filter(x => x.id !== id));
+    if (editingId === id) closeForm();
     toast.success('Offer deleted');
   };
+
+  const isEditing = !!editingId;
 
   return (
     <AdminLayout>
@@ -79,17 +114,27 @@ export default function AdminOffers() {
               <h1 style={S.h1}>Offers & Promotions</h1>
               <p style={S.sub}>Active offers display as a horizontal strip on your live menu. Link a dish to make it clickable.</p>
             </div>
-            <button onClick={()=>setShowForm(!showForm)} style={{ ...S.btn, background:showForm?'#F2F0EC':'#1E1B18', color:showForm?'#1E1B18':'#FFF5E8', border:showForm?'1.5px solid rgba(42,31,16,0.12)':'none' }}>
+            <button onClick={showForm ? closeForm : openCreate}
+              style={{ ...S.btn, background:showForm?'#F2F0EC':'#1E1B18', color:showForm?'#1E1B18':'#FFF5E8', border:showForm?'1.5px solid rgba(42,31,16,0.12)':'none' }}>
               {showForm ? '✕ Cancel' : '+ New Offer'}
             </button>
           </div>
 
-          {/* Form */}
+          {/* Form — create or edit */}
           {showForm && (
-            <div style={{ ...S.card, padding:28, marginBottom:24, border:'1.5px solid rgba(247,155,61,0.3)' }}>
-              <h2 style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', marginBottom:22 }}>Create Offer</h2>
+            <div style={{ ...S.card, padding:28, marginBottom:24, border:`1.5px solid ${isEditing ? 'rgba(74,128,192,0.35)' : 'rgba(247,155,61,0.3)'}` }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
+                <h2 style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', margin:0 }}>
+                  {isEditing ? '✏️ Edit Offer' : 'Create Offer'}
+                </h2>
+                {isEditing && (
+                  <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:'rgba(74,128,192,0.1)', color:'#4A80C0' }}>
+                    Editing existing offer
+                  </span>
+                )}
+              </div>
 
-              {/* Preview */}
+              {/* Live preview */}
               {form.title && (
                 <div style={{ background:'linear-gradient(135deg,#E05A3A,#F07050)', borderRadius:12, padding:'12px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
                   {linkedItem?.imageURL && (
@@ -140,16 +185,24 @@ export default function AdminOffers() {
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20 }}>
                   <div>
                     <label style={S.label}>Start Date</label>
-                    <input className="inp" style={S.input} type="date" value={form.startDate} min={today} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))} />
+                    <input className="inp" style={S.input} type="date" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))} />
                   </div>
                   <div>
                     <label style={S.label}>End Date *</label>
                     <input className="inp" style={S.input} type="date" value={form.endDate} min={form.startDate||today} onChange={e=>setForm(f=>({...f,endDate:e.target.value}))} required />
                   </div>
                 </div>
-                <button type="submit" disabled={saving} style={{ ...S.btn, background:'#1E1B18', color:'#FFF5E8', padding:'13px 28px', opacity:saving?0.6:1 }}>
-                  {saving ? 'Saving…' : 'Create Offer'}
-                </button>
+
+                <div style={{ display:'flex', gap:10 }}>
+                  <button type="submit" disabled={saving}
+                    style={{ ...S.btn, background: isEditing ? '#4A80C0' : '#1E1B18', color:'#FFF5E8', padding:'13px 28px', opacity:saving?0.6:1 }}>
+                    {saving ? 'Saving…' : isEditing ? '✓ Save Changes' : 'Create Offer'}
+                  </button>
+                  <button type="button" onClick={closeForm}
+                    style={{ ...S.btn, background:'transparent', color:'rgba(42,31,16,0.5)', border:'1.5px solid rgba(42,31,16,0.12)', padding:'13px 20px' }}>
+                    Cancel
+                  </button>
+                </div>
               </form>
             </div>
           )}
@@ -167,9 +220,10 @@ export default function AdminOffers() {
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {offers.map(offer => {
-                const isActive = offer.endDate >= today && (!offer.startDate || offer.startDate <= today);
+                const isActive      = offer.endDate >= today && (!offer.startDate || offer.startDate <= today);
+                const isBeingEdited = editingId === offer.id;
                 return (
-                  <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16 }}>
+                  <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16, outline: isBeingEdited ? '2px solid #4A80C0' : 'none', outlineOffset:2 }}>
                     {offer.linkedItemImage
                       ? <img src={offer.linkedItemImage} alt={offer.linkedItemName} style={{ width:52, height:52, borderRadius:14, objectFit:'cover', flexShrink:0 }} />
                       : <div style={{ width:52, height:52, borderRadius:14, background:'rgba(224,90,58,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>
@@ -188,11 +242,16 @@ export default function AdminOffers() {
                         {offer.startDate ? `${offer.startDate} → ${offer.endDate}` : `Ends ${offer.endDate}`}
                       </div>
                     </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
                       <span style={{ padding:'4px 12px', borderRadius:30, fontSize:11, fontWeight:700, background:isActive?'rgba(143,196,168,0.2)':'rgba(42,31,16,0.06)', color:isActive?'#1A5A38':'rgba(42,31,16,0.4)', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(42,31,16,0.1)'}` }}>
                         {isActive ? 'Active' : 'Expired'}
                       </span>
-                      <button onClick={()=>handleDelete(offer.id)} style={{ width:30, height:30, borderRadius:8, border:'none', background:'rgba(224,90,58,0.08)', color:'#E05A3A', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+                      <button onClick={() => isBeingEdited ? closeForm() : openEdit(offer)}
+                        style={{ height:30, padding:'0 12px', borderRadius:8, border:`1.5px solid ${isBeingEdited ? 'rgba(74,128,192,0.5)' : 'rgba(74,128,192,0.3)'}`, background: isBeingEdited ? 'rgba(74,128,192,0.12)' : 'rgba(74,128,192,0.06)', color:'#4A80C0', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                        {isBeingEdited ? '✕ Cancel' : '✏️ Edit'}
+                      </button>
+                      <button onClick={() => handleDelete(offer.id)}
+                        style={{ width:30, height:30, borderRadius:8, border:'none', background:'rgba(224,90,58,0.08)', color:'#E05A3A', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
                     </div>
                   </div>
                 );
