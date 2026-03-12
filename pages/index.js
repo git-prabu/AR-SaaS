@@ -529,7 +529,7 @@ export default function HomePage() {
               <div className="no-transition" style={{position:'absolute', inset:0, background:'radial-gradient(ellipse at 50% 50%, rgba(247,155,61,0.18) 0%, transparent 65%)', filter:'blur(20px)', borderRadius:'50%', pointerEvents:'none'}}/>
               <div className="fa" style={{position:'relative', zIndex:2}}>
                 <div style={{width:260, height:520, borderRadius:44, background:'#1A1208', boxShadow:'0 40px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)', position:'relative', overflow:'hidden'}}>
-                  <div style={{position:'absolute', top:12, left:'50%', transform:'translateX(-50%)', width:96, height:28, background:'#1A1208', borderRadius:14, zIndex:20}}/>
+                  <div style={{position:'absolute', top:12, left:'50%', transform:'translateX(-50%)', width:96, height:28, background:'#1A1208', borderRadius:14, zIndex:4}}/>
                   <div style={{position:'absolute', top:0, left:0, right:0, bottom:0, background:'linear-gradient(180deg,#0E1828,#0A1220)', borderRadius:44, overflow:'hidden'}}>
                     <div style={{padding:'52px 16px 20px', height:'100%', display:'flex', flexDirection:'column'}}>
                       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16}}>
@@ -596,7 +596,7 @@ export default function HomePage() {
         </section>
 
         {/* ══ MARQUEE ══ */}
-        <div style={{background:'var(--mq-bg)', borderTop:'1px solid var(--mq-bd)', borderBottom:'1px solid var(--mq-bd)', padding:'14px 0', backdropFilter:'blur(12px)'}}>
+        <div style={{background:'var(--how-bg)', borderTop:'1px solid var(--mq-bd)', borderBottom:'1px solid var(--mq-bd)', padding:'14px 0', backdropFilter:'blur(12px)'}}>
           <div className="marquee-wrap">
             <div className="marquee-track no-transition">
               {[...MARQUEE_ITEMS,...MARQUEE_ITEMS].map((item,i)=>(
