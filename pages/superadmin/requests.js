@@ -4,7 +4,7 @@ import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant } from '../../lib/db';
 import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/storage';
 import { db } from '../../lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 const S = {
@@ -47,23 +47,21 @@ export default function SuperAdminRequests() {
     const rid = req.restaurantId;
     const restaurant = restaurants.find(r => r.id === rid);
     if (!restaurant) { toast.error('Restaurant not found'); return; }
-    if ((restaurant.itemsUsed||0) >= (restaurant.maxItems||10)) { toast.error(`Restaurant has reached max items limit (${restaurant.maxItems})`); return; }
     const sizeMB = fileSizeMB(modelFile);
     if ((restaurant.storageUsedMB||0) + sizeMB > (restaurant.maxStorageMB||500)) { toast.error('Restaurant storage limit exceeded'); return; }
     setUploading(req.id); setProgress(0);
     try {
       const modelURL = await uploadFile(modelFile, buildModelPath(rid, modelFile.name), setProgress);
-      await setDoc(doc(db,'restaurants',rid,'menuItems',req.id), {
-        name:req.name, description:req.description||'', category:req.category||'',
-        imageURL:req.imageURL||null, modelURL,
-        ingredients:req.ingredients||[], calories:req.nutritionalData?.calories||null,
-        protein:req.nutritionalData?.protein||null, carbs:req.nutritionalData?.carbs||null,
-        fats:req.nutritionalData?.fats||null, prepTime:req.prepTime||null,
-        views:0, arViews:0, isActive:true, createdAt:serverTimestamp(),
+      // Menu item already exists (published at submission) — just unlock AR on it
+      await updateDoc(doc(db,'restaurants',rid,'menuItems',req.id), {
+        modelURL,
+        arReady: true,
+        updatedAt: serverTimestamp(),
       });
       await updateRequestStatus(rid, req.id, 'approved', modelURL);
-      await updateRestaurant(rid, { itemsUsed:(restaurant.itemsUsed||0)+1, storageUsedMB: parseFloat(((restaurant.storageUsedMB||0)+sizeMB).toFixed(2)) });
-      toast.success(`"${req.name}" approved and published!`);
+      // Only update storage — itemsUsed was incremented at submission time
+      await updateRestaurant(rid, { storageUsedMB: parseFloat(((restaurant.storageUsedMB||0)+sizeMB).toFixed(2)) });
+      toast.success(`"${req.name}" AR approved and unlocked!`);
       setModelFiles(f => { const n={...f}; delete n[req.id]; return n; });
       load();
     } catch (err) { toast.error('Approval failed: '+err.message); }
@@ -122,7 +120,7 @@ export default function SuperAdminRequests() {
 
           <div style={{ marginBottom:28 }}>
             <h1 style={S.h1}>Menu Requests</h1>
-            <p style={S.sub}>Review, upload 3D model, and approve items for AR listing.</p>
+            <p style={S.sub}>Upload 3D model to unlock AR for items already live on the menu.</p>
           </div>
 
           {/* Filter tabs */}
