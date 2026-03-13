@@ -40,7 +40,7 @@ export default function AdminLogin() {
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
       </Head>
 
-      <div style={{minHeight:'100vh', background:'#0C0A08', fontFamily:'Inter,sans-serif', display:'flex', position:'relative', overflow:'hidden'}}>
+      <div style={{maxHeight:'100vh', background:'#0C0A08', fontFamily:'Inter,sans-serif', display:'flex', position:'relative', overflow:'hidden'}}>
         <style>{`
           * { box-sizing:border-box; margin:0; padding:0; }
 
