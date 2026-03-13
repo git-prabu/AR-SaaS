@@ -139,9 +139,9 @@ export default function SuperAdminRequests() {
             ].map(t => (
               <button key={t.key} onClick={()=>setActiveTab(t.key)} style={{ padding:'8px 20px', borderRadius:10, border:'none', fontSize:13, fontWeight:600, fontFamily:'Poppins,sans-serif', cursor:'pointer', transition:'all 0.15s', background: activeTab===t.key ? '#fff' : 'transparent', color: activeTab===t.key ? '#1E1B18' : 'rgba(42,31,16,0.5)', boxShadow: activeTab===t.key ? '0 2px 8px rgba(42,31,16,0.1)' : 'none', display:'flex', alignItems:'center', gap:6 }}>
                 <span>{t.icon}</span>{t.label}
-                {t.key==='items' && menuItems.filter(i=>!i.arReady).length > 0 && (
+                {t.key==='items' && menuItems.filter(i=>!i.arReady&&!i.modelURL).length > 0 && (
                   <span style={{ background:'#E05A3A', color:'#fff', borderRadius:99, fontSize:10, fontWeight:800, padding:'1px 6px', marginLeft:2 }}>
-                    {menuItems.filter(i=>!i.arReady).length}
+                    {menuItems.filter(i=>!i.arReady&&!i.modelURL).length}
                   </span>
                 )}
               </button>
@@ -299,8 +299,8 @@ export default function SuperAdminRequests() {
           {/* ── LIVE ITEMS TAB ── */}
           {activeTab === 'items' && (() => {
             const filtered = itemFilter === 'all'        ? menuItems
-                           : itemFilter === 'pending_ar' ? menuItems.filter(i => !i.arReady)
-                           :                               menuItems.filter(i =>  i.arReady);
+                           : itemFilter === 'pending_ar' ? menuItems.filter(i => !i.arReady && !i.modelURL)
+                           :                               menuItems.filter(i =>  i.arReady || i.modelURL);
             return (
               <>
                 {/* Sub-filter pills */}
@@ -311,7 +311,7 @@ export default function SuperAdminRequests() {
                     { key:'ar_ready',   label:'✅ AR Active' },
                   ].map(f => (
                     <button key={f.key} onClick={()=>setItemFilter(f.key)} style={{ padding:'7px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', background: itemFilter===f.key?'#1E1B18':'#fff', color: itemFilter===f.key?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow: itemFilter===f.key?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
-                      {f.label} ({f.key==='all'?menuItems.length : f.key==='pending_ar'?menuItems.filter(i=>!i.arReady).length : menuItems.filter(i=>i.arReady).length})
+                      {f.label} ({f.key==='all'?menuItems.length : f.key==='pending_ar'?menuItems.filter(i=>!i.arReady&&!i.modelURL).length : menuItems.filter(i=>i.arReady||i.modelURL).length})
                     </button>
                   ))}
                 </div>
@@ -336,8 +336,8 @@ export default function SuperAdminRequests() {
                             : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:36 }}>🍽️</div>
                           }
                           {/* AR status pill overlay */}
-                          <div style={{ position:'absolute', top:8, right:8, padding:'3px 10px', borderRadius:99, fontSize:10, fontWeight:700, background: item.arReady ? 'rgba(45,139,78,0.92)' : 'rgba(30,27,24,0.75)', color:'#fff', backdropFilter:'blur(4px)' }}>
-                            {item.arReady ? '✅ AR Active' : '⏳ Awaiting AR'}
+                          <div style={{ position:'absolute', top:8, right:8, padding:'3px 10px', borderRadius:99, fontSize:10, fontWeight:700, background: (item.arReady||item.modelURL) ? 'rgba(45,139,78,0.92)' : 'rgba(30,27,24,0.75)', color:'#fff', backdropFilter:'blur(4px)' }}>
+                            {(item.arReady||item.modelURL) ? '✅ AR Active' : '⏳ Awaiting AR'}
                           </div>
                         </div>
 
