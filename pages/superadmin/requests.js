@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
-import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant } from '../../lib/db';
+import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants } from '../../lib/db';
 import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/storage';
 import { db } from '../../lib/firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -16,8 +16,11 @@ const S = {
 export default function SuperAdminRequests() {
   const [requests,   setRequests]   = useState([]);
   const [restaurants,setRestaurants]= useState([]);
+  const [menuItems,  setMenuItems]  = useState([]);
   const [loading,    setLoading]    = useState(true);
+  const [activeTab,  setActiveTab]  = useState('requests'); // 'requests' | 'items'
   const [filter,     setFilter]     = useState('pending');
+  const [itemFilter, setItemFilter] = useState('all');      // 'all' | 'pending_ar' | 'ar_ready'
   const [expanded,   setExpanded]   = useState(null);
   const [modelFiles, setModelFiles] = useState({});
   const [uploading,  setUploading]  = useState(null);
@@ -27,7 +30,11 @@ export default function SuperAdminRequests() {
 
   const load = async () => {
     setLoading(true);
-    const [rests, reqs] = await Promise.all([getAllRestaurants(), getAllPendingRequests()]);
+    const [rests, reqs, allItems] = await Promise.all([
+      getAllRestaurants(),
+      getAllPendingRequests(),
+      getAllMenuItemsAllRestaurants(),
+    ]);
     let allReqs = [...reqs];
     if (filter !== 'pending') {
       const extras = await Promise.all(rests.map(r => getRequests(r.id, filter).then(rs => rs.map(q => ({ ...q, restaurantId:r.id, restaurantName:r.name })))));
@@ -35,6 +42,7 @@ export default function SuperAdminRequests() {
     }
     setRestaurants(rests);
     setRequests(filter==='pending' ? reqs : allReqs);
+    setMenuItems(allItems);
     setLoading(false);
   };
 
@@ -118,10 +126,30 @@ export default function SuperAdminRequests() {
         <div style={{ maxWidth:960, margin:'0 auto' }}>
           <style>{`@keyframes spin{to{transform:rotate(360deg)}} .upload-zone:hover{border-color:rgba(224,90,58,0.4)!important;background:#FFF8F5!important}`}</style>
 
-          <div style={{ marginBottom:28 }}>
+          <div style={{ marginBottom:24 }}>
             <h1 style={S.h1}>Menu Requests</h1>
             <p style={S.sub}>Upload 3D model to unlock AR for items already live on the menu.</p>
           </div>
+
+          {/* Top-level tab switcher */}
+          <div style={{ display:'flex', gap:4, marginBottom:24, background:'#E8E5E0', borderRadius:14, padding:4, width:'fit-content' }}>
+            {[
+              { key:'requests', label:'AR Requests',  icon:'📦' },
+              { key:'items',    label:'Live Items',    icon:'🍽️' },
+            ].map(t => (
+              <button key={t.key} onClick={()=>setActiveTab(t.key)} style={{ padding:'8px 20px', borderRadius:10, border:'none', fontSize:13, fontWeight:600, fontFamily:'Poppins,sans-serif', cursor:'pointer', transition:'all 0.15s', background: activeTab===t.key ? '#fff' : 'transparent', color: activeTab===t.key ? '#1E1B18' : 'rgba(42,31,16,0.5)', boxShadow: activeTab===t.key ? '0 2px 8px rgba(42,31,16,0.1)' : 'none', display:'flex', alignItems:'center', gap:6 }}>
+                <span>{t.icon}</span>{t.label}
+                {t.key==='items' && menuItems.filter(i=>!i.arReady).length > 0 && (
+                  <span style={{ background:'#E05A3A', color:'#fff', borderRadius:99, fontSize:10, fontWeight:800, padding:'1px 6px', marginLeft:2 }}>
+                    {menuItems.filter(i=>!i.arReady).length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* ── AR REQUESTS TAB ── */}
+          {activeTab === 'requests' && (<>
 
           {/* Filter tabs */}
           <div style={{ display:'flex', gap:6, marginBottom:22 }}>
@@ -266,6 +294,87 @@ export default function SuperAdminRequests() {
               })}
             </div>
           )}
+          </>) /* end AR Requests tab */}
+
+          {/* ── LIVE ITEMS TAB ── */}
+          {activeTab === 'items' && (() => {
+            const filtered = itemFilter === 'all'        ? menuItems
+                           : itemFilter === 'pending_ar' ? menuItems.filter(i => !i.arReady)
+                           :                               menuItems.filter(i =>  i.arReady);
+            return (
+              <>
+                {/* Sub-filter pills */}
+                <div style={{ display:'flex', gap:6, marginBottom:20 }}>
+                  {[
+                    { key:'all',        label:'All Items' },
+                    { key:'pending_ar', label:'⏳ Awaiting AR' },
+                    { key:'ar_ready',   label:'✅ AR Active' },
+                  ].map(f => (
+                    <button key={f.key} onClick={()=>setItemFilter(f.key)} style={{ padding:'7px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', background: itemFilter===f.key?'#1E1B18':'#fff', color: itemFilter===f.key?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow: itemFilter===f.key?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
+                      {f.label} ({f.key==='all'?menuItems.length : f.key==='pending_ar'?menuItems.filter(i=>!i.arReady).length : menuItems.filter(i=>i.arReady).length})
+                    </button>
+                  ))}
+                </div>
+
+                {loading ? (
+                  <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
+                    <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
+                    <div style={{ fontSize:40, marginBottom:12 }}>🍽️</div>
+                    <p style={{ fontSize:14 }}>No items found.</p>
+                  </div>
+                ) : (
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
+                    {filtered.map(item => (
+                      <div key={item.id+item.restaurantId} style={{ ...S.card, padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+                        {/* Image */}
+                        <div style={{ width:'100%', height:140, borderRadius:14, overflow:'hidden', background:'#F2F0EC', flexShrink:0, position:'relative' }}>
+                          {item.imageURL
+                            ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:36 }}>🍽️</div>
+                          }
+                          {/* AR status pill overlay */}
+                          <div style={{ position:'absolute', top:8, right:8, padding:'3px 10px', borderRadius:99, fontSize:10, fontWeight:700, background: item.arReady ? 'rgba(45,139,78,0.92)' : 'rgba(30,27,24,0.75)', color:'#fff', backdropFilter:'blur(4px)' }}>
+                            {item.arReady ? '✅ AR Active' : '⏳ Awaiting AR'}
+                          </div>
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:2 }}>{item.name}</div>
+                          <div style={{ fontSize:11, color:'rgba(42,31,16,0.5)', marginBottom:6, display:'flex', gap:8, flexWrap:'wrap' }}>
+                            <span style={{ background:'rgba(247,155,61,0.12)', color:'#A06010', borderRadius:6, padding:'1px 7px', fontWeight:600 }}>
+                              {item.restaurantName}
+                            </span>
+                            {item.category && <span>{item.category}</span>}
+                            {item.price    && <span style={{ fontWeight:700, color:'#E05A3A' }}>₹{item.price}</span>}
+                          </div>
+                          {item.description && (
+                            <p style={{ fontSize:11, color:'rgba(42,31,16,0.45)', lineHeight:1.5, margin:0, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ borderTop:'1px solid rgba(42,31,16,0.06)', paddingTop:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <div style={{ fontSize:10, color:'rgba(42,31,16,0.35)' }}>
+                            Added {item.createdAt?.seconds ? new Date(item.createdAt.seconds*1000).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : 'recently'}
+                          </div>
+                          <div style={{ display:'flex', gap:6, fontSize:10, color:'rgba(42,31,16,0.4)' }}>
+                            {item.views   > 0 && <span>👁 {item.views}</span>}
+                            {item.arViews > 0 && <span>🥽 {item.arViews}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </SuperAdminLayout>
