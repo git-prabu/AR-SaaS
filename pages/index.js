@@ -2,6 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+
 const plans = [
   {
     name: 'Starter', price: '₹999', per: '/month',
