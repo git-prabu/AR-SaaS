@@ -286,7 +286,11 @@ function SwipeableSheet({ onClose, children, darkMode }) {
   );
 }
 
-export default function RestaurantMenu({ restaurant, menuItems, offers, combos, error }) {
+export default function RestaurantMenu({ restaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error }) {
+  // ── Live data state — seeded from ISR cache, refreshed from Firestore ──
+  const [menuItems, setMenuItems] = useState(initialItems || []);
+  const [offers,    setOffers]    = useState(initialOffers || []);
+  const [combos,    setCombos]    = useState(initialCombos || []);
   const [activeCat,    setActiveCat]    = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showAR,       setShowAR]       = useState(false);
@@ -322,6 +326,26 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(()=>{});
+  }, [restaurant?.id]);
+
+  // ── Background data refresh — keeps menu fresh despite ISR cache ──
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    const refresh = async () => {
+      try {
+        const [freshItems, freshOffers, freshCombos] = await Promise.all([
+          getMenuItems(restaurant.id),
+          getActiveOffers(restaurant.id),
+          getCombos(restaurant.id),
+        ]);
+        setMenuItems(freshItems || []);
+        setOffers(freshOffers   || []);
+        setCombos(freshCombos   || []);
+      } catch (e) { /* silently keep ISR data on error */ }
+    };
+    refresh(); // immediate background refresh on every page load
+    window.addEventListener('focus', refresh); // refresh when tab regains focus
+    return () => window.removeEventListener('focus', refresh);
   }, [restaurant?.id]);
 
   useEffect(() => {
