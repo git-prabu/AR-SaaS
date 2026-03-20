@@ -22,7 +22,7 @@ const FOOD_PLACEHOLDERS = [
 ];
 function getPlaceholder(id) {
   let h = 0;
-  for (let i = 0; i < (id||'').length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < (id || '').length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return FOOD_PLACEHOLDERS[h % FOOD_PLACEHOLDERS.length];
 }
 
@@ -85,31 +85,31 @@ function CardPrice({ price, className }) {
 }
 
 const SPICE_MAP = {
-  Mild:      { label:'Mild',      color:'#D4820A', bg:'#FFF8EC', dot:'🟡' },
-  Medium:    { label:'Medium',    color:'#C45A18', bg:'#FFF2EB', dot:'🟠' },
-  Spicy:     { label:'Spicy',     color:'#B52020', bg:'#FFEAEA', dot:'🔴' },
-  'Very Spicy':{ label:'Very Spicy', color:'#8B0000', bg:'#FFE0E0', dot:'🔴' },
+  Mild: { label: 'Mild', color: '#D4820A', bg: '#FFF8EC', dot: '🟡' },
+  Medium: { label: 'Medium', color: '#C45A18', bg: '#FFF2EB', dot: '🟠' },
+  Spicy: { label: 'Spicy', color: '#B52020', bg: '#FFEAEA', dot: '🔴' },
+  'Very Spicy': { label: 'Very Spicy', color: '#8B0000', bg: '#FFE0E0', dot: '🔴' },
 };
 
 function catIcon(name) {
-  const n = (name||'').toLowerCase();
-  if (n==='all')              return '◈';
+  const n = (name || '').toLowerCase();
+  if (n === 'all') return '◈';
   if (n.includes('starter') || n.includes('appetizer')) return '🥗';
-  if (n.includes('main'))    return '🍛';
-  if (n.includes('burger'))  return '🍔';
-  if (n.includes('pizza'))   return '🍕';
-  if (n.includes('pasta') || n.includes('noodle'))    return '🍝';
-  if (n.includes('dessert') || n.includes('sweet'))   return '🍰';
+  if (n.includes('main')) return '🍛';
+  if (n.includes('burger')) return '🍔';
+  if (n.includes('pizza')) return '🍕';
+  if (n.includes('pasta') || n.includes('noodle')) return '🍝';
+  if (n.includes('dessert') || n.includes('sweet')) return '🍰';
   if (n.includes('drink') || n.includes('beverage') || n.includes('juice')) return '🥤';
-  if (n.includes('coffee') || n.includes('tea'))      return '☕';
+  if (n.includes('coffee') || n.includes('tea')) return '☕';
   if (n.includes('breakfast')) return '🥞';
-  if (n.includes('seafood') || n.includes('fish'))    return '🐟';
+  if (n.includes('seafood') || n.includes('fish')) return '🐟';
   if (n.includes('chicken')) return '🍗';
-  if (n.includes('rice') || n.includes('biryani'))    return '🍚';
-  if (n.includes('salad'))   return '🥙';
-  if (n.includes('soup'))    return '🍲';
-  if (n.includes('snack'))   return '🍿';
-  if (n.includes('special') || n.includes('chef'))    return '⭐';
+  if (n.includes('rice') || n.includes('biryani')) return '🍚';
+  if (n.includes('salad')) return '🥙';
+  if (n.includes('soup')) return '🍲';
+  if (n.includes('snack')) return '🍿';
+  if (n.includes('special') || n.includes('chef')) return '⭐';
   return '🍽️';
 }
 
@@ -117,123 +117,143 @@ function catIcon(name) {
 
 // SOLO questions
 const SOLO_QUESTIONS = [
-  { id:'diet',   emoji:'🌿', q:'Any dietary preference?',    sub:'We\'ll only show dishes that match',
-    opts:[{l:'Vegetarian',v:'veg',e:'🌿'},{l:'Non-Vegetarian',v:'nonveg',e:'🍗'},{l:'No Preference',v:'any',e:'✌️'}] },
-  { id:'mood',   emoji:'✨', q:'What\'s your mood today?',    sub:'Pick what sounds good right now',
-    opts:[{l:'Comfort Food',v:'comfort',e:'🍲'},{l:'Something Healthy',v:'healthy',e:'🥦'},{l:'Most Popular',v:'popular',e:'🔥'},{l:'Try Something New',v:'new',e:'🌟'}] },
-  { id:'spice',  emoji:'🌶️', q:'How spicy do you like it?',  sub:'We\'ll match your spice tolerance',
-    opts:[{l:'Mild / No Spice',v:'mild',e:'😌'},{l:'Medium',v:'medium',e:'😄'},{l:'Spicy',v:'spicy',e:'🥵'},{l:'Any Level',v:'any',e:'🤷'}] },
-  { id:'size',   emoji:'🍽️', q:'How hungry are you?',        sub:'Choose your meal size',
-    opts:[{l:'Light Bite',v:'light',e:'🥗'},{l:'Regular Meal',v:'regular',e:'🍛'},{l:'Feast Mode',v:'heavy',e:'🤤'},{l:'Anything',v:'any',e:'👌'}] },
-  { id:'budget', emoji:'💰', q:'Budget per dish?',            sub:'Pick a price range',
-    opts:[{l:'Under ₹200',v:'budget',e:'💵'},{l:'₹200–₹500',v:'mid',e:'💳'},{l:'₹500+',v:'premium',e:'💎'},{l:'No Limit',v:'any',e:'🤑'}] },
+  {
+    id: 'diet', emoji: '🌿', q: 'Any dietary preference?', sub: 'We\'ll only show dishes that match',
+    opts: [{ l: 'Vegetarian', v: 'veg', e: '🌿' }, { l: 'Non-Vegetarian', v: 'nonveg', e: '🍗' }, { l: 'No Preference', v: 'any', e: '✌️' }]
+  },
+  {
+    id: 'mood', emoji: '✨', q: 'What\'s your mood today?', sub: 'Pick what sounds good right now',
+    opts: [{ l: 'Comfort Food', v: 'comfort', e: '🍲' }, { l: 'Something Healthy', v: 'healthy', e: '🥦' }, { l: 'Most Popular', v: 'popular', e: '🔥' }, { l: 'Try Something New', v: 'new', e: '🌟' }]
+  },
+  {
+    id: 'spice', emoji: '🌶️', q: 'How spicy do you like it?', sub: 'We\'ll match your spice tolerance',
+    opts: [{ l: 'Mild / No Spice', v: 'mild', e: '😌' }, { l: 'Medium', v: 'medium', e: '😄' }, { l: 'Spicy', v: 'spicy', e: '🥵' }, { l: 'Any Level', v: 'any', e: '🤷' }]
+  },
+  {
+    id: 'size', emoji: '🍽️', q: 'How hungry are you?', sub: 'Choose your meal size',
+    opts: [{ l: 'Light Bite', v: 'light', e: '🥗' }, { l: 'Regular Meal', v: 'regular', e: '🍛' }, { l: 'Feast Mode', v: 'heavy', e: '🤤' }, { l: 'Anything', v: 'any', e: '👌' }]
+  },
+  {
+    id: 'budget', emoji: '💰', q: 'Budget per dish?', sub: 'Pick a price range',
+    opts: [{ l: 'Under ₹200', v: 'budget', e: '💵' }, { l: '₹200–₹500', v: 'mid', e: '💳' }, { l: '₹500+', v: 'premium', e: '💎' }, { l: 'No Limit', v: 'any', e: '🤑' }]
+  },
 ];
 
 // GROUP questions — reframed for the whole table
 const GROUP_QUESTIONS = [
-  { id:'diet',   emoji:'🌿', q:'Anyone at the table vegetarian?', sub:'We\'ll make sure no one is left out',
-    opts:[{l:'Yes — keep it veg friendly',v:'veg',e:'🌿'},{l:'No, we eat everything',v:'any',e:'🍗'},{l:'Mix — include both options',v:'mixed',e:'✌️'}] },
-  { id:'spice',  emoji:'🌶️', q:'What\'s the group\'s spice limit?', sub:'Pick the lowest tolerance in the group',
-    opts:[{l:'Keep it mild for everyone',v:'mild',e:'😌'},{l:'Medium is fine',v:'medium',e:'😄'},{l:'We all love it spicy',v:'spicy',e:'🥵'},{l:'No limit',v:'any',e:'🤷'}] },
-  { id:'style',  emoji:'🤝', q:'How is the group ordering?',       sub:'Helps us suggest the right portions',
-    opts:[{l:'Everyone orders their own',v:'individual',e:'🍽️'},{l:'Sharing dishes together',v:'sharing',e:'🤲'},{l:'Mix of both',v:'mix',e:'🔄'}] },
-  { id:'mood',   emoji:'✨', q:'What\'s the vibe today?',          sub:'Pick the general mood of the group',
-    opts:[{l:'Comfort & classics',v:'comfort',e:'🍲'},{l:'Light & healthy',v:'healthy',e:'🥦'},{l:'Go with what\'s popular',v:'popular',e:'🔥'},{l:'Explore something new',v:'new',e:'🌟'}] },
-  { id:'budget', emoji:'💰', q:'Budget per person?',               sub:'Per head, not total',
-    opts:[{l:'Under ₹200 per head',v:'budget',e:'💵'},{l:'₹200–₹500 per head',v:'mid',e:'💳'},{l:'₹500+ per head',v:'premium',e:'💎'},{l:'No limit',v:'any',e:'🤑'}] },
+  {
+    id: 'diet', emoji: '🌿', q: 'Anyone at the table vegetarian?', sub: 'We\'ll make sure no one is left out',
+    opts: [{ l: 'Yes — keep it veg friendly', v: 'veg', e: '🌿' }, { l: 'No, we eat everything', v: 'any', e: '🍗' }, { l: 'Mix — include both options', v: 'mixed', e: '✌️' }]
+  },
+  {
+    id: 'spice', emoji: '🌶️', q: 'What\'s the group\'s spice limit?', sub: 'Pick the lowest tolerance in the group',
+    opts: [{ l: 'Keep it mild for everyone', v: 'mild', e: '😌' }, { l: 'Medium is fine', v: 'medium', e: '😄' }, { l: 'We all love it spicy', v: 'spicy', e: '🥵' }, { l: 'No limit', v: 'any', e: '🤷' }]
+  },
+  {
+    id: 'style', emoji: '🤝', q: 'How is the group ordering?', sub: 'Helps us suggest the right portions',
+    opts: [{ l: 'Everyone orders their own', v: 'individual', e: '🍽️' }, { l: 'Sharing dishes together', v: 'sharing', e: '🤲' }, { l: 'Mix of both', v: 'mix', e: '🔄' }]
+  },
+  {
+    id: 'mood', emoji: '✨', q: 'What\'s the vibe today?', sub: 'Pick the general mood of the group',
+    opts: [{ l: 'Comfort & classics', v: 'comfort', e: '🍲' }, { l: 'Light & healthy', v: 'healthy', e: '🥦' }, { l: 'Go with what\'s popular', v: 'popular', e: '🔥' }, { l: 'Explore something new', v: 'new', e: '🌟' }]
+  },
+  {
+    id: 'budget', emoji: '💰', q: 'Budget per person?', sub: 'Per head, not total',
+    opts: [{ l: 'Under ₹200 per head', v: 'budget', e: '💵' }, { l: '₹200–₹500 per head', v: 'mid', e: '💳' }, { l: '₹500+ per head', v: 'premium', e: '💎' }, { l: 'No limit', v: 'any', e: '🤑' }]
+  },
 ];
 
 const GROUP_SIZES = [
-  {n:2,e:'👫'},{n:3,e:'👨‍👩‍👦'},{n:4,e:'👨‍👩‍👧‍👦'},{n:5,e:'🧑‍🤝‍🧑'},{n:'6+',e:'🎉'},
+  { n: 2, e: '👫' }, { n: 3, e: '👨‍👩‍👦' }, { n: 4, e: '👨‍👩‍👧‍👦' }, { n: 5, e: '🧑‍🤝‍🧑' }, { n: '6+', e: '🎉' },
 ];
 
-const LIGHT_CATS  = ['starter','salad','soup','snack','drink','beverage','dessert'];
-const HEAVY_CATS  = ['main','burger','pasta','pizza','biryani','thali','grill','rice'];
-const SHARING_KW  = ['platter','sharing','family','large','combo','bucket','plate','thali','spread','feast'];
-const HEALTHY_KW  = ['salad','grilled','steamed','healthy','light','vegan','fresh','oat','quinoa','fruit'];
-const COMFORT_KW  = ['butter','cheese','cream','fried','crispy','masala','curry','rich','loaded','classic','special'];
+const LIGHT_CATS = ['starter', 'salad', 'soup', 'snack', 'drink', 'beverage', 'dessert'];
+const HEAVY_CATS = ['main', 'burger', 'pasta', 'pizza', 'biryani', 'thali', 'grill', 'rice'];
+const SHARING_KW = ['platter', 'sharing', 'family', 'large', 'combo', 'bucket', 'plate', 'thali', 'spread', 'feast'];
+const HEALTHY_KW = ['salad', 'grilled', 'steamed', 'healthy', 'light', 'vegan', 'fresh', 'oat', 'quinoa', 'fruit'];
+const COMFORT_KW = ['butter', 'cheese', 'cream', 'fried', 'crispy', 'masala', 'curry', 'rich', 'loaded', 'classic', 'special'];
 
 function isShareable(item) {
-  const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
+  const txt = `${item.name || ''} ${item.description || ''} ${item.category || ''}`.toLowerCase();
   return SHARING_KW.some(k => txt.includes(k));
 }
 
-function scoreItem(item, ans, groupSize=1) {
+function scoreItem(item, ans, groupSize = 1) {
   let s = 0;
-  const txt = `${item.name||''} ${item.description||''} ${item.category||''}`.toLowerCase();
-  const cat = (item.category||'').toLowerCase();
-  const sp  = item.spiceLevel || 'None';
-  const pr  = item.price ? Number(item.price) : null;
+  const txt = `${item.name || ''} ${item.description || ''} ${item.category || ''}`.toLowerCase();
+  const cat = (item.category || '').toLowerCase();
+  const sp = item.spiceLevel || 'None';
+  const pr = item.price ? Number(item.price) : null;
   const big = typeof groupSize === 'number' ? groupSize >= 4 : true; // 6+ counts as big
 
   // ── diet ──
-  if (ans.diet==='veg'   && item.isVeg===false) return -999;
-  if (ans.diet==='veg'   && item.isVeg===true)  s+=20;
-  if (ans.diet==='mixed') { /* allow both, slight boost to veg items for inclusivity */ if (item.isVeg===true) s+=8; }
-  if (ans.diet==='nonveg'&& item.isVeg===true)  s-=10;
+  if (ans.diet === 'veg' && item.isVeg === false) return -999;
+  if (ans.diet === 'veg' && item.isVeg === true) s += 20;
+  if (ans.diet === 'mixed') { /* allow both, slight boost to veg items for inclusivity */ if (item.isVeg === true) s += 8; }
+  if (ans.diet === 'nonveg' && item.isVeg === true) s -= 10;
 
   // ── spice ──
-  if (ans.spice==='mild'   && ['Spicy','Very Spicy'].includes(sp)) return -999;
-  if (ans.spice==='mild'   && ['None','Mild'].includes(sp)) s+=15;
-  if (ans.spice==='medium' && sp==='Medium') s+=20;
-  if (ans.spice==='spicy'  && ['Spicy','Very Spicy'].includes(sp)) s+=25;
+  if (ans.spice === 'mild' && ['Spicy', 'Very Spicy'].includes(sp)) return -999;
+  if (ans.spice === 'mild' && ['None', 'Mild'].includes(sp)) s += 15;
+  if (ans.spice === 'medium' && sp === 'Medium') s += 20;
+  if (ans.spice === 'spicy' && ['Spicy', 'Very Spicy'].includes(sp)) s += 25;
 
   // ── budget ──
   if (pr !== null) {
-    if (ans.budget==='budget'  && pr<200)           s+=20; else if (ans.budget==='budget')  s-=15;
-    if (ans.budget==='mid'     && pr>=200&&pr<=500) s+=20; else if (ans.budget==='mid')     s-=8;
-    if (ans.budget==='premium' && pr>500)           s+=20; else if (ans.budget==='premium'&&pr<200) s-=10;
+    if (ans.budget === 'budget' && pr < 200) s += 20; else if (ans.budget === 'budget') s -= 15;
+    if (ans.budget === 'mid' && pr >= 200 && pr <= 500) s += 20; else if (ans.budget === 'mid') s -= 8;
+    if (ans.budget === 'premium' && pr > 500) s += 20; else if (ans.budget === 'premium' && pr < 200) s -= 10;
   }
 
   // ── size / style ──
-  if (ans.size==='light') { if (LIGHT_CATS.some(l=>cat.includes(l))) s+=18; if (HEAVY_CATS.some(h=>cat.includes(h))) s-=15; }
-  if (ans.size==='heavy') { if (HEAVY_CATS.some(h=>cat.includes(h))) s+=18; }
+  if (ans.size === 'light') { if (LIGHT_CATS.some(l => cat.includes(l))) s += 18; if (HEAVY_CATS.some(h => cat.includes(h))) s -= 15; }
+  if (ans.size === 'heavy') { if (HEAVY_CATS.some(h => cat.includes(h))) s += 18; }
 
   // Group style: sharing dishes get a boost for groups that want to share or for large groups
-  if (ans.style==='sharing' && isShareable(item)) s+=25;
-  if (ans.style==='sharing' && HEAVY_CATS.some(h=>cat.includes(h))) s+=10;
-  if (big && isShareable(item)) s+=15; // large groups always benefit from shareable dishes
+  if (ans.style === 'sharing' && isShareable(item)) s += 25;
+  if (ans.style === 'sharing' && HEAVY_CATS.some(h => cat.includes(h))) s += 10;
+  if (big && isShareable(item)) s += 15; // large groups always benefit from shareable dishes
 
   // ── mood ──
-  if (ans.mood==='popular') { if (item.isPopular||item.isFeatured) s+=30; }
-  if (ans.mood==='healthy') { if (HEALTHY_KW.some(k=>txt.includes(k))) s+=20; if (item.calories&&item.calories<400) s+=10; }
-  if (ans.mood==='comfort') { if (COMFORT_KW.some(k=>txt.includes(k))) s+=20; }
-  if (ans.mood==='new')     { if (item.isFeatured) s+=25; s+=Math.floor(Math.random()*12); }
+  if (ans.mood === 'popular') { if (item.isPopular || item.isFeatured) s += 30; }
+  if (ans.mood === 'healthy') { if (HEALTHY_KW.some(k => txt.includes(k))) s += 20; if (item.calories && item.calories < 400) s += 10; }
+  if (ans.mood === 'comfort') { if (COMFORT_KW.some(k => txt.includes(k))) s += 20; }
+  if (ans.mood === 'new') { if (item.isFeatured) s += 25; s += Math.floor(Math.random() * 12); }
 
-  s += Math.min((item.views||0)+(item.arViews||0)*2, 20)*0.3;
+  s += Math.min((item.views || 0) + (item.arViews || 0) * 2, 20) * 0.3;
   return s;
 }
 
-function filterItems(items, ans, groupSize=1) {
+function filterItems(items, ans, groupSize = 1) {
   return items
-    .map(i => ({ item:i, score:scoreItem(i, ans, groupSize) }))
-    .filter(({score}) => score > -999)
-    .sort((a,b) => b.score - a.score);
+    .map(i => ({ item: i, score: scoreItem(i, ans, groupSize) }))
+    .filter(({ score }) => score > -999)
+    .sort((a, b) => b.score - a.score);
 }
 
 
 /* ─── SwipeableSheet — iOS-style drag-to-dismiss bottom sheet ─── */
 function SwipeableSheet({ onClose, children, darkMode }) {
-  const sheetRef   = useRef(null);
-  const startYRef  = useRef(0);
+  const sheetRef = useRef(null);
+  const startYRef = useRef(0);
   const currentYRef = useRef(0);
   const isDragging = useRef(false);
-  const startTime  = useRef(0);
+  const startTime = useRef(0);
   const [dragY, setDragY] = useState(0);
 
-  const DISMISS_THRESHOLD  = 120; // px down to dismiss
+  const DISMISS_THRESHOLD = 120; // px down to dismiss
   const VELOCITY_THRESHOLD = 0.45; // px/ms fast flick
 
   const onTouchStart = (e) => {
     const sheet = sheetRef.current;
     if (!sheet) return;
     const touch = e.touches[0];
-    const rect  = sheet.getBoundingClientRect();
+    const rect = sheet.getBoundingClientRect();
     // Only start drag if touch is within top 60px (handle zone)
     if (touch.clientY - rect.top > 60) return;
-    isDragging.current  = true;
-    startYRef.current   = touch.clientY;
-    startTime.current   = Date.now();
+    isDragging.current = true;
+    startYRef.current = touch.clientY;
+    startTime.current = Date.now();
     currentYRef.current = 0;
   };
 
@@ -248,8 +268,8 @@ function SwipeableSheet({ onClose, children, darkMode }) {
   const onTouchEnd = () => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    const delta    = currentYRef.current;
-    const elapsed  = Math.max(1, Date.now() - startTime.current);
+    const delta = currentYRef.current;
+    const elapsed = Math.max(1, Date.now() - startTime.current);
     const velocity = delta / elapsed;
     if (delta > DISMISS_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
       onClose();
@@ -259,21 +279,21 @@ function SwipeableSheet({ onClose, children, darkMode }) {
     currentYRef.current = 0;
   };
 
-  const progress  = Math.min(dragY / 300, 1);
-  const bgAlpha   = darkMode ? 0.85 * (1 - progress) : 0.5 * (1 - progress);
+  const progress = Math.min(dragY / 300, 1);
+  const bgAlpha = darkMode ? 0.85 * (1 - progress) : 0.5 * (1 - progress);
 
   return (
     <div
-      style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center', background:`rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.18s ease' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: `rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         ref={sheetRef}
         style={{
-          width:'100%', maxWidth:540,
+          width: '100%', maxWidth: 540,
           transform: `translateY(${dragY}px)`,
           transition: isDragging.current ? 'none' : 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
-          willChange:'transform',
+          willChange: 'transform',
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -286,37 +306,33 @@ function SwipeableSheet({ onClose, children, darkMode }) {
   );
 }
 
-export default function RestaurantMenu({ restaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error }) {
-  // ── Live data state — seeded from ISR cache, refreshed from Firestore ──
-  const [menuItems, setMenuItems] = useState(initialItems || []);
-  const [offers,    setOffers]    = useState(initialOffers || []);
-  const [combos,    setCombos]    = useState(initialCombos || []);
-  const [activeCat,    setActiveCat]    = useState('All');
+export default function RestaurantMenu({ restaurant, menuItems, offers, combos, error }) {
+  const [activeCat, setActiveCat] = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
-  const [showAR,       setShowAR]       = useState(false);
-  const [imgErr,       setImgErr]       = useState({});
-  const [imgLoaded,    setImgLoaded]    = useState({});
-  const [smaOpen,      setSmaOpen]      = useState(false);
-  const [smaMode,      setSmaMode]      = useState(null);    // null | 'solo' | 'group'
-  const [groupSize,    setGroupSize]    = useState(null);    // 2|3|4|5|'6+'
-  const [smaStep,      setSmaStep]      = useState(0);
-  const [smaAnswers,   setSmaAnswers]   = useState({});
-  const [smaResults,   setSmaResults]   = useState([]);
+  const [showAR, setShowAR] = useState(false);
+  const [imgErr, setImgErr] = useState({});
+  const [imgLoaded, setImgLoaded] = useState({});
+  const [smaOpen, setSmaOpen] = useState(false);
+  const [smaMode, setSmaMode] = useState(null);    // null | 'solo' | 'group'
+  const [groupSize, setGroupSize] = useState(null);    // 2|3|4|5|'6+'
+  const [smaStep, setSmaStep] = useState(0);
+  const [smaAnswers, setSmaAnswers] = useState({});
+  const [smaResults, setSmaResults] = useState([]);
   // Ratings
-  const [userRatings,   setUserRatings]   = useState({});  // { itemId: 1-5 }
+  const [userRatings, setUserRatings] = useState({});  // { itemId: 1-5 }
   const [ratingPending, setRatingPending] = useState(null);
   // Waiter call
-  const [waiterModal,   setWaiterModal]   = useState(false);
-  const [waiterReason,  setWaiterReason]  = useState(null);
-  const [waiterTable,   setWaiterTable]   = useState('');
-  const [waiterSent,    setWaiterSent]    = useState(false);
+  const [waiterModal, setWaiterModal] = useState(false);
+  const [waiterReason, setWaiterReason] = useState(null);
+  const [waiterTable, setWaiterTable] = useState('');
+  const [waiterSent, setWaiterSent] = useState(false);
   const [waiterSending, setWaiterSending] = useState(false);
   // Derived from Firestore via restaurant prop — admin can toggle in Notifications page
   const waiterCallsEnabled = restaurant?.waiterCallsEnabled !== false;
   // Pairs Well With (manual, set by admin per item)
   // Cart (order tracker — state only, not sent anywhere)
-  const [cart,          setCart]          = useState([]); // [{id,name,price,qty,imageURL}]
-  const [cartOpen,      setCartOpen]      = useState(false);
+  const [cart, setCart] = useState([]); // [{id,name,price,qty,imageURL}]
+  const [cartOpen, setCartOpen] = useState(false);
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -325,37 +341,17 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   });
 
   useEffect(() => {
-    if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(()=>{});
-  }, [restaurant?.id]);
-
-  // ── Background data refresh — keeps menu fresh despite ISR cache ──
-  useEffect(() => {
-    if (!restaurant?.id) return;
-    const refresh = async () => {
-      try {
-        const [freshItems, freshOffers, freshCombos] = await Promise.all([
-          getMenuItems(restaurant.id),
-          getActiveOffers(restaurant.id),
-          getCombos(restaurant.id),
-        ]);
-        setMenuItems(freshItems || []);
-        setOffers(freshOffers   || []);
-        setCombos(freshCombos   || []);
-      } catch (e) { /* silently keep ISR data on error */ }
-    };
-    refresh(); // immediate background refresh on every page load
-    window.addEventListener('focus', refresh); // refresh when tab regains focus
-    return () => window.removeEventListener('focus', refresh);
+    if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(() => { });
   }, [restaurant?.id]);
 
   useEffect(() => {
-    document.body.style.overflow = (selectedItem||smaOpen) ? 'hidden' : '';
+    document.body.style.overflow = (selectedItem || smaOpen) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [selectedItem, smaOpen]);
 
 
-  const cats     = ['All', ...new Set((menuItems||[]).map(i=>i.category).filter(Boolean))];
-  const filtered = activeCat==='All' ? (menuItems||[]) : (menuItems||[]).filter(i=>i.category===activeCat);
+  const cats = ['All', ...new Set((menuItems || []).map(i => i.category).filter(Boolean))];
+  const filtered = activeCat === 'All' ? (menuItems || []) : (menuItems || []).filter(i => i.category === activeCat);
 
 
 
@@ -446,7 +442,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     });
     return () => { cancelAnimationFrame(raf); if (obs) obs.disconnect(); };
   }, [filtered]);
-  const arCount  = (menuItems||[]).filter(i=>i.modelURL).length;
+  const arCount = (menuItems || []).filter(i => i.modelURL).length;
 
 
   /* ─── Rating handler ─── */
@@ -467,7 +463,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     setWaiterSending(true);
     try {
       await createWaiterCall(restaurant.id, {
-        reason:      waiterReason,
+        reason: waiterReason,
         tableNumber: waiterTable || 'Not specified',
         restaurantName: restaurant.name,
       });
@@ -488,7 +484,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     setCart(prev => {
       const existing = prev.find(c => c.id === item.id);
       if (existing) return prev.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { id:item.id, name:item.name, price:item.price||0, qty:1, imageURL:item.imageURL||null }];
+      return [...prev, { id: item.id, name: item.name, price: item.price || 0, qty: 1, imageURL: item.imageURL || null }];
     });
   }, []);
   const removeFromCart = useCallback((id) => {
@@ -498,63 +494,63 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
       return prev.filter(c => c.id !== id);
     });
   }, []);
-  const clearCart  = useCallback(() => setCart([]), []);
-  const cartTotal  = cart.reduce((s, c) => s + c.qty, 0);
-  const cartPrice  = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
+  const clearCart = useCallback(() => setCart([]), []);
+  const cartTotal = cart.reduce((s, c) => s + c.qty, 0);
+  const cartPrice = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
   // ─────────────────────────────────────────────────────────
 
 
   const openItem = useCallback(async (item) => {
     setSelectedItem(item); setShowAR(false);
-    if (restaurant?.id) incrementItemView(restaurant.id, item.id).catch(()=>{});
+    if (restaurant?.id) incrementItemView(restaurant.id, item.id).catch(() => { });
   }, [restaurant?.id]);
-  const closeItem     = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
+  const closeItem = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
   const handleARLaunch = useCallback(async () => {
-    if (restaurant?.id && selectedItem?.id) incrementARView(restaurant.id, selectedItem.id).catch(()=>{});
+    if (restaurant?.id && selectedItem?.id) incrementARView(restaurant.id, selectedItem.id).catch(() => { });
   }, [restaurant?.id, selectedItem?.id]);
   const imgSrc = (item) => (!imgErr[item.id] && item.imageURL) ? item.imageURL : getPlaceholder(item.id);
 
-  const openSMA    = () => { setSmaOpen(true); setSmaMode(null); setGroupSize(null); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
-  const closeSMA   = () => setSmaOpen(false);
+  const openSMA = () => { setSmaOpen(true); setSmaMode(null); setGroupSize(null); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
+  const closeSMA = () => setSmaOpen(false);
   const restartSMA = () => { setSmaMode(null); setGroupSize(null); setSmaStep(0); setSmaAnswers({}); setSmaResults([]); };
-  const activeQs   = smaMode === 'group' ? GROUP_QUESTIONS : SOLO_QUESTIONS;
+  const activeQs = smaMode === 'group' ? GROUP_QUESTIONS : SOLO_QUESTIONS;
   const pickAnswer = (qId, val) => {
     const ans = { ...smaAnswers, [qId]: val };
     setSmaAnswers(ans);
     if (smaStep < activeQs.length - 1) setSmaStep(smaStep + 1);
-    else { setSmaResults(filterItems(menuItems||[], ans, groupSize)); setSmaStep(activeQs.length); }
+    else { setSmaResults(filterItems(menuItems || [], ans, groupSize)); setSmaStep(activeQs.length); }
   };
 
   if (error || !restaurant) return (
-    <div style={{minHeight:'100vh',background:'#FAF7F2',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif'}}>
-      <div style={{textAlign:'center'}}><div style={{fontSize:52,marginBottom:12}}>🍽️</div>
-        <h1 style={{fontSize:20,fontWeight:700,color:'#1E1B18'}}>Restaurant not found</h1>
-        <p style={{color:'#9A9A9A',marginTop:6,fontSize:14}}>This page doesn't exist or is inactive.</p>
+    <div style={{ minHeight: '100vh', background: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif' }}>
+      <div style={{ textAlign: 'center' }}><div style={{ fontSize: 52, marginBottom: 12 }}>🍽️</div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1E1B18' }}>Restaurant not found</h1>
+        <p style={{ color: '#9A9A9A', marginTop: 6, fontSize: 14 }}>This page doesn't exist or is inactive.</p>
       </div>
     </div>
   );
   // ── Subscription enforcement ──────────────────────────────────────────
-  const subEnd       = restaurant?.subscriptionEnd;
-  const payStatus    = restaurant?.paymentStatus;
-  const isExpired    = subEnd && new Date(subEnd) < new Date();
-  const isInactive   = payStatus && payStatus !== 'active';
-  const menuBlocked  = isExpired || isInactive;
+  const subEnd = restaurant?.subscriptionEnd;
+  const payStatus = restaurant?.paymentStatus;
+  const isExpired = subEnd && new Date(subEnd) < new Date();
+  const isInactive = payStatus && payStatus !== 'active';
+  const menuBlocked = isExpired || isInactive;
 
   if (menuBlocked) return (
-    <div style={{minHeight:'100vh',background:'#FAF7F2',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Inter,sans-serif',padding:24}}>
-      <div style={{textAlign:'center',maxWidth:420}}>
-        <div style={{fontSize:56,marginBottom:20}}>🍽️</div>
-        <h1 style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:22,color:'#1E1B18',marginBottom:10}}>
+    <div style={{ minHeight: '100vh', background: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter,sans-serif', padding: 24 }}>
+      <div style={{ textAlign: 'center', maxWidth: 420 }}>
+        <div style={{ fontSize: 56, marginBottom: 20 }}>🍽️</div>
+        <h1 style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 22, color: '#1E1B18', marginBottom: 10 }}>
           {restaurant.name}
         </h1>
-        <div style={{padding:'20px 28px',background:'#fff',borderRadius:20,boxShadow:'0 4px 24px rgba(0,0,0,0.07)',border:'1px solid rgba(42,31,16,0.08)'}}>
-          <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
-          <div style={{fontWeight:700,fontSize:17,color:'#1E1B18',marginBottom:8}}>Menu Temporarily Unavailable</div>
-          <div style={{color:'rgba(42,31,16,0.55)',fontSize:14,lineHeight:1.6}}>
+        <div style={{ padding: '20px 28px', background: '#fff', borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', border: '1px solid rgba(42,31,16,0.08)' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontWeight: 700, fontSize: 17, color: '#1E1B18', marginBottom: 8 }}>Menu Temporarily Unavailable</div>
+          <div style={{ color: 'rgba(42,31,16,0.55)', fontSize: 14, lineHeight: 1.6 }}>
             This restaurant's digital menu is currently unavailable. Please ask a staff member for the physical menu or contact the restaurant directly.
           </div>
         </div>
-        <div style={{marginTop:16,fontSize:12,color:'rgba(42,31,16,0.35)'}}>Powered by Advert Radical</div>
+        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>Powered by Advert Radical</div>
       </div>
     </div>
   );
@@ -570,27 +566,27 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className={darkMode ? 'dm' : ''} id="app-root" style={{position:'relative'}}>
+      <div className={darkMode ? 'dm' : ''} id="app-root" style={{ position: 'relative' }}>
         {/* Plasma background — shows only in dark mode via CSS */}
         <div className="plasma-bg" aria-hidden="true">
-          <div className="plasma-blob pb1"/>
-          <div className="plasma-blob pb2"/>
-          <div className="plasma-blob pb3"/>
-          <div className="plasma-blob pb4"/>
-          <div className="plasma-overlay"/>
+          <div className="plasma-blob pb1" />
+          <div className="plasma-blob pb2" />
+          <div className="plasma-blob pb3" />
+          <div className="plasma-blob pb4" />
+          <div className="plasma-overlay" />
         </div>
         {/* SVG turbulence filter for electric card borders */}
-        <svg className="card-turb-svg" xmlns="http://www.w3.org/2000/svg" style={{position:"absolute",width:0,height:0,overflow:"hidden",pointerEvents:"none"}}>
+        <svg className="card-turb-svg" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}>
           <defs>
             <filter id="card-turb" colorInterpolationFilters="sRGB" x="-5%" y="-5%" width="110%" height="110%">
               <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="4" result="noise1" seed="1">
-                <animate attributeName="baseFrequency" values="0.02;0.025;0.02" dur="6s" repeatCount="indefinite"/>
+                <animate attributeName="baseFrequency" values="0.02;0.025;0.02" dur="6s" repeatCount="indefinite" />
               </feTurbulence>
-              <feDisplacementMap in="SourceGraphic" in2="noise1" scale="2" xChannelSelector="R" yChannelSelector="B"/>
+              <feDisplacementMap in="SourceGraphic" in2="noise1" scale="2" xChannelSelector="R" yChannelSelector="B" />
             </filter>
           </defs>
         </svg>
-      <style>{`
+        <style>{`
         html, body { margin:0; padding:0; }
         #app-root { transition: background 0.4s ease, color 0.4s ease; }
         #app-root *, #app-root *::before, #app-root *::after {
@@ -1824,703 +1820,703 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
       `}</style>
 
-      {/* ─── HEADER ─── */}
-      <header className="hdr" ref={hdrRef}>
-        <div className="hdr-inner">
-          <div className="hdr-top">
-            {/* CircularText around restaurant logo */}
-            <div style={{ position:'relative', width:80, height:80, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {/* Spinning ring of text */}
-              <div className="circ-ring">
-                {(() => {
-                  const txt = '• AR MENU • EXPLORE • ';
-                  const chars = txt.split('');
-                  const radius = 36;
-                  return chars.map((ch, i) => {
-                    const angle = (i * 360) / chars.length;
-                    const rad = (angle * Math.PI) / 180;
-                    const x = Math.sin(rad) * radius;
-                    const y = -Math.cos(rad) * radius;
-                    return (
-                      <span key={i} style={{
-                        position:'absolute', left:`calc(50% + ${x}px)`, top:`calc(50% + ${y}px)`,
-                        transform:`translate(-50%,-50%) rotate(${angle}deg)`,
-                        fontSize:8, fontWeight:800, letterSpacing:0.5, userSelect:'none',
-                        color: darkMode ? 'rgba(247,155,61,0.7)' : 'rgba(247,155,61,0.85)',
-                        lineHeight:1,
-                      }}>{ch}</span>
-                    );
-                  });
-                })()}
+        {/* ─── HEADER ─── */}
+        <header className="hdr" ref={hdrRef}>
+          <div className="hdr-inner">
+            <div className="hdr-top">
+              {/* CircularText around restaurant logo */}
+              <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* Spinning ring of text */}
+                <div className="circ-ring">
+                  {(() => {
+                    const txt = '• AR MENU • EXPLORE • ';
+                    const chars = txt.split('');
+                    const radius = 36;
+                    return chars.map((ch, i) => {
+                      const angle = (i * 360) / chars.length;
+                      const rad = (angle * Math.PI) / 180;
+                      const x = Math.sin(rad) * radius;
+                      const y = -Math.cos(rad) * radius;
+                      return (
+                        <span key={i} style={{
+                          position: 'absolute', left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)`,
+                          transform: `translate(-50%,-50%) rotate(${angle}deg)`,
+                          fontSize: 8, fontWeight: 800, letterSpacing: 0.5, userSelect: 'none',
+                          color: darkMode ? 'rgba(247,155,61,0.7)' : 'rgba(247,155,61,0.85)',
+                          lineHeight: 1,
+                        }}>{ch}</span>
+                      );
+                    });
+                  })()}
+                </div>
+                {/* Logo sits in center */}
+                <div className="r-logo" style={{ position: 'relative', zIndex: 1, width: 44, height: 44 }}>🍽️</div>
               </div>
-              {/* Logo sits in center */}
-              <div className="r-logo" style={{ position:'relative', zIndex:1, width:44, height:44 }}>🍽️</div>
+              <div>
+                <div className="r-name">{restaurant.name}</div>
+                <div className="r-sub">Tap any dish · See it in AR on your table</div>
+              </div>
+              <button className="theme-toggle" onClick={() => setDarkMode(d => { const next = !d; if (typeof window !== "undefined") localStorage.setItem("ar_theme", next ? "dark" : "light"); return next; })} title={darkMode ? "Switch to Light" : "Switch to Dark"} aria-label="Toggle theme">
+                <span className="tgl-slider">
+                  <span className="tgl-star tgl-star-1" />
+                  <span className="tgl-star tgl-star-2" />
+                  <span className="tgl-star tgl-star-3" />
+                  <svg viewBox="0 0 16 16" className="tgl-cloud">
+                    <path transform="matrix(.77976 0 0 .78395-299.99-418.63)" fill="#fff" d="m391.84 540.91c-.421-.329-.949-.524-1.523-.524-1.351 0-2.451 1.084-2.485 2.435-1.395.526-2.388 1.88-2.388 3.466 0 1.874 1.385 3.423 3.182 3.667v.034h12.73v-.006c1.775-.104 3.182-1.584 3.182-3.395 0-1.747-1.309-3.186-2.994-3.379.007-.106.011-.214.011-.322 0-2.707-2.271-4.901-5.072-4.901-2.073 0-3.856 1.202-4.643 2.925" />
+                  </svg>
+                </span>
+              </button>
+              {arCount > 0 && (
+                <div className="ar-badge"><span className="ar-dot" /><span className="shiny-txt">AR Live</span></div>
+              )}
             </div>
-            <div>
-              <div className="r-name">{restaurant.name}</div>
-              <div className="r-sub">Tap any dish · See it in AR on your table</div>
+            {/* Category tabs */}
+            <div className="cats-outer">
+              <div className="cats-scroll">
+                {cats.map(c => (
+                  <button key={c} className={`cat-pill${activeCat === c ? ' on' : ''}`} data-label={c} style={{ animationDelay: `${cats.indexOf(c) * 0.04}s` }} onClick={() => setActiveCat(c)}>
+                    <span className="cat-emoji">{catIcon(c)}</span>
+                    {c}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button className="theme-toggle" onClick={()=>setDarkMode(d=>{ const next=!d; if(typeof window!=="undefined") localStorage.setItem("ar_theme",next?"dark":"light"); return next; })} title={darkMode?"Switch to Light":"Switch to Dark"} aria-label="Toggle theme">
-              <span className="tgl-slider">
-                <span className="tgl-star tgl-star-1"/>
-                <span className="tgl-star tgl-star-2"/>
-                <span className="tgl-star tgl-star-3"/>
-                <svg viewBox="0 0 16 16" className="tgl-cloud">
-                  <path transform="matrix(.77976 0 0 .78395-299.99-418.63)" fill="#fff" d="m391.84 540.91c-.421-.329-.949-.524-1.523-.524-1.351 0-2.451 1.084-2.485 2.435-1.395.526-2.388 1.88-2.388 3.466 0 1.874 1.385 3.423 3.182 3.667v.034h12.73v-.006c1.775-.104 3.182-1.584 3.182-3.395 0-1.747-1.309-3.186-2.994-3.379.007-.106.011-.214.011-.322 0-2.707-2.271-4.901-5.072-4.901-2.073 0-3.856 1.202-4.643 2.925"/>
-                </svg>
-              </span>
-            </button>
-            {arCount > 0 && (
-              <div className="ar-badge"><span className="ar-dot"/><span className="shiny-txt">AR Live</span></div>
-            )}
           </div>
-          {/* Category tabs */}
-          <div className="cats-outer">
-            <div className="cats-scroll">
-              {cats.map(c => (
-                <button key={c} className={`cat-pill${activeCat===c?' on':''}`} data-label={c} style={{animationDelay:`${cats.indexOf(c)*0.04}s`}} onClick={()=>setActiveCat(c)}>
-                  <span className="cat-emoji">{catIcon(c)}</span>
-                  {c}
+        </header>
+
+        <main className="main">
+
+          {/* ── Offers Horizontal Scroll Strip ── */}
+          {(offers || []).length > 0 && (
+            <div className="offers-section-wrap" style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingInline: 4 }}>
+                <span style={{ fontSize: 14 }}>🎉</span>
+                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? '#F79B3D' : '#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
+              </div>
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 6, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexWrap: 'nowrap', filter: 'url(#card-turb)' }}>
+                {(offers || []).map((offer, i) => {
+                  const linked = offer.linkedItemId ? (menuItems || []).find(m => m.id === offer.linkedItemId) : null;
+                  const isClickable = !!offer.linkedItemId;
+                  return (
+                    <div key={offer.id || i} style={{ flexShrink: 0, minWidth: 200, maxWidth: 250, borderRadius: 18, border: '1.5px solid rgba(247,155,61,0.35)', overflow: 'hidden' }}>
+                      <div
+                        onClick={() => { if (linked) openItem(linked); }}
+                        style={{ padding: '12px 14px', borderRadius: 16, background: darkMode ? 'rgba(18,14,10,0.80)' : 'rgba(255,252,248,0.98)', display: 'flex', alignItems: 'center', gap: 10, cursor: isClickable ? 'pointer' : 'default', transition: 'all 0.18s' }}
+                        onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(50,38,20,0.98)' : 'rgba(247,240,225,0.98)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+                        onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(30,27,24,0.95)' : 'rgba(255,252,248,0.98)'; e.currentTarget.style.transform = ''; }}>
+                        {/* Dish image or emoji */}
+                        {(offer.linkedItemImage || linked?.imageURL)
+                          ? <img src={offer.linkedItemImage || linked?.imageURL} alt={offer.linkedItemName || linked?.name} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(247,155,61,0.25)' }} />
+                          : <div style={{ fontSize: 22, flexShrink: 0 }}>🏷️</div>
+                        }
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: darkMode ? '#F4D080' : '#8B6010', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{offer.title}</div>
+                          {offer.description && <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,220,100,0.65)' : '#B09040', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{offer.description}</div>}
+                          {/* Price display */}
+                          {(offer.discountedPrice || (linked?.price && offer.linkedItemId)) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                              {(offer.linkedItemPrice || linked?.price) && (
+                                <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,220,100,0.45)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through' }}>₹{offer.linkedItemPrice || linked?.price}</span>
+                              )}
+                              {offer.discountedPrice && (
+                                <span style={{ fontSize: 13, fontWeight: 800, color: darkMode ? '#7EE0A0' : '#1A7A40' }}>₹{offer.discountedPrice}</span>
+                              )}
+                            </div>
+                          )}
+                          {isClickable && <div style={{ fontSize: 10, fontWeight: 700, color: darkMode ? 'rgba(255,220,100,0.5)' : 'rgba(139,96,16,0.6)', marginTop: 2 }}>Tap to view →</div>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* AR strip */}
+          {arCount > 0 && (
+            <div className="ar-strip">
+              <span className="ar-strip-icon">🥽</span>
+              <div>
+                <div className="ar-strip-text">{arCount} dish{arCount !== 1 ? 'es' : ''} available in AR</div>
+                <div className="ar-strip-sub">No app needed · Tap a card, then View in AR</div>
+              </div>
+              <div className="ar-strip-chip">TRY IT</div>
+            </div>
+          )}
+
+          {/* ── Combos Section ───────────────────────────────────── */}
+          {(combos || []).filter(c => c.isActive !== false).length > 0 && activeCat === 'All' && (
+            <div className="combos-section-wrap" style={{ marginBottom: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 18 }}>🍱</span>
+                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: darkMode ? '#F79B3D' : '#A06010' }}><span className="shiny-txt">Combo Deals</span></span>
+                <span style={{ padding: '3px 10px', borderRadius: 20, background: darkMode ? 'rgba(247,155,61,0.2)' : 'rgba(247,155,61,0.15)', color: darkMode ? '#F4C050' : '#A06010', fontSize: 11, fontWeight: 700, border: '1px solid rgba(247,155,61,0.3)' }}>Special Offers</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, filter: 'url(#card-turb)' }}>
+                {(combos || []).filter(c => c.isActive !== false).map(combo => {
+                  const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
+                  return (
+                    <div key={combo.id} style={{ borderRadius: 18, border: '1.5px solid rgba(247,155,61,0.35)', background: darkMode ? 'linear-gradient(135deg,rgba(18,14,10,0.80),rgba(28,20,10,0.80))' : 'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))', backdropFilter: darkMode ? 'blur(12px)' : 'none', WebkitBackdropFilter: darkMode ? 'blur(12px)' : 'none', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
+                          <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: darkMode ? 'var(--text-1)' : '#1E1B18' }}>{combo.name}</span>
+                          {combo.tag && <span style={{ padding: '2px 9px', borderRadius: 20, background: 'rgba(247,155,61,0.25)', color: darkMode ? '#F4C050' : '#A06010', fontSize: 11, fontWeight: 700 }}>{combo.tag}</span>}
+                        </div>
+                        {combo.description && <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', marginBottom: 8 }}>{combo.description}</div>}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {comboItems.map(item => (
+                            <span key={item.id} style={{ padding: '3px 9px', borderRadius: 20, background: darkMode ? 'rgba(255,245,232,0.1)' : 'rgba(42,31,16,0.06)', fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.65)', fontWeight: 500 }}>{item.name}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#E05A3A' }}>₹{combo.comboPrice}</div>
+                        {combo.originalPrice > combo.comboPrice && (
+                          <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through' }}>₹{combo.originalPrice}</div>
+                        )}
+                        {combo.savings > 0 && (
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#2D8B4E', marginTop: 2 }}>Save ₹{combo.savings}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Grid */}
+          {filtered.length === 0 ? (
+            <div className="empty">
+              <div style={{ fontSize: 44, marginBottom: 10 }}>🥢</div>
+              <p style={{ fontWeight: 600, fontSize: 14, color: '#9A9A9A' }}>No items in this category</p>
+            </div>
+          ) : (
+            <div className="grid">
+              {filtered.map((item, idx) => (
+                <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s` }} onClick={() => openItem(item)}>
+                  <div className="c-img">
+                    <div className={`img-skeleton${imgLoaded[item.id] ? ' loaded' : ''}`} />
+                    <img src={imgSrc(item)} alt={item.name} loading="lazy"
+                      className={imgLoaded[item.id] ? 'img-visible' : ''}
+                      onLoad={() => setImgLoaded(s => ({ ...s, [item.id]: true }))}
+                      onError={() => { setImgErr(e => ({ ...e, [item.id]: true })); setImgLoaded(s => ({ ...s, [item.id]: true })); }} />
+                    {item.modelURL && (
+                      <span className="c-ar-pill">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                        </svg>
+                        AR
+                      </span>
+                    )}
+                    {typeof item.isVeg === 'boolean' && <span className={`veg-ind ${item.isVeg ? 'v' : 'nv'}`} />}
+                    {item.offerBadge && item.offerLabel && (
+                      <div className="c-ribbon" style={{ background: item.offerColor || '#F79B3D' }}>🏷 {item.offerLabel}</div>
+                    )}
+                  </div>
+                  <div className="c-body">
+                    {(item.isPopular || item.isFeatured) && (
+                      <div className="c-badges">
+                        {item.isFeatured && <span className="c-badge c-badge-feat">⭐ Featured</span>}
+                        {item.isPopular && <span className="c-badge c-badge-pop">✦ Popular</span>}
+                      </div>
+                    )}
+                    <div className="c-name">{item.name}</div>
+                    <div className="c-price-row">
+                      {item.price && <CardPrice price={item.price} className="c-price" />}
+                      {item.calories && <span className="c-cal">{item.calories} kcal</span>}
+                      {item.ratingCount > 0 && (
+                        <span style={{ fontSize: 11, color: '#F79B3D', fontWeight: 700, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                          ★ {item.ratingAvg?.toFixed(1)}
+                          <span style={{ color: 'rgba(42,31,16,0.35)', fontWeight: 400 }}> ({item.ratingCount})</span>
+                        </span>
+                      )}
+                    </div>
+                    {(item.spiceLevel && item.spiceLevel !== 'None' || item.prepTime) && (
+                      <div className="c-meta">
+                        {item.spiceLevel && item.spiceLevel !== 'None' && SPICE_MAP[item.spiceLevel] && (
+                          <span className="c-spice-chip" style={{ background: SPICE_MAP[item.spiceLevel].bg, color: SPICE_MAP[item.spiceLevel].color }}>
+                            {SPICE_MAP[item.spiceLevel].dot} {SPICE_MAP[item.spiceLevel].label}
+                          </span>
+                        )}
+                        {item.prepTime && <span className="c-prep">⏱ {item.prepTime}</span>}
+                      </div>
+                    )}
+                    {item.modelURL && (
+                      <div className="c-ar-cta">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                        </svg>
+                        View in AR
+                      </div>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
-          </div>
-        </div>
-      </header>
+          )}
+        </main>
 
-      <main className="main">
-
-        {/* ── Offers Horizontal Scroll Strip ── */}
-        {(offers||[]).length > 0 && (
-          <div className="offers-section-wrap" style={{ marginBottom:14 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, paddingInline:4 }}>
-              <span style={{ fontSize:14 }}>🎉</span>
-              <span style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:13, color: darkMode?'#F79B3D':'#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
-            </div>
-            <div style={{ display:'flex', gap:10, overflowX:'auto', overflowY:'hidden', paddingBottom:6, WebkitOverflowScrolling:'touch', scrollbarWidth:'none', flexWrap:'nowrap', filter:'url(#card-turb)' }}>
-              {(offers||[]).map((offer, i) => {
-                const linked = offer.linkedItemId ? (menuItems||[]).find(m => m.id === offer.linkedItemId) : null;
-                const isClickable = !!offer.linkedItemId;
-                return (
-                  <div key={offer.id||i} style={{ flexShrink:0, minWidth:200, maxWidth:250, borderRadius:18, border:'1.5px solid rgba(247,155,61,0.35)', overflow:'hidden' }}>
-                    <div
-                      onClick={() => { if (linked) openItem(linked); }}
-                      style={{ padding:'12px 14px', borderRadius:16, background: darkMode?'rgba(18,14,10,0.80)':'rgba(255,252,248,0.98)', display:'flex', alignItems:'center', gap:10, cursor:isClickable?'pointer':'default', transition:'all 0.18s' }}
-                      onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(50,38,20,0.98)' : 'rgba(247,240,225,0.98)'; e.currentTarget.style.transform='translateY(-2px)'; } }}
-                      onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(30,27,24,0.95)' : 'rgba(255,252,248,0.98)'; e.currentTarget.style.transform=''; }}>
-                    {/* Dish image or emoji */}
-                    {(offer.linkedItemImage || linked?.imageURL)
-                      ? <img src={offer.linkedItemImage||linked?.imageURL} alt={offer.linkedItemName||linked?.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(247,155,61,0.25)' }} />
-                      : <div style={{ fontSize:22, flexShrink:0 }}>🏷️</div>
-                    }
-                    <div style={{ minWidth:0 }}>
-                      <div style={{ fontWeight:700, fontSize:13, color: darkMode?'#F4D080':'#8B6010', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.title}</div>
-                      {offer.description && <div style={{ fontSize:11, color: darkMode?'rgba(255,220,100,0.65)':'#B09040', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{offer.description}</div>}
-                      {/* Price display */}
-                      {(offer.discountedPrice || (linked?.price && offer.linkedItemId)) && (
-                        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3 }}>
-                          {(offer.linkedItemPrice || linked?.price) && (
-                            <span style={{ fontSize:11, color: darkMode?'rgba(255,220,100,0.45)':'rgba(42,31,16,0.4)', textDecoration:'line-through' }}>₹{offer.linkedItemPrice||linked?.price}</span>
-                          )}
-                          {offer.discountedPrice && (
-                            <span style={{ fontSize:13, fontWeight:800, color: darkMode?'#7EE0A0':'#1A7A40' }}>₹{offer.discountedPrice}</span>
-                          )}
-                        </div>
-                      )}
-                      {isClickable && <div style={{ fontSize:10, fontWeight:700, color: darkMode?'rgba(255,220,100,0.5)':'rgba(139,96,16,0.6)', marginTop:2 }}>Tap to view →</div>}
-                    </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        {/* ─── FABs: SMA + Waiter Call ─── */}
+        {!selectedItem && !smaOpen && (
+          <div className="fab-wrap">
+            {/* Waiter call — pill shaped, labelled */}
+            {waiterCallsEnabled && (
+              <button className="waiter-fab" onClick={() => setWaiterModal(true)}
+                style={{ width: 'auto', borderRadius: 50, padding: '10px 18px', gap: 7, display: 'flex', alignItems: 'center', background: darkMode ? '#2A2520' : '#fff', border: '1.5px solid rgba(42,31,16,0.1)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', fontSize: 13, fontWeight: 700, fontFamily: 'Inter,sans-serif', color: darkMode ? '#FFF5E8' : '#1E1B18', whiteSpace: 'nowrap' }}>
+                🙋 Need Help?
+              </button>
+            )}
+            {/* Cart FAB — only show when cart has items */}
+            {cartTotal > 0 && (
+              <button className="cart-fab" onClick={() => setCartOpen(true)} style={{ background: darkMode ? '#2A2520' : '#fff', border: '1.5px solid rgba(42,31,16,0.1)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+                <span>🛒</span>
+                <span>{cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
+                <div className="cart-badge">{cartTotal}</div>
+              </button>
+            )}
+            <button className="sma-fab" onClick={openSMA}>
+              <span className="sma-fab-icon">✨</span>
+              Help Me Choose
+            </button>
           </div>
         )}
 
-        {/* AR strip */}
-        {arCount > 0 && (
-          <div className="ar-strip">
-            <span className="ar-strip-icon">🥽</span>
-            <div>
-              <div className="ar-strip-text">{arCount} dish{arCount!==1?'es':''} available in AR</div>
-              <div className="ar-strip-sub">No app needed · Tap a card, then View in AR</div>
-            </div>
-            <div className="ar-strip-chip">TRY IT</div>
-          </div>
-        )}
-
-        {/* ── Combos Section ───────────────────────────────────── */}
-        {(combos||[]).filter(c=>c.isActive!==false).length > 0 && activeCat === 'All' && (
-          <div className="combos-section-wrap" style={{marginBottom:28}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-              <span style={{fontSize:18}}>🍱</span>
-              <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:16,color:darkMode?'#F79B3D':'#A06010'}}><span className="shiny-txt">Combo Deals</span></span>
-              <span style={{padding:'3px 10px',borderRadius:20,background:darkMode?'rgba(247,155,61,0.2)':'rgba(247,155,61,0.15)',color:darkMode?'#F4C050':'#A06010',fontSize:11,fontWeight:700,border:'1px solid rgba(247,155,61,0.3)'}}>Special Offers</span>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:12, filter:'url(#card-turb)'}}>
-              {(combos||[]).filter(c=>c.isActive!==false).map(combo => {
-                const comboItems = (combo.itemIds||[]).map(id=>(menuItems||[]).find(i=>i.id===id)).filter(Boolean);
-                return (
-                  <div key={combo.id} style={{borderRadius:18, border:'1.5px solid rgba(247,155,61,0.35)', background:darkMode?'linear-gradient(135deg,rgba(18,14,10,0.80),rgba(28,20,10,0.80))':'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))',backdropFilter:darkMode?'blur(12px)':'none',WebkitBackdropFilter:darkMode?'blur(12px)':'none',padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
-                    <div style={{flex:1,minWidth:200}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
-                        <span style={{fontFamily:'Poppins,sans-serif',fontWeight:700,fontSize:15,color:darkMode?'var(--text-1)':'#1E1B18'}}>{combo.name}</span>
-                        {combo.tag && <span style={{padding:'2px 9px',borderRadius:20,background:'rgba(247,155,61,0.25)',color:darkMode?'#F4C050':'#A06010',fontSize:11,fontWeight:700}}>{combo.tag}</span>}
-                      </div>
-                      {combo.description && <div style={{fontSize:12,color:darkMode?'rgba(255,245,232,0.55)':'rgba(42,31,16,0.55)',marginBottom:8}}>{combo.description}</div>}
-                      <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                        {comboItems.map(item=>(
-                          <span key={item.id} style={{padding:'3px 9px',borderRadius:20,background:darkMode?'rgba(255,245,232,0.1)':'rgba(42,31,16,0.06)',fontSize:12,color:darkMode?'rgba(255,245,232,0.7)':'rgba(42,31,16,0.65)',fontWeight:500}}>{item.name}</span>
-                        ))}
-                      </div>
+        {/* ─── ITEM MODAL ─── */}
+        {selectedItem && (
+          <SwipeableSheet onClose={closeItem} darkMode={darkMode}>
+            <div className="sheet">
+              <div className="handle-row"><div className="handle" /></div>
+              <button className="close-btn" onClick={closeItem}>✕</button>
+              {!showAR && (
+                <div className="m-hero">
+                  <img src={imgSrc(selectedItem)} alt={selectedItem.name}
+                    onError={() => setImgErr(e => ({ ...e, [selectedItem.id]: true }))} />
+                  {selectedItem.offerBadge && selectedItem.offerLabel && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '7px 14px', background: selectedItem.offerColor || '#F79B3D', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center' }}>
+                      🏷 {selectedItem.offerLabel}
                     </div>
-                    <div style={{textAlign:'right',flexShrink:0}}>
-                      <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:22,color:'#E05A3A'}}>₹{combo.comboPrice}</div>
-                      {combo.originalPrice > combo.comboPrice && (
-                        <div style={{fontSize:12,color:darkMode?'rgba(255,245,232,0.35)':'rgba(42,31,16,0.35)',textDecoration:'line-through'}}>₹{combo.originalPrice}</div>
-                      )}
-                      {combo.savings > 0 && (
-                        <div style={{fontSize:12,fontWeight:700,color:'#2D8B4E',marginTop:2}}>Save ₹{combo.savings}</div>
-                      )}
-                    </div>
-                </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Grid */}
-        {filtered.length === 0 ? (
-          <div className="empty">
-            <div style={{fontSize:44,marginBottom:10}}>🥢</div>
-            <p style={{fontWeight:600,fontSize:14,color:'#9A9A9A'}}>No items in this category</p>
-          </div>
-        ) : (
-          <div className="grid">
-            {filtered.map((item, idx) => (
-              <button key={item.id} className="card" style={{animationDelay:`${idx*0.05}s`}} onClick={()=>openItem(item)}>
-                <div className="c-img">
-                  <div className={`img-skeleton${imgLoaded[item.id]?' loaded':''}`}/>
-                  <img src={imgSrc(item)} alt={item.name} loading="lazy"
-                    className={imgLoaded[item.id]?'img-visible':''}
-                    onLoad={()=>setImgLoaded(s=>({...s,[item.id]:true}))}
-                    onError={()=>{ setImgErr(e=>({...e,[item.id]:true})); setImgLoaded(s=>({...s,[item.id]:true})); }}/>
-                  {item.modelURL && (
-                    <span className="c-ar-pill">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-                      </svg>
-                      AR
-                    </span>
-                  )}
-                  {typeof item.isVeg === 'boolean' && <span className={`veg-ind ${item.isVeg?'v':'nv'}`}/>}
-                  {item.offerBadge && item.offerLabel && (
-                    <div className="c-ribbon" style={{background:item.offerColor||'#F79B3D'}}>🏷 {item.offerLabel}</div>
                   )}
                 </div>
-                <div className="c-body">
-                  {(item.isPopular||item.isFeatured) && (
-                    <div className="c-badges">
-                      {item.isFeatured && <span className="c-badge c-badge-feat">⭐ Featured</span>}
-                      {item.isPopular  && <span className="c-badge c-badge-pop">✦ Popular</span>}
-                    </div>
-                  )}
-                  <div className="c-name">{item.name}</div>
-                  <div className="c-price-row">
-                    {item.price    && <CardPrice price={item.price} className="c-price"/>}
-                    {item.calories && <span className="c-cal">{item.calories} kcal</span>}
-                    {item.ratingCount > 0 && (
-                      <span style={{ fontSize:11, color:'#F79B3D', fontWeight:700, marginLeft:'auto', whiteSpace:'nowrap' }}>
-                        ★ {item.ratingAvg?.toFixed(1)}
-                        <span style={{ color:'rgba(42,31,16,0.35)', fontWeight:400 }}> ({item.ratingCount})</span>
+              )}
+              <div className="sbody">
+                <h2 className="m-title">{selectedItem.name}</h2>
+                <div className="m-tags">
+                  {selectedItem.category && <span className="tag tag-cat">{selectedItem.category}</span>}
+                  {typeof selectedItem.isVeg === 'boolean' && <span className={selectedItem.isVeg ? 'tag tag-veg' : 'tag tag-nv'}>{selectedItem.isVeg ? '● Veg' : '● Non-Veg'}</span>}
+                  {selectedItem.isPopular && <span className="tag tag-pop">✦ Popular</span>}
+                </div>
+                {(selectedItem.prepTime || (selectedItem.spiceLevel && selectedItem.spiceLevel !== 'None')) && (
+                  <div className="m-pills">
+                    {selectedItem.prepTime && <span className="m-pill">⏱ {selectedItem.prepTime}</span>}
+                    {selectedItem.spiceLevel && selectedItem.spiceLevel !== 'None' && SPICE_MAP[selectedItem.spiceLevel] && (
+                      <span className="m-pill" style={{ background: SPICE_MAP[selectedItem.spiceLevel].bg, color: SPICE_MAP[selectedItem.spiceLevel].color }}>
+                        {SPICE_MAP[selectedItem.spiceLevel].dot} {selectedItem.spiceLevel}
                       </span>
                     )}
                   </div>
-                  {(item.spiceLevel && item.spiceLevel!=='None' || item.prepTime) && (
-                    <div className="c-meta">
-                      {item.spiceLevel && item.spiceLevel!=='None' && SPICE_MAP[item.spiceLevel] && (
-                        <span className="c-spice-chip" style={{background:SPICE_MAP[item.spiceLevel].bg,color:SPICE_MAP[item.spiceLevel].color}}>
-                          {SPICE_MAP[item.spiceLevel].dot} {SPICE_MAP[item.spiceLevel].label}
-                        </span>
+                )}
+                {selectedItem.price && <><PriceCounter key={selectedItem.id} price={selectedItem.price} className="m-price" animate={true} /><div className="m-price-sub">per serving</div></>}
+                {selectedItem.description && <p className="m-desc">{selectedItem.description}</p>}
+                {(selectedItem.calories || selectedItem.protein || selectedItem.carbs || selectedItem.fats) && (<>
+                  <div className="divider" />
+                  <div className="sec-lbl">Nutrition</div>
+                  <div className="nutr">
+                    {[{ l: 'Calories', v: selectedItem.calories, u: 'kcal' }, { l: 'Protein', v: selectedItem.protein, u: 'g' }, { l: 'Carbs', v: selectedItem.carbs, u: 'g' }, { l: 'Fats', v: selectedItem.fats, u: 'g' }]
+                      .filter(n => n.v).map(n => (<div key={n.l} className="nc"><div className="nc-v">{n.v}</div><div className="nc-u">{n.u}</div><div className="nc-l">{n.l}</div></div>))}
+                  </div>
+                </>)}
+                {selectedItem.ingredients?.length > 0 && (<>
+                  <div className="sec-lbl">Ingredients</div>
+                  <div className="ings">{selectedItem.ingredients.map(ing => <span key={ing} className="ing">{ing}</span>)}</div>
+                </>)}
+                {!showAR && selectedItem.modelURL && (<>
+                  <div className="divider" />
+                  <button className="ar-btn" onClick={() => { setShowAR(true); handleARLaunch(); }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
+                    View in AR — <span className="ar-btn-sub">Point at Your Table</span>
+                  </button>
+                  <div className="ar-hint">No app needed · Works on Android Chrome &amp; iOS Safari</div>
+                </>)}
+                {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch} />}
+
+                {/* ── Add to Order List ── */}
+                {(() => {
+                  const inCart = cart.find(c => c.id === selectedItem.id);
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 8px', flexWrap: 'wrap' }}>
+                      {inCart ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.05)', borderRadius: 50 }}>
+                            <button className="qty-btn" onClick={() => removeFromCart(selectedItem.id)}>−</button>
+                            <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-1,#1E1B18)', minWidth: 20, textAlign: 'center' }}>{inCart.qty}</span>
+                            <button className="qty-btn" onClick={() => addToCart(selectedItem)}>+</button>
+                          </div>
+                          <span style={{ fontSize: 13, color: 'var(--text-muted,rgba(42,31,16,0.5))', fontWeight: 600 }}>in your order list</span>
+                        </>
+                      ) : (
+                        <button onClick={() => addToCart(selectedItem)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 50, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#ffffff' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer', boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)' }}>
+                          🛒 Add to Order List
+                        </button>
                       )}
-                      {item.prepTime && <span className="c-prep">⏱ {item.prepTime}</span>}
+                      {(selectedItem.price > 0) && (
+                        <span style={{ fontSize: 18, fontWeight: 800, color: '#E05A3A', fontFamily: 'Poppins,sans-serif', marginLeft: 'auto' }}>₹{selectedItem.price}</span>
+                      )}
                     </div>
-                  )}
-                  {item.modelURL && (
-                    <div className="c-ar-cta">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-                      </svg>
-                      View in AR
-                    </div>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </main>
+                  );
+                })()}
 
-      {/* ─── FABs: SMA + Waiter Call ─── */}
-      {!selectedItem && !smaOpen && (
-        <div className="fab-wrap">
-          {/* Waiter call — pill shaped, labelled */}
-          {waiterCallsEnabled && (
-          <button className="waiter-fab" onClick={() => setWaiterModal(true)}
-            style={{ width:'auto', borderRadius:50, padding:'10px 18px', gap:7, display:'flex', alignItems:'center', background: darkMode?'#2A2520':'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', fontSize:13, fontWeight:700, fontFamily:'Inter,sans-serif', color: darkMode?'#FFF5E8':'#1E1B18', whiteSpace:'nowrap' }}>
-            🙋 Need Help?
-          </button>
-          )}
-          {/* Cart FAB — only show when cart has items */}
-          {cartTotal > 0 && (
-            <button className="cart-fab" onClick={() => setCartOpen(true)} style={{background: darkMode?'#2A2520':'#fff', border:'1.5px solid rgba(42,31,16,0.1)', boxShadow:'0 4px 16px rgba(0,0,0,0.12)', color: darkMode?'#FFF5E8':'#1E1B18'}}>
-              <span>🛒</span>
-              <span>{cartTotal} item{cartTotal!==1?'s':''}</span>
-              <div className="cart-badge">{cartTotal}</div>
-            </button>
-          )}
-          <button className="sma-fab" onClick={openSMA}>
-            <span className="sma-fab-icon">✨</span>
-            Help Me Choose
-          </button>
-        </div>
-      )}
-
-      {/* ─── ITEM MODAL ─── */}
-      {selectedItem && (
-        <SwipeableSheet onClose={closeItem} darkMode={darkMode}>
-          <div className="sheet">
-            <div className="handle-row"><div className="handle"/></div>
-            <button className="close-btn" onClick={closeItem}>✕</button>
-            {!showAR && (
-              <div className="m-hero">
-                <img src={imgSrc(selectedItem)} alt={selectedItem.name}
-                  onError={()=>setImgErr(e=>({...e,[selectedItem.id]:true}))}/>
-                {selectedItem.offerBadge && selectedItem.offerLabel && (
-                  <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'7px 14px',background:selectedItem.offerColor||'#F79B3D',color:'#fff',fontSize:12,fontWeight:700,textAlign:'center'}}>
-                    🏷 {selectedItem.offerLabel}
+                {/* ─── Star Rating ─── */}
+                {!showAR && (
+                  <div style={{ margin: '20px 0 8px', padding: '16px 0', borderTop: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(42,31,16,0.08)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: darkMode ? 'rgba(255,255,255,0.45)' : 'rgba(42,31,16,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Rate This Dish</div>
+                    {userRatings[selectedItem.id] ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 3 }}>
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <span key={s} style={{ fontSize: 22, color: s <= userRatings[selectedItem.id] ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.15)' }}>★</span>
+                          ))}
+                        </div>
+                        <span style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', fontWeight: 500 }}>Thanks for rating!</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize: 33, background: 'none', border: 'none', cursor: 'pointer', color: darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)', padding: '2px 3px 2px 0px', transition: 'color 0.1s, transform 0.1s', lineHeight: 1 }}
+                              onMouseOver={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for (let i = 0; i < 5; i++) { const btn = e.currentTarget.parentNode.children[i]; btn.style.color = i < s ? '#F79B3D' : empty; } }}
+                              onMouseOut={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for (let i = 0; i < 5; i++) { e.currentTarget.parentNode.children[i].style.color = empty; } }}>
+                              ★
+                            </button>
+                          ))}
+                        </div>
+                        {selectedItem.ratingCount > 0 && (
+                          <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>
+                            {selectedItem.ratingAvg?.toFixed(1)} ★ · {selectedItem.ratingCount} {selectedItem.ratingCount === 1 ? 'rating' : 'ratings'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
-            <div className="sbody">
-              <h2 className="m-title">{selectedItem.name}</h2>
-              <div className="m-tags">
-                {selectedItem.category && <span className="tag tag-cat">{selectedItem.category}</span>}
-                {typeof selectedItem.isVeg==='boolean' && <span className={selectedItem.isVeg?'tag tag-veg':'tag tag-nv'}>{selectedItem.isVeg?'● Veg':'● Non-Veg'}</span>}
-                {selectedItem.isPopular && <span className="tag tag-pop">✦ Popular</span>}
-              </div>
-              {(selectedItem.prepTime || (selectedItem.spiceLevel&&selectedItem.spiceLevel!=='None')) && (
-                <div className="m-pills">
-                  {selectedItem.prepTime && <span className="m-pill">⏱ {selectedItem.prepTime}</span>}
-                  {selectedItem.spiceLevel&&selectedItem.spiceLevel!=='None'&&SPICE_MAP[selectedItem.spiceLevel] && (
-                    <span className="m-pill" style={{background:SPICE_MAP[selectedItem.spiceLevel].bg,color:SPICE_MAP[selectedItem.spiceLevel].color}}>
-                      {SPICE_MAP[selectedItem.spiceLevel].dot} {selectedItem.spiceLevel}
-                    </span>
-                  )}
-                </div>
-              )}
-              {selectedItem.price && <><PriceCounter key={selectedItem.id} price={selectedItem.price} className="m-price" animate={true}/><div className="m-price-sub">per serving</div></>}
-              {selectedItem.description && <p className="m-desc">{selectedItem.description}</p>}
-              {(selectedItem.calories||selectedItem.protein||selectedItem.carbs||selectedItem.fats) && (<>
-                <div className="divider"/>
-                <div className="sec-lbl">Nutrition</div>
-                <div className="nutr">
-                  {[{l:'Calories',v:selectedItem.calories,u:'kcal'},{l:'Protein',v:selectedItem.protein,u:'g'},{l:'Carbs',v:selectedItem.carbs,u:'g'},{l:'Fats',v:selectedItem.fats,u:'g'}]
-                    .filter(n=>n.v).map(n=>(<div key={n.l} className="nc"><div className="nc-v">{n.v}</div><div className="nc-u">{n.u}</div><div className="nc-l">{n.l}</div></div>))}
-                </div>
-              </>)}
-              {selectedItem.ingredients?.length>0 && (<>
-                <div className="sec-lbl">Ingredients</div>
-                <div className="ings">{selectedItem.ingredients.map(ing=><span key={ing} className="ing">{ing}</span>)}</div>
-              </>)}
-              {!showAR && selectedItem.modelURL && (<>
-                <div className="divider"/>
-                <button className="ar-btn" onClick={()=>{setShowAR(true);handleARLaunch();}}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                  View in AR — <span className="ar-btn-sub">Point at Your Table</span>
-                </button>
-                <div className="ar-hint">No app needed · Works on Android Chrome &amp; iOS Safari</div>
-              </>)}
-              {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch}/>}
 
-              {/* ── Add to Order List ── */}
-              {(() => {
-                const inCart = cart.find(c => c.id === selectedItem.id);
-                return (
-                  <div style={{ display:'flex', alignItems:'center', gap:10, margin:'16px 0 8px', flexWrap:'wrap' }}>
-                    {inCart ? (
-                      <>
-                        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.05)', borderRadius:50 }}>
-                          <button className="qty-btn" onClick={()=>removeFromCart(selectedItem.id)}>−</button>
-                          <span style={{ fontWeight:800, fontSize:16, color:'var(--text-1,#1E1B18)', minWidth:20, textAlign:'center' }}>{inCart.qty}</span>
-                          <button className="qty-btn" onClick={()=>addToCart(selectedItem)}>+</button>
-                        </div>
-                        <span style={{ fontSize:13, color:'var(--text-muted,rgba(42,31,16,0.5))', fontWeight:600 }}>in your order list</span>
-                      </>
-                    ) : (
-                      <button onClick={()=>addToCart(selectedItem)} style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:50, border:'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#ffffff' : '#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer', boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)' }}>
-                        🛒 Add to Order List
-                      </button>
-                    )}
-                    {(selectedItem.price > 0) && (
-                      <span style={{ fontSize:18, fontWeight:800, color:'#E05A3A', fontFamily:'Poppins,sans-serif', marginLeft:'auto' }}>₹{selectedItem.price}</span>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* ─── Star Rating ─── */}
-              {!showAR && (
-                <div style={{ margin:'20px 0 8px', padding:'16px 0', borderTop: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(42,31,16,0.08)' }}>
-                  <div style={{ fontSize:11, fontWeight:700, color: darkMode ? 'rgba(255,255,255,0.45)' : 'rgba(42,31,16,0.4)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:10 }}>Rate This Dish</div>
-                  {userRatings[selectedItem.id] ? (
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ display:'flex', gap:3 }}>
-                        {[1,2,3,4,5].map(s => (
-                          <span key={s} style={{ fontSize:22, color: s <= userRatings[selectedItem.id] ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.15)' }}>★</span>
-                        ))}
+                {/* ─── Pairs Well With (manual) ─── */}
+                {!showAR && (selectedItem.pairsWith || []).length > 0 && (() => {
+                  const paired = (selectedItem.pairsWith || [])
+                    .map(id => (menuItems || []).find(i => i.id === id))
+                    .filter(Boolean);
+                  if (!paired.length) return null;
+                  return (
+                    <div style={{ margin: '8px 0 4px', padding: '16px 0', borderTop: '1px solid var(--divider,rgba(42,31,16,0.08))' }}>
+                      <div className="sec-lbl" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
+                        ✨ Pairs Well With
                       </div>
-                      <span style={{ fontSize:12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', fontWeight:500 }}>Thanks for rating!</span>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ display:'flex', gap:4, marginBottom:8 }}>
-                        {[1,2,3,4,5].map(s => (
-                          <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize:33, background:'none', border:'none', cursor:'pointer', color: darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)', padding:'2px 3px 2px 0px', transition:'color 0.1s, transform 0.1s', lineHeight:1 }}
-                            onMouseOver={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for(let i=0;i<5;i++) { const btn=e.currentTarget.parentNode.children[i]; btn.style.color = i<s ? '#F79B3D' : empty; } }}
-                            onMouseOut={e  => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for(let i=0;i<5;i++) { e.currentTarget.parentNode.children[i].style.color=empty; } }}>
-                            ★
+                      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                        {paired.map(u => (
+                          <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.07)', border: '1.5px solid rgba(247,155,61,0.25)', borderRadius: 14, cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left' }}
+                            onMouseOver={e => { e.currentTarget.style.background = 'rgba(247,155,61,0.22)'; e.currentTarget.style.borderColor = 'rgba(247,155,61,0.55)'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor = 'rgba(247,155,61,0.25)'; }}>
+                            {u.imageURL && (
+                              <div style={{ width: 36, height: 36, borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
+                                <img src={u.imageURL} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            )}
+                            <div>
+                              <div className="m-title" style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{u.name}</div>
+                              {u.price && <div style={{ fontSize: 11, color: '#F79B3D', fontWeight: 700 }}>₹{u.price}</div>}
+                            </div>
                           </button>
                         ))}
                       </div>
-                      {selectedItem.ratingCount > 0 && (
-                        <div style={{ fontSize:11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>
-                          {selectedItem.ratingAvg?.toFixed(1)} ★ · {selectedItem.ratingCount} {selectedItem.ratingCount === 1 ? 'rating' : 'ratings'}
-                        </div>
-                      )}
                     </div>
-                  )}
+                  );
+                })()}
+              </div>
+            </div>
+          </SwipeableSheet>
+        )}
+
+
+        {/* ─── CART DRAWER ─── */}
+        {cartOpen && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
+            onClick={e => { if (e.target === e.currentTarget) setCartOpen(false); }}>
+            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '24px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <div style={{ width: 40, height: 5, borderRadius: 3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
+              </div>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 My Order List</div>
+                  <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>Show this to your waiter when they come</div>
+                </div>
+                <button onClick={() => setCartOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
+              </div>
+              {/* Items */}
+              <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+                {cart.map(c => (
+                  <div key={c.id} className="cart-item-row">
+                    {c.imageURL && (
+                      <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                        <img src={c.imageURL} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                      {c.price > 0 && <div style={{ fontSize: 12, color: '#F79B3D', fontWeight: 700 }}>₹{c.price} each</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <button className="qty-btn" onClick={() => removeFromCart(c.id)}>−</button>
+                      <span style={{ fontWeight: 800, fontSize: 15, color: darkMode ? '#FFF5E8' : '#1E1B18', minWidth: 18, textAlign: 'center' }}>{c.qty}</span>
+                      <button className="qty-btn" onClick={() => addToCart({ id: c.id, name: c.name, price: c.price, imageURL: c.imageURL })}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* No total shown — customer decides what to order with waiter */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={clearCart} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.12)'}`, background: 'transparent', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.6)' : 'rgba(42,31,16,0.55)' }}>
+                  Clear List
+                </button>
+                <button onClick={() => setCartOpen(false)} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: '#1E1B18', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.12)'}`, color: '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
+                  ✓ Done — Show to Waiter
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── WAITER CALL MODAL ─── */}
+        {waiterCallsEnabled && waiterModal && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
+            onClick={e => { if (e.target === e.currentTarget) { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); } }}>
+            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)' }}>
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                <div style={{ width: 40, height: 5, borderRadius: 3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
+              </div>
+
+              {waiterSent ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 18, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 8 }}>
+                    Waiter notified!
+                  </div>
+                  <div style={{ fontSize: 14, color: 'rgba(42,31,16,0.5)' }}>
+                    Someone will be with you shortly.
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#4e4740', marginBottom: 6 }}>
+                    🔔 Call Waiter
+                  </div>
+                  <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', marginBottom: 22 }}>
+                    What do you need? We'll notify your waiter.
+                  </div>
+
+                  {/* Reason options */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
+                    {[
+                      { id: 'water', emoji: '💧', label: 'Need Water' },
+                      { id: 'bill', emoji: '🧾', label: 'Need Bill' },
+                      { id: 'assistance', emoji: '🙋', label: 'Need Assistance' },
+                      { id: 'order', emoji: '📋', label: 'Ready to Order' },
+                    ].map(opt => (
+                      <button key={opt.id} onClick={() => setWaiterReason(opt.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 14, border: `2px solid ${waiterReason === opt.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: waiterReason === opt.id ? 'rgba(247,155,61,0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%' }}>
+                        <span style={{ fontSize: 22 }}>{opt.emoji}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{opt.label}</span>
+                        {waiterReason === opt.id && <span style={{ marginLeft: 'auto', color: '#F79B3D', fontSize: 18 }}>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Optional table number */}
+                  <div style={{ marginBottom: 20 }}>
+                    <input
+                      value={waiterTable}
+                      onChange={e => setWaiterTable(e.target.value)}
+                      placeholder="Table number (optional)"
+                      style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.1)'}`, background: darkMode ? 'rgba(255,255,255,0.06)' : '#F7F5F2', fontSize: 14, color: darkMode ? '#FFF5E8' : '#1E1B18', outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter,sans-serif' }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleWaiterCall}
+                    disabled={!waiterReason || waiterSending}
+                    style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: waiterReason ? 'linear-gradient(135deg,#F79B3D,#F48A1E)' : 'rgba(92, 92, 92, 0.5)', color: waiterReason ? '#fff' : 'rgba(255, 255, 255, 0.57)', fontSize: 15, fontWeight: 700, fontFamily: 'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition: 'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(247,155,61,0.35)' : 'none' }}>
+                    {waiterSending ? 'Sending…' : '🔔 Call Waiter'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── SMART MENU ASSISTANT ─── */}
+        {smaOpen && (
+          <div className="sma-overlay" onClick={e => { if (e.target === e.currentTarget) closeSMA(); }}>
+            <div className="sma-sheet">
+              <div className="handle-row"><div className="handle" /></div>
+
+              {/* ── SCREEN 1: Solo vs Group picker ── */}
+              {!smaMode && (
+                <div className="sma-mode-wrap">
+                  <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>✨</div>
+                  <div className="sma-mode-title">Help Me Choose</div>
+                  <div className="sma-mode-sub">Are you ordering just for yourself or for a group?</div>
+                  <div className="sma-mode-cards">
+                    <button className="sma-mode-card" onClick={() => { setSmaMode('solo'); setSmaStep(0); }}>
+                      <div className="sma-mode-card-emoji">🙋</div>
+                      <div className="sma-mode-card-name">Just Me</div>
+                      <div className="sma-mode-card-desc">Personalised picks for your taste</div>
+                    </button>
+                    <button className="sma-mode-card" onClick={() => setSmaMode('group')}>
+                      <div className="sma-mode-card-emoji">👥</div>
+                      <div className="sma-mode-card-name">Group</div>
+                      <div className="sma-mode-card-desc">Dishes that work for everyone at the table</div>
+                    </button>
+                  </div>
+                  <button className="sma-dismiss" onClick={closeSMA}>Dismiss</button>
                 </div>
               )}
 
-              {/* ─── Pairs Well With (manual) ─── */}
-              {!showAR && (selectedItem.pairsWith||[]).length > 0 && (() => {
-                const paired = (selectedItem.pairsWith||[])
-                  .map(id => (menuItems||[]).find(i => i.id === id))
-                  .filter(Boolean);
-                if (!paired.length) return null;
+              {/* ── SCREEN 2 (Group only): How many people? ── */}
+              {smaMode === 'group' && !groupSize && (
+                <div className="sma-size-wrap">
+                  <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>👥</div>
+                  <div className="sma-size-title">How many people?</div>
+                  <div className="sma-size-sub">We'll suggest the right portions and shareable dishes</div>
+                  <div className="sma-size-grid">
+                    {GROUP_SIZES.map(({ n, e }) => (
+                      <button key={n} className="sma-size-btn" onClick={() => { setGroupSize(n); setSmaStep(0); }}>
+                        <span className="sma-size-btn-emoji">{e}</span>
+                        <div className="sma-size-btn-num">{n}</div>
+                        <div className="sma-size-btn-lbl">{n === '6+' ? 'people' : n === 1 ? 'person' : 'people'}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <button className="sma-dismiss" style={{ marginTop: 22 }} onClick={() => setSmaMode(null)}>← Back</button>
+                </div>
+              )}
+
+              {/* ── SCREENS 3–7: Questions ── */}
+              {smaMode && (smaMode === 'solo' || groupSize) && smaStep < activeQs.length && (<>
+                <div className="sma-prog-wrap">
+                  <div className="sma-prog-row">
+                    <span className="sma-prog-txt">
+                      {smaMode === 'group' && <span style={{ marginRight: 8, fontSize: 11, background: '#F0F7F2', color: '#1A6A38', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>👥 Group of {groupSize}</span>}
+                      {smaStep + 1} / {activeQs.length}
+                    </span>
+                    <button className="sma-back" onClick={() => {
+                      if (smaStep > 0) setSmaStep(s => s - 1);
+                      else if (smaMode === 'group') setGroupSize(null);
+                      else setSmaMode(null);
+                    }}>← Back</button>
+                  </div>
+                  <div className="sma-prog-bar">
+                    <div className="sma-prog-fill" style={{ width: `${((smaStep + 1) / activeQs.length) * 100}%` }} />
+                  </div>
+                </div>
+                <div className="sma-q-wrap">
+                  <div className="sma-q-emoji">{activeQs[smaStep].emoji}</div>
+                  <div className="sma-q-text">{activeQs[smaStep].q}</div>
+                  <div className="sma-q-sub">{activeQs[smaStep].sub}</div>
+                  <div className="sma-opts">
+                    {activeQs[smaStep].opts.map(o => (
+                      <button key={o.v} className="sma-opt" onClick={() => pickAnswer(activeQs[smaStep].id, o.v)}>
+                        <span className="sma-opt-emoji">{o.e}</span>
+                        <span className="sma-opt-label">{o.l}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button className="sma-dismiss" onClick={closeSMA}>Dismiss</button>
+                </div>
+              </>)}
+
+              {/* ── RESULTS ── */}
+              {smaMode && (smaMode === 'solo' || groupSize) && smaStep === activeQs.length && (() => {
+                const top = smaResults.slice(0, 12);
+                const cats = {};
+                top.forEach(({ item }) => { const c = item.category || 'Other'; if (!cats[c]) cats[c] = []; cats[c].push(item); });
+                const isGroup = smaMode === 'group';
+                const bigGroup = groupSize === '6+' || (typeof groupSize === 'number' && groupSize >= 4);
                 return (
-                  <div style={{ margin:'8px 0 4px', padding:'16px 0', borderTop:'1px solid var(--divider,rgba(42,31,16,0.08))' }}>
-                    <div className="sec-lbl" style={{ fontSize:11, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:12 }}>
-                      ✨ Pairs Well With
+                  <div className="sma-res-wrap">
+                    <div className="sma-res-hdr">
+                      <div className="sma-res-emoji">{isGroup ? '🎯' : '🎯'}</div>
+                      <div className="sma-res-title">
+                        {top.length > 0
+                          ? isGroup ? `${top.length} dishes for the table` : `${top.length} dishes for you`
+                          : 'No matches'}
+                      </div>
+                      <div className="sma-res-sub">
+                        {top.length > 0
+                          ? isGroup ? 'Works for everyone — tap any dish to see details' : 'Based on your preferences — tap to see details'
+                          : 'Try again with different preferences'}
+                      </div>
                     </div>
-                    <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
-                      {paired.map(u => (
-                        <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink:0, display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background: darkMode?'rgba(247,155,61,0.12)':'rgba(247,155,61,0.07)', border:'1.5px solid rgba(247,155,61,0.25)', borderRadius:14, cursor:'pointer', transition:'all 0.15s', textAlign:'left' }}
-                          onMouseOver={e => { e.currentTarget.style.background='rgba(247,155,61,0.22)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.55)'; }}
-                          onMouseOut={e  => { e.currentTarget.style.background = darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor='rgba(247,155,61,0.25)'; }}>
-                          {u.imageURL && (
-                            <div style={{ width:36, height:36, borderRadius:9, overflow:'hidden', flexShrink:0 }}>
-                              <img src={u.imageURL} alt={u.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-                            </div>
-                          )}
-                          <div>
-                            <div className="m-title" style={{ fontSize:12, fontWeight:600, whiteSpace:'nowrap' }}>{u.name}</div>
-                            {u.price && <div style={{ fontSize:11, color:'#F79B3D', fontWeight:700 }}>₹{u.price}</div>}
+
+                    {/* Group context banner */}
+                    {isGroup && top.length > 0 && (
+                      <div className="sma-group-banner">
+                        <span style={{ fontSize: 20 }}>👥</span>
+                        <div>
+                          <div className="sma-group-banner-text">Group of {groupSize} · {bigGroup ? 'Shareable dishes highlighted' : 'Individual portions'}</div>
+                          <div className="sma-group-banner-sub">
+                            {bigGroup ? 'Look for 🤲 tags — great for the whole table to share' : 'Each person can order their own'}
                           </div>
-                        </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {top.length === 0 ? (
+                      <div className="sma-no-match">
+                        <p>No dishes matched your filters.<br />Try relaxing some preferences.</p>
+                        <button className="sma-btn-dark" style={{ marginTop: 14, width: '100%' }} onClick={restartSMA}>Try Again</button>
+                      </div>
+                    ) : (<>
+                      {Object.entries(cats).map(([cat, items]) => (
+                        <div key={cat}>
+                          <div className="sma-cat-lbl">{cat}</div>
+                          {items.map(item => {
+                            const shareable = isGroup && isShareable(item);
+                            return (
+                              <button key={item.id} className="sma-item" onClick={() => { closeSMA(); openItem(item); }}>
+                                <img className="sma-item-img" src={imgSrc(item)} alt={item.name}
+                                  onError={() => setImgErr(e => ({ ...e, [item.id]: true }))} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div className="sma-item-name">{item.name}</div>
+                                  <div className="sma-item-meta">
+                                    {item.price && <span className="sma-item-price">₹{item.price}</span>}
+                                    {shareable && <span className="sma-item-chip sma-chip-share">🤲 Shareable</span>}
+                                    {item.isPopular && <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
+                                    {item.modelURL && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
+                                    {item.prepTime && <span style={{ fontSize: 11, color: '#7A7A7A' }}>⏱ {item.prepTime}</span>}
+                                  </div>
+                                </div>
+                                <span style={{ fontSize: 16, color: '#D1D1D6', flexShrink: 0 }}>›</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       ))}
-                    </div>
+                      <div className="sma-actions">
+                        <button className="sma-btn-light" onClick={restartSMA}>↺ Start Over</button>
+                        <button className="sma-btn-dark" onClick={closeSMA}>Browse Menu →</button>
+                      </div>
+                    </>)}
                   </div>
                 );
               })()}
             </div>
           </div>
-        </SwipeableSheet>
-      )}
-
-
-      {/* ─── CART DRAWER ─── */}
-      {cartOpen && (
-        <div style={{ position:'fixed', inset:0, zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center', background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.18s ease' }}
-          onClick={e => { if(e.target===e.currentTarget) setCartOpen(false); }}>
-          <div style={{ width:'100%', maxWidth:440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius:'24px 24px 0 0', padding:'24px 24px 40px', boxShadow:'0 -8px 40px rgba(0,0,0,0.18)', animation:'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight:'70vh', display:'flex', flexDirection:'column' }}>
-            {/* Handle */}
-            <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}>
-              <div style={{ width:40, height:5, borderRadius:3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }}/>
-            </div>
-            {/* Header */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-              <div>
-                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:17, color: darkMode?'#FFF5E8':'#1E1B18' }}>🛒 My Order List</div>
-                <div style={{ fontSize:12, color: darkMode?'rgba(255,245,232,0.45)':'rgba(42,31,16,0.45)', marginTop:2 }}>Show this to your waiter when they come</div>
-              </div>
-              <button onClick={() => setCartOpen(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color: darkMode?'rgba(255,245,232,0.4)':'rgba(42,31,16,0.4)', lineHeight:1 }}>✕</button>
-            </div>
-            {/* Items */}
-            <div style={{ flex:1, overflowY:'auto', marginBottom:16 }}>
-              {cart.map(c => (
-                <div key={c.id} className="cart-item-row">
-                  {c.imageURL && (
-                    <div style={{ width:44, height:44, borderRadius:10, overflow:'hidden', flexShrink:0 }}>
-                      <img src={c.imageURL} alt={c.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    </div>
-                  )}
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:14, fontWeight:600, color: darkMode?'#FFF5E8':'#1E1B18', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</div>
-                    {c.price > 0 && <div style={{ fontSize:12, color:'#F79B3D', fontWeight:700 }}>₹{c.price} each</div>}
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                    <button className="qty-btn" onClick={()=>removeFromCart(c.id)}>−</button>
-                    <span style={{ fontWeight:800, fontSize:15, color: darkMode?'#FFF5E8':'#1E1B18', minWidth:18, textAlign:'center' }}>{c.qty}</span>
-                    <button className="qty-btn" onClick={()=>addToCart({ id:c.id, name:c.name, price:c.price, imageURL:c.imageURL })}>+</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* No total shown — customer decides what to order with waiter */}
-            <div style={{ display:'flex', gap:10 }}>
-              <button onClick={clearCart} style={{ flex:1, padding:'12px', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,245,232,0.15)':'rgba(42,31,16,0.12)'}`, background:'transparent', fontSize:14, fontWeight:600, fontFamily:'Inter,sans-serif', cursor:'pointer', color: darkMode?'rgba(255,245,232,0.6)':'rgba(42,31,16,0.55)' }}>
-                Clear List
-              </button>
-              <button onClick={()=>setCartOpen(false)} style={{ flex:2, padding:'12px', borderRadius:12, border:'none', background:'#1E1B18', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,245,232,0.15)':'rgba(42,31,16,0.12)'}`, color:'#FFF5E8', fontSize:14, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
-                ✓ Done — Show to Waiter
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── WAITER CALL MODAL ─── */}
-      {waiterCallsEnabled && waiterModal && (
-        <div style={{ position:'fixed', inset:0, zIndex:60, display:'flex', alignItems:'flex-end', justifyContent:'center', background:'rgba(0,0,0,0.45)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', animation:'fadeIn 0.18s ease' }}
-          onClick={e => { if(e.target===e.currentTarget) { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); } }}>
-          <div style={{ width:'100%', maxWidth:440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius:'24px 24px 0 0', padding:'28px 24px 40px', boxShadow:'0 -8px 40px rgba(0,0,0,0.18)', animation:'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)' }}>
-            {/* Handle */}
-            <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
-              <div style={{ width:40, height:5, borderRadius:3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }}/>
-            </div>
-
-            {waiterSent ? (
-              <div style={{ textAlign:'center', padding:'20px 0' }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
-                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:18, color: darkMode?'#FFF5E8':'#1E1B18', marginBottom:8 }}>
-                  Waiter notified!
-                </div>
-                <div style={{ fontSize:14, color:'rgba(42,31,16,0.5)' }}>
-                  Someone will be with you shortly.
-                </div>
-              </div>
-            ) : (
-              <>
-                <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:20, color: darkMode?'#FFF5E8':'#4e4740', marginBottom:6 }}>
-                  🔔 Call Waiter
-                </div>
-                <div style={{ fontSize:13, color:'rgba(42,31,16,0.45)', marginBottom:22 }}>
-                  What do you need? We'll notify your waiter.
-                </div>
-
-                {/* Reason options */}
-                <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:22 }}>
-                  {[
-                    { id:'water',      emoji:'💧', label:'Need Water' },
-                    { id:'bill',       emoji:'🧾', label:'Need Bill' },
-                    { id:'assistance', emoji:'🙋', label:'Need Assistance' },
-                    { id:'order',      emoji:'📋', label:'Ready to Order' },
-                  ].map(opt => (
-                    <button key={opt.id} onClick={() => setWaiterReason(opt.id)}
-                      style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', borderRadius:14, border:`2px solid ${waiterReason===opt.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: waiterReason===opt.id ? 'rgba(247,155,61,0.1)' : 'transparent', cursor:'pointer', transition:'all 0.15s', textAlign:'left', width:'100%' }}>
-                      <span style={{ fontSize:22 }}>{opt.emoji}</span>
-                      <span style={{ fontSize:14, fontWeight:600, color: darkMode?'#FFF5E8':'#1E1B18' }}>{opt.label}</span>
-                      {waiterReason === opt.id && <span style={{ marginLeft:'auto', color:'#F79B3D', fontSize:18 }}>✓</span>}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Optional table number */}
-                <div style={{ marginBottom:20 }}>
-                  <input
-                    value={waiterTable}
-                    onChange={e => setWaiterTable(e.target.value)}
-                    placeholder="Table number (optional)"
-                    style={{ width:'100%', padding:'12px 16px', borderRadius:12, border:`1.5px solid ${darkMode?'rgba(255,255,255,0.12)':'rgba(42,31,16,0.1)'}`, background: darkMode?'rgba(255,255,255,0.06)':'#F7F5F2', fontSize:14, color: darkMode?'#FFF5E8':'#1E1B18', outline:'none', boxSizing:'border-box', fontFamily:'Inter,sans-serif' }}
-                  />
-                </div>
-
-                <button
-                  onClick={handleWaiterCall}
-                  disabled={!waiterReason || waiterSending}
-                  style={{ width:'100%', padding:'14px', borderRadius:14, border:'none', background: waiterReason ? 'linear-gradient(135deg,#F79B3D,#F48A1E)' : 'rgba(92, 92, 92, 0.5)', color: waiterReason ? '#fff' : 'rgba(255, 255, 255, 0.57)', fontSize:15, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition:'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(247,155,61,0.35)' : 'none' }}>
-                  {waiterSending ? 'Sending…' : '🔔 Call Waiter'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ─── SMART MENU ASSISTANT ─── */}
-      {smaOpen && (
-        <div className="sma-overlay" onClick={e=>{if(e.target===e.currentTarget)closeSMA();}}>
-          <div className="sma-sheet">
-            <div className="handle-row"><div className="handle"/></div>
-
-            {/* ── SCREEN 1: Solo vs Group picker ── */}
-            {!smaMode && (
-              <div className="sma-mode-wrap">
-                <div style={{fontSize:40,textAlign:'center',marginBottom:12}}>✨</div>
-                <div className="sma-mode-title">Help Me Choose</div>
-                <div className="sma-mode-sub">Are you ordering just for yourself or for a group?</div>
-                <div className="sma-mode-cards">
-                  <button className="sma-mode-card" onClick={()=>{ setSmaMode('solo'); setSmaStep(0); }}>
-                    <div className="sma-mode-card-emoji">🙋</div>
-                    <div className="sma-mode-card-name">Just Me</div>
-                    <div className="sma-mode-card-desc">Personalised picks for your taste</div>
-                  </button>
-                  <button className="sma-mode-card" onClick={()=>setSmaMode('group')}>
-                    <div className="sma-mode-card-emoji">👥</div>
-                    <div className="sma-mode-card-name">Group</div>
-                    <div className="sma-mode-card-desc">Dishes that work for everyone at the table</div>
-                  </button>
-                </div>
-                <button className="sma-dismiss" onClick={closeSMA}>Dismiss</button>
-              </div>
-            )}
-
-            {/* ── SCREEN 2 (Group only): How many people? ── */}
-            {smaMode === 'group' && !groupSize && (
-              <div className="sma-size-wrap">
-                <div style={{fontSize:36,textAlign:'center',marginBottom:12}}>👥</div>
-                <div className="sma-size-title">How many people?</div>
-                <div className="sma-size-sub">We'll suggest the right portions and shareable dishes</div>
-                <div className="sma-size-grid">
-                  {GROUP_SIZES.map(({n,e})=>(
-                    <button key={n} className="sma-size-btn" onClick={()=>{ setGroupSize(n); setSmaStep(0); }}>
-                      <span className="sma-size-btn-emoji">{e}</span>
-                      <div className="sma-size-btn-num">{n}</div>
-                      <div className="sma-size-btn-lbl">{n==='6+' ? 'people' : n===1 ? 'person' : 'people'}</div>
-                    </button>
-                  ))}
-                </div>
-                <button className="sma-dismiss" style={{marginTop:22}} onClick={()=>setSmaMode(null)}>← Back</button>
-              </div>
-            )}
-
-            {/* ── SCREENS 3–7: Questions ── */}
-            {smaMode && (smaMode==='solo' || groupSize) && smaStep < activeQs.length && (<>
-              <div className="sma-prog-wrap">
-                <div className="sma-prog-row">
-                  <span className="sma-prog-txt">
-                    {smaMode==='group' && <span style={{marginRight:8,fontSize:11,background:'#F0F7F2',color:'#1A6A38',padding:'2px 8px',borderRadius:6,fontWeight:700}}>👥 Group of {groupSize}</span>}
-                    {smaStep+1} / {activeQs.length}
-                  </span>
-                  <button className="sma-back" onClick={()=>{
-                    if (smaStep > 0) setSmaStep(s=>s-1);
-                    else if (smaMode==='group') setGroupSize(null);
-                    else setSmaMode(null);
-                  }}>← Back</button>
-                </div>
-                <div className="sma-prog-bar">
-                  <div className="sma-prog-fill" style={{width:`${((smaStep+1)/activeQs.length)*100}%`}}/>
-                </div>
-              </div>
-              <div className="sma-q-wrap">
-                <div className="sma-q-emoji">{activeQs[smaStep].emoji}</div>
-                <div className="sma-q-text">{activeQs[smaStep].q}</div>
-                <div className="sma-q-sub">{activeQs[smaStep].sub}</div>
-                <div className="sma-opts">
-                  {activeQs[smaStep].opts.map(o=>(
-                    <button key={o.v} className="sma-opt" onClick={()=>pickAnswer(activeQs[smaStep].id, o.v)}>
-                      <span className="sma-opt-emoji">{o.e}</span>
-                      <span className="sma-opt-label">{o.l}</span>
-                    </button>
-                  ))}
-                </div>
-                <button className="sma-dismiss" onClick={closeSMA}>Dismiss</button>
-              </div>
-            </>)}
-
-            {/* ── RESULTS ── */}
-            {smaMode && (smaMode==='solo' || groupSize) && smaStep === activeQs.length && (()=>{
-              const top = smaResults.slice(0, 12);
-              const cats = {};
-              top.forEach(({item})=>{ const c=item.category||'Other'; if(!cats[c]) cats[c]=[]; cats[c].push(item); });
-              const isGroup = smaMode === 'group';
-              const bigGroup = groupSize === '6+' || (typeof groupSize === 'number' && groupSize >= 4);
-              return (
-                <div className="sma-res-wrap">
-                  <div className="sma-res-hdr">
-                    <div className="sma-res-emoji">{isGroup ? '🎯' : '🎯'}</div>
-                    <div className="sma-res-title">
-                      {top.length > 0
-                        ? isGroup ? `${top.length} dishes for the table` : `${top.length} dishes for you`
-                        : 'No matches'}
-                    </div>
-                    <div className="sma-res-sub">
-                      {top.length > 0
-                        ? isGroup ? 'Works for everyone — tap any dish to see details' : 'Based on your preferences — tap to see details'
-                        : 'Try again with different preferences'}
-                    </div>
-                  </div>
-
-                  {/* Group context banner */}
-                  {isGroup && top.length > 0 && (
-                    <div className="sma-group-banner">
-                      <span style={{fontSize:20}}>👥</span>
-                      <div>
-                        <div className="sma-group-banner-text">Group of {groupSize} · {bigGroup ? 'Shareable dishes highlighted' : 'Individual portions'}</div>
-                        <div className="sma-group-banner-sub">
-                          {bigGroup ? 'Look for 🤲 tags — great for the whole table to share' : 'Each person can order their own'}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {top.length === 0 ? (
-                    <div className="sma-no-match">
-                      <p>No dishes matched your filters.<br/>Try relaxing some preferences.</p>
-                      <button className="sma-btn-dark" style={{marginTop:14,width:'100%'}} onClick={restartSMA}>Try Again</button>
-                    </div>
-                  ) : (<>
-                    {Object.entries(cats).map(([cat, items])=>(
-                      <div key={cat}>
-                        <div className="sma-cat-lbl">{cat}</div>
-                        {items.map(item=>{
-                          const shareable = isGroup && isShareable(item);
-                          return (
-                            <button key={item.id} className="sma-item" onClick={()=>{closeSMA();openItem(item);}}>
-                              <img className="sma-item-img" src={imgSrc(item)} alt={item.name}
-                                onError={()=>setImgErr(e=>({...e,[item.id]:true}))}/>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div className="sma-item-name">{item.name}</div>
-                                <div className="sma-item-meta">
-                                  {item.price    && <span className="sma-item-price">₹{item.price}</span>}
-                                  {shareable     && <span className="sma-item-chip sma-chip-share">🤲 Shareable</span>}
-                                  {item.isPopular&& <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
-                                  {item.modelURL && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
-                                  {item.prepTime && <span style={{fontSize:11,color:'#7A7A7A'}}>⏱ {item.prepTime}</span>}
-                                </div>
-                              </div>
-                              <span style={{fontSize:16,color:'#D1D1D6',flexShrink:0}}>›</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                    <div className="sma-actions">
-                      <button className="sma-btn-light" onClick={restartSMA}>↺ Start Over</button>
-                      <button className="sma-btn-dark"  onClick={closeSMA}>Browse Menu →</button>
-                    </div>
-                  </>)}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     </>
   );
 }
@@ -2545,9 +2541,9 @@ export async function getStaticProps({ params }) {
     return {
       props: {
         restaurant: JSON.parse(JSON.stringify(restaurant)),
-        menuItems:  JSON.parse(JSON.stringify(menuItems)),
-        offers:     JSON.parse(JSON.stringify(offers)),
-        combos:     JSON.parse(JSON.stringify(combos || [])),
+        menuItems: JSON.parse(JSON.stringify(menuItems)),
+        offers: JSON.parse(JSON.stringify(offers)),
+        combos: JSON.parse(JSON.stringify(combos || [])),
         error: null,
       },
       revalidate: 60, // regenerate in background every 60s — menu stays fresh
