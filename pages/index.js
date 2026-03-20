@@ -566,11 +566,43 @@ export default function HomePage() {
             .plan-grid { grid-template-columns:1fr; max-width:420px; }
           }
           @media(max-width:820px) {
+            /* ── Grid collapses ── */
             .hero-grid, .how-grid { grid-template-columns:1fr !important; }
+            .how-grid { gap:36px !important; }
             .nav { padding:0 20px; }
             .nl-hide { display:none; }
-            .section-inner { padding:0 24px; }
+            .section-inner { padding:0 20px; }
             .bento { grid-template-columns:1fr; }
+
+            /* ── Stats band ── */
+            .stats-band-outer { padding:40px 20px !important; }
+            .stats-inner-grid { grid-template-columns:1fr 1fr !important; gap:28px 0 !important; }
+            .stats-inner-grid > div { padding:0 16px !important; }
+            .stat-divider { display:none !important; }
+
+            /* ── How it works — hide dashboard, text is enough ── */
+            .how-dash-col { display:none !important; }
+
+            /* ── Demo strip ── */
+            .demo-strip { padding:22px 20px !important; }
+            .demo-strip > div { flex-direction:column !important; align-items:flex-start !important; gap:14px !important; }
+
+            /* ── Pricing ── */
+            .plan-grid { grid-template-columns:1fr !important; max-width:100% !important; }
+
+            /* ── CTA section ── */
+            .cta-section { padding:64px 20px !important; }
+
+            /* ── Footer ── */
+            footer { padding:24px 20px !important; }
+            footer > div { flex-direction:column !important; align-items:flex-start !important; gap:14px !important; }
+            footer > div > div { gap:16px !important; flex-wrap:wrap !important; }
+
+            /* ── Bento full-width card ── */
+            .bento-card[style*="gridColumn"] { grid-column:auto !important; flex-direction:column !important; align-items:flex-start !important; }
+
+            /* ── Section top/bottom padding reduction ── */
+            #how, #features, #plans { padding-top:64px !important; padding-bottom:64px !important; }
           }
 
           /* ══════════════════════════════════════
@@ -1481,8 +1513,8 @@ export default function HomePage() {
         </div>
 
         {/* ══ STATS BAND ══ */}
-        <div style={{background:'var(--stats-bg)', borderTop:'1px solid var(--stats-bd)', borderBottom:'1px solid var(--stats-bd)', padding:'64px 56px'}}>
-          <div ref={countersRef} style={{maxWidth:1400, margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(4,1fr)'}}>
+        <div className="stats-band-outer" style={{background:'var(--stats-bg)', borderTop:'1px solid var(--stats-bd)', borderBottom:'1px solid var(--stats-bd)', padding:'64px 56px'}}>
+          <div ref={countersRef} className="stats-inner-grid" style={{maxWidth:1400, margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(4,1fr)'}}>
             {[
               {to:28,  suffix:'%',    label:'Increase in avg order value', pre:'↑ '},
               {to:500, suffix:'+',    label:'Restaurants on the platform',  pre:''},
@@ -1490,7 +1522,7 @@ export default function HomePage() {
               {to:4.8, suffix:'★',   label:'Average customer rating',      pre:''},
             ].map((s,i)=>(
               <div key={i} className="ar-reveal" ref={addReveal} style={{padding:'0 40px', position:'relative', transitionDelay:`${i*0.08}s`}}>
-                {i>0 && <div style={{position:'absolute', left:0, top:'10%', height:'80%', width:1, background:'var(--stats-div)'}}/>}
+                {i>0 && <div className="stat-divider" style={{position:'absolute', left:0, top:'10%', height:'80%', width:1, background:'var(--stats-div)'}}/>}
                 <div style={{fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:'clamp(36px,3.5vw,52px)', color:'var(--stats-num)', letterSpacing:'-0.03em', lineHeight:1, marginBottom:10}}>
                   {s.pre}<span data-to={s.to} data-suffix={s.suffix}>{s.to}{s.suffix}</span>
                 </div>
@@ -1532,7 +1564,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div ref={addReveal} className="ar-reveal d2" style={{display:'flex', justifyContent:'center'}}>
+              <div ref={addReveal} className="ar-reveal d2 how-dash-col" style={{display:'flex', justifyContent:'center'}}>
                 <div style={{width:'100%', maxWidth:460, borderRadius:24, background:'var(--db-bg)', boxShadow:`0 28px 72px var(--db-sh)`, border:`1px solid var(--db-bd)`, overflow:'hidden'}}>
                   <div style={{background:'#1A1208', padding:'14px 20px', display:'flex', alignItems:'center', gap:8}}>
                     {['#FF5F57','#FEBC2E','#28C840'].map(c=><div key={c} style={{width:11,height:11,borderRadius:'50%',background:c}}/>)}
@@ -1653,7 +1685,7 @@ export default function HomePage() {
         </section>
 
         {/* ══ DEMO STRIP ══ */}
-        <div style={{background:'var(--demo-bg)', padding:'28px 56px', borderTop:'1px solid var(--demo-bd)'}}>
+        <div className="demo-strip" style={{background:'var(--demo-bg)', padding:'28px 56px', borderTop:'1px solid var(--demo-bd)'}}>
           <div style={{maxWidth:1400, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:20}}>
             <div>
               <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
@@ -1719,7 +1751,7 @@ export default function HomePage() {
         </section>
 
         {/* ══ CTA — always dark ══ */}
-        <section style={{background:'#0C0A08', padding:'96px 56px', position:'relative', overflow:'hidden', borderTop:'1px solid rgba(255,245,220,0.06)'}}>
+        <section className="cta-section" style={{background:'#0C0A08', padding:'96px 56px', position:'relative', overflow:'hidden', borderTop:'1px solid rgba(255,245,220,0.06)'}}>
           <div className="no-transition" style={{position:'absolute', top:'-30%', left:'50%', transform:'translateX(-50%)', width:800, height:600, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(247,155,61,0.1) 0%, transparent 60%)', pointerEvents:'none', filter:'blur(40px)'}}/>
           <div style={{maxWidth:800, margin:'0 auto', textAlign:'center', position:'relative', zIndex:1}}>
             <div ref={addReveal} className="ar-reveal">
