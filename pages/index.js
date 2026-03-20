@@ -964,6 +964,7 @@ export default function HomePage() {
           @media(max-width:820px) {
             /* Kill the GSAP story entirely on mobile */
             .story-spacer { display:none !important; }
+            .story-pin   { display:none !important; }
             /* Show mobile version */
             .mobile-story-outer {
               display:block; height:100vh;
@@ -1035,7 +1036,7 @@ export default function HomePage() {
         </nav>
 
         {/* ══ SCROLL STORY HERO ══ */}
-        <section ref={spacerRef} style={{height:'600vh', position:'relative'}}>
+        <section ref={spacerRef} className="story-spacer" style={{height:'600vh', position:'relative'}}>
           <div className="story-pin">
             <div className="s-grid no-transition"/>
 
