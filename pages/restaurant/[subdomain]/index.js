@@ -422,7 +422,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
     });
     return () => { cancelAnimationFrame(raf); if (obs) obs.disconnect(); };
   }, [filtered]);
-  const arCount  = (menuItems||[]).filter(i=>i.arReady||i.modelURL).length;
+  const arCount  = (menuItems||[]).filter(i=>i.modelURL).length;
 
 
   /* ─── Rating handler ─── */
@@ -1982,7 +1982,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                     className={imgLoaded[item.id]?'img-visible':''}
                     onLoad={()=>setImgLoaded(s=>({...s,[item.id]:true}))}
                     onError={()=>{ setImgErr(e=>({...e,[item.id]:true})); setImgLoaded(s=>({...s,[item.id]:true})); }}/>
-                  {(item.arReady||item.modelURL) && (
+                  {item.modelURL && (
                     <span className="c-ar-pill">
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
@@ -2023,7 +2023,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                       {item.prepTime && <span className="c-prep">⏱ {item.prepTime}</span>}
                     </div>
                   )}
-                  {(item.arReady||item.modelURL) && (
+                  {item.modelURL && (
                     <div className="c-ar-cta">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
@@ -2111,7 +2111,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                 <div className="sec-lbl">Ingredients</div>
                 <div className="ings">{selectedItem.ingredients.map(ing=><span key={ing} className="ing">{ing}</span>)}</div>
               </>)}
-              {!showAR && (selectedItem.arReady||selectedItem.modelURL) && (<>
+              {!showAR && selectedItem.modelURL && (<>
                 <div className="divider"/>
                 <button className="ar-btn" onClick={()=>{setShowAR(true);handleARLaunch();}}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -2475,7 +2475,7 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                                   {item.price    && <span className="sma-item-price">₹{item.price}</span>}
                                   {shareable     && <span className="sma-item-chip sma-chip-share">🤲 Shareable</span>}
                                   {item.isPopular&& <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
-                                  {(item.arReady||item.modelURL) && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
+                                  {item.modelURL && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
                                   {item.prepTime && <span style={{fontSize:11,color:'#7A7A7A'}}>⏱ {item.prepTime}</span>}
                                 </div>
                               </div>
@@ -2501,11 +2501,23 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
   );
 }
 
-export async function getServerSideProps({ params }) {
+export async function getStaticPaths() {
+  // Generate no paths at build time.
+  // fallback:'blocking' means: first request for any subdomain hits the server,
+  // builds the static page, then caches it. Every subsequent visitor gets the
+  // cached static HTML — typically <100ms vs ~900ms with getServerSideProps.
+  return { paths: [], fallback: 'blocking' };
+}
+
+export async function getStaticProps({ params }) {
   try {
     const restaurant = await getRestaurantBySubdomain(params.subdomain);
-    if (!restaurant) return { props:{restaurant:null,menuItems:[],offers:[],error:'Not found'} };
-    const [menuItems, offers, combos] = await Promise.all([getMenuItems(restaurant.id), getActiveOffers(restaurant.id), getCombos(restaurant.id)]);
+    if (!restaurant) return { notFound: true };
+    const [menuItems, offers, combos] = await Promise.all([
+      getMenuItems(restaurant.id),
+      getActiveOffers(restaurant.id),
+      getCombos(restaurant.id),
+    ]);
     return {
       props: {
         restaurant: JSON.parse(JSON.stringify(restaurant)),
@@ -2513,9 +2525,13 @@ export async function getServerSideProps({ params }) {
         offers:     JSON.parse(JSON.stringify(offers)),
         combos:     JSON.parse(JSON.stringify(combos || [])),
         error: null,
-      }
+      },
+      revalidate: 60, // regenerate in background every 60s — menu stays fresh
     };
   } catch (err) {
-    return { props:{restaurant:null,menuItems:[],offers:[],error:err.message} };
+    return {
+      props: { restaurant: null, menuItems: [], offers: [], combos: [], error: err.message },
+      revalidate: 10,
+    };
   }
 }
