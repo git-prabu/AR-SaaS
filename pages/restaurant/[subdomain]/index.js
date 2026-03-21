@@ -2370,7 +2370,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 Your Order</div>
-                    <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>{cartTotal} item{cartTotal !== 1 ? 's' : ''} · ₹{cartPrice}</div>
+                    <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>{cartTotal} item{cartTotal !== 1 ? 's' : ''}</div>
                   </div>
                   <button onClick={() => { setCartOpen(false); setOrderStep('cart'); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
                 </div>
@@ -2384,7 +2384,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                        {c.price > 0 && <div style={{ fontSize: 12, color: '#F79B3D', fontWeight: 700 }}>₹{c.price} × {c.qty} = ₹{c.price * c.qty}</div>}
+                        <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>Qty: {c.qty}</div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                         <button className="qty-btn" onClick={() => removeFromCart(c.id)}>−</button>
@@ -2394,11 +2394,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                     </div>
                   ))}
                 </div>
-                {/* Total row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: `1px solid ${darkMode ? 'rgba(255,245,232,0.08)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 14 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)' }}>Total</span>
-                  <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>₹{cartPrice}</span>
-                </div>
+
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={clearCart} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: 'transparent', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.5)' }}>
                     Clear
@@ -2418,14 +2414,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 {/* Order summary */}
                 <div style={{ padding: '12px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 16 }}>
                   {cart.map(c => (
-                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)', marginBottom: 4 }}>
-                      <span>{c.name} × {c.qty}</span>
-                      <span style={{ fontWeight: 600 }}>₹{c.price * c.qty}</span>
+                    <div key={c.id} style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)', marginBottom: 4 }}>
+                      {c.name} × {c.qty}
                     </div>
                   ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', marginTop: 8, paddingTop: 8, borderTop: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}` }}>
-                    <span>Total</span><span>₹{cartPrice}</span>
-                  </div>
+
                 </div>
                 {/* Table number */}
                 <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Table Number</label>

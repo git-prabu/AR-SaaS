@@ -59,6 +59,9 @@ export default function AdminItems() {
 
   useEffect(() => { load(); }, [rid]);
 
+  const today = new Date().toISOString().split('T')[0];
+  const isSoldOutToday = (item) => item.availableUntil === today;
+
   const categories = ['all', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))];
 
   const filtered = items
@@ -199,10 +202,6 @@ export default function AdminItems() {
     await updateMenuItem(rid, item.id, { isActive: !item.isActive });
     await load();
   };
-
-  const today = new Date().toISOString().split('T')[0];
-
-  const isSoldOutToday = (item) => item.availableUntil === today;
 
   const toggleSoldOut = async (item) => {
     const newVal = isSoldOutToday(item) ? null : today;
