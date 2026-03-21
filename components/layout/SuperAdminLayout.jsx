@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useAuth } from '../../hooks/useAuth';
+import { useSuperAdminAuth } from "../../hooks/useAuth"
 import { useEffect } from 'react';
 
 const navItems = [
@@ -11,7 +11,7 @@ const navItems = [
 ];
 
 export default function SuperAdminLayout({ children }) {
-  const { user, userData, loading, signOut } = useAuth();
+  const { user, userData, loading, signOut } = useSuperAdminAuth();
   const router = useRouter();
 
   useEffect(() => {
