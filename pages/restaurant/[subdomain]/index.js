@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall } from '../../../lib/db';
+import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder } from '../../../lib/db';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
 function getSessionId() {
@@ -334,9 +334,14 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   // Derived from Firestore via restaurant prop — admin can toggle in Notifications page
   const waiterCallsEnabled = restaurant?.waiterCallsEnabled !== false;
   // Pairs Well With (manual, set by admin per item)
-  // Cart (order tracker — state only, not sent anywhere)
+  // Cart (order tracker)
   const [cart, setCart] = useState([]); // [{id,name,price,qty,imageURL}]
   const [cartOpen, setCartOpen] = useState(false);
+  // Order flow
+  const [orderStep, setOrderStep] = useState('cart'); // 'cart' | 'form' | 'success'
+  const [tableNumber, setTableNumber] = useState('');
+  const [specialNote, setSpecialNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -543,6 +548,28 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const clearCart = useCallback(() => setCart([]), []);
   const cartTotal = cart.reduce((s, c) => s + c.qty, 0);
   const cartPrice = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
+
+  const placeOrder = async () => {
+    if (!restaurant?.id || cart.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      await createOrder(restaurant.id, {
+        tableNumber: tableNumber.trim() || 'Not specified',
+        items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty })),
+        total: cartPrice,
+        specialInstructions: specialNote.trim() || null,
+        sessionId: getSessionId(),
+        restaurantName: restaurant.name,
+      });
+      setOrderStep('success');
+      clearCart();
+      setTimeout(() => { setCartOpen(false); setOrderStep('cart'); setTableNumber(''); setSpecialNote(''); }, 4000);
+    } catch (err) {
+      console.error('Order failed:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   // ─────────────────────────────────────────────────────────
 
 
@@ -2330,50 +2357,106 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         {/* ─── CART DRAWER ─── */}
         {cartOpen && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
-            onClick={e => { if (e.target === e.currentTarget) setCartOpen(false); }}>
-            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '24px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+            onClick={e => { if (e.target === e.currentTarget) { setCartOpen(false); setOrderStep('cart'); } }}>
+            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '24px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
                 <div style={{ width: 40, height: 5, borderRadius: 3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
               </div>
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <div>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 My Order List</div>
-                  <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>Show this to your waiter when they come</div>
-                </div>
-                <button onClick={() => setCartOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
-              </div>
-              {/* Items */}
-              <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
-                {cart.map(c => (
-                  <div key={c.id} className="cart-item-row">
-                    {c.imageURL && (
-                      <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={c.imageURL} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                      {c.price > 0 && <div style={{ fontSize: 12, color: '#F79B3D', fontWeight: 700 }}>₹{c.price} each</div>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <button className="qty-btn" onClick={() => removeFromCart(c.id)}>−</button>
-                      <span style={{ fontWeight: 800, fontSize: 15, color: darkMode ? '#FFF5E8' : '#1E1B18', minWidth: 18, textAlign: 'center' }}>{c.qty}</span>
-                      <button className="qty-btn" onClick={() => addToCart({ id: c.id, name: c.name, price: c.price, imageURL: c.imageURL })}>+</button>
-                    </div>
+
+              {/* ── STEP: cart ── */}
+              {orderStep === 'cart' && (<>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 Your Order</div>
+                    <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>{cartTotal} item{cartTotal !== 1 ? 's' : ''} · ₹{cartPrice}</div>
                   </div>
-                ))}
-              </div>
-              {/* No total shown — customer decides what to order with waiter */}
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={clearCart} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.12)'}`, background: 'transparent', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.6)' : 'rgba(42,31,16,0.55)' }}>
-                  Clear List
+                  <button onClick={() => { setCartOpen(false); setOrderStep('cart'); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+                  {cart.map(c => (
+                    <div key={c.id} className="cart-item-row">
+                      {c.imageURL && (
+                        <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                          <img src={c.imageURL} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                        {c.price > 0 && <div style={{ fontSize: 12, color: '#F79B3D', fontWeight: 700 }}>₹{c.price} × {c.qty} = ₹{c.price * c.qty}</div>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <button className="qty-btn" onClick={() => removeFromCart(c.id)}>−</button>
+                        <span style={{ fontWeight: 800, fontSize: 15, color: darkMode ? '#FFF5E8' : '#1E1B18', minWidth: 18, textAlign: 'center' }}>{c.qty}</span>
+                        <button className="qty-btn" onClick={() => addToCart({ id: c.id, name: c.name, price: c.price, imageURL: c.imageURL })}>+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Total row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: `1px solid ${darkMode ? 'rgba(255,245,232,0.08)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 14 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)' }}>Total</span>
+                  <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>₹{cartPrice}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={clearCart} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: 'transparent', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.5)' }}>
+                    Clear
+                  </button>
+                  <button onClick={() => setOrderStep('form')} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
+                    Place Order →
+                  </button>
+                </div>
+              </>)}
+
+              {/* ── STEP: form ── */}
+              {orderStep === 'form' && (<>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                  <button onClick={() => setOrderStep('cart')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)', fontSize: 18, lineHeight: 1, padding: 0 }}>←</button>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Confirm Order</div>
+                </div>
+                {/* Order summary */}
+                <div style={{ padding: '12px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 16 }}>
+                  {cart.map(c => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)', marginBottom: 4 }}>
+                      <span>{c.name} × {c.qty}</span>
+                      <span style={{ fontWeight: 600 }}>₹{c.price * c.qty}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', marginTop: 8, paddingTop: 8, borderTop: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}` }}>
+                    <span>Total</span><span>₹{cartPrice}</span>
+                  </div>
+                </div>
+                {/* Table number */}
+                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Table Number</label>
+                <input
+                  type="text" inputMode="numeric" placeholder="e.g. 4 or A2"
+                  value={tableNumber} onChange={e => setTableNumber(e.target.value)}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 14, boxSizing: 'border-box' }}
+                />
+                {/* Special instructions */}
+                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Special Instructions <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                <textarea
+                  placeholder="e.g. No onions, extra spicy..."
+                  value={specialNote} onChange={e => setSpecialNote(e.target.value)} rows={2}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 20, resize: 'none', boxSizing: 'border-box' }}
+                />
+                <button onClick={placeOrder} disabled={isSubmitting}
+                  style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : darkMode ? '#F79B3D' : '#1E1B18', color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
+                  {isSubmitting ? 'Placing order…' : '✓ Confirm & Place Order'}
                 </button>
-                <button onClick={() => setCartOpen(false)} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: '#1E1B18', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.12)'}`, color: '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
-                  ✓ Done — Show to Waiter
-                </button>
-              </div>
+              </>)}
+
+              {/* ── STEP: success ── */}
+              {orderStep === 'success' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px 0' }}>
+                  <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 10 }}>Order Placed!</div>
+                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 280 }}>
+                    Your order has been sent to the kitchen. We'll bring it to your table shortly.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
