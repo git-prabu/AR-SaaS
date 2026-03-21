@@ -35,9 +35,22 @@ export default function AdminOrders() {
     const [filter, setFilter] = useState('active'); // 'active' | 'served' | 'all'
     const [updating, setUpdating] = useState(null);
     const [tick, setTick] = useState(0);
+    const [soundOn, setSoundOn] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        return localStorage.getItem('ar_order_sound') !== 'off';
+    });
     const prevCountRef = useRef(0);
 
+    const toggleSound = () => {
+        setSoundOn(prev => {
+            const next = !prev;
+            localStorage.setItem('ar_order_sound', next ? 'on' : 'off');
+            return next;
+        });
+    };
+
     const playAlert = () => {
+        if (!soundOn) return;
         try { new Audio('/notification.mp3').play().catch(() => { }); } catch { }
     };
     const rid = userData?.restaurantId;
@@ -110,12 +123,22 @@ export default function AdminOrders() {
                             <h1 style={S.h1}>Orders</h1>
                             <p style={S.sub}>Live incoming orders from your tables</p>
                         </div>
-                        {pendingCount > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 30, background: 'rgba(224,90,58,0.1)', border: '1px solid rgba(224,90,58,0.25)' }}>
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E05A3A', display: 'inline-block', animation: 'pulse 1.2s infinite' }} />
-                                <span style={{ fontSize: 13, fontWeight: 700, color: '#C04A28' }}>{pendingCount} new order{pendingCount > 1 ? 's' : ''}</span>
-                            </div>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            {/* Sound toggle */}
+                            <button onClick={toggleSound}
+                                title={soundOn ? 'Sound alerts on — click to mute' : 'Sound alerts off — click to enable'}
+                                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 30, border: `1.5px solid ${soundOn ? 'rgba(90,154,120,0.35)' : 'rgba(42,31,16,0.15)'}`, background: soundOn ? 'rgba(90,154,120,0.08)' : 'rgba(42,31,16,0.04)', color: soundOn ? '#1A6040' : 'rgba(42,31,16,0.4)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', fontFamily: 'Inter,sans-serif' }}>
+                                <span style={{ fontSize: 14 }}>{soundOn ? '🔔' : '🔕'}</span>
+                                {soundOn ? 'Sound On' : 'Sound Off'}
+                            </button>
+                            {/* New orders badge */}
+                            {pendingCount > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 30, background: 'rgba(224,90,58,0.1)', border: '1px solid rgba(224,90,58,0.25)' }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E05A3A', display: 'inline-block', animation: 'pulse 1.2s infinite' }} />
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#C04A28' }}>{pendingCount} new order{pendingCount > 1 ? 's' : ''}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Summary pills */}
