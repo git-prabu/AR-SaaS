@@ -306,7 +306,11 @@ function SwipeableSheet({ onClose, children, darkMode }) {
   );
 }
 
-export default function RestaurantMenu({ restaurant, menuItems, offers, combos, error }) {
+export default function RestaurantMenu({ restaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error }) {
+  // ── Live data state — seeded from ISR cache, refreshed from Firestore ──
+  const [menuItems, setMenuItems] = useState(initialItems || []);
+  const [offers, setOffers] = useState(initialOffers || []);
+  const [combos, setCombos] = useState(initialCombos || []);
   const [activeCat, setActiveCat] = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showAR, setShowAR] = useState(false);
@@ -344,14 +348,52 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(() => { });
   }, [restaurant?.id]);
 
+  // ── Background data refresh — keeps menu fresh despite ISR cache ──
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    const refresh = async () => {
+      try {
+        const [freshItems, freshOffers, freshCombos] = await Promise.all([
+          getMenuItems(restaurant.id),
+          getActiveOffers(restaurant.id),
+          getCombos(restaurant.id),
+        ]);
+        setMenuItems(freshItems || []);
+        setOffers(freshOffers || []);
+        setCombos(freshCombos || []);
+      } catch (e) { /* silently keep ISR data on error */ }
+    };
+    refresh(); // immediate background refresh on every page load
+    window.addEventListener('focus', refresh); // refresh when tab regains focus
+    return () => window.removeEventListener('focus', refresh);
+  }, [restaurant?.id]);
+
   useEffect(() => {
     document.body.style.overflow = (selectedItem || smaOpen) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [selectedItem, smaOpen]);
 
 
-  const cats = ['All', ...new Set((menuItems || []).map(i => i.category).filter(Boolean))];
-  const filtered = activeCat === 'All' ? (menuItems || []) : (menuItems || []).filter(i => i.category === activeCat);
+  // ── Enrich menu items with active offer data ──────────────────
+  const enrichedItems = (menuItems || []).map(item => {
+    const activeOffer = (offers || []).find(o => o.linkedItemId === item.id);
+    if (!activeOffer) return item;
+    const savePct = activeOffer.discountedPrice && item.price
+      ? Math.round(((item.price - activeOffer.discountedPrice) / item.price) * 100)
+      : null;
+    return {
+      ...item,
+      offerBadge: true,
+      offerLabel: savePct ? `${savePct}% OFF` : activeOffer.title,
+      offerColor: '#E05A3A',
+      offerTitle: activeOffer.title,
+      offerDescription: activeOffer.description,
+      offerPrice: activeOffer.discountedPrice ?? null,
+    };
+  });
+
+  const cats = ['All', ...new Set(enrichedItems.map(i => i.category).filter(Boolean))];
+  const filtered = activeCat === 'All' ? enrichedItems : enrichedItems.filter(i => i.category === activeCat);
 
 
 
@@ -1886,45 +1928,66 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
 
         <main className="main">
 
-          {/* ── Offers Horizontal Scroll Strip ── */}
+          {/* ── Offers Strip ── */}
           {(offers || []).length > 0 && (
-            <div className="offers-section-wrap" style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingInline: 4 }}>
-                <span style={{ fontSize: 14 }}>🎉</span>
-                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? '#F79B3D' : '#A06010' }}><span className="shiny-txt">Today's Offers</span></span>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, paddingInline: 2 }}>
+                <span style={{ fontSize: 13 }}>🏷️</span>
+                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 12, color: darkMode ? '#F79B3D' : '#A06010', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Today&apos;s Offers</span>
+                <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.3)', fontWeight: 500 }}>{offers.length} active</span>
               </div>
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 6, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', flexWrap: 'nowrap', filter: 'url(#card-turb)' }}>
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
                 {(offers || []).map((offer, i) => {
-                  const linked = offer.linkedItemId ? (menuItems || []).find(m => m.id === offer.linkedItemId) : null;
-                  const isClickable = !!offer.linkedItemId;
+                  const linked = offer.linkedItemId ? enrichedItems.find(m => m.id === offer.linkedItemId) : null;
+                  const isClickable = !!linked;
+                  const savePct = offer.discountedPrice && linked?.price
+                    ? Math.round(((linked.price - offer.discountedPrice) / linked.price) * 100) : null;
                   return (
-                    <div key={offer.id || i} style={{ flexShrink: 0, minWidth: 200, maxWidth: 250, borderRadius: 18, border: '1.5px solid rgba(247,155,61,0.35)', overflow: 'hidden' }}>
-                      <div
-                        onClick={() => { if (linked) openItem(linked); }}
-                        style={{ padding: '12px 14px', borderRadius: 16, background: darkMode ? 'rgba(18,14,10,0.80)' : 'rgba(255,252,248,0.98)', display: 'flex', alignItems: 'center', gap: 10, cursor: isClickable ? 'pointer' : 'default', transition: 'all 0.18s' }}
-                        onMouseOver={e => { if (isClickable) { e.currentTarget.style.background = darkMode ? 'rgba(50,38,20,0.98)' : 'rgba(247,240,225,0.98)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
-                        onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(30,27,24,0.95)' : 'rgba(255,252,248,0.98)'; e.currentTarget.style.transform = ''; }}>
-                        {/* Dish image or emoji */}
-                        {(offer.linkedItemImage || linked?.imageURL)
-                          ? <img src={offer.linkedItemImage || linked?.imageURL} alt={offer.linkedItemName || linked?.name} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(247,155,61,0.25)' }} />
-                          : <div style={{ fontSize: 22, flexShrink: 0 }}>🏷️</div>
-                        }
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: darkMode ? '#F4D080' : '#8B6010', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{offer.title}</div>
-                          {offer.description && <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,220,100,0.65)' : '#B09040', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{offer.description}</div>}
-                          {/* Price display */}
-                          {(offer.discountedPrice || (linked?.price && offer.linkedItemId)) && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                              {(offer.linkedItemPrice || linked?.price) && (
-                                <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,220,100,0.45)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through' }}>₹{offer.linkedItemPrice || linked?.price}</span>
-                              )}
-                              {offer.discountedPrice && (
-                                <span style={{ fontSize: 13, fontWeight: 800, color: darkMode ? '#7EE0A0' : '#1A7A40' }}>₹{offer.discountedPrice}</span>
-                              )}
+                    <div key={offer.id || i}
+                      onClick={() => { if (linked) openItem(linked); }}
+                      style={{
+                        flexShrink: 0, width: 200, borderRadius: 16, overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default',
+                        background: darkMode ? 'rgba(30,24,14,0.95)' : '#FFFDF8',
+                        border: `1.5px solid ${darkMode ? 'rgba(247,155,61,0.28)' : 'rgba(247,155,61,0.35)'}`,
+                        boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.35)' : '0 2px 14px rgba(42,31,16,0.08)',
+                        transition: 'transform 0.18s, box-shadow 0.18s',
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = darkMode ? '0 8px 28px rgba(0,0,0,0.45)' : '0 6px 22px rgba(42,31,16,0.13)'; }}
+                      onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = darkMode ? '0 4px 20px rgba(0,0,0,0.35)' : '0 2px 14px rgba(42,31,16,0.08)'; }}>
+                      {/* Top image bar */}
+                      {(linked?.imageURL) && (
+                        <div style={{ height: 80, overflow: 'hidden', position: 'relative' }}>
+                          <img src={linked.imageURL} alt={linked.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.5) 100%)' }} />
+                          {savePct && (
+                            <div style={{ position: 'absolute', top: 8, right: 8, background: '#E05A3A', color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 20, letterSpacing: '0.04em' }}>
+                              {savePct}% OFF
                             </div>
                           )}
-                          {isClickable && <div style={{ fontSize: 10, fontWeight: 700, color: darkMode ? 'rgba(255,220,100,0.5)' : 'rgba(139,96,16,0.6)', marginTop: 2 }}>Tap to view →</div>}
                         </div>
+                      )}
+                      {/* Content */}
+                      <div style={{ padding: '10px 12px' }}>
+                        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {offer.title}
+                        </div>
+                        {offer.description && (
+                          <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.5)', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {offer.description}
+                          </div>
+                        )}
+                        {offer.discountedPrice && linked?.price && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 15, color: '#2D8B4E' }}>₹{offer.discountedPrice}</span>
+                            <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through' }}>₹{linked.price}</span>
+                          </div>
+                        )}
+                        {!linked?.imageURL && savePct && (
+                          <span style={{ fontSize: 10, fontWeight: 800, color: '#E05A3A', letterSpacing: '0.04em' }}>{savePct}% OFF</span>
+                        )}
+                        {isClickable && (
+                          <div style={{ fontSize: 10, fontWeight: 600, color: darkMode ? 'rgba(247,155,61,0.6)' : 'rgba(139,96,16,0.6)', marginTop: 4 }}>Tap to view →</div>
+                        )}
                       </div>
                     </div>
                   );
@@ -2024,7 +2087,14 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                     )}
                     <div className="c-name">{item.name}</div>
                     <div className="c-price-row">
-                      {item.price && <CardPrice price={item.price} className="c-price" />}
+                      {item.offerPrice != null ? (
+                        <>
+                          <span className="c-price" style={{ color: '#E05A3A', fontWeight: 800 }}>₹{item.offerPrice}</span>
+                          <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through', marginLeft: 4 }}>₹{item.price}</span>
+                        </>
+                      ) : (
+                        item.price && <CardPrice price={item.price} className="c-price" />
+                      )}
                       {item.calories && <span className="c-cal">{item.calories} kcal</span>}
                       {item.ratingCount > 0 && (
                         <span style={{ fontSize: 11, color: '#F79B3D', fontWeight: 700, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
@@ -2117,7 +2187,16 @@ export default function RestaurantMenu({ restaurant, menuItems, offers, combos, 
                     )}
                   </div>
                 )}
-                {selectedItem.price && <><PriceCounter key={selectedItem.id} price={selectedItem.price} className="m-price" animate={true} /><div className="m-price-sub">per serving</div></>}
+                {selectedItem.offerPrice != null ? (
+                  <div style={{ marginBottom: 4 }}>
+                    <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 26, color: '#E05A3A' }}>₹{selectedItem.offerPrice}</span>
+                    <span style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through', marginLeft: 8 }}>₹{selectedItem.price}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#2D8B4E', marginLeft: 8 }}>Save ₹{selectedItem.price - selectedItem.offerPrice}</span>
+                    <div className="m-price-sub">per serving</div>
+                  </div>
+                ) : selectedItem.price && (
+                  <><PriceCounter key={selectedItem.id} price={selectedItem.price} className="m-price" animate={true} /><div className="m-price-sub">per serving</div></>
+                )}
                 {selectedItem.description && <p className="m-desc">{selectedItem.description}</p>}
                 {(selectedItem.calories || selectedItem.protein || selectedItem.carbs || selectedItem.fats) && (<>
                   <div className="divider" />
