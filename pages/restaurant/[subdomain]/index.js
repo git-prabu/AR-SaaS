@@ -375,14 +375,18 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
 
   // ── Enrich menu items with active offer data ──────────────────
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const enrichedItems = (menuItems || []).map(item => {
-    const activeOffer = (offers || []).find(o => o.linkedItemId === item.id);
-    if (!activeOffer) return item;
+    const soldOut = item.availableUntil === todayStr;
+    const activeOffer = !soldOut && (offers || []).find(o => o.linkedItemId === item.id);
+    if (!activeOffer) return { ...item, soldOut };
     const savePct = activeOffer.discountedPrice && item.price
       ? Math.round(((item.price - activeOffer.discountedPrice) / item.price) * 100)
       : null;
     return {
       ...item,
+      soldOut,
       offerBadge: true,
       offerLabel: savePct ? `${savePct}% OFF` : activeOffer.title,
       offerColor: '#E05A3A',
@@ -2058,14 +2062,20 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           ) : (
             <div className="grid">
               {filtered.map((item, idx) => (
-                <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s` }} onClick={() => openItem(item)}>
-                  <div className="c-img">
+                <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s`, opacity: item.soldOut ? 0.6 : 1, cursor: item.soldOut ? 'not-allowed' : 'pointer' }} onClick={() => { if (!item.soldOut) openItem(item); }}>
+                  <div className="c-img" style={{ position: 'relative' }}>
                     <div className={`img-skeleton${imgLoaded[item.id] ? ' loaded' : ''}`} />
                     <img src={imgSrc(item)} alt={item.name} loading="lazy"
                       className={imgLoaded[item.id] ? 'img-visible' : ''}
+                      style={{ filter: item.soldOut ? 'grayscale(60%)' : 'none' }}
                       onLoad={() => setImgLoaded(s => ({ ...s, [item.id]: true }))}
                       onError={() => { setImgErr(e => ({ ...e, [item.id]: true })); setImgLoaded(s => ({ ...s, [item.id]: true })); }} />
-                    {item.modelURL && (
+                    {item.soldOut && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: 'inherit' }}>
+                        <span style={{ background: '#C04A28', color: '#fff', fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 20, letterSpacing: '0.06em' }}>SOLD OUT</span>
+                      </div>
+                    )}
+                    {!item.soldOut && item.modelURL && (
                       <span className="c-ar-pill">
                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
@@ -2074,7 +2084,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       </span>
                     )}
                     {typeof item.isVeg === 'boolean' && <span className={`veg-ind ${item.isVeg ? 'v' : 'nv'}`} />}
-                    {item.offerBadge && item.offerLabel && (
+                    {!item.soldOut && item.offerBadge && item.offerLabel && (
                       <div className="c-ribbon" style={{ background: item.offerColor || '#F79B3D' }}>🏷 {item.offerLabel}</div>
                     )}
                   </div>
