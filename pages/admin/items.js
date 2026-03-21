@@ -270,7 +270,7 @@ export default function AdminItems() {
           ) : (
             <div style={{ ...S.card, overflow: 'hidden' }}>
               {/* Table header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '40px 56px 1fr 90px 90px 80px 100px 110px 100px', gap: 0, padding: '11px 18px', borderBottom: '1px solid rgba(42,31,16,0.06)', background: '#FAFAF8' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '40px 56px 1fr 90px 90px 80px 100px 110px auto', gap: 0, padding: '11px 18px', borderBottom: '1px solid rgba(42,31,16,0.06)', background: '#FAFAF8' }}>
                 {['↕', '', 'Item', 'Category', 'Prep', 'Spice', 'Status', 'Stock', 'Actions'].map(h => (
                   <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'rgba(42,31,16,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</div>
                 ))}
@@ -289,7 +289,7 @@ export default function AdminItems() {
                       onDragEnter={() => { dragOverItem.current = item.id; }}
                       onDragEnd={handleDragEnd}
                       onDragOver={e => e.preventDefault()}
-                      style={{ display: 'grid', gridTemplateColumns: '40px 56px 1fr 90px 90px 80px 100px 110px 100px', gap: 0, padding: '13px 18px', borderBottom: isEdit ? 'none' : '1px solid rgba(42,31,16,0.05)', alignItems: 'center', background: dragging === item.id ? '#FFF5F0' : dragOverItem.current === item.id && dragging && dragging !== item.id ? '#F0F7F3' : '#fff', transition: 'background 0.12s', opacity: !item.isActive ? 0.4 : isSoldOutToday(item) ? 0.65 : 1, cursor: dragging ? 'grabbing' : 'default', outline: dragOverItem.current === item.id && dragging && dragging !== item.id ? '2px dashed rgba(143,196,168,0.6)' : 'none' }}>
+                      style={{ display: 'grid', gridTemplateColumns: '40px 56px 1fr 90px 90px 80px 100px 110px auto', gap: 0, padding: '13px 18px', borderBottom: isEdit ? 'none' : '1px solid rgba(42,31,16,0.05)', alignItems: 'center', background: dragging === item.id ? '#FFF5F0' : dragOverItem.current === item.id && dragging && dragging !== item.id ? '#F0F7F3' : '#fff', transition: 'background 0.12s', opacity: !item.isActive ? 0.4 : isSoldOutToday(item) ? 0.65 : 1, cursor: dragging ? 'grabbing' : 'default', outline: dragOverItem.current === item.id && dragging && dragging !== item.id ? '2px dashed rgba(143,196,168,0.6)' : 'none' }}>
 
                       {/* Drag handle */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', color: 'rgba(42,31,16,0.25)', fontSize: 16, userSelect: 'none' }} title="Drag to reorder">⠿</div>

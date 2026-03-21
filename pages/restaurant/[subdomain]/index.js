@@ -2123,24 +2123,34 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       </div>
                     )}
                     <div className="c-name">{item.name}</div>
-                    <div className="c-price-row">
-                      {item.offerPrice != null ? (
-                        <>
-                          <span className="c-price" style={{ color: '#E05A3A', fontWeight: 800 }}>₹{item.offerPrice}</span>
-                          <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through', marginLeft: 4 }}>₹{item.price}</span>
-                        </>
-                      ) : (
-                        item.price && <CardPrice price={item.price} className="c-price" />
-                      )}
-                      {item.calories && <span className="c-cal">{item.calories} kcal</span>}
-                      {item.ratingCount > 0 && (
-                        <span style={{ fontSize: 11, color: '#F79B3D', fontWeight: 700, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-                          ★ {item.ratingAvg?.toFixed(1)}
-                          <span style={{ color: 'rgba(42,31,16,0.35)', fontWeight: 400 }}> ({item.ratingCount})</span>
+
+                    {item.soldOut ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0' }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#C04A28', background: 'rgba(192,74,40,0.1)', border: '1px solid rgba(192,74,40,0.25)', borderRadius: 20, padding: '3px 10px', letterSpacing: '0.04em' }}>
+                          🔴 Sold Out Today
                         </span>
-                      )}
-                    </div>
-                    {(item.spiceLevel && item.spiceLevel !== 'None' || item.prepTime) && (
+                      </div>
+                    ) : (
+                      <div className="c-price-row">
+                        {item.offerPrice != null ? (
+                          <>
+                            <span className="c-price" style={{ color: '#E05A3A', fontWeight: 800 }}>₹{item.offerPrice}</span>
+                            <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through', marginLeft: 4 }}>₹{item.price}</span>
+                          </>
+                        ) : (
+                          item.price && <CardPrice price={item.price} className="c-price" />
+                        )}
+                        {item.calories && <span className="c-cal">{item.calories} kcal</span>}
+                        {item.ratingCount > 0 && (
+                          <span style={{ fontSize: 11, color: '#F79B3D', fontWeight: 700, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                            ★ {item.ratingAvg?.toFixed(1)}
+                            <span style={{ color: 'rgba(42,31,16,0.35)', fontWeight: 400 }}> ({item.ratingCount})</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {!item.soldOut && (item.spiceLevel && item.spiceLevel !== 'None' || item.prepTime) && (
                       <div className="c-meta">
                         {item.spiceLevel && item.spiceLevel !== 'None' && SPICE_MAP[item.spiceLevel] && (
                           <span className="c-spice-chip" style={{ background: SPICE_MAP[item.spiceLevel].bg, color: SPICE_MAP[item.spiceLevel].color }}>
@@ -2150,7 +2160,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                         {item.prepTime && <span className="c-prep">⏱ {item.prepTime}</span>}
                       </div>
                     )}
-                    {item.modelURL && (
+                    {!item.soldOut && item.modelURL && (
                       <div className="c-ar-cta">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />

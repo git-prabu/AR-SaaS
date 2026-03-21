@@ -36,52 +36,9 @@ export default function AdminOrders() {
     const [updating, setUpdating] = useState(null);
     const [tick, setTick] = useState(0);
     const prevCountRef = useRef(0);
-    const audioUnlocked = useRef(false);
-    const audioRef = useRef(null);
-
-    // ── Unlock audio on first user interaction ──────────────────
-    // Browsers block autoplay until the user has clicked something on the page.
-    useEffect(() => {
-        const unlock = () => {
-            if (audioUnlocked.current) return;
-            audioUnlocked.current = true;
-            // Pre-load and immediately pause — this "unlocks" audio for later auto-play
-            const a = new Audio('/notification.mp3');
-            a.volume = 0;
-            a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 1; audioRef.current = a; }).catch(() => { });
-        };
-        document.addEventListener('click', unlock, { once: true });
-        return () => document.removeEventListener('click', unlock);
-    }, []);
-
-    // ── Request browser notification permission on mount ─────────
-    useEffect(() => {
-        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
-    }, []);
 
     const playAlert = () => {
-        // 1. Try unlocked audio
-        try {
-            if (audioRef.current) {
-                audioRef.current.currentTime = 0;
-                audioRef.current.play().catch(() => { });
-            } else {
-                const a = new Audio('/notification.mp3');
-                a.play().catch(() => { });
-            }
-        } catch { }
-        // 2. Browser push notification (works even in background tab)
-        try {
-            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                new Notification('New Order! 🛒', {
-                    body: 'A customer just placed an order.',
-                    icon: '/favicon.ico',
-                    tag: 'new-order',
-                });
-            }
-        } catch { }
+        try { new Audio('/notification.mp3').play().catch(() => { }); } catch { }
     };
     const rid = userData?.restaurantId;
 
@@ -153,19 +110,12 @@ export default function AdminOrders() {
                             <h1 style={S.h1}>Orders</h1>
                             <p style={S.sub}>Live incoming orders from your tables</p>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                            {pendingCount > 0 && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 30, background: 'rgba(224,90,58,0.1)', border: '1px solid rgba(224,90,58,0.25)' }}>
-                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E05A3A', display: 'inline-block', animation: 'pulse 1.2s infinite' }} />
-                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#C04A28' }}>{pendingCount} new order{pendingCount > 1 ? 's' : ''}</span>
-                                </div>
-                            )}
-                            {!audioUnlocked.current && (
-                                <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.35)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                                    🔔 Click anywhere to enable sound alerts
-                                </div>
-                            )}
-                        </div>
+                        {pendingCount > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 30, background: 'rgba(224,90,58,0.1)', border: '1px solid rgba(224,90,58,0.25)' }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E05A3A', display: 'inline-block', animation: 'pulse 1.2s infinite' }} />
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#C04A28' }}>{pendingCount} new order{pendingCount > 1 ? 's' : ''}</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Summary pills */}
