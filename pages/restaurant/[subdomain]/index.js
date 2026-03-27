@@ -349,6 +349,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     return stored !== 'light'; // dark by default
   });
 
+  // ── Brand theme — per-restaurant custom palette ──
+  // Reads from restaurant.brandPalette (Firestore field) — falls back to null (default theme)
+  // For The Spot: set manually here until admin UI is built
+  const brandPalette = restaurant?.brandPalette || (restaurant?.subdomain === 'spot' ? 'earthy-elegance' : null);
+  const isBranded = !!brandPalette;
+
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(() => { });
   }, [restaurant?.id]);
@@ -637,9 +643,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         <meta name="description" content={`Explore ${restaurant.name}'s menu`} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className={darkMode ? 'dm' : ''} id="app-root" style={{ position: 'relative' }}>
+      <div className={isBranded ? `bt bt-${brandPalette}` : darkMode ? 'dm' : ''} id="app-root" style={{ position: 'relative' }}>
         {/* Plasma background — shows only in dark mode via CSS */}
         <div className="plasma-bg" aria-hidden="true">
           <div className="plasma-blob pb1" />
@@ -1822,6 +1829,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           background: #0D0B08;
         }
         .dm .plasma-bg { display: block; }
+        .bt .plasma-bg { display: block; }
         .plasma-blob {
           position: absolute; border-radius: 50%;
           filter: blur(80px); opacity: 0.45; mix-blend-mode: screen;
@@ -1851,8 +1859,387 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           background: rgba(8,6,4,0.62);
         }
 
-        /* ── Clean Glow Border on visible cards ── */
-        .card.shine-on {
+        /* ═══════════════════════════════════════════════════════
+           BRAND THEME — earthy-elegance
+           Palette: Noir de Vigne · Emerald Green · Wasabi · Creased Khaki · Egyptian Earth
+           ═══════════════════════════════════════════════════════ */
+
+        /* ── Tokens ── */
+        .bt-earthy-elegance {
+          color-scheme: dark;
+          --bt-bg:          #111A19;
+          --bt-surface:     #1A2922;
+          --bt-card:        #1E3128;
+          --bt-elevated:    #243B2F;
+          --bt-border:      rgba(128,144,118,0.22);
+          --bt-border-hi:   rgba(184,107,48,0.55);
+          --bt-accent:      #B86B30;
+          --bt-accent-lt:   #D4894E;
+          --bt-accent-glow: rgba(184,107,48,0.28);
+          --bt-khaki:       #F8D794;
+          --bt-wasabi:      #809076;
+          --bt-emerald:     #284139;
+          --bt-text-1:      #F8D794;
+          --bt-text-2:      #C8D4C0;
+          --bt-text-muted:  #809076;
+          --bt-shadow:      0 4px 24px rgba(0,0,0,0.55);
+          --bt-shadow-hi:   0 16px 48px rgba(0,0,0,0.7);
+        }
+
+        /* ── Page shell ── */
+        #app-root.bt { background: var(--bt-bg) !important; }
+        .bt .main    { background: transparent !important; }
+
+        /* ── Plasma blobs — earthy tones ── */
+        .bt-earthy-elegance .plasma-bg {
+          background: #0C1410 !important;
+        }
+        .bt-earthy-elegance .pb1 {
+          background: radial-gradient(circle, #B86B30 0%, #284139 50%, transparent 75%) !important;
+        }
+        .bt-earthy-elegance .pb2 {
+          background: radial-gradient(circle, #284139 0%, #111A19 55%, transparent 75%) !important;
+        }
+        .bt-earthy-elegance .pb3 {
+          background: radial-gradient(circle, #809076 0%, #284139 50%, transparent 75%) !important;
+          opacity: 0.3 !important;
+        }
+        .bt-earthy-elegance .pb4 {
+          background: radial-gradient(circle, #B86B30 0%, #1A2922 55%, transparent 75%) !important;
+          opacity: 0.25 !important;
+        }
+        .bt-earthy-elegance .plasma-overlay {
+          background: rgba(17,26,25,0.55) !important;
+        }
+
+        /* ── Typography overrides — Cormorant for headings, DM Sans for body ── */
+        .bt-earthy-elegance body,
+        .bt-earthy-elegance .main,
+        .bt-earthy-elegance .hdr,
+        .bt-earthy-elegance { font-family: 'DM Sans', sans-serif !important; }
+
+        .bt-earthy-elegance .r-name {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-weight: 700 !important;
+          font-size: 20px !important;
+          letter-spacing: 0.01em !important;
+          color: var(--bt-khaki) !important;
+        }
+        .bt-earthy-elegance .r-sub {
+          color: var(--bt-wasabi) !important;
+          font-size: 11px !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .c-name {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-weight: 600 !important;
+          font-size: 16px !important;
+          letter-spacing: 0.01em !important;
+          color: var(--bt-text-1) !important;
+        }
+
+        /* ── Header ── */
+        .bt-earthy-elegance .hdr {
+          background: rgba(17,26,25,0.75) !important;
+          backdrop-filter: saturate(180%) blur(24px) brightness(0.9) !important;
+          -webkit-backdrop-filter: saturate(180%) blur(24px) brightness(0.9) !important;
+          border-bottom: 1px solid var(--bt-border) !important;
+          box-shadow: 0 2px 24px rgba(0,0,0,0.4) !important;
+        }
+        .bt-earthy-elegance .r-logo {
+          background: linear-gradient(145deg, var(--bt-accent), var(--bt-emerald)) !important;
+          box-shadow: 0 3px 12px var(--bt-accent-glow) !important;
+        }
+        .bt-earthy-elegance .ar-badge {
+          background: rgba(184,107,48,0.15) !important;
+          border-color: rgba(184,107,48,0.35) !important;
+          color: var(--bt-accent-lt) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .ar-dot {
+          background: var(--bt-accent) !important;
+          box-shadow: 0 0 6px var(--bt-accent-glow) !important;
+        }
+
+        /* ── Category pills ── */
+        .bt-earthy-elegance .cat-pill {
+          background: var(--bt-elevated) !important;
+          color: var(--bt-text-muted) !important;
+          border-color: var(--bt-border) !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 500 !important;
+        }
+        .bt-earthy-elegance .cat-pill:hover:not(.on) {
+          background: rgba(40,65,57,0.6) !important;
+          color: var(--bt-text-2) !important;
+          border-color: var(--bt-border-hi) !important;
+        }
+        .bt-earthy-elegance .cat-pill.on {
+          background: var(--bt-accent) !important;
+          color: var(--bt-khaki) !important;
+          border-color: transparent !important;
+          box-shadow: 0 4px 16px var(--bt-accent-glow) !important;
+          font-weight: 700 !important;
+        }
+
+        /* ── Cards ── */
+        .bt-earthy-elegance .card {
+          background: rgba(30,49,40,0.88) !important;
+          border-color: rgba(128,144,118,0.18) !important;
+          box-shadow: var(--bt-shadow) !important;
+        }
+        .bt-earthy-elegance .card:hover {
+          box-shadow: var(--bt-shadow-hi) !important;
+          border-color: rgba(184,107,48,0.3) !important;
+        }
+        .bt-earthy-elegance .c-img::before {
+          content: '';
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 55%;
+          background: linear-gradient(to top, rgba(30,49,40,0.96) 0%, rgba(30,49,40,0.6) 55%, transparent 100%);
+          z-index: 1; pointer-events: none;
+          border-radius: 0 0 14px 14px;
+        }
+        .bt-earthy-elegance .c-price {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-weight: 700 !important;
+          font-size: 19px !important;
+          color: var(--bt-accent-lt) !important;
+        }
+        .bt-earthy-elegance .c-cal {
+          color: var(--bt-wasabi) !important;
+          font-size: 11px !important;
+        }
+        .bt-earthy-elegance .c-badge-feat {
+          background: rgba(184,107,48,0.18) !important;
+          color: var(--bt-accent-lt) !important;
+          border: 1px solid rgba(184,107,48,0.3) !important;
+        }
+        .bt-earthy-elegance .c-badge-pop {
+          background: rgba(128,144,118,0.18) !important;
+          color: var(--bt-khaki) !important;
+          border: 1px solid rgba(128,144,118,0.3) !important;
+        }
+        .bt-earthy-elegance .c-ar-pill {
+          background: rgba(184,107,48,0.85) !important;
+          color: var(--bt-khaki) !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 700 !important;
+        }
+        .bt-earthy-elegance .c-ar-cta {
+          color: var(--bt-accent-lt) !important;
+          border-color: rgba(184,107,48,0.25) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .c-spice-chip {
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .c-ribbon {
+          background: var(--bt-accent) !important;
+          color: var(--bt-khaki) !important;
+        }
+
+        /* ── Shine border override ── */
+        .bt-earthy-elegance .card.shine-on {
+          border: 1.5px solid rgba(184,107,48,0.6) !important;
+          box-shadow:
+            0 1px 3px rgba(0,0,0,0.1),
+            0 4px 16px rgba(0,0,0,0.15),
+            0 0 0 3px rgba(184,107,48,0.08),
+            0 0 18px rgba(184,107,48,0.18) !important;
+        }
+
+        /* ── AR strip ── */
+        .bt-earthy-elegance .ar-strip {
+          background: var(--bt-card) !important;
+          border-color: rgba(184,107,48,0.2) !important;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.4) !important;
+        }
+        .bt-earthy-elegance .ar-strip-text { color: var(--bt-text-1) !important; font-family: 'DM Sans', sans-serif !important; }
+        .bt-earthy-elegance .ar-strip-sub  { color: var(--bt-wasabi) !important; }
+        .bt-earthy-elegance .ar-strip-chip {
+          background: var(--bt-accent) !important;
+          color: var(--bt-khaki) !important;
+        }
+
+        /* ── Section headers / dividers ── */
+        .bt-earthy-elegance .cat-section-label {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-weight: 600 !important;
+          font-style: italic !important;
+          color: var(--bt-wasabi) !important;
+          letter-spacing: 0.06em !important;
+        }
+
+        /* ── Bottom sheet / modal ── */
+        .bt-earthy-elegance .sheet {
+          background: var(--bt-card) !important;
+          border-top: 1px solid var(--bt-border) !important;
+        }
+        .bt-earthy-elegance .handle {
+          background: var(--bt-border) !important;
+        }
+        .bt-earthy-elegance .m-title {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-weight: 700 !important;
+          font-size: 22px !important;
+          color: var(--bt-khaki) !important;
+          letter-spacing: 0.01em !important;
+        }
+        .bt-earthy-elegance .m-price {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-weight: 700 !important;
+          font-size: 28px !important;
+          color: var(--bt-accent-lt) !important;
+        }
+        .bt-earthy-elegance .m-price-sub {
+          color: var(--bt-wasabi) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .m-desc {
+          color: var(--bt-text-2) !important;
+          font-family: 'DM Sans', sans-serif !important;
+          line-height: 1.75 !important;
+        }
+        .bt-earthy-elegance .tag-cat {
+          background: rgba(40,65,57,0.5) !important;
+          color: var(--bt-text-2) !important;
+          border-color: var(--bt-border) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .tag-veg {
+          background: rgba(40,65,57,0.3) !important;
+          color: #8FC4A8 !important;
+          border-color: rgba(143,196,168,0.3) !important;
+        }
+        .bt-earthy-elegance .tag-nv {
+          background: rgba(184,107,48,0.15) !important;
+          color: var(--bt-accent-lt) !important;
+          border-color: rgba(184,107,48,0.3) !important;
+        }
+        .bt-earthy-elegance .tag-pop {
+          background: rgba(248,215,148,0.12) !important;
+          color: var(--bt-khaki) !important;
+          border-color: rgba(248,215,148,0.25) !important;
+        }
+        .bt-earthy-elegance .ar-btn {
+          background: var(--bt-accent) !important;
+          color: var(--bt-khaki) !important;
+          box-shadow: 0 4px 18px var(--bt-accent-glow) !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 700 !important;
+        }
+        .bt-earthy-elegance .close-btn {
+          color: var(--bt-wasabi) !important;
+        }
+        .bt-earthy-elegance .divider {
+          background: var(--bt-border) !important;
+        }
+        .bt-earthy-elegance .sec-lbl {
+          color: var(--bt-wasabi) !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 700 !important;
+          letter-spacing: 0.08em !important;
+        }
+        .bt-earthy-elegance .nc-v {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-weight: 600 !important;
+          color: var(--bt-khaki) !important;
+        }
+        .bt-earthy-elegance .nc-u,
+        .bt-earthy-elegance .nc-l {
+          color: var(--bt-wasabi) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .ing {
+          background: rgba(40,65,57,0.4) !important;
+          color: var(--bt-text-2) !important;
+          border-color: var(--bt-border) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .qty-btn {
+          background: var(--bt-elevated) !important;
+          border-color: var(--bt-border) !important;
+          color: var(--bt-text-1) !important;
+        }
+
+        /* ── FABs ── */
+        .bt-earthy-elegance .sma-fab {
+          background: linear-gradient(135deg, var(--bt-accent), #8B5020) !important;
+          box-shadow: 0 8px 28px var(--bt-accent-glow) !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 700 !important;
+        }
+        .bt-earthy-elegance .waiter-fab {
+          background: var(--bt-card) !important;
+          border-color: var(--bt-border) !important;
+          color: var(--bt-text-1) !important;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance .cart-fab {
+          background: var(--bt-card) !important;
+          border-color: var(--bt-border) !important;
+          color: var(--bt-text-1) !important;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+
+        /* ── Waiter call modal ── */
+        .bt-earthy-elegance .wtr-reason-btn {
+          background: var(--bt-elevated) !important;
+          border-color: var(--bt-border) !important;
+          color: var(--bt-text-2) !important;
+        }
+        .bt-earthy-elegance .wtr-reason-btn.sel {
+          border-color: var(--bt-accent) !important;
+          background: rgba(184,107,48,0.12) !important;
+          color: var(--bt-khaki) !important;
+        }
+
+        /* ── Ratings stars ── */
+        .bt-earthy-elegance .star-btn { color: var(--bt-border) !important; }
+        .bt-earthy-elegance .star-btn.lit { color: var(--bt-accent) !important; }
+
+        /* ── Scrollbar ── */
+        .bt-earthy-elegance ::-webkit-scrollbar-track { background: var(--bt-surface) !important; }
+        .bt-earthy-elegance ::-webkit-scrollbar-thumb { background: var(--bt-border) !important; }
+
+        /* ── Empty state ── */
+        .bt-earthy-elegance .empty p { color: var(--bt-wasabi) !important; }
+
+        /* ── Combo cards ── */
+        .bt-earthy-elegance .grid > div[style*="borderRadius:18px"],
+        .bt-earthy-elegance .grid > div[style*="border-radius:18px"] {
+          background: rgba(30,49,40,0.85) !important;
+          border-color: rgba(184,107,48,0.22) !important;
+        }
+
+        /* ── Input fields in cart/waiter ── */
+        .bt-earthy-elegance input, .bt-earthy-elegance textarea {
+          background: var(--bt-elevated) !important;
+          border-color: var(--bt-border) !important;
+          color: var(--bt-khaki) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .bt-earthy-elegance input::placeholder,
+        .bt-earthy-elegance textarea::placeholder {
+          color: var(--bt-wasabi) !important;
+        }
+
+        /* ── btn-amber override ── */
+        .bt-earthy-elegance .btn-amber,
+        .bt-earthy-elegance [style*="background: #F79B3D"],
+        .bt-earthy-elegance [style*="background:#F79B3D"],
+        .bt-earthy-elegance [style*="background: rgb(247, 155, 61)"] {
+          background: var(--bt-accent) !important;
+          color: var(--bt-khaki) !important;
+          box-shadow: 0 4px 16px var(--bt-accent-glow) !important;
+        }
+
+        /* ─── END BRAND THEME ─── */
+
           animation: cardPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both !important;
           border: 1.5px solid rgba(221,132,72,0.7) !important;
           box-shadow:
@@ -1929,7 +2316,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 <div className="r-name">{restaurant.name}</div>
                 <div className="r-sub">Tap any dish · See it in AR on your table</div>
               </div>
-              <button className="theme-toggle" onClick={() => setDarkMode(d => { const next = !d; if (typeof window !== "undefined") localStorage.setItem("ar_theme", next ? "dark" : "light"); return next; })} title={darkMode ? "Switch to Light" : "Switch to Dark"} aria-label="Toggle theme">
+              <button className="theme-toggle" onClick={() => { if (isBranded) return; setDarkMode(d => { const next = !d; if (typeof window !== "undefined") localStorage.setItem("ar_theme", next ? "dark" : "light"); return next; }); }} title={isBranded ? "Custom theme active" : darkMode ? "Switch to Light" : "Switch to Dark"} aria-label="Toggle theme" style={{ opacity: isBranded ? 0.4 : 1, cursor: isBranded ? "default" : "pointer" }}>
                 <span className="tgl-slider">
                   <span className="tgl-star tgl-star-1" />
                   <span className="tgl-star tgl-star-2" />
