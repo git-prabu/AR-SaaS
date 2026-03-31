@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder } from '../../../lib/db';
+import { useRouter } from 'next/router';
+import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, getTableSession, isSessionValid } from '../../../lib/db';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
 function getSessionId() {
@@ -83,6 +84,97 @@ function CardPrice({ price, className }) {
     </span>
   );
 }
+
+/* ── Multi-language strings ── */
+const TRANSLATIONS = {
+  en: {
+    sub: 'Tap any dish · See it in AR on your table',
+    all: 'All',
+    featured: '⭐ Featured',
+    popular: '✦ Popular',
+    soldOut: '🔴 Sold Out Today',
+    viewAR: 'View in AR',
+    viewARSub: 'Point at Your Table',
+    arHint: 'No app needed · Works on Android Chrome & iOS Safari',
+    perServing: 'per serving',
+    nutrition: 'Nutrition',
+    ingredients: 'Ingredients',
+    needHelp: 'Need Help?',
+    helpChoose: 'Help Me Choose',
+    arLive: 'AR Live',
+    addToOrder: 'Add to Order',
+    yourOrder: 'Your Order',
+    placeOrder: 'Place Order →',
+    confirmOrder: '✓ Confirm & Place Order',
+    tableNumber: 'Table Number',
+    tablePlaceholder: 'e.g. 4 or A2',
+    specialInst: 'Special Instructions',
+    specialPlaceholder: 'e.g. No onions, extra spicy...',
+    orderPlaced: 'Order Placed!',
+    orderSentMsg: "Your order has been sent to the kitchen. We'll bring it to your table shortly.",
+    clear: 'Clear',
+    confirmSummary: 'Order Summary',
+    save: 'Save',
+  },
+  ta: {
+    sub: 'எந்த உணவையும் தட்டவும் · AR-இல் உங்கள் மேஜையில் பாருங்கள்',
+    all: 'அனைத்தும்',
+    featured: '⭐ சிறப்பு',
+    popular: '✦ பிரபலம்',
+    soldOut: '🔴 இன்று தீர்ந்தது',
+    viewAR: 'AR-இல் பார்க்கவும்',
+    viewARSub: 'உங்கள் மேஜையை நோக்கி பிடிக்கவும்',
+    arHint: 'ஆப் தேவையில்லை · Android Chrome & iOS Safari-இல் செயல்படும்',
+    perServing: 'ஒரு பரிமாறலுக்கு',
+    nutrition: 'ஊட்டச்சத்து',
+    ingredients: 'பொருட்கள்',
+    needHelp: 'உதவி வேண்டுமா?',
+    helpChoose: 'தேர்வு செய்ய உதவுங்கள்',
+    arLive: 'AR நேரலை',
+    addToOrder: 'ஆர்டரில் சேர்',
+    yourOrder: 'உங்கள் ஆர்டர்',
+    placeOrder: 'ஆர்டர் செய்யுங்கள் →',
+    confirmOrder: '✓ ஆர்டரை உறுதிப்படுத்துங்கள்',
+    tableNumber: 'மேஜை எண்',
+    tablePlaceholder: 'எ.கா. 4 அல்லது A2',
+    specialInst: 'சிறப்பு வழிமுறைகள்',
+    specialPlaceholder: 'எ.கா. வெங்காயம் வேண்டாம், மிகவும் காரமாக...',
+    orderPlaced: 'ஆர்டர் பெறப்பட்டது!',
+    orderSentMsg: 'உங்கள் ஆர்டர் சமையலறைக்கு அனுப்பப்பட்டது. விரைவில் உங்கள் மேஜைக்கு கொண்டு வருவோம்.',
+    clear: 'அழி',
+    confirmSummary: 'ஆர்டர் சுருக்கம்',
+    save: 'சேமி',
+  },
+  hi: {
+    sub: 'कोई भी डिश टैप करें · AR में अपनी मेज पर देखें',
+    all: 'सभी',
+    featured: '⭐ विशेष',
+    popular: '✦ लोकप्रिय',
+    soldOut: '🔴 आज उपलब्ध नहीं',
+    viewAR: 'AR में देखें',
+    viewARSub: 'अपनी मेज की ओर इशारा करें',
+    arHint: 'कोई ऐप नहीं · Android Chrome & iOS Safari पर काम करता है',
+    perServing: 'प्रति सर्विंग',
+    nutrition: 'पोषण',
+    ingredients: 'सामग्री',
+    needHelp: 'मदद चाहिए?',
+    helpChoose: 'चुनने में मदद करें',
+    arLive: 'AR लाइव',
+    addToOrder: 'ऑर्डर में जोड़ें',
+    yourOrder: 'आपका ऑर्डर',
+    placeOrder: 'ऑर्डर करें →',
+    confirmOrder: '✓ ऑर्डर की पुष्टि करें',
+    tableNumber: 'टेबल नंबर',
+    tablePlaceholder: 'जैसे 4 या A2',
+    specialInst: 'विशेष निर्देश',
+    specialPlaceholder: 'जैसे प्याज नहीं, ज्यादा मसाला...',
+    orderPlaced: 'ऑर्डर हो गया!',
+    orderSentMsg: 'आपका ऑर्डर किचन को भेज दिया गया है। हम जल्द ही आपकी मेज पर लाएंगे।',
+    clear: 'साफ करें',
+    confirmSummary: 'ऑर्डर सारांश',
+    save: 'सहेजें',
+  },
+};
 
 const SPICE_MAP = {
   Mild: { label: 'Mild', color: '#D4820A', bg: '#FFF8EC', dot: '🟡' },
@@ -339,15 +431,43 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const [cartOpen, setCartOpen] = useState(false);
   // Order flow
   const [orderStep, setOrderStep] = useState('cart'); // 'cart' | 'form' | 'success'
-  const [tableNumber, setTableNumber] = useState('');
+  const [orderTableInput, setOrderTableInput] = useState(''); // what customer types in the form
   const [specialNote, setSpecialNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Table session validation
+  const router = useRouter();
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [sessionBlocked, setSessionBlocked] = useState(false);
+  const tableNumber = router.query?.table || null; // from QR URL param e.g. ?table=4
+
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    if (!tableNumber) { setSessionChecked(true); return; } // no table param = no restriction
+    getTableSession(restaurant.id, tableNumber).then(session => {
+      if (!isSessionValid(session)) {
+        setSessionBlocked(true);
+      }
+      setSessionChecked(true);
+    }).catch(() => setSessionChecked(true)); // on error, allow access gracefully
+  }, [restaurant?.id, tableNumber]);
+
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return true;
     const stored = localStorage.getItem('ar_theme');
     return stored !== 'light'; // dark by default
   });
+
+  // ── Language ──────────────────────────────────────────────────────────────
+  const [lang, setLang] = useState(() => {
+    if (typeof window === 'undefined') return 'en';
+    return localStorage.getItem('ar_lang') || 'en';
+  });
+  const setLanguage = (l) => { setLang(l); if (typeof window !== 'undefined') localStorage.setItem('ar_lang', l); };
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  // Item name/description helpers — fall back to English if translation missing
+  const iN = (item) => (lang === 'ta' && item?.nameTA) || (lang === 'hi' && item?.nameHI) || item?.name || '';
+  const iD = (item) => (lang === 'ta' && item?.descriptionTA) || (lang === 'hi' && item?.descriptionHI) || item?.description || '';
 
   useEffect(() => {
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(() => { });
@@ -551,10 +671,18 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
   const placeOrder = async () => {
     if (!restaurant?.id || cart.length === 0) return;
+    // Re-validate session before accepting order
+    if (tableNumber) {
+      const session = await getTableSession(restaurant.id, tableNumber);
+      if (!isSessionValid(session)) {
+        setSessionBlocked(true);
+        return;
+      }
+    }
     setIsSubmitting(true);
     try {
       await createOrder(restaurant.id, {
-        tableNumber: tableNumber.trim() || 'Not specified',
+        tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty })),
         total: cartPrice,
         specialInstructions: specialNote.trim() || null,
@@ -563,7 +691,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
       });
       setOrderStep('success');
       clearCart();
-      setTimeout(() => { setCartOpen(false); setOrderStep('cart'); setTableNumber(''); setSpecialNote(''); }, 4000);
+      setTimeout(() => { setCartOpen(false); setOrderStep('cart'); setOrderTableInput(''); setSpecialNote(''); }, 4000);
     } catch (err) {
       console.error('Order failed:', err);
     } finally {
@@ -629,6 +757,33 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   );
   // ─────────────────────────────────────────────────────────────────────
 
+  // ── Session validation screens ────────────────────────────────────────
+  if (tableNumber && !sessionChecked) return (
+    <div style={{ minHeight: '100vh', background: '#0D0B08', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '3px solid #F79B3D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if (sessionBlocked) return (
+    <div style={{ minHeight: '100vh', background: '#0D0B08', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter,sans-serif', padding: 24 }}>
+      <div style={{ textAlign: 'center', maxWidth: 380 }}>
+        <div style={{ fontSize: 56, marginBottom: 20 }}>🔒</div>
+        <h1 style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 22, color: '#FFF5E8', marginBottom: 10 }}>
+          {restaurant.name}
+        </h1>
+        <div style={{ padding: '24px 28px', background: 'rgba(255,255,255,0.05)', borderRadius: 20, border: '1px solid rgba(255,245,220,0.1)' }}>
+          <div style={{ fontWeight: 700, fontSize: 17, color: '#FFF5E8', marginBottom: 10 }}>
+            Table {tableNumber} is not active
+          </div>
+          <div style={{ color: 'rgba(255,245,220,0.55)', fontSize: 14, lineHeight: 1.7 }}>
+            Please ask your waiter to activate this table so you can view the menu and place orders.
+          </div>
+        </div>
+        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,245,220,0.25)' }}>Powered by Advert Radical</div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -1633,6 +1788,37 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
            THEME TOGGLE — sky/night style (ref images)
            ───────────────────────────────────── */
         /* ── THEME TOGGLE — exact uiverse.io JustCode14 port ── */
+        /* ── Language picker ── */
+        .lang-pick {
+          display: flex; align-items: center; gap: 3px;
+          background: rgba(42,31,16,0.06); border-radius: 20px;
+          padding: 3px;
+          border: 1px solid rgba(42,31,16,0.08);
+          flex-shrink: 0;
+        }
+        .lang-btn {
+          padding: 4px 9px; border-radius: 16px; border: none;
+          font-size: 12px; font-weight: 700; cursor: pointer;
+          background: transparent; color: rgba(42,31,16,0.45);
+          font-family: 'Inter', sans-serif; letter-spacing: 0.02em;
+          transition: all 0.18s; line-height: 1.4;
+        }
+        .lang-btn:hover:not(.on) { color: rgba(42,31,16,0.7); }
+        .lang-btn.on {
+          background: #1E1B18; color: #FFF5E8;
+          box-shadow: 0 1px 6px rgba(30,27,24,0.2);
+        }
+        .dm .lang-pick {
+          background: rgba(255,255,255,0.07) !important;
+          border-color: rgba(255,255,255,0.1) !important;
+        }
+        .dm .lang-btn { color: rgba(255,255,255,0.35) !important; }
+        .dm .lang-btn:hover:not(.on) { color: rgba(255,255,255,0.65) !important; }
+        .dm .lang-btn.on {
+          background: #F79B3D !important;
+          color: #1E1B18 !important;
+        }
+
         .theme-toggle {
           font-size: 14px;
           margin-left: 6px; flex-shrink: 0;
@@ -1927,7 +2113,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
               </div>
               <div>
                 <div className="r-name">{restaurant.name}</div>
-                <div className="r-sub">Tap any dish · See it in AR on your table</div>
+                <div className="r-sub">{t.sub}</div>
               </div>
               <button className="theme-toggle" onClick={() => setDarkMode(d => { const next = !d; if (typeof window !== "undefined") localStorage.setItem("ar_theme", next ? "dark" : "light"); return next; })} title={darkMode ? "Switch to Light" : "Switch to Dark"} aria-label="Toggle theme">
                 <span className="tgl-slider">
@@ -1940,16 +2126,24 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 </span>
               </button>
               {arCount > 0 && (
-                <div className="ar-badge"><span className="ar-dot" /><span className="shiny-txt">AR Live</span></div>
+                <div className="ar-badge"><span className="ar-dot" /><span className="shiny-txt">{t.arLive}</span></div>
               )}
+              {/* ── Language picker ── */}
+              <div className="lang-pick">
+                {[['en', 'EN'], ['ta', 'த'], ['hi', 'ह']].map(([code, label]) => (
+                  <button key={code} className={`lang-btn${lang === code ? ' on' : ''}`} onClick={() => setLanguage(code)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
             {/* Category tabs */}
             <div className="cats-outer">
               <div className="cats-scroll">
-                {cats.map(c => (
-                  <button key={c} className={`cat-pill${activeCat === c ? ' on' : ''}`} data-label={c} style={{ animationDelay: `${cats.indexOf(c) * 0.04}s` }} onClick={() => setActiveCat(c)}>
-                    <span className="cat-emoji">{catIcon(c)}</span>
-                    {c}
+                {cats.map(cat => (
+                  <button key={cat} className={`cat-pill${activeCat === cat ? ' on' : ''}`} data-label={cat} style={{ animationDelay: `${cats.indexOf(cat) * 0.04}s` }} onClick={() => setActiveCat(cat)}>
+                    <span className="cat-emoji">{catIcon(cat)}</span>
+                    {cat === 'All' ? t.all : cat}
                   </button>
                 ))}
               </div>
@@ -2118,16 +2312,16 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   <div className="c-body">
                     {(item.isPopular || item.isFeatured) && (
                       <div className="c-badges">
-                        {item.isFeatured && <span className="c-badge c-badge-feat">⭐ Featured</span>}
-                        {item.isPopular && <span className="c-badge c-badge-pop">✦ Popular</span>}
+                        {item.isFeatured && <span className="c-badge c-badge-feat">{t.featured}</span>}
+                        {item.isPopular && <span className="c-badge c-badge-pop">{t.popular}</span>}
                       </div>
                     )}
-                    <div className="c-name">{item.name}</div>
+                    <div className="c-name">{iN(item)}</div>
 
                     {item.soldOut ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0' }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: '#C04A28', background: 'rgba(192,74,40,0.1)', border: '1px solid rgba(192,74,40,0.25)', borderRadius: 20, padding: '3px 10px', letterSpacing: '0.04em' }}>
-                          🔴 Sold Out Today
+                          {t.soldOut}
                         </span>
                       </div>
                     ) : (
@@ -2165,7 +2359,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
                         </svg>
-                        View in AR
+                        {t.viewAR}
                       </div>
                     )}
                   </div>
@@ -2182,7 +2376,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             {waiterCallsEnabled && (
               <button className="waiter-fab" onClick={() => setWaiterModal(true)}
                 style={{ width: 'auto', borderRadius: 50, padding: '10px 18px', gap: 7, display: 'flex', alignItems: 'center', background: darkMode ? '#2A2520' : '#fff', border: '1.5px solid rgba(42,31,16,0.1)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', fontSize: 13, fontWeight: 700, fontFamily: 'Inter,sans-serif', color: darkMode ? '#FFF5E8' : '#1E1B18', whiteSpace: 'nowrap' }}>
-                🙋 Need Help?
+                🙋 {t.needHelp}
               </button>
             )}
             {/* Cart FAB — only show when cart has items */}
@@ -2195,7 +2389,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             )}
             <button className="sma-fab" onClick={openSMA}>
               <span className="sma-fab-icon">✨</span>
-              Help Me Choose
+              {t.helpChoose}
             </button>
           </div>
         )}
@@ -2218,11 +2412,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 </div>
               )}
               <div className="sbody">
-                <h2 className="m-title">{selectedItem.name}</h2>
+                <h2 className="m-title">{iN(selectedItem)}</h2>
                 <div className="m-tags">
                   {selectedItem.category && <span className="tag tag-cat">{selectedItem.category}</span>}
                   {typeof selectedItem.isVeg === 'boolean' && <span className={selectedItem.isVeg ? 'tag tag-veg' : 'tag tag-nv'}>{selectedItem.isVeg ? '● Veg' : '● Non-Veg'}</span>}
-                  {selectedItem.isPopular && <span className="tag tag-pop">✦ Popular</span>}
+                  {selectedItem.isPopular && <span className="tag tag-pop">{t.popular}</span>}
                 </div>
                 {(selectedItem.prepTime || (selectedItem.spiceLevel && selectedItem.spiceLevel !== 'None')) && (
                   <div className="m-pills">
@@ -2239,31 +2433,31 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                     <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 26, color: '#E05A3A' }}>₹{selectedItem.offerPrice}</span>
                     <span style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through', marginLeft: 8 }}>₹{selectedItem.price}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#2D8B4E', marginLeft: 8 }}>Save ₹{selectedItem.price - selectedItem.offerPrice}</span>
-                    <div className="m-price-sub">per serving</div>
+                    <div className="m-price-sub">{t.perServing}</div>
                   </div>
                 ) : selectedItem.price && (
-                  <><PriceCounter key={selectedItem.id} price={selectedItem.price} className="m-price" animate={true} /><div className="m-price-sub">per serving</div></>
+                  <><PriceCounter key={selectedItem.id} price={selectedItem.price} className="m-price" animate={true} /><div className="m-price-sub">{t.perServing}</div></>
                 )}
-                {selectedItem.description && <p className="m-desc">{selectedItem.description}</p>}
+                {iD(selectedItem) && <p className="m-desc">{iD(selectedItem)}</p>}
                 {(selectedItem.calories || selectedItem.protein || selectedItem.carbs || selectedItem.fats) && (<>
                   <div className="divider" />
-                  <div className="sec-lbl">Nutrition</div>
+                  <div className="sec-lbl">{t.nutrition}</div>
                   <div className="nutr">
                     {[{ l: 'Calories', v: selectedItem.calories, u: 'kcal' }, { l: 'Protein', v: selectedItem.protein, u: 'g' }, { l: 'Carbs', v: selectedItem.carbs, u: 'g' }, { l: 'Fats', v: selectedItem.fats, u: 'g' }]
                       .filter(n => n.v).map(n => (<div key={n.l} className="nc"><div className="nc-v">{n.v}</div><div className="nc-u">{n.u}</div><div className="nc-l">{n.l}</div></div>))}
                   </div>
                 </>)}
                 {selectedItem.ingredients?.length > 0 && (<>
-                  <div className="sec-lbl">Ingredients</div>
+                  <div className="sec-lbl">{t.ingredients}</div>
                   <div className="ings">{selectedItem.ingredients.map(ing => <span key={ing} className="ing">{ing}</span>)}</div>
                 </>)}
                 {!showAR && selectedItem.modelURL && (<>
                   <div className="divider" />
                   <button className="ar-btn" onClick={() => { setShowAR(true); handleARLaunch(); }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>
-                    View in AR — <span className="ar-btn-sub">Point at Your Table</span>
+                    {t.viewAR} — <span className="ar-btn-sub">{t.viewARSub}</span>
                   </button>
-                  <div className="ar-hint">No app needed · Works on Android Chrome &amp; iOS Safari</div>
+                  <div className="ar-hint">{t.arHint}</div>
                 </>)}
                 {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch} />}
 
@@ -2379,7 +2573,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
               {orderStep === 'cart' && (<>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 Your Order</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 {t.yourOrder}</div>
                     <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>{cartTotal} item{cartTotal !== 1 ? 's' : ''}</div>
                   </div>
                   <button onClick={() => { setCartOpen(false); setOrderStep('cart'); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
@@ -2407,10 +2601,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={clearCart} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: 'transparent', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.5)' }}>
-                    Clear
+                    {t.clear}
                   </button>
                   <button onClick={() => setOrderStep('form')} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
-                    Place Order →
+                    {t.placeOrder}
                   </button>
                 </div>
               </>)}
@@ -2419,7 +2613,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
               {orderStep === 'form' && (<>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                   <button onClick={() => setOrderStep('cart')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)', fontSize: 18, lineHeight: 1, padding: 0 }}>←</button>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Confirm Order</div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{t.confirmSummary}</div>
                 </div>
                 {/* Order summary */}
                 <div style={{ padding: '12px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 16 }}>
@@ -2431,22 +2625,22 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
                 </div>
                 {/* Table number */}
-                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Table Number</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.tableNumber}</label>
                 <input
-                  type="text" inputMode="numeric" placeholder="e.g. 4 or A2"
-                  value={tableNumber} onChange={e => setTableNumber(e.target.value)}
+                  type="text" inputMode="numeric" placeholder={t.tablePlaceholder}
+                  value={orderTableInput} onChange={e => setOrderTableInput(e.target.value)}
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 14, boxSizing: 'border-box' }}
                 />
                 {/* Special instructions */}
-                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Special Instructions <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.specialInst} <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
                 <textarea
-                  placeholder="e.g. No onions, extra spicy..."
+                  placeholder={t.specialPlaceholder}
                   value={specialNote} onChange={e => setSpecialNote(e.target.value)} rows={2}
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 20, resize: 'none', boxSizing: 'border-box' }}
                 />
                 <button onClick={placeOrder} disabled={isSubmitting}
                   style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : darkMode ? '#F79B3D' : '#1E1B18', color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
-                  {isSubmitting ? 'Placing order…' : '✓ Confirm & Place Order'}
+                  {isSubmitting ? '...' : t.confirmOrder}
                 </button>
               </>)}
 
@@ -2454,9 +2648,9 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
               {orderStep === 'success' && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px 0' }}>
                   <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 10 }}>Order Placed!</div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 10 }}>{t.orderPlaced}</div>
                   <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 280 }}>
-                    Your order has been sent to the kitchen. We'll bring it to your table shortly.
+                    {t.orderSentMsg}
                   </div>
                 </div>
               )}
@@ -2542,7 +2736,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
               {!smaMode && (
                 <div className="sma-mode-wrap">
                   <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>✨</div>
-                  <div className="sma-mode-title">Help Me Choose</div>
+                  <div className="sma-mode-title">{t.helpChoose}</div>
                   <div className="sma-mode-sub">Are you ordering just for yourself or for a group?</div>
                   <div className="sma-mode-cards">
                     <button className="sma-mode-card" onClick={() => { setSmaMode('solo'); setSmaStep(0); }}>
