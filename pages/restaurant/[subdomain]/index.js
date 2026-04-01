@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, getTableSession, isSessionValid } from '../../../lib/db';
+import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, getTableSession, isSessionValid, isSessionValidWithSid } from '../../../lib/db';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
 function getSessionId() {
@@ -439,17 +439,21 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const [sessionChecked, setSessionChecked] = useState(false);
   const [sessionBlocked, setSessionBlocked] = useState(false);
   const tableNumber = router.query?.table || null; // from QR URL param e.g. ?table=4
+  const urlSid      = router.query?.sid   || null;  // unguessable session ID in QR URL
 
   useEffect(() => {
     if (!restaurant?.id) return;
     if (!tableNumber) { setSessionChecked(true); return; } // no table param = no restriction
     getTableSession(restaurant.id, tableNumber).then(session => {
-      if (!isSessionValid(session)) {
-        setSessionBlocked(true);
-      }
+      // If sid is in URL, require it to match — prevents guessing table numbers
+      // If no sid (direct URL / old link), fall back to basic session check
+      const valid = urlSid
+        ? isSessionValidWithSid(session, urlSid)
+        : isSessionValid(session);
+      if (!valid) setSessionBlocked(true);
       setSessionChecked(true);
     }).catch(() => setSessionChecked(true)); // on error, allow access gracefully
-  }, [restaurant?.id, tableNumber]);
+  }, [restaurant?.id, tableNumber, urlSid]);
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -674,10 +678,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     // Re-validate session before accepting order
     if (tableNumber) {
       const session = await getTableSession(restaurant.id, tableNumber);
-      if (!isSessionValid(session)) {
-        setSessionBlocked(true);
-        return;
-      }
+      const valid = urlSid
+        ? isSessionValidWithSid(session, urlSid)
+        : isSessionValid(session);
+      if (!valid) { setSessionBlocked(true); return; }
     }
     setIsSubmitting(true);
     try {

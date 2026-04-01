@@ -62,9 +62,19 @@ export default function AdminQRCode() {
   // Reset table QRs when style changes so they stay in sync
   useEffect(() => { setTableQRs([]); setTablesDone(false); }, [selectedStyle]);
 
-  const getMenuURL = (table = null) => {
-    const base = `https://${restaurant?.subdomain || ''}.advertradical.com`;
-    return table ? `${base}?table=${table}` : base;
+  const BASE_URL = 'https://ar-saa-s-kbzn.vercel.app';
+
+  const getMenuURL = (table = null, sid = null) => {
+    const base = `${BASE_URL}/restaurant/${restaurant?.subdomain || ''}`;
+    if (!table) return base;
+    return sid ? `${base}?table=${table}&sid=${sid}` : `${base}?table=${table}`;
+  };
+
+  // Get working URL for a table using its current active session sid
+  const getTableURL = (tableNum) => {
+    const session = sessions[String(tableNum)];
+    const sid = isSessionValid(session) ? session.sid : null;
+    return getMenuURL(tableNum, sid);
   };
 
   const generateQR = async () => {
@@ -89,7 +99,7 @@ export default function AdminQRCode() {
     try {
       const results = [];
       for (let t = 1; t <= tableCount; t++) {
-        const dataURL = await QRCode.toDataURL(getMenuURL(t), {
+        const dataURL = await QRCode.toDataURL(getTableURL(t), {
           width: 512, margin: 3,
           color: { dark: selectedStyle.fg, light: selectedStyle.bg },
           errorCorrectionLevel: 'H',
@@ -414,6 +424,22 @@ export default function AdminQRCode() {
                               : 'Not activated'
                           }
                         </div>
+
+                        {/* Session ID (truncated for reference) */}
+                        {valid && session?.sid && (
+                          <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(42,31,16,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            sid: {session.sid}
+                          </div>
+                        )}
+
+                        {/* Copy working URL */}
+                        {valid && (
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(getTableURL(tableNum)); toast.success(`Table ${tableNum} URL copied!`); }}
+                            style={{ width: '100%', padding: '5px 0', borderRadius: 8, border: '1.5px solid rgba(42,31,16,0.12)', background: '#fff', color: 'rgba(42,31,16,0.6)', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                            📋 Copy URL
+                          </button>
+                        )}
 
                         {/* Action button */}
                         {valid ? (
