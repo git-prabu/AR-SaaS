@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSuperAdminAuth } from "../../hooks/useAuth"
-import { getUserData } from '../../lib/db';
+import { getUserData } from '../../lib/saDb';
 import toast from 'react-hot-toast';
 
 export default function SuperAdminLogin() {

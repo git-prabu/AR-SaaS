@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
-import { getAllRestaurants, updateRestaurant } from '../../lib/db';
+import { getAllRestaurants, updateRestaurant } from '../../lib/saDb';
 import toast from 'react-hot-toast';
 
 const PLANS = [

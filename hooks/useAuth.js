@@ -5,7 +5,8 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { adminAuth, superAdminAuth } from '../lib/firebase';
+import { getDoc, doc } from 'firebase/firestore';
+import { adminAuth, superAdminAuth, superAdminDb } from '../lib/firebase';
 import { getUserData } from '../lib/db';
 
 // ── Admin Auth ────────────────────────────────────────────────────
@@ -60,15 +61,26 @@ export function SuperAdminAuthProvider({ children }) {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(superAdminAuth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        const data = await getUserData(firebaseUser.uid);
-        setUserData(data);
-      } else {
+      try {
+        if (firebaseUser) {
+          setUser(firebaseUser);
+          // MUST use superAdminDb here — db (adminApp) has no superadmin auth token,
+          // so getUserData() from lib/db would throw permission-denied.
+          const snap = await getDoc(doc(superAdminDb, 'users', firebaseUser.uid));
+          setUserData(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        } else {
+          setUser(null);
+          setUserData(null);
+        }
+      } catch (err) {
+        console.error('SuperAdmin auth error:', err);
         setUser(null);
         setUserData(null);
+      } finally {
+        // Always resolve loading — without finally, a thrown error leaves
+        // loading=true forever and the spinner never redirects to login.
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsub;
   }, []);

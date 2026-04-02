@@ -1,10 +1,11 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
-import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants } from '../../lib/db';
-import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/storage';
-import { db } from '../../lib/firebase';
+import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants, saDb } from '../../lib/saDb';
+import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/saStorage';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+// saDb is the superAdminDb instance — use instead of db for all SA Firestore writes
+const db = saDb;
 import toast from 'react-hot-toast';
 
 const S = {
