@@ -870,6 +870,15 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           display: flex; align-items: center; gap: 13px;
           padding: 15px 0 13px;
         }
+        /* Logo wrapper — sized via CSS so mobile can override without !important inline fight */
+        .circ-wrap { width: 80px; height: 80px; }
+        /* Name + subtitle block — grows to fill available space */
+        .r-name-wrap { flex: 1; min-width: 0; }
+        /* Right group: AR badge + lang picker — pushed to far right */
+        .hdr-right {
+          display: flex; align-items: center; gap: 6px;
+          margin-left: auto; flex-shrink: 0;
+        }
         .r-logo {
           width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
           background: linear-gradient(145deg,#F79B3D,#F4C06A);
@@ -881,7 +890,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         .r-sub  { font-size: 12px; color: #9A9A9A; margin-top: 2px; letter-spacing: -0.1px; }
 
         .ar-badge {
-          margin-left: auto; flex-shrink: 0;
+          flex-shrink: 0;
           display: flex; align-items: center; gap: 5px;
           padding: 5px 12px; border-radius: 20px;
           background: rgba(247,155,61,0.1);
@@ -890,6 +899,25 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           letter-spacing: 0.01em;
         }
         .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #F79B3D; animation: blink 1.8s infinite; }
+
+        /* ── Mobile header — fits everything neatly on ≤480px screens ── */
+        @media (max-width: 480px) {
+          .hdr-top { gap: 8px; padding: 10px 0 10px; }
+          /* Shrink the circular logo ring from 80px to 48px */
+          .circ-wrap { width: 48px; height: 48px; }
+          /* Scale down the inner logo disc */
+          .circ-wrap .r-logo { width: 32px !important; height: 32px !important; font-size: 15px !important; }
+          /* Reduce restaurant name — still readable, doesn't overflow */
+          .r-name { font-size: 14px; }
+          /* Hide the subtitle line — saves ~16px of height and avoids wrap */
+          .r-sub { display: none; }
+          /* Shrink theme toggle so it doesn't eat too much horizontal space */
+          .theme-toggle { font-size: 11px; margin-left: 0; }
+          /* Hide AR Live badge on mobile — icon + text too wide on small screens */
+          .ar-badge { display: none !important; }
+          /* Compact language pills */
+          .lang-btn { padding: 3px 7px; font-size: 11px; }
+        }
 
         /* ─── CATEGORY TABS — bleeding pill design ─── */
         .cats-outer {
@@ -2088,7 +2116,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           <div className="hdr-inner">
             <div className="hdr-top">
               {/* CircularText around restaurant logo */}
-              <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="circ-wrap" style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {/* Spinning ring of text */}
                 <div className="circ-ring">
                   {(() => {
@@ -2115,10 +2143,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 {/* Logo sits in center */}
                 <div className="r-logo" style={{ position: 'relative', zIndex: 1, width: 44, height: 44 }}>🍽️</div>
               </div>
-              <div>
+              {/* Name + subtitle — flex:1 so it takes all available space */}
+              <div className="r-name-wrap">
                 <div className="r-name">{restaurant.name}</div>
                 <div className="r-sub">{t.sub}</div>
               </div>
+              {/* Theme toggle */}
               <button className="theme-toggle" onClick={() => setDarkMode(d => { const next = !d; if (typeof window !== "undefined") localStorage.setItem("ar_theme", next ? "dark" : "light"); return next; })} title={darkMode ? "Switch to Light" : "Switch to Dark"} aria-label="Toggle theme">
                 <span className="tgl-slider">
                   <span className="tgl-star tgl-star-1" />
@@ -2129,16 +2159,19 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   </svg>
                 </span>
               </button>
-              {arCount > 0 && (
-                <div className="ar-badge"><span className="ar-dot" /><span className="shiny-txt">{t.arLive}</span></div>
-              )}
-              {/* ── Language picker ── */}
-              <div className="lang-pick">
-                {[['en', 'EN'], ['ta', 'த'], ['hi', 'ह']].map(([code, label]) => (
-                  <button key={code} className={`lang-btn${lang === code ? ' on' : ''}`} onClick={() => setLanguage(code)}>
-                    {label}
-                  </button>
-                ))}
+              {/* ── Right group: AR badge + language picker — pushed to end via margin-left:auto ── */}
+              <div className="hdr-right">
+                {arCount > 0 && (
+                  <div className="ar-badge"><span className="ar-dot" /><span className="shiny-txt">{t.arLive}</span></div>
+                )}
+                {/* Language picker */}
+                <div className="lang-pick">
+                  {[['en', 'EN'], ['ta', 'த'], ['hi', 'ह']].map(([code, label]) => (
+                    <button key={code} className={`lang-btn${lang === code ? ' on' : ''}`} onClick={() => setLanguage(code)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             {/* Category tabs */}
