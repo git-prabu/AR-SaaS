@@ -94,9 +94,7 @@ export default function AdminOrders() {
             // New order notification
             const newPending = docs.filter(o => o.status === 'pending').length;
             if (prevCountRef.current > 0 && newPending > prevCountRef.current) {
-                playAlert();
-                // Fire OS notification so admin hears it even from another browser tab
-                if (document.hidden) showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
+                // Sound + OS notification handled globally by AdminLayout
             }
             prevCountRef.current = newPending;
             setOrders(docs);

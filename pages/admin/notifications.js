@@ -160,10 +160,8 @@ export default function AdminNotifications() {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pending = data.filter(c => c.status === 'pending').length;
       if (prevCallCountRef.current > 0 && pending > prevCallCountRef.current) {
-        playBell();
+        // Sound + OS notification handled globally by AdminLayout
         toast('🔔 New waiter call!', { duration: 4000 });
-        // Fire OS notification so admin hears it even from another browser tab
-        if (document.hidden) showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
       }
       prevCallCountRef.current = pending;
       setCalls(data);
@@ -180,10 +178,8 @@ export default function AdminNotifications() {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pending = data.filter(o => o.status === 'pending').length;
       if (prevOrderCountRef.current > 0 && pending > prevOrderCountRef.current) {
-        playBell();
+        // Sound + OS notification handled globally by AdminLayout
         toast('🛒 New order received!', { duration: 4000 });
-        // Fire OS notification so admin hears it even from another browser tab
-        if (document.hidden) showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
       }
       prevOrderCountRef.current = pending;
       setOrders(data);

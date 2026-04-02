@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const navItems = [
   { href: '/admin', label: 'Overview', icon: '▦' },
@@ -19,6 +21,69 @@ const navItems = [
 export default function AdminLayout({ children }) {
   const { user, userData, loading, signOut } = useAuth();
   const router = useRouter();
+  const rid = userData?.restaurantId;
+
+  // ─── GLOBAL SOUND + NOTIFICATION SYSTEM ──────────────────────────────────
+  // Lives in AdminLayout so it runs on EVERY admin page, not just the page
+  // the admin happens to be looking at. Individual pages no longer play sounds.
+  const prevCallRef   = useRef(0);
+  const prevOrderRef  = useRef(0);
+  const notifGranted  = useRef(false);
+
+  // Request OS notification permission once (needed for background-tab alerts)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      notifGranted.current = true;
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => { notifGranted.current = p === 'granted'; });
+    }
+  }, []);
+
+  // Play the MP3 alert (respects the admin's sound-on/off preference)
+  const playAlert = () => {
+    if (localStorage.getItem('ar_sound_enabled') === 'false') return;
+    try { new Audio('/notification.mp3').play().catch(() => {}); } catch {}
+  };
+
+  // Show an OS notification popup — fires even when this tab is in the background
+  const showOsNotif = (title, body) => {
+    if (!notifGranted.current) return;
+    try {
+      const n = new Notification(title, { body, icon: '/favicon.ico', tag: 'ar-alert' });
+      setTimeout(() => n.close(), 8000);
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch {}
+  };
+
+  // Waiter-calls listener — always active on every admin page
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => {
+      const pending = snap.docs.filter(d => d.data().status === 'pending').length;
+      if (prevCallRef.current > 0 && pending > prevCallRef.current) {
+        playAlert();
+        if (document.hidden) showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
+      }
+      prevCallRef.current = pending;
+    });
+  }, [rid]);
+
+  // Orders listener — always active on every admin page
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => {
+      const pending = snap.docs.filter(d => d.data().status === 'pending').length;
+      if (prevOrderRef.current > 0 && pending > prevOrderRef.current) {
+        playAlert();
+        if (document.hidden) showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
+      }
+      prevOrderRef.current = pending;
+    });
+  }, [rid]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!loading && !user) router.push('/admin/login');
