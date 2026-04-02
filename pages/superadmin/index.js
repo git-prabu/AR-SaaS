@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
-import { getAllRestaurants, getAllPendingRequests } from '../../lib/db';
+import { getAllRestaurants, getAllPendingRequests } from '../../lib/saDb';
 import Link from 'next/link';
 
 export default function SuperAdminDashboard() {

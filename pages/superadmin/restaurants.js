@@ -2,11 +2,10 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
-import { getAllRestaurants, createRestaurant, updateRestaurant } from '../../lib/db';
+import { getAllRestaurants, createRestaurant, updateRestaurant, setUserDoc } from '../../lib/saDb';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+// auth (adminAuth) is correct here — new restaurant admins authenticate via adminAuth
 import { auth } from '../../lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
 import toast from 'react-hot-toast';
 
 const BLANK = { name:'', subdomain:'', email:'', password:'' };
@@ -42,7 +41,7 @@ export default function SuperAdminRestaurants() {
     try {
       const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
       const restaurantRef = await createRestaurant({ name:form.name, subdomain:form.subdomain.toLowerCase(), isActive:true });
-      await setDoc(doc(db,'users',cred.user.uid), { email:form.email, role:'restaurant', restaurantId:restaurantRef.id, restaurantName:form.name, createdAt:serverTimestamp() });
+      await setUserDoc(cred.user.uid, { email:form.email, role:'restaurant', restaurantId:restaurantRef.id, restaurantName:form.name });
       toast.success(`Restaurant "${form.name}" created!`);
       setForm(BLANK); setShowForm(false); load();
     } catch (err) { toast.error(err.message||'Failed to create restaurant'); }
