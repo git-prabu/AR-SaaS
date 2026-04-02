@@ -905,6 +905,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           .hdr-top { gap: 8px; padding: 10px 0 10px; }
           /* Shrink the circular logo ring from 80px to 48px */
           .circ-wrap { width: 48px; height: 48px; }
+          /* Hide the spinning "• AR MENU • EXPLORE •" ring — characters are
+             positioned at radius=36px from center, so on a 48px wrapper the
+             text overflows 12px on each side and gets clipped. Hiding is
+             cleaner than trying to reposition all ~22 letter spans in CSS. */
+          .circ-ring { display: none; }
           /* Scale down the inner logo disc */
           .circ-wrap .r-logo { width: 32px !important; height: 32px !important; font-size: 15px !important; }
           /* Reduce restaurant name — still readable, doesn't overflow */
