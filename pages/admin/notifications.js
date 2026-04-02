@@ -65,6 +65,7 @@ export default function AdminNotifications() {
   const prevCallCountRef = useRef(0);
   const prevOrderCountRef = useRef(0);
   const soundEnabledRef = useRef(true);
+  const notifGrantedRef = useRef(false);   // tracks OS notification permission
   const rid = userData?.restaurantId;
 
   // ── Sound preference ──────────────────────────────────────────────────────
@@ -74,6 +75,31 @@ export default function AdminNotifications() {
     setSoundEnabled(val);
     soundEnabledRef.current = val;
   }, []);
+
+  // ── Browser OS notification permission ────────────────────────────────────
+  // Requested once on mount — lets us fire a popup when this tab is in the
+  // background so the admin hears/sees new events even from another tab.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      notifGrantedRef.current = true;
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => {
+        notifGrantedRef.current = p === 'granted';
+      });
+    }
+  }, []);
+
+  // Fires an OS-level notification (works in background tabs)
+  const showOsNotif = (title, body) => {
+    if (!notifGrantedRef.current) return;
+    try {
+      // tag:'ar-alert' collapses rapid duplicates into one notification
+      const n = new Notification(title, { body, icon: '/favicon.ico', tag: 'ar-alert' });
+      setTimeout(() => n.close(), 8000);          // auto-dismiss after 8 s
+      n.onclick = () => { window.focus(); n.close(); }; // click → bring tab to front
+    } catch { }
+  };
 
   const toggleSound = () => {
     const next = !soundEnabled;
@@ -102,10 +128,12 @@ export default function AdminNotifications() {
   };
 
   // ── Bell synthesizer ──────────────────────────────────────────────────────
-  const playBell = () => {
+  const playBell = async () => {
     if (!soundEnabledRef.current) return;
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Browsers suspend AudioContext in background tabs; resume it first
+      if (ctx.state === 'suspended') await ctx.resume();
       const playTone = (freq, startTime, duration, gainPeak) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -134,6 +162,8 @@ export default function AdminNotifications() {
       if (prevCallCountRef.current > 0 && pending > prevCallCountRef.current) {
         playBell();
         toast('🔔 New waiter call!', { duration: 4000 });
+        // Fire OS notification so admin hears it even from another browser tab
+        if (document.hidden) showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
       }
       prevCallCountRef.current = pending;
       setCalls(data);
@@ -152,6 +182,8 @@ export default function AdminNotifications() {
       if (prevOrderCountRef.current > 0 && pending > prevOrderCountRef.current) {
         playBell();
         toast('🛒 New order received!', { duration: 4000 });
+        // Fire OS notification so admin hears it even from another browser tab
+        if (document.hidden) showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
       }
       prevOrderCountRef.current = pending;
       setOrders(data);

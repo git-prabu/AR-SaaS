@@ -40,6 +40,32 @@ export default function AdminOrders() {
         return localStorage.getItem('ar_order_sound') !== 'off';
     });
     const prevCountRef = useRef(0);
+    const notifGrantedRef = useRef(false);   // tracks OS notification permission
+    const soundOnRef = useRef(soundOn);       // stable ref so snapshot closure stays fresh
+
+    // Keep soundOnRef in sync whenever the toggle changes
+    useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
+
+    // ── Browser OS notification permission ────────────────────────────────
+    useEffect(() => {
+        if (typeof window === 'undefined' || !('Notification' in window)) return;
+        if (Notification.permission === 'granted') {
+            notifGrantedRef.current = true;
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => {
+                notifGrantedRef.current = p === 'granted';
+            });
+        }
+    }, []);
+
+    const showOsNotif = (title, body) => {
+        if (!notifGrantedRef.current) return;
+        try {
+            const n = new Notification(title, { body, icon: '/favicon.ico', tag: 'ar-alert' });
+            setTimeout(() => n.close(), 8000);
+            n.onclick = () => { window.focus(); n.close(); };
+        } catch { }
+    };
 
     const toggleSound = () => {
         setSoundOn(prev => {
@@ -50,7 +76,8 @@ export default function AdminOrders() {
     };
 
     const playAlert = () => {
-        if (!soundOn) return;
+        // Use ref (not state) so the snapshot closure always sees the latest toggle value
+        if (!soundOnRef.current) return;
         try { new Audio('/notification.mp3').play().catch(() => { }); } catch { }
     };
     const rid = userData?.restaurantId;
@@ -68,6 +95,8 @@ export default function AdminOrders() {
             const newPending = docs.filter(o => o.status === 'pending').length;
             if (prevCountRef.current > 0 && newPending > prevCountRef.current) {
                 playAlert();
+                // Fire OS notification so admin hears it even from another browser tab
+                if (document.hidden) showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
             }
             prevCountRef.current = newPending;
             setOrders(docs);
