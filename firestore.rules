@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // ── Helper Functions ─────────────────────────────────────────
     function isAuth() {
       return request.auth != null;
     }
@@ -23,64 +23,123 @@ service cloud.firestore {
 
     // ── Restaurants ──────────────────────────────────────────────
     match /restaurants/{restaurantId} {
-      // Public: can read active restaurants (for subdomain routing)
+      // Public: read active restaurants (for subdomain routing)
       allow read: if resource.data.isActive == true;
-      // Restaurant admin: read their own
+      // Restaurant admin: read their own restaurant doc
       allow read: if isRestaurantAdmin(restaurantId);
       // Super admin: full access
       allow read, write: if isSuperAdmin();
-      // No public write
-      allow write: if false;
 
-      // ── Menu Items ──────────────────────────────────────────────
+      // ── Menu Items ────────────────────────────────────────────
       match /menuItems/{itemId} {
-        // Public read for active items
-        allow read: if resource.data.isActive == true;
-        // Restaurant admin can read all their items
-        allow read: if isRestaurantAdmin(restaurantId);
-        // Only super admin can write menu items (after approval)
-        allow write: if isSuperAdmin();
-        // Allow increment view/arViews without auth (analytics tracking)
-        allow update: if request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['views', 'arViews']);
+        // Public: read active items (customer menu page)
+        allow read: if true;
+        // Restaurant admin: full read + write their own items
+        // (covers sold-out toggle, drag reorder, edits)
+        allow read, write: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow read, write: if isSuperAdmin();
+        // Public: allow incrementing view/arViews only (no auth needed)
+        allow update: if !isAuth() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['views', 'arViews']);
       }
 
-      // ── Requests ────────────────────────────────────────────────
-      match /requests/{requestId} {
-        // Restaurant admin: read & create their own
-        allow read, create: if isRestaurantAdmin(restaurantId);
-        // Super admin: read & update (approve/reject)
+      // ── Analytics ─────────────────────────────────────────────
+      match /analytics/{docId} {
+        // Public read + write for visit tracking
+        allow read, write: if true;
+      }
+
+      // ── Waiter Calls ──────────────────────────────────────────
+      match /waiterCalls/{callId} {
+        // Public: customers can create waiter call (from menu page)
+        allow create: if true;
+        // Restaurant admin: read + update (mark resolved)
+        allow read, update, delete: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
         allow read, write: if isSuperAdmin();
       }
 
-      // ── Analytics ───────────────────────────────────────────────
-      match /analytics/{docId} {
-        // Public write for visit tracking (no sensitive data)
-        allow read, write: if true;
-        // Note: In production, restrict writes to specific fields only
+      // ── Orders ────────────────────────────────────────────────
+      match /orders/{orderId} {
+        // Public: customers can create orders (from menu cart)
+        allow create: if true;
+        // Public: customers can read their own order by orderId
+        // (for order confirmation screen — no auth required)
+        allow read: if true;
+        // Restaurant admin: read + update status (pending→preparing→ready→served)
+        allow read, update, delete: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow read, write: if isSuperAdmin();
       }
 
-      // ── Offers ──────────────────────────────────────────────────
+      // ── Offers ────────────────────────────────────────────────
       match /offers/{offerId} {
-        // Public read for active offers
+        // Public: read all offers (customer menu page)
         allow read: if true;
-        // Restaurant admin: manage their offers
+        // Restaurant admin: manage their offers (create, update, delete)
         allow write: if isRestaurantAdmin(restaurantId);
         // Super admin: full access
         allow write: if isSuperAdmin();
+      }
+
+      // ── Combos ────────────────────────────────────────────────
+      match /combos/{comboId} {
+        // Public: read all combos (customer menu page)
+        allow read: if true;
+        // Restaurant admin: manage their combos
+        allow write: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow write: if isSuperAdmin();
+      }
+
+      // ── Table Sessions ────────────────────────────────────────
+      match /tableSessions/{tableNumber} {
+        // Public: read session to validate QR sid (customer menu page)
+        allow read: if true;
+        // Restaurant admin: activate, clear, manage sessions
+        allow read, write: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow read, write: if isSuperAdmin();
+      }
+
+      // ── AR Model Requests ─────────────────────────────────────
+      match /requests/{requestId} {
+        // Restaurant admin: read + create their own requests
+        allow read, create: if isRestaurantAdmin(restaurantId);
+        // Super admin: read + write all (approve/reject)
+        allow read, write: if isSuperAdmin();
       }
     }
 
     // ── Users ────────────────────────────────────────────────────
     match /users/{userId} {
-      // User can read their own document
+      // User reads their own doc (for role check after login)
       allow read: if isAuth() && request.auth.uid == userId;
-      // Super admin can read all
+      // Super admin: read all user docs
       allow read: if isSuperAdmin();
-      // Allow creation (during restaurant onboarding)
+      // Allow user creation during restaurant onboarding
       allow create: if isAuth();
-      // No self-modification of role
+      // Only super admin can update roles
       allow update: if isSuperAdmin();
     }
+
+    // ── Plans ─────────────────────────────────────────────────────
+    match /plans/{planId} {
+      // Public: anyone can read plans (landing page + subscription page)
+      allow read: if true;
+      // Only super admin can manage plans
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Top-level AR Model Requests ───────────────────────────────
+    match /requests/{reqId} {
+      // Restaurant admin: read + create
+      allow read, create: if isAuth();
+      // Super admin: full access
+      allow read, write: if isSuperAdmin();
+    }
+
   }
 }

@@ -1,0 +1,46 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helper Functions ─────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ── Menu Item Images ──────────────────────────────────────────
+    // Path: menuImages/{restaurantId}/{filename}
+    match /menuImages/{restaurantId}/{allPaths=**} {
+      // Public: read all menu images (customer menu page)
+      allow read: if true;
+      // Only authenticated users (admins) can upload
+      allow write: if isAuth();
+    }
+
+    // ── AR / 3D Models ────────────────────────────────────────────
+    // Path: models/{restaurantId}/{filename}
+    match /models/{restaurantId}/{allPaths=**} {
+      // Public: read 3D models (WebAR viewer in customer menu)
+      allow read: if true;
+      // Only authenticated users (admins/superadmin) can upload
+      allow write: if isAuth();
+    }
+
+    // ── Restaurant Assets (logos, banners) ────────────────────────
+    // Path: restaurants/{restaurantId}/{filename}
+    match /restaurants/{restaurantId}/{allPaths=**} {
+      // Public: read restaurant assets
+      allow read: if true;
+      // Only authenticated users can upload
+      allow write: if isAuth();
+    }
+
+    // ── General Public Assets (fallback) ──────────────────────────
+    match /{allPaths=**} {
+      // Public read for everything else
+      allow read: if true;
+      // Only authenticated users can write
+      allow write: if isAuth();
+    }
+
+  }
+}
