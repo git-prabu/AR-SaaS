@@ -40,9 +40,36 @@ export default function AdminLayout({ children }) {
     }
   }, []);
 
-  // Play the MP3 alert (respects the admin's sound-on/off preference)
+  // Check if sound is enabled (respects the toggle on the Notifications settings page)
+  const soundAllowed = () => localStorage.getItem('ar_sound_enabled') !== 'false';
+
+  // Bell chime — used for waiter calls (ding-ding tone via Web Audio API)
+  const playBell = async () => {
+    if (!soundAllowed()) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') await ctx.resume();
+      const tone = (freq, start, dur, peak) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(peak, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+        osc.start(start); osc.stop(start + dur);
+      };
+      tone(880,  ctx.currentTime,        1.4, 0.55);
+      tone(1760, ctx.currentTime,        0.7, 0.25);
+      tone(880,  ctx.currentTime + 0.55, 1.2, 0.45);
+      tone(1760, ctx.currentTime + 0.55, 0.6, 0.2);
+    } catch {}
+  };
+
+  // MP3 alert — used for new orders
   const playAlert = () => {
-    if (localStorage.getItem('ar_sound_enabled') === 'false') return;
+    if (!soundAllowed()) return;
     try { new Audio('/notification.mp3').play().catch(() => {}); } catch {}
   };
 
@@ -63,7 +90,7 @@ export default function AdminLayout({ children }) {
     return onSnapshot(q, snap => {
       const pending = snap.docs.filter(d => d.data().status === 'pending').length;
       if (prevCallRef.current > 0 && pending > prevCallRef.current) {
-        playAlert();
+        playBell();   // distinct bell chime for waiter calls
         if (document.hidden) showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
       }
       prevCallRef.current = pending;
