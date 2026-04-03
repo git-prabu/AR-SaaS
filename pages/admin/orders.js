@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getOrders, updateOrderStatus } from '../../lib/db';
+import { getOrders, updateOrderStatus, updatePaymentStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
@@ -223,7 +223,29 @@ export default function AdminOrders() {
                                             </div>
                                         )}
 
+                                        {/* Payment status */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                                            {order.paymentStatus === 'paid_cash' || order.paymentStatus === 'paid' ? (
+                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.12)', color: '#2D8B4E', border: '1px solid rgba(45,139,78,0.25)' }}>💵 Cash Paid</span>
+                                            ) : order.paymentStatus === 'paid_online' ? (
+                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(74,128,192,0.12)', color: '#2A5FA0', border: '1px solid rgba(74,128,192,0.25)' }}>💳 Paid Online</span>
+                                            ) : order.paymentStatus === 'cash_requested' ? (
+                                                <>
+                                                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(247,155,61,0.15)', color: '#A06010', border: '1px solid rgba(247,155,61,0.35)' }}>💰 Cash Requested</span>
+                                                    <button className="adv-btn"
+                                                        onClick={async () => { setUpdating(order.id + '_pay'); await updatePaymentStatus(rid, order.id, 'paid_cash'); setUpdating(null); }}
+                                                        disabled={updating === order.id + '_pay'}
+                                                        style={{ background: '#2D8B4E', color: '#fff', padding: '5px 14px', fontSize: 11 }}>
+                                                        ✓ Mark as Paid
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <span style={{ fontSize: 11, color: 'rgba(42,31,16,0.35)' }}>Payment pending</span>
+                                            )}
+                                        </div>
+
                                         {/* Action */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                         {meta.next && (
                                             <button className="adv-btn" disabled={updating === order.id}
                                                 onClick={() => advance(order)}
@@ -236,6 +258,7 @@ export default function AdminOrders() {
                                         {order.status === 'served' && (
                                             <span style={{ fontSize: 12, color: 'rgba(42,31,16,0.35)', fontStyle: 'italic' }}>✓ Completed</span>
                                         )}
+                                        </div>
                                     </div>
                                 );
                             })}
