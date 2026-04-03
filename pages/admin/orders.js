@@ -252,15 +252,22 @@ export default function AdminOrders() {
 
                                         {/* Payment status */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                                            {order.paymentStatus === 'paid_cash' || order.paymentStatus === 'paid' ? (
-                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.12)', color: '#2D8B4E', border: '1px solid rgba(45,139,78,0.25)' }}>💵 Cash Paid</span>
-                                            ) : order.paymentStatus === 'paid_online' ? (
-                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(74,128,192,0.12)', color: '#2A5FA0', border: '1px solid rgba(74,128,192,0.25)' }}>💳 Paid Online</span>
-                                            ) : order.paymentStatus === 'cash_requested' ? (
+                                            {['paid_cash', 'paid_card', 'paid_online', 'paid'].includes(order.paymentStatus) ? (
+                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.12)', color: '#2D8B4E', border: '1px solid rgba(45,139,78,0.25)' }}>
+                                                    ✅ {order.paymentStatus === 'paid_card' ? 'Card Paid' : order.paymentStatus === 'paid_online' ? 'Paid Online' : 'Cash Paid'}
+                                                </span>
+                                            ) : ['cash_requested', 'card_requested', 'online_requested'].includes(order.paymentStatus) ? (
                                                 <>
-                                                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(247,155,61,0.15)', color: '#A06010', border: '1px solid rgba(247,155,61,0.35)' }}>💰 Cash Requested</span>
+                                                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(247,155,61,0.15)', color: '#A06010', border: '1px solid rgba(247,155,61,0.35)' }}>
+                                                        {order.paymentStatus === 'cash_requested' ? '💵 Cash Requested' : order.paymentStatus === 'card_requested' ? '💳 Card Requested' : '📱 Online Payment'}
+                                                    </span>
                                                     <button className="adv-btn"
-                                                        onClick={async () => { setUpdating(order.id + '_pay'); await updatePaymentStatus(rid, order.id, 'paid_cash'); setUpdating(null); }}
+                                                        onClick={async () => {
+                                                            setUpdating(order.id + '_pay');
+                                                            const paidMap = { cash_requested: 'paid_cash', card_requested: 'paid_card', online_requested: 'paid_online' };
+                                                            await updatePaymentStatus(rid, order.id, paidMap[order.paymentStatus] || 'paid_cash');
+                                                            setUpdating(null);
+                                                        }}
                                                         disabled={updating === order.id + '_pay'}
                                                         style={{ background: '#2D8B4E', color: '#fff', padding: '5px 14px', fontSize: 11 }}>
                                                         ✓ Mark as Paid
