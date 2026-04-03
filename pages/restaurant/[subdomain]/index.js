@@ -2957,12 +2957,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         {billOpen && placedOrder && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
             onClick={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
-            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 36px', maxHeight: '85vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
+            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', touchAction: 'pan-y' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', position: 'sticky', top: 0, zIndex: 2, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
               </div>
-              <div style={{ padding: '0 22px' }}>
+              <div style={{ padding: '0 22px calc(env(safe-area-inset-bottom, 20px) + 24px)' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
@@ -3023,9 +3023,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       ].map(m => (
                         <button key={m.id}
                           onClick={() => setPaymentMethod(m.id)}
+                          onTouchEnd={(e) => { e.preventDefault(); setPaymentMethod(m.id); }}
                           style={{
                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                             padding: '16px 12px', borderRadius: 14, cursor: 'pointer',
+                            touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
                             border: `2px solid ${paymentMethod === m.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
                             background: paymentMethod === m.id
                               ? (darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)')
@@ -3046,19 +3048,20 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                           const statusMap = { cash: 'cash_requested', card: 'card_requested', gpay: 'online_requested', phonepe: 'online_requested' };
                           await updatePaymentStatus(restaurant.id, placedOrder.orderId, statusMap[paymentMethod] || 'cash_requested');
                           setPaymentDone(true);
-                          // Persist payment state
                           try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderId: placedOrder.orderId })); } catch {}
                         } catch (e) { console.error(e); }
                       }}
                       disabled={!paymentMethod}
                       style={{
-                        width: '100%', padding: '15px', borderRadius: 14, border: 'none',
+                        width: '100%', padding: '16px', borderRadius: 14, border: 'none',
                         background: paymentMethod ? 'linear-gradient(135deg,#2D8B4E,#1A6B38)' : (darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.1)'),
                         color: paymentMethod ? '#fff' : (darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(42,31,16,0.3)'),
-                        fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                        fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                         cursor: paymentMethod ? 'pointer' : 'not-allowed',
                         boxShadow: paymentMethod ? '0 4px 20px rgba(45,139,78,0.4)' : 'none',
                         transition: 'all 0.2s',
+                        touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+                        minHeight: 52,
                       }}>
                       {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : 'PhonePe'} Payment` : 'Select a payment method'}
                     </button>
