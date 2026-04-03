@@ -436,7 +436,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const waiterCallsEnabled = restaurant?.waiterCallsEnabled !== false;
   // Pairs Well With (manual, set by admin per item)
   // Cart (order tracker)
-  const [cart, setCart] = useState([]); // [{id,name,price,qty,imageURL}]
+  const [cart, setCart] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try { const s = sessionStorage.getItem('ar_cart'); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
   const [cartOpen, setCartOpen] = useState(false);
   // Order flow
   const [orderStep, setOrderStep] = useState('cart'); // 'cart' | 'form' | 'success'
@@ -695,6 +698,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     });
   }, []);
   const clearCart = useCallback(() => setCart([]), []);
+  // Persist cart to sessionStorage
+  useEffect(() => {
+    try { sessionStorage.setItem('ar_cart', JSON.stringify(cart)); } catch {}
+  }, [cart]);
+
   const cartTotal = cart.reduce((s, c) => s + c.qty, 0);
   const cartPrice = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
 
