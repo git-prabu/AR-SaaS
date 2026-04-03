@@ -28,6 +28,7 @@ export default function AdminLayout({ children }) {
   const prevCallRef   = useRef(0);
   const prevOrderRef  = useRef(0);
   const notifGranted  = useRef(false);
+  const seenPaymentRequests = useRef(new Set());
 
   // Request OS notification permission once (needed for background-tab alerts)
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function AdminLayout({ children }) {
   // Check if sound is enabled (respects the toggle on the Notifications settings page)
   const soundAllowed = () => localStorage.getItem('ar_sound_enabled') !== 'false';
 
-  // Bell chime — used for waiter calls (ding-ding tone via Web Audio API)
+  // Bell chime — used for waiter calls and payment requests (ding-ding tone via Web Audio API)
   const playBell = async () => {
     if (!soundAllowed()) return;
     try {
@@ -89,7 +90,7 @@ export default function AdminLayout({ children }) {
     return onSnapshot(q, snap => {
       const pending = snap.docs.filter(d => d.data().status === 'pending').length;
       if (prevCallRef.current > 0 && pending > prevCallRef.current) {
-        playBell();   // distinct bell chime for waiter calls
+        playBell();
         if (document.hidden) showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
       }
       prevCallRef.current = pending;
@@ -97,6 +98,7 @@ export default function AdminLayout({ children }) {
   }, [rid]);
 
   // Orders listener — always active on every admin page
+  // Also detects cash payment requests
   useEffect(() => {
     if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
@@ -107,6 +109,18 @@ export default function AdminLayout({ children }) {
         if (document.hidden) showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
       }
       prevOrderRef.current = pending;
+
+      // Payment request detection — fires when customer taps "Pay Cash at Table"
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'modified') return;
+        const data = change.doc.data();
+        const id = change.doc.id;
+        if (data.paymentStatus === 'cash_requested' && !seenPaymentRequests.current.has(id)) {
+          seenPaymentRequests.current.add(id);
+          playBell();
+          showOsNotif('💰 Payment Requested', `Table ${data.tableNumber || '?'} wants to pay cash`);
+        }
+      });
     });
   }, [rid]);
   // ─────────────────────────────────────────────────────────────────────────
