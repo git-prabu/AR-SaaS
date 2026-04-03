@@ -2507,14 +2507,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   <button className="bill-fab" onClick={() => setBillOpen(true)}>
                     <span style={{ fontSize: 16 }}>🧾</span>
                     <span>My Bill</span>
-                    <span className="bill-price">₹{placedOrder.total.toFixed(0)}</span>
                   </button>
                 )}
                 {cartTotal > 0 && (
                   <button className="cart-fab" onClick={() => setCartOpen(true)}>
                     <span style={{ fontSize: 16 }}>🛒</span>
-                    <span>View Order · {cartTotal}</span>
-                    {cartPrice > 0 && <span className="cart-price">₹{cartPrice.toFixed(0)}</span>}
+                    <span>View Order · {cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
                     <div className="cart-badge">{cartTotal}</div>
                   </button>
                 )}
