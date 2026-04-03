@@ -443,8 +443,18 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const [orderTableInput, setOrderTableInput] = useState(''); // what customer types in the form
   const [specialNote, setSpecialNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [placedOrder, setPlacedOrder] = useState(null); // { items, total, orderId }
-  const [paymentDone, setPaymentDone] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try { const s = sessionStorage.getItem('ar_placed_order'); return s ? JSON.parse(s) : null; } catch { return null; }
+  });
+  const [paymentDone, setPaymentDone] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return !!sessionStorage.getItem('ar_payment_done'); } catch { return false; }
+  });
+  const [paymentMethod, setPaymentMethod] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try { const s = sessionStorage.getItem('ar_payment_done'); return s ? JSON.parse(s).method : null; } catch { return null; }
+  });
   const [billOpen, setBillOpen] = useState(false);
   // Table session validation
   const router = useRouter();
@@ -720,9 +730,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         restaurantName: restaurant.name,
         paymentStatus: 'unpaid',
       });
-      // Save snapshot for the bill view
-      setPlacedOrder({ items: cart.map(c => ({ ...c })), total: cartPrice, orderId, tableNumber: orderTableInput.trim() || tableNumber || 'Not specified' });
+      // Save snapshot for the bill view + persist in sessionStorage
+      const orderSnapshot = { items: cart.map(c => ({ ...c })), total: cartPrice, orderId, tableNumber: orderTableInput.trim() || tableNumber || 'Not specified' };
+      setPlacedOrder(orderSnapshot);
       setPaymentDone(false);
+      setPaymentMethod(null);
+      try { sessionStorage.setItem('ar_placed_order', JSON.stringify(orderSnapshot)); sessionStorage.removeItem('ar_payment_done'); } catch {}
       setOrderStep('success');
       clearCart();
     } catch (err) {
@@ -1259,17 +1272,22 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         .ar-btn-sub { color:rgba(255,255,255,0.75); font-weight:800; }
         .ar-hint { text-align:center; font-size:11px; color:#7A7A7A; margin-top:9px; letter-spacing:-0.1px; }
 
-        /* ─────────── FAB — properly centered ─────────── */
+        /* ─────────── FAB — stacked layout ─────────── */
         .fab-wrap {
           position: fixed;
           bottom: 20px; left: 0; right: 0;
-          display: flex; flex-direction: row; justify-content: center; align-items: center;
-          gap: 8px; flex-wrap: nowrap; padding: 0 12px;
+          display: flex; flex-direction: column; align-items: center;
+          gap: 10px; padding: 0 12px;
           z-index: 45;
           pointer-events: none;
         }
+        .fab-row {
+          display: flex; flex-direction: row; justify-content: center; align-items: center;
+          gap: 8px; flex-wrap: nowrap;
+        }
         @media (max-width: 480px) {
-          .fab-wrap { gap: 6px; bottom: 16px; }
+          .fab-wrap { gap: 8px; bottom: 16px; }
+          .fab-row { gap: 6px; }
           .waiter-fab { padding: 9px 13px !important; font-size: 12px !important; }
           .cart-fab { padding: 10px 14px !important; font-size: 13px !important; }
           .sma-fab { padding: 10px 16px !important; font-size: 13px !important; }
@@ -2479,38 +2497,43 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           )}
         </main>
 
-        {/* ─── FABs: SMA + Waiter Call ─── */}
+        {/* ─── FABs: stacked layout ─── */}
         {!selectedItem && !smaOpen && (
           <div className="fab-wrap">
-            {/* Waiter call — pill shaped, labelled */}
-            {waiterCallsEnabled && (
-              <button className="waiter-fab" onClick={() => setWaiterModal(true)}
-                style={{ background: darkMode ? '#2A2520' : '#fff', border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.12)'}`, boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.14)', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
-                <span style={{ fontSize: 18 }}>🔔</span>
-                <span>{t.needHelp}</span>
-              </button>
+            {/* Top row: My Bill (only after order placed) + Cart */}
+            {(placedOrder || cartTotal > 0) && (
+              <div className="fab-row">
+                {placedOrder && !cartOpen && (
+                  <button className="bill-fab" onClick={() => setBillOpen(true)}>
+                    <span style={{ fontSize: 16 }}>🧾</span>
+                    <span>My Bill</span>
+                    <span className="bill-price">₹{placedOrder.total.toFixed(0)}</span>
+                  </button>
+                )}
+                {cartTotal > 0 && (
+                  <button className="cart-fab" onClick={() => setCartOpen(true)}>
+                    <span style={{ fontSize: 16 }}>🛒</span>
+                    <span>View Order · {cartTotal}</span>
+                    {cartPrice > 0 && <span className="cart-price">₹{cartPrice.toFixed(0)}</span>}
+                    <div className="cart-badge">{cartTotal}</div>
+                  </button>
+                )}
+              </div>
             )}
-            {/* My Bill FAB — shows after order placed */}
-            {placedOrder && !cartOpen && (
-              <button className="bill-fab" onClick={() => setBillOpen(true)}>
-                <span style={{ fontSize: 18 }}>🧾</span>
-                <span>My Bill</span>
-                <span className="bill-price">₹{placedOrder.total.toFixed(0)}</span>
+            {/* Bottom row: Call Waiter + Help Me Choose */}
+            <div className="fab-row">
+              {waiterCallsEnabled && (
+                <button className="waiter-fab" onClick={() => setWaiterModal(true)}
+                  style={{ background: darkMode ? '#2A2520' : '#fff', border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.12)'}`, boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.14)', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+                  <span style={{ fontSize: 16 }}>🔔</span>
+                  <span>{t.needHelp}</span>
+                </button>
+              )}
+              <button className="sma-fab" onClick={openSMA}>
+                <span className="sma-fab-icon">✨</span>
+                {t.helpChoose}
               </button>
-            )}
-            {/* Cart FAB — only show when cart has items */}
-            {cartTotal > 0 && (
-              <button className="cart-fab" onClick={() => setCartOpen(true)}>
-                <span style={{ fontSize: 18 }}>🛒</span>
-                <span>View Order · {cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
-                {cartPrice > 0 && <span className="cart-price">₹{cartPrice.toFixed(0)}</span>}
-                <div className="cart-badge">{cartTotal}</div>
-              </button>
-            )}
-            <button className="sma-fab" onClick={openSMA}>
-              <span className="sma-fab-icon">✨</span>
-              {t.helpChoose}
-            </button>
+            </div>
           </div>
         )}
 
@@ -2928,16 +2951,16 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         {billOpen && placedOrder && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
             onClick={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
-            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 36px', maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
+            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 36px', maxHeight: '85vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
               {/* Handle */}
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', position: 'sticky', top: 0, zIndex: 2, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
               </div>
               <div style={{ padding: '0 22px' }}>
                 {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🧾 Your Bill</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Your Bill</div>
                     {placedOrder.tableNumber && placedOrder.tableNumber !== 'Not specified' && (
                       <div style={{ fontSize: 12, color: 'rgba(45,139,78,0.8)', fontWeight: 600, marginTop: 3 }}>Table {placedOrder.tableNumber}</div>
                     )}
@@ -2946,7 +2969,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 </div>
 
                 {/* Items */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
                   {placedOrder.items.map((item, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.03)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.07)'}` }}>
                       <div style={{ flex: 1 }}>
@@ -2959,30 +2982,81 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 </div>
 
                 {/* Total */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginBottom: 18 }}>
                   <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.55)' }}>Total</div>
                   <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 24, color: '#E05A3A' }}>₹{placedOrder.total.toFixed(0)}</div>
                 </div>
 
-                {/* Payment action */}
+                {/* Payment section */}
                 {paymentDone ? (
-                  <div style={{ textAlign: 'center', padding: '18px 0', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)' }}>
-                    <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: '#2D8B4E', marginBottom: 4 }}>Payment Requested</div>
-                    <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)' }}>Your waiter has been notified. Please pay at the table.</div>
+                  <div style={{ textAlign: 'center', padding: '22px 16px', borderRadius: 16, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.06)', border: '1.5px solid rgba(45,139,78,0.25)' }}>
+                    <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: '#2D8B4E', marginBottom: 6 }}>
+                      {paymentMethod === 'cash' ? 'Cash Payment Requested' : paymentMethod === 'card' ? 'Card Payment Requested' : 'Payment Requested'}
+                    </div>
+                    <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', lineHeight: 1.6 }}>
+                      {paymentMethod === 'cash'
+                        ? 'Your waiter will come to collect the payment at your table.'
+                        : paymentMethod === 'card'
+                        ? 'Your waiter will bring the card machine to your table.'
+                        : paymentMethod === 'gpay' || paymentMethod === 'phonepe'
+                        ? 'Please show the payment confirmation to your waiter.'
+                        : 'Your waiter has been notified.'}
+                    </div>
                   </div>
                 ) : (
-                  <button
-                    onClick={async () => {
-                      if (!placedOrder?.orderId || !restaurant?.id) return;
-                      try {
-                        await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'cash_requested');
-                        setPaymentDone(true);
-                      } catch (e) { console.error(e); }
-                    }}
-                    style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer', boxShadow: '0 4px 20px rgba(45,139,78,0.4)', letterSpacing: '-0.2px' }}>
-                    💵 Pay Cash at Table
-                  </button>
+                  <>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>How would you like to pay?</div>
+                    {/* Payment methods */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+                      {[
+                        { id: 'cash', icon: '💵', label: 'Cash', sub: 'Pay at table' },
+                        { id: 'card', icon: '💳', label: 'Card', sub: 'Swipe / Tap' },
+                        { id: 'gpay', icon: '📱', label: 'GPay', sub: 'Google Pay' },
+                        { id: 'phonepe', icon: '📲', label: 'PhonePe', sub: 'UPI Payment' },
+                      ].map(m => (
+                        <button key={m.id}
+                          onClick={() => setPaymentMethod(m.id)}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                            padding: '16px 12px', borderRadius: 14, cursor: 'pointer',
+                            border: `2px solid ${paymentMethod === m.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
+                            background: paymentMethod === m.id
+                              ? (darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)')
+                              : 'transparent',
+                            transition: 'all 0.15s',
+                          }}>
+                          <span style={{ fontSize: 24 }}>{m.icon}</span>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{m.label}</span>
+                          <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>{m.sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {/* Confirm payment */}
+                    <button
+                      onClick={async () => {
+                        if (!paymentMethod || !placedOrder?.orderId || !restaurant?.id) return;
+                        try {
+                          const statusMap = { cash: 'cash_requested', card: 'card_requested', gpay: 'online_requested', phonepe: 'online_requested' };
+                          await updatePaymentStatus(restaurant.id, placedOrder.orderId, statusMap[paymentMethod] || 'cash_requested');
+                          setPaymentDone(true);
+                          // Persist payment state
+                          try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderId: placedOrder.orderId })); } catch {}
+                        } catch (e) { console.error(e); }
+                      }}
+                      disabled={!paymentMethod}
+                      style={{
+                        width: '100%', padding: '15px', borderRadius: 14, border: 'none',
+                        background: paymentMethod ? 'linear-gradient(135deg,#2D8B4E,#1A6B38)' : (darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.1)'),
+                        color: paymentMethod ? '#fff' : (darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(42,31,16,0.3)'),
+                        fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                        cursor: paymentMethod ? 'pointer' : 'not-allowed',
+                        boxShadow: paymentMethod ? '0 4px 20px rgba(45,139,78,0.4)' : 'none',
+                        transition: 'all 0.2s',
+                      }}>
+                      {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : 'PhonePe'} Payment` : 'Select a payment method'}
+                    </button>
+                  </>
                 )}
               </div>
             </div>

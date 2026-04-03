@@ -9,6 +9,7 @@ const navItems = [
   { href: '/admin/analytics', label: 'Analytics', icon: '◎' },
   { href: '/admin/items', label: 'Menu Items', icon: '🍽' },
   { href: '/admin/orders', label: 'Orders', icon: '🛒' },
+  { href: '/admin/payments', label: 'Payments', icon: '💰' },
   { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
   { href: '/admin/requests', label: 'Add Items/Requests', icon: '◈' },
   { href: '/admin/combos', label: 'Combo Builder', icon: '🍱' },
@@ -53,14 +54,16 @@ export default function AdminLayout({ children }) {
       snap.docChanges().forEach(change => {
         const data = change.doc.data();
         const id = change.doc.id;
-        if (data.paymentStatus === 'cash_requested' && !seenPaymentRequests.current.has(id)) {
+        const isPaymentRequest = ['cash_requested', 'card_requested', 'online_requested'].includes(data.paymentStatus);
+        if (isPaymentRequest && !seenPaymentRequests.current.has(id)) {
           seenPaymentRequests.current.add(id);
           // Don't fire on initial load — only on new changes
           if (change.type === 'modified') {
             playPaymentBell();
+            const methodLabel = data.paymentStatus === 'card_requested' ? 'card' : data.paymentStatus === 'online_requested' ? 'online' : 'cash';
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('💰 Payment Requested', {
-                body: `Table ${data.tableNumber || '?'} wants to pay cash`,
+                body: `Table ${data.tableNumber || '?'} wants to pay by ${methodLabel}`,
                 icon: '/favicon.ico',
               });
             }
