@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import {
   getAnalytics, getTodayAnalytics, getAllMenuItems,
-  getWaiterCallsCount,
+  getWaiterCallsCount, getOrders,
 } from '../../lib/db';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -82,6 +82,7 @@ export default function AdminAnalytics() {
   const [menuItems, setMenuItems] = useState([]);
   const [todayStat, setTodayStat] = useState(null);
   const [waiterStat, setWaiterStat] = useState(null);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(30);
   const [tab, setTab] = useState('overview');
@@ -90,18 +91,20 @@ export default function AdminAnalytics() {
   const load = useCallback(async () => {
     if (!rid) return;
     setLoading(true);
-    const [anal, allAnal, items, today, waiter] = await Promise.all([
+    const [anal, allAnal, items, today, waiter, allOrders] = await Promise.all([
       getAnalytics(rid, range),
       getAnalytics(rid, range * 2),
       getAllMenuItems(rid),
       getTodayAnalytics(rid),
       getWaiterCallsCount(rid, range),
+      getOrders(rid),
     ]);
     setAnalytics(anal);
     setPrevAnal(allAnal.slice(0, range));
     setMenuItems(items);
     setTodayStat(today);
     setWaiterStat(waiter);
+    setOrders(allOrders || []);
     setLoading(false);
   }, [rid, range]);
 
@@ -170,6 +173,42 @@ export default function AdminAnalytics() {
     { label: 'AR Launches', value: totalARViews, pct: totalViews > 0 ? Math.round((totalARViews / totalViews) * 100) : 0, color: '#F79B3D' },
   ];
 
+  // ── Orders analytics ──────────────────────────────────────────────
+  // Filter to orders within selected range
+  const rangeStart = new Date(Date.now() - range * 24 * 60 * 60 * 1000);
+  const ordersInRange = orders.filter(o => {
+    if (!o.createdAt) return true;
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
+    return d >= rangeStart;
+  });
+  const totalOrders = ordersInRange.length;
+  const totalRevenue = ordersInRange.reduce((s, o) => s + (o.total || 0), 0);
+  const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
+  const completedOrders = ordersInRange.filter(o => o.status === 'completed' || o.status === 'done').length;
+  const pendingOrders = ordersInRange.filter(o => o.status === 'pending').length;
+
+  // Revenue by day chart
+  const revByDay = {};
+  ordersInRange.forEach(o => {
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now());
+    const key = d.toISOString().slice(5, 10); // MM-DD
+    if (!revByDay[key]) revByDay[key] = { date: key, revenue: 0, orders: 0 };
+    revByDay[key].revenue += o.total || 0;
+    revByDay[key].orders += 1;
+  });
+  const revenueChartData = Object.values(revByDay).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Top items by order frequency
+  const itemFreq = {};
+  ordersInRange.forEach(o => {
+    (o.items || []).forEach(item => {
+      if (!itemFreq[item.name]) itemFreq[item.name] = { name: item.name, qty: 0, revenue: 0 };
+      itemFreq[item.name].qty += item.qty || 1;
+      itemFreq[item.name].revenue += (item.price || 0) * (item.qty || 1);
+    });
+  });
+  const topOrderedItems = Object.values(itemFreq).sort((a, b) => b.qty - a.qty).slice(0, 8);
+
   const exportCSV = () => {
     if (tab === 'overview') {
       downloadCSV(chartData.map(d => ({ date: d.date, visits: d.visits, unique_visitors: d.unique })), `analytics-${range}d.csv`);
@@ -235,7 +274,7 @@ export default function AdminAnalytics() {
 
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-            {[['overview', '📊 Overview'], ['menu', '🔥 Menu Performance']].map(([id, label]) => (
+            {[['overview', '📊 Overview'], ['orders', '🛒 Orders & Revenue'], ['menu', '🔥 Menu Performance']].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{ padding: '10px 22px', borderRadius: 30, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif', transition: 'all 0.15s', background: tab === id ? '#1E1B18' : '#fff', color: tab === id ? '#FFF5E8' : 'rgba(42,31,16,0.55)', boxShadow: tab === id ? '0 2px 8px rgba(30,27,24,0.18)' : '0 1px 4px rgba(42,31,16,0.06)' }}>
                 {label}
               </button>
@@ -246,6 +285,95 @@ export default function AdminAnalytics() {
           {loading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 240 }}>
               <div style={{ width: 32, height: 32, border: '3px solid #E05A3A', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            </div>
+
+          ) : tab === 'orders' ? (
+            /* ══ ORDERS & REVENUE ══ */
+            <div style={{ animation: 'fadeUp 0.25s ease' }}>
+              {/* KPI row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
+                {[
+                  { label: 'Total Orders', value: totalOrders, icon: '🛒', accent: '#E05A3A', bg: 'rgba(224,90,58,0.07)' },
+                  { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: '💰', accent: '#2D8B4E', bg: 'rgba(45,139,78,0.08)' },
+                  { label: 'Avg Order Value', value: `₹${avgOrderValue.toFixed(0)}`, icon: '📊', accent: '#4A80C0', bg: 'rgba(74,128,192,0.08)' },
+                  { label: 'Pending Orders', value: pendingOrders, icon: '⏳', accent: '#F79B3D', bg: 'rgba(247,155,61,0.1)' },
+                ].map(s => (
+                  <div key={s.label} style={{ ...S.card, padding: 22, background: s.bg }}>
+                    <div style={{ fontSize: 20, marginBottom: 10 }}>{s.icon}</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 28, color: s.accent, lineHeight: 1, marginBottom: 4 }}>{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.5)', fontWeight: 500 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Revenue chart */}
+              <div style={{ ...S.card, padding: 28, marginBottom: 16 }}>
+                <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: '#1E1B18', marginBottom: 20 }}>Revenue Over Time</div>
+                {revenueChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={revenueChartData}>
+                      <defs>
+                        <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2D8B4E" stopOpacity={0.18} />
+                          <stop offset="95%" stopColor="#2D8B4E" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)" />
+                      <XAxis dataKey="date" tick={{ fill: 'rgba(42,31,16,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: 'rgba(42,31,16,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
+                      <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`₹${v}`, '']} />
+                      <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#2D8B4E" strokeWidth={2} fill="url(#revGrad)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(42,31,16,0.3)', fontSize: 13 }}>No orders data in this period</div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {/* Orders per day */}
+                <div style={{ ...S.card, padding: 24 }}>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 14, color: '#1E1B18', marginBottom: 16 }}>Orders Per Day</div>
+                  {revenueChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <BarChart data={revenueChartData} barGap={2}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,31,16,0.05)" />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(42,31,16,0.35)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: 'rgba(42,31,16,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                        <Bar dataKey="orders" name="Orders" fill="#E05A3A" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(42,31,16,0.3)', fontSize: 13 }}>No data</div>}
+                </div>
+
+                {/* Top ordered items */}
+                <div style={{ ...S.card, padding: 24 }}>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 14, color: '#1E1B18', marginBottom: 16 }}>Most Ordered Items</div>
+                  {topOrderedItems.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {topOrderedItems.map((item, i) => {
+                        const maxQ = topOrderedItems[0]?.qty || 1;
+                        return (
+                          <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(42,31,16,0.35)', width: 16, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 150 }}>{item.name}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#E05A3A', flexShrink: 0 }}>{item.qty}x</span>
+                              </div>
+                              <div style={{ height: 4, borderRadius: 2, background: 'rgba(42,31,16,0.07)', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', borderRadius: 2, background: '#E05A3A', width: `${(item.qty / maxQ) * 100}%`, transition: 'width 0.5s ease' }} />
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 11, color: 'rgba(42,31,16,0.45)', flexShrink: 0 }}>₹{item.revenue.toFixed(0)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(42,31,16,0.3)', fontSize: 13 }}>No orders yet</div>}
+                </div>
+              </div>
             </div>
 
           ) : tab === 'overview' ? (

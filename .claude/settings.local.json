@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Prabu D/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/9307ec6e-7af8-4a08-bc1c-1f1b906252ba/afa5a0a7-7e17-4b57-be70-5a059fb7654e/skills/docx/**)",
+      "Bash(python scripts/office/unpack.py \"C:/Users/Prabu D/Downloads/Advert_Radical_Project_Handoff.docx\" /tmp/handoff_unpacked/)",
+      "Bash(pip install:*)",
+      "Read(//tmp/**)",
+      "Read(//c/tmp/**)",
+      "Bash(python -c \":*)",
+      "Bash(cmd.exe /c \"echo %TEMP%\")",
+      "Bash(wslpath -w /tmp/handoff_unpacked/word/document.xml)",
+      "Bash(cygpath -w /tmp/handoff_unpacked/word/document.xml)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__mcp-registry__search_mcp_registry"
+    ]
+  }
+}

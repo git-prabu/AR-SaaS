@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, getTableSession, isSessionValid, isSessionValidWithSid } from '../../../lib/db';
+import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid } from '../../../lib/db';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
 function getSessionId() {
@@ -99,7 +99,7 @@ const TRANSLATIONS = {
     perServing: 'per serving',
     nutrition: 'Nutrition',
     ingredients: 'Ingredients',
-    needHelp: 'Need Help?',
+    needHelp: 'Call Waiter',
     helpChoose: 'Help Me Choose',
     arLive: 'AR Live',
     addToOrder: 'Add to Order',
@@ -128,7 +128,7 @@ const TRANSLATIONS = {
     perServing: 'ஒரு பரிமாறலுக்கு',
     nutrition: 'ஊட்டச்சத்து',
     ingredients: 'பொருட்கள்',
-    needHelp: 'உதவி வேண்டுமா?',
+    needHelp: 'வெயிட்டரை அழைக்கவும்',
     helpChoose: 'தேர்வு செய்ய உதவுங்கள்',
     arLive: 'AR நேரலை',
     addToOrder: 'ஆர்டரில் சேர்',
@@ -157,7 +157,7 @@ const TRANSLATIONS = {
     perServing: 'प्रति सर्विंग',
     nutrition: 'पोषण',
     ingredients: 'सामग्री',
-    needHelp: 'मदद चाहिए?',
+    needHelp: 'वेटर बुलाएं',
     helpChoose: 'चुनने में मदद करें',
     arLive: 'AR लाइव',
     addToOrder: 'ऑर्डर में जोड़ें',
@@ -327,6 +327,7 @@ function filterItems(items, ans, groupSize = 1) {
 /* ─── SwipeableSheet — iOS-style drag-to-dismiss bottom sheet ─── */
 function SwipeableSheet({ onClose, children, darkMode }) {
   const sheetRef = useRef(null);
+  const overlayRef = useRef(null);
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
   const isDragging = useRef(false);
@@ -349,14 +350,6 @@ function SwipeableSheet({ onClose, children, darkMode }) {
     currentYRef.current = 0;
   };
 
-  const onTouchMove = (e) => {
-    if (!isDragging.current) return;
-    const delta = e.touches[0].clientY - startYRef.current;
-    if (delta <= 0) { setDragY(0); return; }
-    currentYRef.current = delta;
-    setDragY(delta);
-  };
-
   const onTouchEnd = () => {
     if (!isDragging.current) return;
     isDragging.current = false;
@@ -371,11 +364,38 @@ function SwipeableSheet({ onClose, children, darkMode }) {
     currentYRef.current = 0;
   };
 
+  // Use a non-passive native listener so we can call preventDefault()
+  // This prevents the background page from scrolling while dragging to dismiss
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const handleTouchMove = (e) => {
+      if (!isDragging.current) return;
+      e.preventDefault(); // block background scroll during drag
+      const delta = e.touches[0].clientY - startYRef.current;
+      if (delta <= 0) { setDragY(0); return; }
+      currentYRef.current = delta;
+      setDragY(delta);
+    };
+    sheet.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => sheet.removeEventListener('touchmove', handleTouchMove);
+  }, []);
+
+  // Also prevent the overlay backdrop from scrolling the page beneath it
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const prevent = (e) => e.preventDefault();
+    overlay.addEventListener('touchmove', prevent, { passive: false });
+    return () => overlay.removeEventListener('touchmove', prevent);
+  }, []);
+
   const progress = Math.min(dragY / 300, 1);
   const bgAlpha = darkMode ? 0.85 * (1 - progress) : 0.5 * (1 - progress);
 
   return (
     <div
+      ref={overlayRef}
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: `rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -388,7 +408,6 @@ function SwipeableSheet({ onClose, children, darkMode }) {
           willChange: 'transform',
         }}
         onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
       >
@@ -405,6 +424,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const [combos, setCombos] = useState(initialCombos || []);
   const [activeCat, setActiveCat] = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedCombo, setSelectedCombo] = useState(null);
   const [showAR, setShowAR] = useState(false);
   const [imgErr, setImgErr] = useState({});
   const [imgLoaded, setImgLoaded] = useState({});
@@ -434,6 +454,8 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const [orderTableInput, setOrderTableInput] = useState(''); // what customer types in the form
   const [specialNote, setSpecialNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState(null); // { items, total, orderId }
+  const [paymentDone, setPaymentDone] = useState(false);
   // Table session validation
   const router = useRouter();
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -444,6 +466,9 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   useEffect(() => {
     if (!restaurant?.id) return;
     if (!tableNumber) { setSessionChecked(true); return; } // no table param = no restriction
+    // Auto-fill table number fields from URL param
+    setOrderTableInput(tableNumber);
+    setWaiterTable(tableNumber);
     getTableSession(restaurant.id, tableNumber).then(session => {
       // If sid is in URL, require it to match — prevents guessing table numbers
       // If no sid (direct URL / old link), fall back to basic session check
@@ -498,9 +523,9 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   }, [restaurant?.id]);
 
   useEffect(() => {
-    document.body.style.overflow = (selectedItem || smaOpen) ? 'hidden' : '';
+    document.body.style.overflow = (selectedItem || smaOpen || selectedCombo) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [selectedItem, smaOpen]);
+  }, [selectedItem, smaOpen, selectedCombo]);
 
 
   // ── Enrich menu items with active offer data ──────────────────
@@ -647,7 +672,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         setWaiterModal(false);
         setWaiterSent(false);
         setWaiterReason(null);
-        setWaiterTable('');
+        if (!tableNumber) setWaiterTable(''); // don't clear if auto-filled from QR
       }, 2500);
     } catch (e) { console.error(e); }
     finally { setWaiterSending(false); }
@@ -673,6 +698,17 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const cartTotal = cart.reduce((s, c) => s + c.qty, 0);
   const cartPrice = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
 
+  // Add entire combo as a single cart entry at combo price
+  const addComboToCart = useCallback((combo) => {
+    const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
+    const name = combo.name + (comboItems.length ? ` (${comboItems.map(i => i.name).join(', ')})` : '');
+    setCart(prev => {
+      const existing = prev.find(c => c.id === `combo_${combo.id}`);
+      if (existing) return prev.map(c => c.id === `combo_${combo.id}` ? { ...c, qty: c.qty + 1 } : c);
+      return [...prev, { id: `combo_${combo.id}`, name, price: combo.comboPrice || 0, qty: 1, imageURL: comboItems[0]?.imageURL || null, isCombo: true }];
+    });
+  }, [menuItems]);
+
   const placeOrder = async () => {
     if (!restaurant?.id || cart.length === 0) return;
     // Re-validate session before accepting order
@@ -685,17 +721,20 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     }
     setIsSubmitting(true);
     try {
-      await createOrder(restaurant.id, {
+      const orderId = await createOrder(restaurant.id, {
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty })),
         total: cartPrice,
         specialInstructions: specialNote.trim() || null,
         sessionId: getSessionId(),
         restaurantName: restaurant.name,
+        paymentStatus: 'unpaid',
       });
+      // Save snapshot for the bill view
+      setPlacedOrder({ items: cart.map(c => ({ ...c })), total: cartPrice, orderId, tableNumber: orderTableInput.trim() || tableNumber || 'Not specified' });
+      setPaymentDone(false);
       setOrderStep('success');
       clearCart();
-      setTimeout(() => { setCartOpen(false); setOrderStep('cart'); setOrderTableInput(''); setSpecialNote(''); }, 4000);
     } catch (err) {
       console.error('Order failed:', err);
     } finally {
@@ -1265,25 +1304,35 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         /* ─────────── CART ─────────── */
         .cart-fab {
           pointer-events: all;
-          display: flex; align-items: center; gap: 8px;
-          padding: 12px 22px; border-radius: 50px; border: none;
-          background: #1E1B18; color: #FFF5E8;
-          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px;
+          display: flex; align-items: center; gap: 10px;
+          padding: 14px 24px; border-radius: 50px; border: none;
+          background: linear-gradient(135deg, #F79B3D, #E05A3A);
+          color: #fff;
+          font-family: 'Inter', sans-serif; font-weight: 800; font-size: 15px;
           cursor: pointer; white-space: nowrap;
-          box-shadow: 0 6px 24px rgba(30,27,24,0.35);
+          box-shadow: 0 6px 28px rgba(224,90,58,0.55);
           transition: transform 0.2s, box-shadow 0.2s;
           animation: fadeUp 0.4s ease both;
           position: relative;
+          letter-spacing: -0.2px;
         }
-        .cart-fab:hover  { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(30,27,24,0.45); }
-        .cart-fab:active { transform: scale(0.97); }
+        .cart-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(224,90,58,0.65); }
+        .cart-fab:active { transform: scale(0.96); }
+        @keyframes cartPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+        .cart-fab-pop { animation: cartPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+        .cart-price {
+          font-size: 13px; font-weight: 700; opacity: 0.85;
+          background: rgba(0,0,0,0.18); border-radius: 20px;
+          padding: 2px 8px;
+        }
         .cart-badge {
-          position: absolute; top: -6px; right: -6px;
-          width: 20px; height: 20px; border-radius: 50%;
-          background: #F79B3D; color: #fff;
-          font-size: 11px; font-weight: 800;
+          position: absolute; top: -7px; right: -7px;
+          width: 22px; height: 22px; border-radius: 50%;
+          background: #fff; color: #E05A3A;
+          font-size: 12px; font-weight: 900;
           display: flex; align-items: center; justify-content: center;
-          border: 2px solid #1E1B18;
+          border: 2px solid #E05A3A;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         .cart-item-row {
           display: flex; align-items: center; gap: 12px;
@@ -2203,7 +2252,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 12, color: darkMode ? '#F79B3D' : '#A06010', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Today&apos;s Offers</span>
                 <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.3)', fontWeight: 500 }}>{offers.length} active</span>
               </div>
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, paddingTop: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
                 {(offers || []).map((offer, i) => {
                   const linked = offer.linkedItemId ? enrichedItems.find(m => m.id === offer.linkedItemId) : null;
                   const isClickable = !!linked;
@@ -2213,48 +2262,55 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                     <div key={offer.id || i}
                       onClick={() => { if (linked) openItem(linked); }}
                       style={{
-                        flexShrink: 0, width: 200, borderRadius: 16, overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default',
-                        background: darkMode ? 'rgba(30,24,14,0.95)' : '#FFFDF8',
-                        border: `1.5px solid ${darkMode ? 'rgba(247,155,61,0.28)' : 'rgba(247,155,61,0.35)'}`,
-                        boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.35)' : '0 2px 14px rgba(42,31,16,0.08)',
+                        flexShrink: 0, width: 220, borderRadius: 20, overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default',
+                        background: darkMode ? '#1A1410' : '#FFFFFF',
+                        border: `1.5px solid ${darkMode ? 'rgba(247,155,61,0.25)' : 'rgba(247,155,61,0.4)'}`,
+                        boxShadow: darkMode ? '0 4px 24px rgba(0,0,0,0.4)' : '0 4px 20px rgba(42,31,16,0.1)',
                         transition: 'transform 0.18s, box-shadow 0.18s',
                       }}
-                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = darkMode ? '0 8px 28px rgba(0,0,0,0.45)' : '0 6px 22px rgba(42,31,16,0.13)'; }}
-                      onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = darkMode ? '0 4px 20px rgba(0,0,0,0.35)' : '0 2px 14px rgba(42,31,16,0.08)'; }}>
-                      {/* Top image bar */}
-                      {(linked?.imageURL) && (
-                        <div style={{ height: 80, overflow: 'hidden', position: 'relative' }}>
+                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = darkMode ? '0 10px 32px rgba(0,0,0,0.5)' : '0 10px 30px rgba(42,31,16,0.16)'; }}
+                      onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = darkMode ? '0 4px 24px rgba(0,0,0,0.4)' : '0 4px 20px rgba(42,31,16,0.1)'; }}>
+                      {/* Image area */}
+                      <div style={{ height: 120, overflow: 'hidden', position: 'relative', background: darkMode ? '#2A2018' : '#F5EDE0' }}>
+                        {linked?.imageURL ? (
                           <img src={linked.imageURL} alt={linked.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.5) 100%)' }} />
-                          {savePct && (
-                            <div style={{ position: 'absolute', top: 8, right: 8, background: '#E05A3A', color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 20, letterSpacing: '0.04em' }}>
-                              {savePct}% OFF
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🏷️</div>
+                        )}
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.55) 100%)' }} />
+                        {savePct && (
+                          <div style={{ position: 'absolute', top: 10, left: 10, background: 'linear-gradient(135deg,#E05A3A,#C0381A)', color: '#fff', fontSize: 11, fontWeight: 900, padding: '4px 10px', borderRadius: 20, letterSpacing: '0.02em', boxShadow: '0 2px 8px rgba(224,90,58,0.5)' }}>
+                            {savePct}% OFF
+                          </div>
+                        )}
+                        {/* Item name overlay */}
+                        {linked && (
+                          <div style={{ position: 'absolute', bottom: 8, left: 10, right: 10, fontSize: 12, fontWeight: 700, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linked.name}</div>
+                        )}
+                      </div>
                       {/* Content */}
-                      <div style={{ padding: '10px 12px' }}>
-                        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ padding: '12px 14px 14px' }}>
+                        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 14, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 4, lineHeight: 1.3 }}>
                           {offer.title}
                         </div>
                         {offer.description && (
-                          <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.5)', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.55)', marginBottom: 10, lineHeight: 1.4 }}>
                             {offer.description}
                           </div>
                         )}
-                        {offer.discountedPrice && linked?.price && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 15, color: '#2D8B4E' }}>₹{offer.discountedPrice}</span>
-                            <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through' }}>₹{linked.price}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                            {offer.discountedPrice && (
+                              <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 18, color: '#2D8B4E' }}>₹{offer.discountedPrice}</span>
+                            )}
+                            {offer.discountedPrice && linked?.price && (
+                              <span style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through' }}>₹{linked.price}</span>
+                            )}
                           </div>
-                        )}
-                        {!linked?.imageURL && savePct && (
-                          <span style={{ fontSize: 10, fontWeight: 800, color: '#E05A3A', letterSpacing: '0.04em' }}>{savePct}% OFF</span>
-                        )}
-                        {isClickable && (
-                          <div style={{ fontSize: 10, fontWeight: 600, color: darkMode ? 'rgba(247,155,61,0.6)' : 'rgba(139,96,16,0.6)', marginTop: 4 }}>Tap to view →</div>
-                        )}
+                          {isClickable && (
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#F79B3D,#E05A3A)', padding: '5px 10px', borderRadius: 10, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(224,90,58,0.35)' }}>View →</div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -2287,7 +2343,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 {(combos || []).filter(c => c.isActive !== false).map(combo => {
                   const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
                   return (
-                    <div key={combo.id} style={{ borderRadius: 18, border: '1.5px solid rgba(247,155,61,0.35)', background: darkMode ? 'linear-gradient(135deg,rgba(18,14,10,0.80),rgba(28,20,10,0.80))' : 'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))', backdropFilter: darkMode ? 'blur(12px)' : 'none', WebkitBackdropFilter: darkMode ? 'blur(12px)' : 'none', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+                    <div key={combo.id} onClick={() => setSelectedCombo({ ...combo, resolvedItems: comboItems })}
+                      style={{ borderRadius: 18, border: '1.5px solid rgba(247,155,61,0.35)', background: darkMode ? 'linear-gradient(135deg,rgba(18,14,10,0.80),rgba(28,20,10,0.80))' : 'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))', backdropFilter: darkMode ? 'blur(12px)' : 'none', WebkitBackdropFilter: darkMode ? 'blur(12px)' : 'none', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', cursor: 'pointer', transition: 'transform 0.18s, box-shadow 0.18s' }}
+                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(247,155,61,0.2)'; }}
+                      onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
                           <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: darkMode ? 'var(--text-1)' : '#1E1B18' }}>{combo.name}</span>
@@ -2299,6 +2358,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                             <span key={item.id} style={{ padding: '3px 9px', borderRadius: 20, background: darkMode ? 'rgba(255,245,232,0.1)' : 'rgba(42,31,16,0.06)', fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.65)', fontWeight: 500 }}>{item.name}</span>
                           ))}
                         </div>
+                        <div style={{ fontSize: 11, color: darkMode ? 'rgba(247,155,61,0.7)' : '#A06010', marginTop: 8, fontWeight: 600 }}>Tap to view & add →</div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#E05A3A' }}>₹{combo.comboPrice}</div>
@@ -2423,9 +2483,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             )}
             {/* Cart FAB — only show when cart has items */}
             {cartTotal > 0 && (
-              <button className="cart-fab" onClick={() => setCartOpen(true)} style={{ background: darkMode ? '#2A2520' : '#fff', border: '1.5px solid rgba(42,31,16,0.1)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
-                <span>🛒</span>
-                <span>{cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
+              <button className="cart-fab" onClick={() => setCartOpen(true)}>
+                <span style={{ fontSize: 18 }}>🛒</span>
+                <span>View Order · {cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
+                {cartPrice > 0 && <span className="cart-price">₹{cartPrice.toFixed(0)}</span>}
                 <div className="cart-badge">{cartTotal}</div>
               </button>
             )}
@@ -2670,9 +2731,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.tableNumber}</label>
                 <input
                   type="text" inputMode="numeric" placeholder={t.tablePlaceholder}
-                  value={orderTableInput} onChange={e => setOrderTableInput(e.target.value)}
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 14, boxSizing: 'border-box' }}
+                  value={orderTableInput} onChange={e => !tableNumber && setOrderTableInput(e.target.value)}
+                  readOnly={!!tableNumber}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${tableNumber ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: tableNumber ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box', cursor: tableNumber ? 'default' : 'text' }}
                 />
+                {tableNumber && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginBottom: 10 }}>✓ Auto-filled from your table QR</div>}
                 {/* Special instructions */}
                 <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.specialInst} <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
                 <textarea
@@ -2686,16 +2749,139 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 </button>
               </>)}
 
-              {/* ── STEP: success ── */}
+              {/* ── STEP: success / bill ── */}
               {orderStep === 'success' && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px 0' }}>
-                  <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 10 }}>{t.orderPlaced}</div>
-                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 280 }}>
-                    {t.orderSentMsg}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 0' }}>
+                  {/* Confirmation banner */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 14, background: 'rgba(45,139,78,0.1)', border: '1.5px solid rgba(45,139,78,0.3)', marginBottom: 18 }}>
+                    <span style={{ fontSize: 28 }}>✅</span>
+                    <div>
+                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: '#2D8B4E' }}>{t.orderPlaced}</div>
+                      <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', marginTop: 2 }}>{t.orderSentMsg}</div>
+                    </div>
                   </div>
+
+                  {/* Bill summary */}
+                  {placedOrder && !paymentDone && (
+                    <>
+                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Your Bill</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                        {placedOrder.items.map((item, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 10, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.04)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.35)' }}>{item.qty}×</span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                            </div>
+                            {item.price > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', flexShrink: 0 }}>₹{(item.price * item.qty).toFixed(0)}</span>}
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderRadius: 12, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginTop: 4 }}>
+                          <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 15, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Total</span>
+                          <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 20, color: '#E05A3A' }}>₹{placedOrder.total.toFixed(0)}</span>
+                        </div>
+                      </div>
+
+                      {/* Payment options */}
+                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Pay at End of Meal</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <button
+                          onClick={async () => {
+                            if (placedOrder?.orderId && restaurant?.id) {
+                              await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'cash_requested');
+                            }
+                            setPaymentDone(true);
+                          }}
+                          style={{ width: '100%', padding: '14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.06)' : '#F7F5F2', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                          💵 Pay Cash at Table
+                        </button>
+                        <div style={{ fontSize: 11, textAlign: 'center', color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.35)', lineHeight: 1.5 }}>
+                          Your waiter will collect payment when you're ready. Enjoy your meal!
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Payment confirmed */}
+                  {paymentDone && (
+                    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                      <div style={{ fontSize: 44, marginBottom: 12 }}>💚</div>
+                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 8 }}>Your waiter has been notified!</div>
+                      <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 24 }}>They'll come to collect payment. Enjoy your meal!</div>
+                      <button onClick={() => { setCartOpen(false); setOrderStep('cart'); setPlacedOrder(null); setPaymentDone(false); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
+                        style={{ padding: '12px 28px', borderRadius: 12, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
+                        Back to Menu
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Go back link — visible when bill is showing */}
+                  {!paymentDone && placedOrder && (
+                    <button onClick={() => { setCartOpen(false); setOrderStep('cart'); setPlacedOrder(null); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
+                      style={{ marginTop: 12, background: 'none', border: 'none', fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', cursor: 'pointer', fontFamily: 'Inter,sans-serif', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                      Back to Menu
+                    </button>
+                  )}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── COMBO DETAIL MODAL ─── */}
+        {selectedCombo && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
+            onClick={e => { if (e.target === e.currentTarget) setSelectedCombo(null); }}>
+            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 32px', maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
+                <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
+              </div>
+              <div style={{ padding: '0 22px' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 4 }}>{selectedCombo.name}</div>
+                    {selectedCombo.tag && <span style={{ padding: '3px 10px', borderRadius: 20, background: 'rgba(247,155,61,0.25)', color: darkMode ? '#F4C050' : '#A06010', fontSize: 12, fontWeight: 700 }}>{selectedCombo.tag}</span>}
+                  </div>
+                  <button onClick={() => setSelectedCombo(null)} style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', border: 'none', borderRadius: '50%', width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: darkMode ? '#FFF5E8' : '#1E1B18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
+                </div>
+                {selectedCombo.description && (
+                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.6)' : 'rgba(42,31,16,0.6)', marginBottom: 20, lineHeight: 1.6 }}>{selectedCombo.description}</div>
+                )}
+                {/* Items included */}
+                <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Included in this combo</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
+                  {(selectedCombo.resolvedItems || []).map(item => (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.08)'}` }}>
+                      {item.imageURL ? (
+                        <img src={item.imageURL} alt={item.name} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 52, height: 52, borderRadius: 10, background: darkMode ? 'rgba(255,255,255,0.08)' : '#F0E8DE', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🍽</div>
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2 }}>{item.name}</div>
+                        {item.description && <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', lineHeight: 1.4 }}>{item.description.slice(0, 60)}{item.description.length > 60 ? '…' : ''}</div>}
+                      </div>
+                      {item.price > 0 && <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through', flexShrink: 0 }}>₹{item.price}</div>}
+                    </div>
+                  ))}
+                </div>
+                {/* Price + CTA */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', borderRadius: 16, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 26, color: '#E05A3A' }}>₹{selectedCombo.comboPrice}</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+                      {selectedCombo.originalPrice > selectedCombo.comboPrice && <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', textDecoration: 'line-through' }}>₹{selectedCombo.originalPrice}</div>}
+                      {selectedCombo.savings > 0 && <div style={{ fontSize: 13, fontWeight: 700, color: '#2D8B4E' }}>Save ₹{selectedCombo.savings}</div>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { addComboToCart(selectedCombo); setSelectedCombo(null); }}
+                    style={{ padding: '12px 22px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#F79B3D,#E05A3A)', color: '#fff', fontFamily: 'Inter,sans-serif', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 16px rgba(224,90,58,0.45)' }}>
+                    + Add to Order
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -2750,10 +2936,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   <div style={{ marginBottom: 20 }}>
                     <input
                       value={waiterTable}
-                      onChange={e => setWaiterTable(e.target.value)}
+                      onChange={e => !tableNumber && setWaiterTable(e.target.value)}
+                      readOnly={!!tableNumber}
                       placeholder="Table number (optional)"
-                      style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.1)'}`, background: darkMode ? 'rgba(255,255,255,0.06)' : '#F7F5F2', fontSize: 14, color: darkMode ? '#FFF5E8' : '#1E1B18', outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter,sans-serif' }}
+                      style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1.5px solid ${tableNumber ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.1)'}`, background: tableNumber ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.06)' : '#F7F5F2', fontSize: 14, color: darkMode ? '#FFF5E8' : '#1E1B18', outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter,sans-serif', cursor: tableNumber ? 'default' : 'text' }}
                     />
+                    {tableNumber && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginTop: 4 }}>✓ Auto-filled from your table QR</div>}
                   </div>
 
                   <button
