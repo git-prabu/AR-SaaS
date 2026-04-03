@@ -327,7 +327,6 @@ function filterItems(items, ans, groupSize = 1) {
 /* ─── SwipeableSheet — iOS-style drag-to-dismiss bottom sheet ─── */
 function SwipeableSheet({ onClose, children, darkMode }) {
   const sheetRef = useRef(null);
-  const overlayRef = useRef(null);
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
   const isDragging = useRef(false);
@@ -381,21 +380,11 @@ function SwipeableSheet({ onClose, children, darkMode }) {
     return () => sheet.removeEventListener('touchmove', handleTouchMove);
   }, []);
 
-  // Also prevent the overlay backdrop from scrolling the page beneath it
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    const prevent = (e) => e.preventDefault();
-    overlay.addEventListener('touchmove', prevent, { passive: false });
-    return () => overlay.removeEventListener('touchmove', prevent);
-  }, []);
-
   const progress = Math.min(dragY / 300, 1);
   const bgAlpha = darkMode ? 0.85 * (1 - progress) : 0.5 * (1 - progress);
 
   return (
     <div
-      ref={overlayRef}
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: `rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -456,6 +445,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrder, setPlacedOrder] = useState(null); // { items, total, orderId }
   const [paymentDone, setPaymentDone] = useState(false);
+  const [billOpen, setBillOpen] = useState(false);
   // Table session validation
   const router = useRouter();
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -470,11 +460,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     setOrderTableInput(tableNumber);
     setWaiterTable(tableNumber);
     getTableSession(restaurant.id, tableNumber).then(session => {
-      // If sid is in URL, require it to match — prevents guessing table numbers
-      // If no sid (direct URL / old link), fall back to basic session check
+      // sid is always required when ?table is in the URL.
+      // Without a valid sid the menu is blocked — prevents guessing table numbers.
       const valid = urlSid
         ? isSessionValidWithSid(session, urlSid)
-        : isSessionValid(session);
+        : false; // no sid = blocked, even if a session exists
       if (!valid) setSessionBlocked(true);
       setSessionChecked(true);
     }).catch(() => setSessionChecked(true)); // on error, allow access gracefully
@@ -1286,15 +1276,15 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         }
 
         .waiter-fab {
-          width: 48px; height: 48px; border-radius: 50%;
-          border: none; background: #fff;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.14);
-          font-size: 20px; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          transition: all 0.2s; flex-shrink: 0;
           pointer-events: all;
+          display: flex; align-items: center; gap: 8px;
+          padding: 14px 22px; border-radius: 50px; border: none;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px;
+          cursor: pointer; white-space: nowrap; flex-shrink: 0;
+          transition: transform 0.2s, box-shadow 0.2s;
+          animation: fadeUp 0.4s ease both;
         }
-        .waiter-fab:hover  { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+        .waiter-fab:hover  { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
         .waiter-fab:active { transform: scale(0.96); }
         /* ─────────── CART ─────────── */
         .cart-fab {
@@ -1315,6 +1305,29 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         .cart-fab:active { transform: scale(0.96); }
         @keyframes cartPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
         .cart-fab-pop { animation: cartPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+        .bill-fab {
+          pointer-events: all;
+          display: flex; align-items: center; gap: 10px;
+          padding: 14px 22px; border-radius: 50px; border: none;
+          background: linear-gradient(135deg,#2D8B4E,#1A6B38);
+          color: #fff; font-family: 'Inter',sans-serif; font-weight: 700; font-size: 14px;
+          cursor: pointer; white-space: nowrap; flex-shrink: 0;
+          box-shadow: 0 6px 28px rgba(45,139,78,0.45), 0 2px 8px rgba(0,0,0,0.2);
+          transition: transform 0.2s, box-shadow 0.2s;
+          animation: fadeUp 0.4s ease both;
+          letter-spacing: -0.2px;
+          position: relative;
+        }
+        .bill-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(45,139,78,0.55); }
+        .bill-fab:active { transform: scale(0.96); }
+        .bill-price {
+          font-size: 13px; font-weight: 700; opacity: 0.85;
+          background: rgba(0,0,0,0.18); border-radius: 20px;
+          padding: 3px 10px;
+        }
+        @media (max-width: 480px) {
+          .bill-fab { padding: 10px 14px !important; font-size: 13px !important; }
+        }
         .cart-price {
           font-size: 13px; font-weight: 700; opacity: 0.85;
           background: rgba(0,0,0,0.18); border-radius: 20px;
@@ -2472,8 +2485,17 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             {/* Waiter call — pill shaped, labelled */}
             {waiterCallsEnabled && (
               <button className="waiter-fab" onClick={() => setWaiterModal(true)}
-                style={{ width: 'auto', borderRadius: 50, padding: '10px 18px', gap: 7, display: 'flex', alignItems: 'center', background: darkMode ? '#2A2520' : '#fff', border: '1.5px solid rgba(42,31,16,0.1)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', fontSize: 13, fontWeight: 700, fontFamily: 'Inter,sans-serif', color: darkMode ? '#FFF5E8' : '#1E1B18', whiteSpace: 'nowrap' }}>
-                🙋 {t.needHelp}
+                style={{ background: darkMode ? '#2A2520' : '#fff', border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.12)'}`, boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.14)', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+                <span style={{ fontSize: 18 }}>🔔</span>
+                <span>{t.needHelp}</span>
+              </button>
+            )}
+            {/* My Bill FAB — shows after order placed */}
+            {placedOrder && !cartOpen && (
+              <button className="bill-fab" onClick={() => setBillOpen(true)}>
+                <span style={{ fontSize: 18 }}>🧾</span>
+                <span>My Bill</span>
+                <span className="bill-price">₹{placedOrder.total.toFixed(0)}</span>
               </button>
             )}
             {/* Cart FAB — only show when cart has items */}
@@ -2744,78 +2766,22 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 </button>
               </>)}
 
-              {/* ── STEP: success / bill ── */}
+              {/* ── STEP: success ── */}
               {orderStep === 'success' && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 0' }}>
-                  {/* Confirmation banner */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 14, background: 'rgba(45,139,78,0.1)', border: '1.5px solid rgba(45,139,78,0.3)', marginBottom: 18 }}>
-                    <span style={{ fontSize: 28 }}>✅</span>
-                    <div>
-                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: '#2D8B4E' }}>{t.orderPlaced}</div>
-                      <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', marginTop: 2 }}>{t.orderSentMsg}</div>
-                    </div>
-                  </div>
-
-                  {/* Bill summary */}
-                  {placedOrder && !paymentDone && (
-                    <>
-                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Your Bill</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                        {placedOrder.items.map((item, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 10, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.04)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.35)' }}>{item.qty}×</span>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                            </div>
-                            {item.price > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', flexShrink: 0 }}>₹{(item.price * item.qty).toFixed(0)}</span>}
-                          </div>
-                        ))}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderRadius: 12, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginTop: 4 }}>
-                          <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 15, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Total</span>
-                          <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 20, color: '#E05A3A' }}>₹{placedOrder.total.toFixed(0)}</span>
-                        </div>
-                      </div>
-
-                      {/* Payment options */}
-                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Pay at End of Meal</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <button
-                          onClick={async () => {
-                            if (placedOrder?.orderId && restaurant?.id) {
-                              await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'cash_requested');
-                            }
-                            setPaymentDone(true);
-                          }}
-                          style={{ width: '100%', padding: '14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.06)' : '#F7F5F2', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                          💵 Pay Cash at Table
-                        </button>
-                        <div style={{ fontSize: 11, textAlign: 'center', color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.35)', lineHeight: 1.5 }}>
-                          Your waiter will collect payment when you're ready. Enjoy your meal!
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Payment confirmed */}
-                  {paymentDone && (
-                    <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                      <div style={{ fontSize: 44, marginBottom: 12 }}>💚</div>
-                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 8 }}>Your waiter has been notified!</div>
-                      <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 24 }}>They'll come to collect payment. Enjoy your meal!</div>
-                      <button onClick={() => { setCartOpen(false); setOrderStep('cart'); setPlacedOrder(null); setPaymentDone(false); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
-                        style={{ padding: '12px 28px', borderRadius: 12, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
-                        Back to Menu
-                      </button>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px 0', gap: 16 }}>
+                  <div style={{ fontSize: 56 }}>🎉</div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{t.orderPlaced}</div>
+                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{t.orderSentMsg}</div>
+                  {/* Prompt to open bill tab */}
+                  {placedOrder && (
+                    <div style={{ marginTop: 8, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)', fontSize: 13, color: darkMode ? '#6EC98A' : '#1A6B38', fontWeight: 600 }}>
+                      🧾 Your bill is ready — tap the green "My Bill" button below
                     </div>
                   )}
-
-                  {/* Go back link — visible when bill is showing */}
-                  {!paymentDone && placedOrder && (
-                    <button onClick={() => { setCartOpen(false); setOrderStep('cart'); setPlacedOrder(null); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
-                      style={{ marginTop: 12, background: 'none', border: 'none', fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', cursor: 'pointer', fontFamily: 'Inter,sans-serif', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                      Back to Menu
-                    </button>
-                  )}
+                  <button onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
+                    style={{ marginTop: 4, padding: '11px 26px', borderRadius: 12, border: 'none', background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
+                    Back to Menu
+                  </button>
                 </div>
               )}
             </div>
@@ -2847,7 +2813,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Included in this combo</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
                   {(selectedCombo.resolvedItems || []).map(item => (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.08)'}` }}>
+                    <div key={item.id}
+                      onClick={() => { setSelectedCombo(null); openItem(item); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.08)'}`, cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseOver={e => { e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.09)' : 'rgba(42,31,16,0.08)'; }}
+                      onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.04)'; }}>
                       {item.imageURL ? (
                         <img src={item.imageURL} alt={item.name} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
@@ -2857,7 +2827,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                         <div style={{ fontWeight: 700, fontSize: 14, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2 }}>{item.name}</div>
                         {item.description && <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', lineHeight: 1.4 }}>{item.description.slice(0, 60)}{item.description.length > 60 ? '…' : ''}</div>}
                       </div>
-                      {item.price > 0 && <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through', flexShrink: 0 }}>₹{item.price}</div>}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                        {item.price > 0 && <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through' }}>₹{item.price}</div>}
+                        <div style={{ fontSize: 11, fontWeight: 700, color: darkMode ? 'rgba(247,155,61,0.8)' : '#A06010' }}>View →</div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2885,7 +2858,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         {waiterCallsEnabled && waiterModal && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
             onClick={e => { if (e.target === e.currentTarget) { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); } }}>
-            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)' }}>
+            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '85vh', overflowY: 'auto' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                 <div style={{ width: 40, height: 5, borderRadius: 3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
@@ -2947,6 +2920,71 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── MY BILL SHEET ─── */}
+        {billOpen && placedOrder && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
+            onClick={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
+            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 36px', maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
+                <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
+              </div>
+              <div style={{ padding: '0 22px' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🧾 Your Bill</div>
+                    {placedOrder.tableNumber && placedOrder.tableNumber !== 'Not specified' && (
+                      <div style={{ fontSize: 12, color: 'rgba(45,139,78,0.8)', fontWeight: 600, marginTop: 3 }}>Table {placedOrder.tableNumber}</div>
+                    )}
+                  </div>
+                  <button onClick={() => setBillOpen(false)} style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', border: 'none', borderRadius: '50%', width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: darkMode ? '#FFF5E8' : '#1E1B18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+
+                {/* Items */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                  {placedOrder.items.map((item, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.03)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.07)'}` }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{item.name}</div>
+                        <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>₹{item.price} × {item.qty}</div>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', flexShrink: 0 }}>₹{(item.price * item.qty).toFixed(0)}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Total */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginBottom: 20 }}>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.55)' }}>Total</div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 24, color: '#E05A3A' }}>₹{placedOrder.total.toFixed(0)}</div>
+                </div>
+
+                {/* Payment action */}
+                {paymentDone ? (
+                  <div style={{ textAlign: 'center', padding: '18px 0', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)' }}>
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: '#2D8B4E', marginBottom: 4 }}>Payment Requested</div>
+                    <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)' }}>Your waiter has been notified. Please pay at the table.</div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      if (!placedOrder?.orderId || !restaurant?.id) return;
+                      try {
+                        await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'cash_requested');
+                        setPaymentDone(true);
+                      } catch (e) { console.error(e); }
+                    }}
+                    style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer', boxShadow: '0 4px 20px rgba(45,139,78,0.4)', letterSpacing: '-0.2px' }}>
+                    💵 Pay Cash at Table
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const navItems = [
   { href: '/admin/analytics', label: 'Analytics', icon: '◎' },
@@ -15,13 +17,59 @@ const navItems = [
   { href: '/admin/subscription', label: 'Subscription', icon: '◉' },
 ];
 
+function playPaymentBell() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Two-tone ascending chime for payment
+    [[523, 0], [659, 0.15], [784, 0.3]].forEach(([freq, delay]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t = ctx.currentTime + delay;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.4, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      osc.start(t); osc.stop(t + 0.6);
+    });
+  } catch (e) { /* audio blocked */ }
+}
+
 export default function AdminLayout({ children }) {
   const { user, userData, loading, signOut } = useAuth();
   const router = useRouter();
+  const seenPaymentRequests = useRef(new Set());
 
   useEffect(() => {
     if (!loading && !user) router.push('/admin/login');
   }, [user, loading, router]);
+
+  // Listen for cash_requested orders and play sound
+  useEffect(() => {
+    if (!user || !userData?.restaurantId) return;
+    const rid = userData.restaurantId;
+    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      snap.docChanges().forEach(change => {
+        const data = change.doc.data();
+        const id = change.doc.id;
+        if (data.paymentStatus === 'cash_requested' && !seenPaymentRequests.current.has(id)) {
+          seenPaymentRequests.current.add(id);
+          // Don't fire on initial load — only on new changes
+          if (change.type === 'modified') {
+            playPaymentBell();
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('💰 Payment Requested', {
+                body: `Table ${data.tableNumber || '?'} wants to pay cash`,
+                icon: '/favicon.ico',
+              });
+            }
+          }
+        }
+      });
+    }, () => { /* ignore errors */ });
+    return () => unsub();
+  }, [user, userData?.restaurantId]);
 
   if (loading || !user) return (
     <div style={{ minHeight: '100vh', background: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
