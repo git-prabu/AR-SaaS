@@ -436,6 +436,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Table session validation
   const router = useRouter();
+  const isSpot = restaurant?.subdomain === 'spot';
+
+  // Theme color helper — returns spot-themed colors when isSpot is true
+  const tc = (spotLight, spotDark, defLight, defDark) =>
+    isSpot ? (darkMode ? spotDark : spotLight) : (darkMode ? defDark : defLight);
+
   const [sessionChecked, setSessionChecked] = useState(false);
   const [sessionBlocked, setSessionBlocked] = useState(false);
   const tableNumber = router.query?.table || null; // from QR URL param e.g. ?table=4
@@ -796,9 +802,10 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         <meta name="description" content={`Explore ${restaurant.name}'s menu`} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
+        {isSpot && <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />}
       </Head>
 
-      <div className={darkMode ? 'dm' : ''} id="app-root" style={{ position: 'relative' }}>
+      <div className={`${darkMode ? 'dm' : ''}${isSpot ? ' spot' : ''}`} id="app-root" style={{ position: 'relative' }}>
         {/* Plasma background — shows only in dark mode via CSS */}
         <div className="plasma-bg" aria-hidden="true">
           <div className="plasma-blob pb1" />
@@ -2114,6 +2121,530 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           mask-image: linear-gradient(to right, transparent 0px, black 32px, black calc(100% - 32px), transparent 100%);
         }
 
+        /* ═══════════════════════════════════════════════════════════
+           SPOT RESTAURANT — EARTHY GREEN / TAN THEME
+           Light: Cafe Noir #4C3D19 · Kombu #354024 · Moss #889063
+                  Tan #CFBB99 · Bone #E5D7C4
+           Dark:  Charcoal #232323 · Mocha #685D54 · Taupe #A39382
+                  Oat #E5DED2 · Milk #FBF7F4
+           ═══════════════════════════════════════════════════════════ */
+
+        /* ── Spot fonts ── */
+        .spot { font-family: 'DM Sans', 'Inter', sans-serif; }
+        .spot .r-name,
+        .spot .m-title,
+        .spot .c-name,
+        .spot .sma-q-text,
+        .spot .sma-res-title,
+        .spot .sma-mode-title,
+        .spot .sma-size-title {
+          font-family: 'Playfair Display', 'Georgia', serif !important;
+        }
+
+        /* ── Spot Light — base page ── */
+        .spot body, .spot #app-root { background: #F7F3EC !important; }
+        .spot .main { background: #F7F3EC !important; }
+
+        /* Header */
+        .spot .hdr {
+          background: rgba(240,233,220,0.6) !important;
+          border-bottom: 1px solid rgba(207,187,153,0.35) !important;
+          box-shadow: 0 2px 24px rgba(76,61,25,0.08), 0 1px 0 rgba(229,215,196,0.5) inset !important;
+        }
+        .spot .r-logo {
+          background: linear-gradient(145deg, #889063, #6E7550) !important;
+          box-shadow: 0 3px 12px rgba(136,144,99,0.35) !important;
+        }
+        .spot .r-name { color: #4C3D19 !important; letter-spacing: -0.3px; }
+        .spot .r-sub  { color: #8A774B !important; }
+
+        /* AR badge */
+        .spot .ar-badge {
+          background: rgba(136,144,99,0.12) !important;
+          border-color: rgba(136,144,99,0.3) !important;
+          color: #5F7048 !important;
+        }
+        .spot .ar-dot { background: #889063 !important; }
+
+        /* Category pills */
+        .spot .cat-pill {
+          background: rgba(136,144,99,0.08) !important;
+          color: #4C3D19 !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .spot .cat-pill:hover:not(.on) {
+          background: rgba(136,144,99,0.16) !important;
+          color: #354024 !important;
+        }
+        .spot .cat-pill.on {
+          background: #889063 !important;
+          color: #F7F3EC !important;
+          box-shadow: 0 4px 16px rgba(136,144,99,0.35), 0 1px 4px rgba(136,144,99,0.2) !important;
+        }
+
+        /* AR strip */
+        .spot .ar-strip {
+          border-color: rgba(136,144,99,0.2) !important;
+          box-shadow: 0 1px 6px rgba(76,61,25,0.06) !important;
+        }
+        .spot .ar-strip-text { color: #4C3D19 !important; }
+        .spot .ar-strip-sub  { color: #8A774B !important; }
+        .spot .ar-strip-chip { background: #889063 !important; }
+        .spot .ar-strip-chip:hover { background: #6E7550 !important; }
+
+        /* Offer bar */
+        .spot .offer-bar {
+          border-color: #CFBB99 !important;
+          box-shadow: 0 1px 6px rgba(76,61,25,0.06) !important;
+        }
+        .spot .offer-bar-title { color: #4C3D19 !important; }
+        .spot .offer-bar-desc  { color: #8A774B !important; }
+
+        /* Cards */
+        .spot .card {
+          border-color: #DDD0B5 !important;
+          box-shadow: 0 1px 3px rgba(76,61,25,0.05), 0 4px 16px rgba(76,61,25,0.07) !important;
+        }
+        .spot .card:hover {
+          box-shadow: 0 16px 44px rgba(76,61,25,0.14) !important;
+          border-color: rgba(136,144,99,0.3) !important;
+        }
+        .spot .card.shine-on {
+          border-color: rgba(136,144,99,0.6) !important;
+          box-shadow: 0 1px 3px rgba(76,61,25,0.05), 0 4px 16px rgba(76,61,25,0.07), 0 0 14px rgba(136,144,99,0.2), 0 0 4px rgba(136,144,99,0.15) !important;
+        }
+        .spot .c-img, .spot .c-img-ph { background: #EBE5D1 !important; }
+        .spot .c-name { color: #4C3D19 !important; }
+        .spot .c-price { color: #5F7048 !important; }
+        .spot .c-cal, .spot .c-prep { color: #8A774B !important; }
+
+        /* Card badges */
+        .spot .c-badge-pop  { background: rgba(136,144,99,0.12) !important; color: #5F7048 !important; }
+        .spot .c-badge-feat { background: rgba(76,61,25,0.08) !important; color: #4C3D19 !important; }
+
+        /* Card AR CTA */
+        .spot .c-ar-cta {
+          background: rgba(136,144,99,0.1) !important;
+          color: #354024 !important;
+        }
+        .spot .c-ar-cta:hover {
+          background: rgba(136,144,99,0.2) !important;
+          color: #889063 !important;
+        }
+
+        /* Modal */
+        .spot .sheet { background: #F7F3EC !important; }
+        .spot .m-title { color: #4C3D19 !important; }
+        .spot .m-price { color: #5F7048 !important; }
+        .spot .m-price-sub { color: #8A774B !important; }
+        .spot .m-desc { color: #6B5A32 !important; }
+        .spot .m-hero-ph { background: #EBE5D1 !important; }
+        .spot .handle { background: rgba(76,61,25,0.18) !important; }
+
+        /* Modal tags */
+        .spot .tag-cat { background: #EBE5D1 !important; color: #4C3D19 !important; }
+        .spot .tag-pop { background: rgba(136,144,99,0.12) !important; color: #5F7048 !important; }
+        .spot .m-pill  { background: #EBE5D1 !important; color: #4C3D19 !important; }
+
+        /* Nutrition */
+        .spot .divider { background: rgba(76,61,25,0.1) !important; }
+        .spot .sec-lbl { color: #8A774B !important; }
+        .spot .nc { background: #F0E9DC !important; border-color: rgba(207,187,153,0.3) !important; }
+        .spot .nc-v { color: #889063 !important; }
+        .spot .nc-u, .spot .nc-l { color: #8A774B !important; }
+
+        /* Ingredients */
+        .spot .ing { background: #EBE5D1 !important; color: #4C3D19 !important; }
+        .spot .ing:hover { background: #DDD0B5 !important; }
+
+        /* AR button */
+        .spot .ar-btn {
+          background: #889063 !important;
+          box-shadow: 0 6px 20px rgba(136,144,99,0.38) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .spot .ar-btn:hover { box-shadow: 0 10px 28px rgba(136,144,99,0.48) !important; }
+        .spot .ar-hint { color: #8A774B !important; }
+
+        /* Empty state */
+        .spot .empty { color: #8A774B !important; }
+
+        /* FABs */
+        .spot .sma-fab {
+          background: #889063 !important;
+          box-shadow: 0 6px 24px rgba(136,144,99,0.4), 0 2px 8px rgba(136,144,99,0.25) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .spot .sma-fab:hover { box-shadow: 0 12px 32px rgba(136,144,99,0.55) !important; }
+        .spot .cart-fab {
+          background: #354024 !important; color: #F7F3EC !important;
+          box-shadow: 0 6px 24px rgba(53,64,36,0.35) !important;
+          font-family: 'DM Sans', sans-serif !important;
+        }
+        .spot .cart-fab:hover { box-shadow: 0 10px 28px rgba(53,64,36,0.45) !important; }
+        .spot .cart-badge {
+          background: #889063 !important;
+          border-color: #354024 !important;
+        }
+
+        /* Waiter FAB */
+        .spot .waiter-fab {
+          border: 1px solid #DDD0B5 !important;
+          box-shadow: 0 4px 16px rgba(76,61,25,0.1) !important;
+        }
+
+        /* Smart Menu Assistant */
+        .spot .sma-sheet { background: #F7F3EC !important; font-family: 'DM Sans', sans-serif !important; }
+        .spot .sma-prog-bar { background: #EBE5D1 !important; }
+        .spot .sma-prog-fill { background: #889063 !important; }
+        .spot .sma-prog-txt { color: #8A774B !important; }
+        .spot .sma-back:hover { color: #889063 !important; }
+        .spot .sma-q-text { color: #4C3D19 !important; }
+        .spot .sma-q-sub { color: #8A774B !important; }
+        .spot .sma-opt {
+          background: #F0E9DC !important;
+          border-color: rgba(207,187,153,0.35) !important;
+        }
+        .spot .sma-opt:hover {
+          background: #EBE5D1 !important;
+          border-color: #889063 !important;
+        }
+        .spot .sma-opt-label { color: #4C3D19 !important; }
+        .spot .sma-dismiss:hover { color: #889063 !important; }
+        .spot .sma-res-title { color: #4C3D19 !important; }
+        .spot .sma-res-sub { color: #8A774B !important; }
+        .spot .sma-cat-lbl { color: #8A774B !important; }
+        .spot .sma-item {
+          background: #F0E9DC !important;
+          border-color: rgba(207,187,153,0.35) !important;
+        }
+        .spot .sma-item:hover { background: #EBE5D1 !important; border-color: #889063 !important; }
+        .spot .sma-item-name { color: #4C3D19 !important; }
+        .spot .sma-item-price { color: #5F7048 !important; }
+        .spot .sma-chip-pop { background: rgba(136,144,99,0.12) !important; color: #5F7048 !important; }
+        .spot .sma-btn-dark {
+          background: #889063 !important;
+          box-shadow: 0 4px 14px rgba(136,144,99,0.35) !important;
+        }
+        .spot .sma-btn-light:hover { background: #EBE5D1 !important; }
+        .spot .sma-mode-title { color: #4C3D19 !important; }
+        .spot .sma-mode-sub { color: #8A774B !important; }
+        .spot .sma-mode-card {
+          background: #F0E9DC !important;
+          border-color: rgba(207,187,153,0.35) !important;
+        }
+        .spot .sma-mode-card:hover {
+          background: #EBE5D1 !important;
+          border-color: #889063 !important;
+          box-shadow: 0 6px 20px rgba(136,144,99,0.18) !important;
+        }
+        .spot .sma-mode-card-name { color: #4C3D19 !important; }
+        .spot .sma-mode-card-desc { color: #8A774B !important; }
+        .spot .sma-size-title { color: #4C3D19 !important; }
+        .spot .sma-size-sub { color: #8A774B !important; }
+        .spot .sma-size-btn {
+          background: #F0E9DC !important;
+          border-color: rgba(207,187,153,0.35) !important;
+        }
+        .spot .sma-size-btn:hover { background: #EBE5D1 !important; border-color: #889063 !important; }
+        .spot .sma-size-btn-num { color: #4C3D19 !important; }
+        .spot .sma-size-btn-lbl { color: #8A774B !important; }
+
+        /* Language picker */
+        .spot .lang-pick {
+          background: rgba(76,61,25,0.06) !important;
+          border-color: rgba(76,61,25,0.1) !important;
+        }
+        .spot .lang-btn { color: rgba(76,61,25,0.45) !important; font-family: 'DM Sans', sans-serif !important; }
+        .spot .lang-btn:hover:not(.on) { color: rgba(76,61,25,0.7) !important; }
+        .spot .lang-btn.on {
+          background: #354024 !important; color: #F7F3EC !important;
+          box-shadow: 0 1px 6px rgba(53,64,36,0.25) !important;
+        }
+
+        /* Theme toggle */
+        .spot .tgl-slider { background-color: #889063 !important; }
+
+        /* Skeleton */
+        .spot .img-skeleton {
+          background: linear-gradient(90deg, #DDD0B5 25%, #EBE5D1 50%, #DDD0B5 75%) !important;
+        }
+
+        /* Circular text */
+        .spot .circ-ring span { color: rgba(136,144,99,0.85) !important; }
+
+        /* Shiny text */
+        .spot .shiny-txt {
+          background: linear-gradient(90deg, currentColor 30%, rgba(136,144,99,0.6) 50%, currentColor 70%) !important;
+          -webkit-background-clip: text !important;
+          background-clip: text !important;
+        }
+
+        /* Electric border */
+        .spot .elec-ring {
+          background: conic-gradient(
+            from 0deg,
+            transparent 0deg,
+            #889063 50deg,
+            #B6BC99 110deg,
+            #5F7048 170deg,
+            transparent 230deg,
+            transparent 290deg,
+            #889063 340deg,
+            transparent 360deg
+          ) !important;
+        }
+
+        /* Cart item rows */
+        .spot .qty-btn { border-color: rgba(207,187,153,0.35) !important; background: #F0E9DC !important; color: #4C3D19 !important; }
+        .spot .qty-btn:hover { border-color: #889063 !important; color: #889063 !important; }
+
+        /* ═══════════════════════════════════════════════════════════
+           SPOT DARK MODE — Warm Neutrals
+           ═══════════════════════════════════════════════════════════ */
+        .spot.dm {
+          --bg-base:     #232323;
+          --bg-surface:  #2C2C2C;
+          --bg-card:     #3A3430;
+          --bg-elevated: #4A433E;
+          --divider:     #564C44;
+          --accent:      #E5DED2;
+          --accent-glow: rgba(229,222,210,0.15);
+          --text-1:      #FBF7F4;
+          --text-2:      #E5DED2;
+          --text-muted:  #A39382;
+          --shadow-card: 0 4px 24px rgba(0,0,0,0.45);
+          --shadow-hover:0 16px 48px rgba(0,0,0,0.6);
+        }
+
+        /* Page bg */
+        .spot.dm .plasma-bg { background: #1A1817 !important; }
+        .spot.dm .pb1 { background: radial-gradient(circle, #A39382 0%, #685D54 50%, transparent 75%) !important; }
+        .spot.dm .pb2 { background: radial-gradient(circle, #8C8074 0%, #564C44 50%, transparent 75%) !important; }
+        .spot.dm .pb3 { background: radial-gradient(circle, #CFBB99 0%, #A39382 45%, transparent 75%) !important; }
+        .spot.dm .pb4 { background: radial-gradient(circle, #B5A898 0%, #685D54 55%, transparent 75%) !important; }
+        .spot.dm .plasma-overlay { background: rgba(35,35,35,0.58) !important; }
+
+        /* Header */
+        .spot.dm .hdr {
+          background: rgba(35,35,35,0.6) !important;
+          border-bottom-color: rgba(163,147,130,0.12) !important;
+          box-shadow: 0 2px 24px rgba(0,0,0,0.3), 0 1px 0 rgba(163,147,130,0.06) inset !important;
+        }
+        .spot.dm .r-logo {
+          background: linear-gradient(145deg, #A39382, #685D54) !important;
+          box-shadow: 0 3px 12px rgba(163,147,130,0.3) !important;
+        }
+        .spot.dm .r-name { color: #FBF7F4 !important; }
+        .spot.dm .r-sub  { color: #A39382 !important; }
+
+        /* AR badge */
+        .spot.dm .ar-badge {
+          background: rgba(163,147,130,0.12) !important;
+          border-color: rgba(163,147,130,0.25) !important;
+          color: #E5DED2 !important;
+        }
+        .spot.dm .ar-dot { background: #A39382 !important; }
+
+        /* Category pills */
+        .spot.dm .cat-pill {
+          background: var(--bg-elevated) !important;
+          color: var(--text-2) !important;
+        }
+        .spot.dm .cat-pill:hover:not(.on) {
+          background: #564C44 !important;
+          color: #FBF7F4 !important;
+        }
+        .spot.dm .cat-pill.on {
+          background: #A39382 !important;
+          color: #232323 !important;
+          box-shadow: 0 4px 16px rgba(163,147,130,0.35) !important;
+        }
+
+        /* AR strip */
+        .spot.dm .ar-strip {
+          background: var(--bg-card) !important;
+          border-color: rgba(163,147,130,0.15) !important;
+        }
+        .spot.dm .ar-strip-text { color: #FBF7F4 !important; }
+        .spot.dm .ar-strip-sub  { color: #A39382 !important; }
+        .spot.dm .ar-strip-chip { background: #A39382 !important; color: #232323 !important; }
+
+        /* Offer bar */
+        .spot.dm .offer-bar {
+          background: var(--bg-card) !important;
+          border-color: rgba(163,147,130,0.18) !important;
+        }
+        .spot.dm .offer-bar-title { color: #E5DED2 !important; }
+        .spot.dm .offer-bar-desc  { color: #A39382 !important; }
+
+        /* Cards */
+        .spot.dm .card {
+          background: rgba(58,52,48,0.82) !important;
+          border-color: rgba(163,147,130,0.08) !important;
+          box-shadow: var(--shadow-card) !important;
+        }
+        .spot.dm .card:hover {
+          box-shadow: var(--shadow-hover) !important;
+          border-color: rgba(163,147,130,0.2) !important;
+        }
+        .spot.dm .card.shine-on {
+          border-color: rgba(163,147,130,0.5) !important;
+          box-shadow: var(--shadow-card), 0 0 14px rgba(163,147,130,0.15), 0 0 4px rgba(163,147,130,0.1) !important;
+        }
+        .spot.dm .c-img-ph { background: #4A433E !important; }
+        .spot.dm .c-name  { color: #FBF7F4 !important; }
+        .spot.dm .c-price { color: #E5DED2 !important; }
+        .spot.dm .c-cal, .spot.dm .c-prep { color: #A39382 !important; }
+
+        /* Card badges dark */
+        .spot.dm .c-badge-pop  { background: rgba(163,147,130,0.16) !important; color: #E5DED2 !important; }
+        .spot.dm .c-badge-feat { background: rgba(163,147,130,0.1) !important; color: #CFBB99 !important; }
+
+        /* Card AR CTA dark */
+        .spot.dm .c-ar-cta {
+          background: rgba(163,147,130,0.1) !important;
+          color: #E5DED2 !important;
+          border-top-color: rgba(163,147,130,0.12) !important;
+        }
+
+        /* AR pill on card */
+        .spot.dm .c-ar-pill { background: rgba(163,147,130,0.85) !important; }
+
+        /* Modal dark */
+        .spot.dm .sheet {
+          background: rgba(44,44,44,0.7) !important;
+          border-color: rgba(163,147,130,0.15) !important;
+          box-shadow: 0 -12px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(163,147,130,0.1), inset 0 0 40px 0px rgba(163,147,130,0.03) !important;
+        }
+        .spot.dm .sheet::before {
+          background: linear-gradient(90deg, transparent, rgba(163,147,130,0.2), transparent) !important;
+        }
+        .spot.dm .sheet::after {
+          background: linear-gradient(180deg, rgba(163,147,130,0.15), transparent) !important;
+        }
+        .spot.dm .handle { background: rgba(163,147,130,0.15) !important; }
+        .spot.dm .m-title { color: #FBF7F4 !important; }
+        .spot.dm .m-desc  { color: #E5DED2 !important; }
+        .spot.dm .m-price { color: #E5DED2 !important; }
+        .spot.dm .m-price-sub { color: #A39382 !important; }
+        .spot.dm .m-hero-ph { background: #4A433E !important; }
+
+        /* Modal tags dark */
+        .spot.dm .tag-cat { background: var(--bg-elevated) !important; color: #E5DED2 !important; border-color: var(--divider) !important; }
+        .spot.dm .tag-pop { background: rgba(163,147,130,0.14) !important; color: #E5DED2 !important; }
+        .spot.dm .m-pill  { background: var(--bg-elevated) !important; color: #E5DED2 !important; }
+
+        /* Nutrition dark */
+        .spot.dm .nc { background: var(--bg-elevated) !important; border-color: var(--divider) !important; }
+        .spot.dm .nc-v { color: #E5DED2 !important; }
+        .spot.dm .nc-u, .spot.dm .nc-l { color: #A39382 !important; }
+
+        /* Ingredients dark */
+        .spot.dm .ing { background: var(--bg-elevated) !important; color: #E5DED2 !important; border-color: var(--divider) !important; }
+
+        /* AR button dark */
+        .spot.dm .ar-btn {
+          background: #685D54 !important;
+          color: #FBF7F4 !important;
+          box-shadow: 0 6px 24px rgba(104,93,84,0.4) !important;
+        }
+        .spot.dm .ar-btn:hover { box-shadow: 0 10px 32px rgba(104,93,84,0.55) !important; }
+
+        /* FABs dark */
+        .spot.dm .sma-fab {
+          background: #685D54 !important;
+          color: #FBF7F4 !important;
+          box-shadow: 0 6px 28px rgba(104,93,84,0.45), 0 2px 8px rgba(0,0,0,0.4) !important;
+        }
+        .spot.dm .sma-fab:hover { box-shadow: 0 12px 40px rgba(104,93,84,0.6), 0 4px 12px rgba(0,0,0,0.4) !important; }
+        .spot.dm .cart-fab {
+          background: #443B34 !important;
+          color: #FBF7F4 !important;
+          box-shadow: 0 6px 24px rgba(0,0,0,0.4) !important;
+        }
+        .spot.dm .cart-badge { background: #A39382 !important; border-color: #443B34 !important; }
+        .spot.dm .waiter-fab {
+          background: #3A3430 !important;
+          border-color: #564C44 !important;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
+        }
+
+        /* SMA dark */
+        .spot.dm .sma-sheet { background: #2C2C2C !important; }
+        .spot.dm .sma-prog-bar { background: #4A433E !important; }
+        .spot.dm .sma-prog-fill { background: #A39382 !important; }
+        .spot.dm .sma-back:hover { color: #E5DED2 !important; }
+        .spot.dm .sma-q-text { color: #FBF7F4 !important; }
+        .spot.dm .sma-opt {
+          background: var(--bg-card) !important;
+          border-color: var(--divider) !important;
+        }
+        .spot.dm .sma-opt:hover {
+          background: var(--bg-elevated) !important;
+          border-color: #A39382 !important;
+          box-shadow: 0 0 0 1px rgba(163,147,130,0.2) !important;
+        }
+        .spot.dm .sma-opt-label { color: #FBF7F4 !important; }
+        .spot.dm .sma-dismiss:hover { color: #E5DED2 !important; }
+        .spot.dm .sma-item { background: var(--bg-card) !important; border-color: var(--divider) !important; }
+        .spot.dm .sma-item:hover { background: var(--bg-elevated) !important; border-color: #A39382 !important; }
+        .spot.dm .sma-item-name { color: #FBF7F4 !important; }
+        .spot.dm .sma-item-price { color: #E5DED2 !important; }
+        .spot.dm .sma-chip-pop { background: rgba(163,147,130,0.14) !important; color: #E5DED2 !important; }
+        .spot.dm .sma-btn-dark {
+          background: #A39382 !important;
+          color: #232323 !important;
+          box-shadow: 0 4px 16px rgba(163,147,130,0.3) !important;
+        }
+        .spot.dm .sma-btn-light { border-color: var(--divider) !important; color: #E5DED2 !important; }
+        .spot.dm .sma-btn-light:hover { background: var(--bg-elevated) !important; }
+        .spot.dm .sma-mode-card { background: var(--bg-card) !important; border-color: var(--divider) !important; }
+        .spot.dm .sma-mode-card:hover {
+          background: var(--bg-elevated) !important; border-color: #A39382 !important;
+          box-shadow: 0 0 0 1px rgba(163,147,130,0.15), 0 8px 24px rgba(0,0,0,0.35) !important;
+        }
+        .spot.dm .sma-mode-card-name { color: #FBF7F4 !important; }
+        .spot.dm .sma-size-btn { background: var(--bg-card) !important; border-color: var(--divider) !important; }
+        .spot.dm .sma-size-btn:hover { background: var(--bg-elevated) !important; border-color: #A39382 !important; }
+        .spot.dm .sma-size-btn-num { color: #FBF7F4 !important; }
+
+        /* Language picker dark */
+        .spot.dm .lang-pick { background: rgba(163,147,130,0.08) !important; border-color: rgba(163,147,130,0.12) !important; }
+        .spot.dm .lang-btn { color: rgba(251,247,244,0.35) !important; }
+        .spot.dm .lang-btn:hover:not(.on) { color: rgba(251,247,244,0.65) !important; }
+        .spot.dm .lang-btn.on { background: #A39382 !important; color: #232323 !important; }
+
+        /* Theme toggle dark */
+        .spot.dm .tgl-slider { background-color: #443B34 !important; }
+
+        /* Skeleton dark */
+        .spot.dm .img-skeleton {
+          background: linear-gradient(90deg, #4A433E 25%, #564C44 50%, #4A433E 75%) !important;
+        }
+
+        /* Circular text dark */
+        .spot.dm .circ-ring span { color: rgba(163,147,130,0.6) !important; }
+
+        /* Electric border dark */
+        .spot.dm .elec-ring {
+          background: conic-gradient(
+            from 0deg,
+            transparent 0deg,
+            #A39382 50deg,
+            #E5DED2 110deg,
+            #685D54 170deg,
+            transparent 230deg,
+            transparent 290deg,
+            #A39382 340deg,
+            transparent 360deg
+          ) !important;
+        }
+
+        /* Cart rows dark */
+        .spot.dm .qty-btn { border-color: var(--divider) !important; background: var(--bg-elevated) !important; color: #FBF7F4 !important; }
+        .spot.dm .qty-btn:hover { border-color: #A39382 !important; color: #E5DED2 !important; }
+
       `}</style>
 
         {/* ─── HEADER ─── */}
@@ -2138,7 +2669,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                           position: 'absolute', left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)`,
                           transform: `translate(-50%,-50%) rotate(${angle}deg)`,
                           fontSize: 8, fontWeight: 800, letterSpacing: 0.5, userSelect: 'none',
-                          color: darkMode ? 'rgba(247,155,61,0.7)' : 'rgba(247,155,61,0.85)',
+                          color: isSpot ? (darkMode ? 'rgba(163,147,130,0.6)' : 'rgba(136,144,99,0.85)') : (darkMode ? 'rgba(247,155,61,0.7)' : 'rgba(247,155,61,0.85)'),
                           lineHeight: 1,
                         }}>{ch}</span>
                       );
@@ -2200,7 +2731,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, paddingInline: 2 }}>
                 <span style={{ fontSize: 13 }}>🏷️</span>
-                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 12, color: darkMode ? '#F79B3D' : '#A06010', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Today&apos;s Offers</span>
+                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 12, color: tc('#5F7048', '#E5DED2', '#A06010', '#F79B3D'), letterSpacing: '0.04em', textTransform: 'uppercase' }}>Today&apos;s Offers</span>
                 <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.3)', fontWeight: 500 }}>{offers.length} active</span>
               </div>
               <div style={{ display: 'flex', gap: 10, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
@@ -2280,7 +2811,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             <div className="combos-section-wrap" style={{ marginBottom: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 18 }}>🍱</span>
-                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: darkMode ? '#F79B3D' : '#A06010' }}><span className="shiny-txt">Combo Deals</span></span>
+                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: tc('#5F7048', '#E5DED2', '#A06010', '#F79B3D') }}><span className="shiny-txt">Combo Deals</span></span>
                 <span style={{ padding: '3px 10px', borderRadius: 20, background: darkMode ? 'rgba(247,155,61,0.2)' : 'rgba(247,155,61,0.15)', color: darkMode ? '#F4C050' : '#A06010', fontSize: 11, fontWeight: 700, border: '1px solid rgba(247,155,61,0.3)' }}>Special Offers</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, filter: 'url(#card-turb)' }}>
@@ -2423,7 +2954,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             )}
             {/* Cart FAB — only show when cart has items */}
             {cartTotal > 0 && (
-              <button className="cart-fab" onClick={() => setCartOpen(true)} style={{ background: darkMode ? '#2A2520' : '#fff', border: '1.5px solid rgba(42,31,16,0.1)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+              <button className="cart-fab" onClick={() => setCartOpen(true)} style={{ background: tc('#fff', '#3A3430', '#fff', '#2A2520'), border: `1.5px solid ${tc('rgba(207,187,153,0.3)', 'rgba(86,76,68,0.3)', 'rgba(42,31,16,0.1)', 'rgba(42,31,16,0.1)')}`, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', color: tc('#354024', '#FBF7F4', '#1E1B18', '#FFF5E8') }}>
                 <span>🛒</span>
                 <span>{cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
                 <div className="cart-badge">{cartTotal}</div>
@@ -2518,7 +3049,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                           <span style={{ fontSize: 13, color: 'var(--text-muted,rgba(42,31,16,0.5))', fontWeight: 600 }}>in your order list</span>
                         </>
                       ) : (
-                        <button onClick={() => addToCart(selectedItem)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 50, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#ffffff' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer', boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)' }}>
+                        <button onClick={() => addToCart(selectedItem)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 50, border: 'none', background: tc('#889063', '#685D54', '#1E1B18', '#F79B3D'), color: tc('#F7F3EC', '#FBF7F4', '#FFF5E8', '#ffffff'), fontSize: 14, fontWeight: 700, fontFamily: isSpot ? 'DM Sans,sans-serif' : 'Inter,sans-serif', cursor: 'pointer', boxShadow: tc('0 4px 16px rgba(136,144,99,0.35)', '0 4px 16px rgba(104,93,84,0.35)', '0 4px 16px rgba(0,0,0,0.25)', '0 4px 16px rgba(247,155,61,0.35)') }}>
                           🛒 Add to Order List
                         </button>
                       )}
@@ -2537,7 +3068,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ display: 'flex', gap: 3 }}>
                           {[1, 2, 3, 4, 5].map(s => (
-                            <span key={s} style={{ fontSize: 22, color: s <= userRatings[selectedItem.id] ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.15)' }}>★</span>
+                            <span key={s} style={{ fontSize: 22, color: s <= userRatings[selectedItem.id] ? tc('#889063', '#E5DED2', '#F79B3D', '#F79B3D') : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.15)' }}>★</span>
                           ))}
                         </div>
                         <span style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', fontWeight: 500 }}>Thanks for rating!</span>
@@ -2604,7 +3135,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         {cartOpen && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
             onClick={e => { if (e.target === e.currentTarget) { setCartOpen(false); setOrderStep('cart'); } }}>
-            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '24px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ width: '100%', maxWidth: 440, background: tc('#F7F3EC', '#2C2C2C', '#FFFDF9', '#1E1B18'), borderRadius: '24px 24px 0 0', padding: '24px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
 
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
@@ -2645,7 +3176,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   <button onClick={clearCart} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: 'transparent', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.5)' }}>
                     {t.clear}
                   </button>
-                  <button onClick={() => setOrderStep('form')} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
+                  <button onClick={() => setOrderStep('form')} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: tc('#889063', '#A39382', '#1E1B18', '#F79B3D'), color: tc('#F7F3EC', '#232323', '#FFF5E8', '#1E1B18'), fontSize: 14, fontWeight: 700, fontFamily: isSpot ? 'DM Sans,sans-serif' : 'Inter,sans-serif', cursor: 'pointer' }}>
                     {t.placeOrder}
                   </button>
                 </div>
@@ -2681,7 +3212,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 20, resize: 'none', boxSizing: 'border-box' }}
                 />
                 <button onClick={placeOrder} disabled={isSubmitting}
-                  style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : darkMode ? '#F79B3D' : '#1E1B18', color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
+                  style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : tc('#889063', '#A39382', '#1E1B18', '#F79B3D'), color: isSubmitting ? '#FFF5E8' : tc('#F7F3EC', '#232323', '#FFF5E8', '#1E1B18'), fontSize: 15, fontWeight: 700, fontFamily: isSpot ? 'DM Sans,sans-serif' : 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
                   {isSubmitting ? '...' : t.confirmOrder}
                 </button>
               </>)}
@@ -2704,7 +3235,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
         {waiterCallsEnabled && waiterModal && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
             onClick={e => { if (e.target === e.currentTarget) { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); } }}>
-            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)' }}>
+            <div style={{ width: '100%', maxWidth: 440, background: tc('#F7F3EC', '#2C2C2C', '#FFFDF9', '#1E1B18'), borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                 <div style={{ width: 40, height: 5, borderRadius: 3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
@@ -2722,7 +3253,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 </div>
               ) : (
                 <>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#4e4740', marginBottom: 6 }}>
+                  <div style={{ fontFamily: isSpot ? "'Playfair Display',serif" : 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: tc('#4C3D19', '#FBF7F4', '#4e4740', '#FFF5E8'), marginBottom: 6 }}>
                     🔔 Call Waiter
                   </div>
                   <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', marginBottom: 22 }}>
@@ -2738,7 +3269,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       { id: 'order', emoji: '📋', label: 'Ready to Order' },
                     ].map(opt => (
                       <button key={opt.id} onClick={() => setWaiterReason(opt.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 14, border: `2px solid ${waiterReason === opt.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: waiterReason === opt.id ? 'rgba(247,155,61,0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 14, border: `2px solid ${waiterReason === opt.id ? tc('#889063', '#A39382', '#F79B3D', '#F79B3D') : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: waiterReason === opt.id ? tc('rgba(136,144,99,0.1)', 'rgba(163,147,130,0.1)', 'rgba(247,155,61,0.1)', 'rgba(247,155,61,0.1)') : 'transparent', cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%' }}>
                         <span style={{ fontSize: 22 }}>{opt.emoji}</span>
                         <span style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{opt.label}</span>
                         {waiterReason === opt.id && <span style={{ marginLeft: 'auto', color: '#F79B3D', fontSize: 18 }}>✓</span>}
@@ -2759,7 +3290,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   <button
                     onClick={handleWaiterCall}
                     disabled={!waiterReason || waiterSending}
-                    style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: waiterReason ? 'linear-gradient(135deg,#F79B3D,#F48A1E)' : 'rgba(92, 92, 92, 0.5)', color: waiterReason ? '#fff' : 'rgba(255, 255, 255, 0.57)', fontSize: 15, fontWeight: 700, fontFamily: 'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition: 'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(247,155,61,0.35)' : 'none' }}>
+                    style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: waiterReason ? (isSpot ? 'linear-gradient(135deg,#889063,#6E7550)' : 'linear-gradient(135deg,#F79B3D,#F48A1E)') : 'rgba(92, 92, 92, 0.5)', color: waiterReason ? '#fff' : 'rgba(255, 255, 255, 0.57)', fontSize: 15, fontWeight: 700, fontFamily: isSpot ? 'DM Sans,sans-serif' : 'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition: 'all 0.2s', boxShadow: waiterReason ? (isSpot ? '0 4px 16px rgba(136,144,99,0.35)' : '0 4px 16px rgba(247,155,61,0.35)') : 'none' }}>
                     {waiterSending ? 'Sending…' : '🔔 Call Waiter'}
                   </button>
                 </>
