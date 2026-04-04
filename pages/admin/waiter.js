@@ -167,18 +167,18 @@ export default function WaiterDashboard() {
   ];
 
   const MainContent = (
-    <div style={{ flex: 1, fontFamily: 'Inter,sans-serif' }}>
+    <div style={{ fontFamily: 'Inter,sans-serif' }}>
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
         {[
           { label: 'Pending Calls',   value: pendingCalls.length,   color: '#E05A3A', bg: 'rgba(224,90,58,0.07)',   icon: '🔔' },
           { label: 'Ready to Serve',  value: readyOrders.length,    color: '#2D8B4E', bg: 'rgba(45,139,78,0.07)',   icon: '🍽' },
           { label: 'Resolved Today',  value: resolvedToday.length,  color: '#6366F1', bg: 'rgba(99,102,241,0.07)', icon: '✅' },
         ].map(c => (
-          <div key={c.label} style={{ background: c.bg, border: `1px solid ${c.color}22`, borderRadius: 14, padding: '14px 16px' }}>
-            <div style={{ fontSize: 20, marginBottom: 4 }}>{c.icon}</div>
-            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 26, color: c.color }}>{c.value}</div>
-            <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.5)', fontWeight: 600 }}>{c.label}</div>
+          <div key={c.label} style={{ background: c.bg, border: `1.5px solid ${c.color}30`, borderRadius: 16, padding: '20px 22px' }}>
+            <div style={{ fontSize: 22, marginBottom: 8 }}>{c.icon}</div>
+            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 32, color: c.color, lineHeight: 1 }}>{c.value}</div>
+            <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.5)', fontWeight: 600, marginTop: 6 }}>{c.label}</div>
           </div>
         ))}
       </div>
@@ -330,8 +330,8 @@ export default function WaiterDashboard() {
     return (
       <AdminLayout>
         <Head><title>Waiter Dashboard | Advert Radical</title></Head>
-        <div style={{ paddingBottom: 40 }}>
-          <div style={{ marginBottom: 22 }}>
+        <div style={{ padding: '28px 32px', maxWidth: 1000, paddingBottom: 60 }}>
+          <div style={{ marginBottom: 24 }}>
             <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18' }}>Waiter Dashboard</div>
             <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 }}>Live calls and ready-to-serve orders</div>
           </div>

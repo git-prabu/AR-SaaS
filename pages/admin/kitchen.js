@@ -142,7 +142,7 @@ export default function KitchenDashboard() {
   const KDSContent = (
     <div style={{ flex: 1, background: '#0F0F0F', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#141414', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#141414', flexShrink: 0 }}>
         <div>
           <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: '#fff' }}>
             Kitchen Display
@@ -170,9 +170,9 @@ export default function KitchenDashboard() {
       </div>
 
       {/* Board */}
-      <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
+      <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto' }}>
         {filter === 'active' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, height: '100%' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, alignItems: 'start' }}>
             {COLUMNS.map(col => {
               const colOrders = filtered.filter(o => o.status === col.key);
               const meta = STATUS_META[col.key];

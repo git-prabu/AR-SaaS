@@ -87,7 +87,7 @@ export default function StaffManagement() {
     <AdminLayout>
       <Head><title>Staff Management | Advert Radical</title></Head>
 
-      <div style={{ paddingBottom: 40 }}>
+      <div style={{ padding: '28px 32px', maxWidth: 960, paddingBottom: 60 }}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18' }}>Staff Management</div>
