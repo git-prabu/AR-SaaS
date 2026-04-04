@@ -65,17 +65,15 @@ export default function KitchenDashboard() {
 
   useEffect(() => {
     if (!authChecked || adminLoading) return;
-    const isAdmin = !!userData?.restaurantId;
-    const isKitchenStaff = staffSession?.role === 'kitchen';
-    // If Firebase user is logged in but userData hasn't arrived yet — wait, don't redirect
+    // Wait for userData to finish loading after Firebase auth resolves
     if (user && !userData) return;
-    if (!isAdmin && !isKitchenStaff) {
-      router.replace('/staff/login');
-      return;
-    }
-    if (staffSession && staffSession.role === 'waiter') {
-      router.replace('/admin/waiter');
-    }
+    const isAdmin = !!userData?.restaurantId;
+    // Admin has full access — ignore any staff session in localStorage
+    if (isAdmin) return;
+    // Not a Firebase admin — check staff session
+    if (staffSession?.role === 'kitchen') return; // correct role, allow
+    if (staffSession?.role === 'waiter') { router.replace('/admin/waiter'); return; }
+    router.replace('/staff/login');
   }, [authChecked, adminLoading, user, userData, staffSession]);
 
   const rid = userData?.restaurantId || staffSession?.restaurantId;

@@ -79,17 +79,15 @@ export default function WaiterDashboard() {
 
   useEffect(() => {
     if (!authChecked || adminLoading) return;
-    const isAdmin = !!userData?.restaurantId;
-    const isWaiterStaff = staffSession?.role === 'waiter';
-    // If Firebase user is logged in but userData hasn't arrived yet — wait, don't redirect
+    // Wait for userData to finish loading after Firebase auth resolves
     if (user && !userData) return;
-    if (!isAdmin && !isWaiterStaff) {
-      router.replace('/staff/login');
-      return;
-    }
-    if (staffSession && staffSession.role === 'kitchen') {
-      router.replace('/admin/kitchen');
-    }
+    const isAdmin = !!userData?.restaurantId;
+    // Admin has full access — ignore any staff session in localStorage
+    if (isAdmin) return;
+    // Not a Firebase admin — check staff session
+    if (staffSession?.role === 'waiter') return; // correct role, allow
+    if (staffSession?.role === 'kitchen') { router.replace('/admin/kitchen'); return; }
+    router.replace('/staff/login');
   }, [authChecked, adminLoading, user, userData, staffSession]);
 
   const rid = userData?.restaurantId || staffSession?.restaurantId;
