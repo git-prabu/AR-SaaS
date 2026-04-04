@@ -290,7 +290,7 @@ export default function KitchenDashboard() {
     return (
       <AdminLayout>
         <Head><title>Kitchen Display | Advert Radical</title></Head>
-        <div style={{ margin: '-24px -24px -24px -24px', display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 0px)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 220, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', background: '#0F0F0F', zIndex: 1 }}>
           {KDSContent}
         </div>
       </AdminLayout>
