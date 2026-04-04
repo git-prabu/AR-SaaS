@@ -2955,15 +2955,16 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
         {/* ─── MY BILL SHEET ─── */}
         {billOpen && placedOrder && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
-            onMouseDown={e => { if (e.target === e.currentTarget) setBillOpen(false); }}
-            onTouchStart={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
-            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
+            onClick={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
+            {/* Spacer to absorb backdrop taps */}
+            <div style={{ flex: 1 }} onClick={() => setBillOpen(false)} />
+            <div style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
               {/* Handle */}
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', position: 'sticky', top: 0, zIndex: 2, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', flexShrink: 0, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
               </div>
-              <div style={{ padding: '0 22px calc(env(safe-area-inset-bottom, 20px) + 24px)' }}>
+              <div style={{ padding: '0 22px calc(env(safe-area-inset-bottom, 20px) + 24px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
@@ -2972,7 +2973,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       <div style={{ fontSize: 12, color: 'rgba(45,139,78,0.8)', fontWeight: 600, marginTop: 3 }}>Table {placedOrder.tableNumber}</div>
                     )}
                   </div>
-                  <div role="button" onPointerUp={() => setBillOpen(false)} style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', border: 'none', borderRadius: '50%', width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: darkMode ? '#FFF5E8' : '#1E1B18', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none' }}>✕</div>
+                  <button onClick={() => setBillOpen(false)} style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', border: 'none', borderRadius: '50%', width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: darkMode ? '#FFF5E8' : '#1E1B18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 </div>
 
                 {/* Items */}
@@ -3022,12 +3023,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                         { id: 'gpay', icon: '📱', label: 'GPay', sub: 'Google Pay' },
                         { id: 'phonepe', icon: '📲', label: 'PhonePe', sub: 'UPI Payment' },
                       ].map(m => (
-                        <div key={m.id} role="button" tabIndex={0}
-                          onPointerUp={() => setPaymentMethod(m.id)}
+                        <button key={m.id}
+                          onClick={() => setPaymentMethod(m.id)}
                           style={{
                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                             padding: '16px 12px', borderRadius: 14, cursor: 'pointer',
-                            userSelect: 'none', WebkitUserSelect: 'none',
                             border: `2px solid ${paymentMethod === m.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
                             background: paymentMethod === m.id
                               ? (darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)')
@@ -3037,12 +3037,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                           <span style={{ fontSize: 24 }}>{m.icon}</span>
                           <span style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{m.label}</span>
                           <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>{m.sub}</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                     {/* Confirm payment */}
-                    <div role="button" tabIndex={0}
-                      onPointerUp={async () => {
+                    <button
+                      onClick={async () => {
                         if (!paymentMethod || !placedOrder?.orderId || !restaurant?.id) return;
                         try {
                           const statusMap = { cash: 'cash_requested', card: 'card_requested', gpay: 'online_requested', phonepe: 'online_requested' };
@@ -3051,6 +3051,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                           try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderId: placedOrder.orderId })); } catch {}
                         } catch (e) { console.error(e); }
                       }}
+                      disabled={!paymentMethod}
                       style={{
                         width: '100%', padding: '16px', borderRadius: 14, border: 'none',
                         background: paymentMethod ? 'linear-gradient(135deg,#2D8B4E,#1A6B38)' : (darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.1)'),
@@ -3059,18 +3060,17 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                         cursor: paymentMethod ? 'pointer' : 'not-allowed',
                         boxShadow: paymentMethod ? '0 4px 20px rgba(45,139,78,0.4)' : 'none',
                         transition: 'all 0.2s',
-                        userSelect: 'none', WebkitUserSelect: 'none',
-                        minHeight: 52, textAlign: 'center',
-                        opacity: paymentMethod ? 1 : 0.5,
+                        minHeight: 52,
+                        position: 'relative', zIndex: 5,
                       }}>
                       {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : 'PhonePe'} Payment` : 'Select a payment method'}
-                    </div>
+                    </button>
                   </>
                 )}
 
                 {/* Print Bill */}
-                <div role="button" tabIndex={0}
-                  onPointerUp={() => {
+                <button
+                  onClick={() => {
                     const w = window.open('', '_blank', 'width=300,height=600');
                     if (!w) return;
                     const rName = restaurant?.name || 'Restaurant';
@@ -3113,11 +3113,11 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                     background: 'transparent', color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.6)',
                     fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif',
                     cursor: 'pointer', textAlign: 'center', marginTop: 14,
-                    userSelect: 'none', WebkitUserSelect: 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    position: 'relative', zIndex: 5,
                   }}>
                   <span style={{ fontSize: 18 }}>🖨</span> Print Bill
-                </div>
+                </button>
               </div>
             </div>
           </div>
