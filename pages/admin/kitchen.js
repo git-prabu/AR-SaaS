@@ -45,7 +45,7 @@ function getStaffSession() {
 }
 
 export default function KitchenDashboard() {
-  const { userData, loading: adminLoading } = useAuth();
+  const { user, userData, loading: adminLoading } = useAuth();
   const router = useRouter();
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -67,6 +67,8 @@ export default function KitchenDashboard() {
     if (!authChecked || adminLoading) return;
     const isAdmin = !!userData?.restaurantId;
     const isKitchenStaff = staffSession?.role === 'kitchen';
+    // If Firebase user is logged in but userData hasn't arrived yet — wait, don't redirect
+    if (user && !userData) return;
     if (!isAdmin && !isKitchenStaff) {
       router.replace('/staff/login');
       return;
@@ -74,7 +76,7 @@ export default function KitchenDashboard() {
     if (staffSession && staffSession.role === 'waiter') {
       router.replace('/admin/waiter');
     }
-  }, [authChecked, adminLoading, userData, staffSession]);
+  }, [authChecked, adminLoading, user, userData, staffSession]);
 
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
