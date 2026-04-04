@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { resolveWaiterCall, updateOrderStatus } from '../../lib/db';
@@ -14,315 +15,362 @@ function timeAgo(seconds) {
   return `${Math.floor(diff / 3600)}h ago`;
 }
 
-const CALL_REASON_META = {
-  order:     { icon: '🍽', label: 'Take Order',     color: '#F79B3D', bg: 'rgba(247,155,61,0.1)' },
-  bill:      { icon: '🧾', label: 'Bill Please',     color: '#E05A3A', bg: 'rgba(224,90,58,0.1)' },
-  water:     { icon: '💧', label: 'Water Refill',    color: '#4A9FD4', bg: 'rgba(74,159,212,0.1)' },
-  condiment: { icon: '🧂', label: 'Condiments',      color: '#8B6F47', bg: 'rgba(139,111,71,0.1)' },
-  issue:     { icon: '⚠️', label: 'Issue at Table',  color: '#DC2626', bg: 'rgba(220,38,38,0.1)' },
-  other:     { icon: '🔔', label: 'Assistance',      color: '#6366F1', bg: 'rgba(99,102,241,0.1)' },
+function isToday(seconds) {
+  if (!seconds) return false;
+  const d = new Date(seconds * 1000);
+  const t = new Date();
+  return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+}
+
+function isWaiting(seconds) {
+  if (!seconds) return false;
+  return (Date.now() / 1000 - seconds) > 180; // 3 minutes
+}
+
+const CALL_ICONS = {
+  order: '🍽', bill: '🧾', water: '💧', condiment: '🧂', issue: '⚠', other: '🔔',
+};
+const CALL_COLORS = {
+  order: { color: '#F79B3D', bg: 'rgba(247,155,61,0.1)', label: 'Take Order' },
+  bill:  { color: '#E05A3A', bg: 'rgba(224,90,58,0.1)',  label: 'Bill Please' },
+  water: { color: '#4A9FD4', bg: 'rgba(74,159,212,0.1)', label: 'Water Refill' },
+  condiment: { color: '#8B6F47', bg: 'rgba(139,111,71,0.1)', label: 'Condiments' },
+  issue: { color: '#DC2626', bg: 'rgba(220,38,38,0.1)', label: 'Issue at Table' },
+  other: { color: '#6366F1', bg: 'rgba(99,102,241,0.1)', label: 'Assistance' },
 };
 
 function getCallMeta(reason) {
-  if (!reason) return CALL_REASON_META.other;
-  const key = Object.keys(CALL_REASON_META).find(k => reason.toLowerCase().includes(k));
-  return CALL_REASON_META[key] || { icon: '🔔', label: reason, color: '#6366F1', bg: 'rgba(99,102,241,0.1)' };
+  if (!reason) return { ...CALL_COLORS.other, icon: '🔔', label: 'Assistance' };
+  const key = Object.keys(CALL_COLORS).find(k => reason.toLowerCase().includes(k));
+  if (key) return { ...CALL_COLORS[key], icon: CALL_ICONS[key] };
+  return { ...CALL_COLORS.other, icon: '🔔', label: reason };
+}
+
+function getStaffSession() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const s = localStorage.getItem('ar_staff_session');
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    const hours = (Date.now() - new Date(parsed.loggedInAt).getTime()) / 3600000;
+    return hours < 12 ? parsed : null;
+  } catch { return null; }
 }
 
 export default function WaiterDashboard() {
-  const { userData } = useAuth();
+  const { userData, loading: adminLoading } = useAuth();
+  const router = useRouter();
+  const [staffSession, setStaffSession] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [calls, setCalls] = useState([]);
   const [readyOrders, setReadyOrders] = useState([]);
   const [resolvingCall, setResolvingCall] = useState(null);
   const [servingOrder, setServingOrder] = useState(null);
-  const [tick, setTick] = useState(0);
-  const [tab, setTab] = useState('calls'); // calls | serve
-  const prevCallsRef = useRef(0);
+  const [tab, setTab] = useState('calls');
+  const prevCallsCountRef = useRef(0);
   const audioCtx = useRef(null);
 
-  // Tick every second
+  // Auth check
   useEffect(() => {
-    const t = setInterval(() => setTick(n => n + 1), 1000);
-    return () => clearInterval(t);
+    const session = getStaffSession();
+    setStaffSession(session);
+    setAuthChecked(true);
   }, []);
 
-  // Bell for new waiter call
+  useEffect(() => {
+    if (!authChecked || adminLoading) return;
+    const isAdmin = !!userData?.restaurantId;
+    const isWaiterStaff = staffSession?.role === 'waiter';
+    if (!isAdmin && !isWaiterStaff) {
+      router.replace('/staff/login');
+      return;
+    }
+    if (staffSession && staffSession.role === 'kitchen') {
+      router.replace('/admin/kitchen');
+    }
+  }, [authChecked, adminLoading, userData, staffSession]);
+
+  const rid = userData?.restaurantId || staffSession?.restaurantId;
+  const isAdmin = !!userData?.restaurantId;
+
+  // Bell sound
   const playBell = () => {
     try {
       if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = audioCtx.current;
-      const tone = (freq, start, dur, peak) => {
+      [[880, 0, 0.4], [1100, 0.22, 0.35]].forEach(([freq, start, dur]) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain); gain.connect(ctx.destination);
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(peak, start + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
-        osc.start(start); osc.stop(start + dur);
-      };
-      tone(880, ctx.currentTime, 0.5, 0.4);
-      tone(1100, ctx.currentTime + 0.2, 0.4, 0.3);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur);
+      });
     } catch {}
   };
 
-  // Realtime waiter calls
+  // Waiter calls listener
   useEffect(() => {
-    if (!userData?.restaurantId) return;
-    const rid = userData.restaurantId;
+    if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, snap => {
+    return onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const pending = all.filter(c => c.status === 'pending');
-      if (pending.length > prevCallsRef.current) playBell();
-      prevCallsRef.current = pending.length;
+      const pendingCount = all.filter(c => c.status === 'pending').length;
+      if (pendingCount > prevCallsCountRef.current) playBell();
+      prevCallsCountRef.current = pendingCount;
       setCalls(all);
     });
-    return unsub;
-  }, [userData?.restaurantId]);
+  }, [rid]);
 
-  // Realtime orders — only "ready" ones
+  // Ready orders listener
   useEffect(() => {
-    if (!userData?.restaurantId) return;
-    const rid = userData.restaurantId;
+    if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, snap => {
-      const ready = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(o => o.status === 'ready');
-      setReadyOrders(ready);
+    return onSnapshot(q, snap => {
+      setReadyOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => o.status === 'ready'));
     });
-    return unsub;
-  }, [userData?.restaurantId]);
+  }, [rid]);
 
   const handleResolveCall = async (call) => {
     setResolvingCall(call.id);
-    try { await resolveWaiterCall(userData.restaurantId, call.id); }
-    catch (e) { console.error(e); }
+    try { await resolveWaiterCall(rid, call.id); } catch {}
     setResolvingCall(null);
   };
 
   const handleMarkServed = async (order) => {
     setServingOrder(order.id);
-    try { await updateOrderStatus(userData.restaurantId, order.id, 'served'); }
-    catch (e) { console.error(e); }
+    try { await updateOrderStatus(rid, order.id, 'served'); } catch {}
     setServingOrder(null);
   };
 
+  const staffLogout = () => {
+    localStorage.removeItem('ar_staff_session');
+    router.replace('/staff/login');
+  };
+
   const pendingCalls = calls.filter(c => c.status === 'pending');
-  const resolvedCalls = calls.filter(c => c.status === 'resolved');
+  // "Resolved Today" — only calls resolved/created today
+  const resolvedToday = calls.filter(c => c.status === 'resolved' && isToday(c.createdAt?.seconds));
+  const historyItems = calls.filter(c => c.status === 'resolved');
 
-  return (
-    <AdminLayout>
-      <Head><title>Waiter Dashboard | Advert Radical</title></Head>
+  if (adminLoading || !authChecked) return null;
 
-      <div style={{ padding: '0 0 40px' }}>
+  // ── Tab content ──
+  const TABS = [
+    { key: 'calls', label: `Calls`, badge: pendingCalls.length },
+    { key: 'serve', label: `Serve`, badge: readyOrders.length },
+    { key: 'history', label: `History`, badge: null },
+  ];
 
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18' }}>
-            🛎 Waiter Dashboard
+  const MainContent = (
+    <div style={{ flex: 1, fontFamily: 'Inter,sans-serif' }}>
+      {/* Summary cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 22 }}>
+        {[
+          { label: 'Pending Calls',   value: pendingCalls.length,   color: '#E05A3A', bg: 'rgba(224,90,58,0.07)',   icon: '🔔' },
+          { label: 'Ready to Serve',  value: readyOrders.length,    color: '#2D8B4E', bg: 'rgba(45,139,78,0.07)',   icon: '🍽' },
+          { label: 'Resolved Today',  value: resolvedToday.length,  color: '#6366F1', bg: 'rgba(99,102,241,0.07)', icon: '✅' },
+        ].map(c => (
+          <div key={c.label} style={{ background: c.bg, border: `1px solid ${c.color}22`, borderRadius: 14, padding: '14px 16px' }}>
+            <div style={{ fontSize: 20, marginBottom: 4 }}>{c.icon}</div>
+            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 26, color: c.color }}>{c.value}</div>
+            <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.5)', fontWeight: 600 }}>{c.label}</div>
           </div>
-          <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 }}>
-            Live waiter calls and ready-to-serve orders
-          </div>
-        </div>
-
-        {/* Summary cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
-          {[
-            { label: 'Pending Calls', value: pendingCalls.length, color: '#E05A3A', bg: 'rgba(224,90,58,0.07)', icon: '🔔' },
-            { label: 'Ready to Serve', value: readyOrders.length, color: '#2D8B4E', bg: 'rgba(45,139,78,0.07)', icon: '🍽' },
-            { label: 'Resolved Today', value: resolvedCalls.length, color: '#6366F1', bg: 'rgba(99,102,241,0.07)', icon: '✅' },
-          ].map(c => (
-            <div key={c.label} style={{ background: c.bg, border: `1px solid ${c.color}22`, borderRadius: 16, padding: '16px 18px' }}>
-              <div style={{ fontSize: 22, marginBottom: 6 }}>{c.icon}</div>
-              <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 28, color: c.color }}>{c.value}</div>
-              <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.5)', fontWeight: 600 }}>{c.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tab selector */}
-        <div style={{ display: 'flex', background: 'rgba(42,31,16,0.05)', borderRadius: 12, padding: 4, gap: 4, marginBottom: 20, width: 'fit-content' }}>
-          {[
-            ['calls', `🔔 Calls (${pendingCalls.length})`],
-            ['serve', `🍽 Serve (${readyOrders.length})`],
-            ['history', '📋 History'],
-          ].map(([v, l]) => (
-            <button key={v} onClick={() => setTab(v)} style={{
-              padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer',
-              fontWeight: 600, fontSize: 13,
-              background: tab === v ? '#fff' : 'transparent',
-              color: tab === v ? '#1E1B18' : 'rgba(42,31,16,0.5)',
-              boxShadow: tab === v ? '0 1px 6px rgba(42,31,16,0.1)' : 'none',
-            }}>{l}</button>
-          ))}
-        </div>
-
-        {/* ── TAB: Calls ── */}
-        {tab === 'calls' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {pendingCalls.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '48px 20px', background: 'rgba(42,31,16,0.03)', borderRadius: 16, border: '1px dashed rgba(42,31,16,0.1)' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-                <div style={{ fontWeight: 700, color: 'rgba(42,31,16,0.5)' }}>No pending calls</div>
-                <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.35)', marginTop: 4 }}>All tables are happy!</div>
-              </div>
-            )}
-            {pendingCalls.map(call => {
-              const meta = getCallMeta(call.reason);
-              const isOld = call.createdAt?.seconds && (Date.now() / 1000 - call.createdAt.seconds) > 180;
-              return (
-                <div key={call.id} style={{
-                  background: '#fff',
-                  border: `1.5px solid ${isOld ? '#E05A3A' : meta.color}44`,
-                  borderLeft: `4px solid ${isOld ? '#E05A3A' : meta.color}`,
-                  borderRadius: 14, padding: '16px 18px',
-                  boxShadow: isOld ? '0 2px 16px rgba(224,90,58,0.12)' : '0 2px 10px rgba(42,31,16,0.05)',
-                  display: 'flex', alignItems: 'center', gap: 16,
-                  animation: isOld ? 'pulse 2s infinite' : 'none',
-                }}>
-                  {/* Icon */}
-                  <div style={{ fontSize: 32, flexShrink: 0 }}>{meta.icon}</div>
-
-                  {/* Details */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: '#1E1B18' }}>
-                        Table {call.tableNumber || '—'}
-                      </div>
-                      <div style={{ padding: '2px 10px', borderRadius: 20, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700 }}>
-                        {meta.label}
-                      </div>
-                      {isOld && (
-                        <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(224,90,58,0.1)', color: '#E05A3A', fontSize: 11, fontWeight: 700 }}>
-                          ⚠ Waiting long
-                        </div>
-                      )}
-                    </div>
-                    {call.reason && call.reason !== meta.label && (
-                      <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.55)', marginBottom: 4 }}>"{call.reason}"</div>
-                    )}
-                    <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>
-                      {timeAgo(call.createdAt?.seconds)}
-                    </div>
-                  </div>
-
-                  {/* Resolve button */}
-                  <button
-                    onClick={() => handleResolveCall(call)}
-                    disabled={resolvingCall === call.id}
-                    style={{
-                      padding: '10px 20px', borderRadius: 10, border: 'none',
-                      background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)',
-                      color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                      opacity: resolvingCall === call.id ? 0.6 : 1, flexShrink: 0,
-                      boxShadow: '0 3px 12px rgba(45,139,78,0.3)',
-                    }}
-                  >
-                    {resolvingCall === call.id ? 'Resolving…' : '✓ Resolve'}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── TAB: Serve ── */}
-        {tab === 'serve' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {readyOrders.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '48px 20px', background: 'rgba(42,31,16,0.03)', borderRadius: 16, border: '1px dashed rgba(42,31,16,0.1)' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>👨‍🍳</div>
-                <div style={{ fontWeight: 700, color: 'rgba(42,31,16,0.5)' }}>Kitchen is still cooking</div>
-                <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.35)', marginTop: 4 }}>No orders ready to serve yet</div>
-              </div>
-            )}
-            {readyOrders.map(order => (
-              <div key={order.id} style={{
-                background: '#fff', border: '1.5px solid rgba(45,139,78,0.3)', borderLeft: '4px solid #2D8B4E',
-                borderRadius: 14, padding: '16px 18px',
-                boxShadow: '0 2px 16px rgba(45,139,78,0.1)',
-                display: 'flex', alignItems: 'center', gap: 16,
-              }}>
-                <div style={{ fontSize: 32, flexShrink: 0 }}>🍽</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: '#1E1B18', marginBottom: 6 }}>
-                    {order.tableNumber ? `Table ${order.tableNumber}` : 'No Table'}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {(order.items || []).map((item, i) => (
-                      <div key={i} style={{ padding: '3px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.08)', color: '#2D8B4E', fontSize: 12, fontWeight: 600 }}>
-                        {item.qty}× {item.name}
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.35)', marginTop: 6 }}>
-                    Ready {timeAgo(order.updatedAt?.seconds || order.createdAt?.seconds)}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleMarkServed(order)}
-                  disabled={servingOrder === order.id}
-                  style={{
-                    padding: '10px 20px', borderRadius: 10, border: 'none',
-                    background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)',
-                    color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                    opacity: servingOrder === order.id ? 0.6 : 1, flexShrink: 0,
-                    boxShadow: '0 3px 12px rgba(45,139,78,0.3)',
-                  }}
-                >
-                  {servingOrder === order.id ? 'Updating…' : '🍽 Mark Served'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── TAB: History ── */}
-        {tab === 'history' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'rgba(42,31,16,0.5)', marginBottom: 8 }}>
-              Resolved Calls Today ({resolvedCalls.length})
-            </div>
-            {resolvedCalls.length === 0 && (
-              <div style={{ textAlign: 'center', padding: 32, color: 'rgba(42,31,16,0.3)' }}>No resolved calls yet</div>
-            )}
-            {resolvedCalls.map(call => {
-              const meta = getCallMeta(call.reason);
-              const waitTime = call.resolvedAt?.seconds && call.createdAt?.seconds
-                ? Math.round((call.resolvedAt.seconds - call.createdAt.seconds) / 60)
-                : null;
-              return (
-                <div key={call.id} style={{ background: 'rgba(42,31,16,0.02)', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ fontSize: 20 }}>{meta.icon}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: '#1E1B18' }}>
-                      Table {call.tableNumber || '—'} — {meta.label}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.4)', marginTop: 2 }}>
-                      {timeAgo(call.createdAt?.seconds)}
-                      {waitTime !== null && ` · Resolved in ${waitTime}m`}
-                    </div>
-                  </div>
-                  <div style={{ padding: '3px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.08)', color: '#2D8B4E', fontSize: 11, fontWeight: 700 }}>
-                    ✓ Resolved
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        ))}
       </div>
 
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { box-shadow: 0 2px 16px rgba(224,90,58,0.12); }
-          50% { box-shadow: 0 2px 24px rgba(224,90,58,0.35); }
-        }
-      `}</style>
-    </AdminLayout>
+      {/* Tabs */}
+      <div style={{ display: 'flex', background: 'rgba(42,31,16,0.05)', borderRadius: 10, padding: 3, gap: 3, marginBottom: 18, width: 'fit-content' }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            fontWeight: 600, fontSize: 13, position: 'relative',
+            background: tab === t.key ? '#fff' : 'transparent',
+            color: tab === t.key ? '#1E1B18' : 'rgba(42,31,16,0.5)',
+            boxShadow: tab === t.key ? '0 1px 6px rgba(42,31,16,0.1)' : 'none',
+          }}>
+            {t.label}
+            {t.badge > 0 && (
+              <span style={{ marginLeft: 6, background: '#E05A3A', color: '#fff', borderRadius: 20, padding: '1px 6px', fontSize: 11, fontWeight: 800 }}>
+                {t.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Calls */}
+      {tab === 'calls' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {pendingCalls.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(42,31,16,0.03)', borderRadius: 14, border: '1px dashed rgba(42,31,16,0.1)' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
+              <div style={{ fontWeight: 700, color: 'rgba(42,31,16,0.5)' }}>No pending calls</div>
+            </div>
+          ) : pendingCalls.map(call => {
+            const meta = getCallMeta(call.reason);
+            const waiting = isWaiting(call.createdAt?.seconds);
+            return (
+              <div key={call.id} style={{
+                background: '#fff', borderRadius: 14, padding: '16px 18px',
+                border: `1.5px solid ${waiting ? '#E05A3A' : meta.color}33`,
+                borderLeft: `4px solid ${waiting ? '#E05A3A' : meta.color}`,
+                boxShadow: waiting ? '0 2px 16px rgba(224,90,58,0.1)' : '0 2px 8px rgba(42,31,16,0.05)',
+                display: 'flex', alignItems: 'center', gap: 14,
+                animation: waiting ? 'callPulse 2s infinite' : 'none',
+              }}>
+                <div style={{ fontSize: 30, flexShrink: 0 }}>{meta.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: '#1E1B18' }}>
+                      Table {call.tableNumber || '—'}
+                    </div>
+                    <div style={{ padding: '2px 10px', borderRadius: 20, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700 }}>
+                      {meta.label}
+                    </div>
+                    {waiting && <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(224,90,58,0.1)', color: '#E05A3A', fontSize: 11, fontWeight: 700 }}>Waiting long</div>}
+                  </div>
+                  {call.reason && <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.5)', marginBottom: 2 }}>"{call.reason}"</div>}
+                  <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>{timeAgo(call.createdAt?.seconds)}</div>
+                </div>
+                <button onClick={() => handleResolveCall(call)} disabled={resolvingCall === call.id} style={{
+                  padding: '10px 18px', borderRadius: 10, border: 'none',
+                  background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)',
+                  color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                  opacity: resolvingCall === call.id ? 0.6 : 1, flexShrink: 0,
+                }}>
+                  {resolvingCall === call.id ? '…' : 'Resolve'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Tab: Serve */}
+      {tab === 'serve' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {readyOrders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(42,31,16,0.03)', borderRadius: 14, border: '1px dashed rgba(42,31,16,0.1)' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>👨‍🍳</div>
+              <div style={{ fontWeight: 700, color: 'rgba(42,31,16,0.5)' }}>No orders ready yet</div>
+            </div>
+          ) : readyOrders.map(order => (
+            <div key={order.id} style={{
+              background: '#fff', borderRadius: 14, padding: '16px 18px',
+              border: '1.5px solid rgba(45,139,78,0.3)', borderLeft: '4px solid #2D8B4E',
+              boxShadow: '0 2px 14px rgba(45,139,78,0.1)',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}>
+              <div style={{ fontSize: 30, flexShrink: 0 }}>🍽</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: '#1E1B18', marginBottom: 6 }}>
+                  {order.tableNumber ? `Table ${order.tableNumber}` : 'No Table'}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 4 }}>
+                  {(order.items || []).map((item, i) => (
+                    <div key={i} style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.08)', color: '#2D8B4E', fontSize: 12, fontWeight: 600 }}>
+                      {item.qty}x {item.name}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>
+                  Ready {timeAgo(order.updatedAt?.seconds || order.createdAt?.seconds)}
+                </div>
+              </div>
+              <button onClick={() => handleMarkServed(order)} disabled={servingOrder === order.id} style={{
+                padding: '10px 18px', borderRadius: 10, border: 'none',
+                background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)',
+                color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                opacity: servingOrder === order.id ? 0.6 : 1, flexShrink: 0,
+              }}>
+                {servingOrder === order.id ? '…' : 'Mark Served'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: History */}
+      {tab === 'history' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(42,31,16,0.45)', marginBottom: 6 }}>Resolved calls — all time ({historyItems.length})</div>
+          {historyItems.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'rgba(42,31,16,0.3)' }}>No history yet</div>}
+          {historyItems.map(call => {
+            const meta = getCallMeta(call.reason);
+            const waitSec = call.resolvedAt?.seconds && call.createdAt?.seconds
+              ? call.resolvedAt.seconds - call.createdAt.seconds : null;
+            const waitMin = waitSec !== null ? Math.round(waitSec / 60) : null;
+            return (
+              <div key={call.id} style={{ background: 'rgba(42,31,16,0.02)', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: 18 }}>{meta.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#1E1B18' }}>
+                    Table {call.tableNumber || '—'} — {meta.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.4)', marginTop: 2 }}>
+                    {timeAgo(call.createdAt?.seconds)}
+                    {waitMin !== null && ` · Resolved in ${waitMin < 1 ? '<1' : waitMin}m`}
+                  </div>
+                </div>
+                <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.08)', color: '#2D8B4E', fontSize: 11, fontWeight: 700 }}>Resolved</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  if (isAdmin) {
+    return (
+      <AdminLayout>
+        <Head><title>Waiter Dashboard | Advert Radical</title></Head>
+        <div style={{ paddingBottom: 40 }}>
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18' }}>Waiter Dashboard</div>
+            <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 }}>Live calls and ready-to-serve orders</div>
+          </div>
+          {MainContent}
+        </div>
+        <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(42,31,16,0.05)} 50%{box-shadow:0 2px 20px rgba(224,90,58,0.2)} }`}</style>
+      </AdminLayout>
+    );
+  }
+
+  // Staff view — no sidebar
+  return (
+    <>
+      <Head><title>Waiter Dashboard | Advert Radical</title></Head>
+      <div style={{ minHeight: '100vh', background: '#F9F6F1', fontFamily: 'Inter,sans-serif' }}>
+        {/* Staff header */}
+        <div style={{ background: '#fff', borderBottom: '1px solid rgba(42,31,16,0.08)', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 16 }}>
+              <span style={{ color: '#1E1B18' }}>Advert </span><span style={{ color: '#F79B3D' }}>Radical</span>
+            </div>
+            <div style={{ width: 1, height: 18, background: 'rgba(42,31,16,0.15)' }} />
+            <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.5)', fontWeight: 600 }}>{staffSession?.restaurantName}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.45)' }}>
+              <span style={{ color: '#F79B3D', fontWeight: 700 }}>{staffSession?.name}</span>
+            </div>
+            <button onClick={staffLogout} style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(42,31,16,0.15)', background: '#fff', color: 'rgba(42,31,16,0.5)', cursor: 'pointer', fontSize: 12 }}>
+              Sign Out
+            </button>
+          </div>
+        </div>
+        <div style={{ padding: '20px 16px', maxWidth: 640, margin: '0 auto' }}>
+          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: '#1E1B18', marginBottom: 16 }}>Waiter Dashboard</div>
+          {MainContent}
+        </div>
+      </div>
+      <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(42,31,16,0.05)} 50%{box-shadow:0 2px 20px rgba(224,90,58,0.2)} }`}</style>
+    </>
   );
 }

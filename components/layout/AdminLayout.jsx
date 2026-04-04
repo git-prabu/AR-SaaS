@@ -11,6 +11,7 @@ const navItems = [
   { href: '/admin/orders', label: 'Orders', icon: '🛒' },
   { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: '🍳' },
   { href: '/admin/waiter', label: 'Waiter', icon: '🛎' },
+  { href: '/admin/staff', label: 'Staff Logins', icon: '👥' },
   { href: '/admin/payments', label: 'Payments', icon: '💰' },
   { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
   { href: '/admin/requests', label: 'Add Items/Requests', icon: '◈' },
