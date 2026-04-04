@@ -2959,7 +2959,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             onClick={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
             {/* Spacer to absorb backdrop taps */}
             <div style={{ flex: 1 }} onClick={() => setBillOpen(false)} />
-            <div style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', flexShrink: 0, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
