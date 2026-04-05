@@ -94,6 +94,7 @@ export default function AdminItems() {
       isPopular: item.isPopular || false,
       isFeatured: item.isFeatured || false,
       isActive: item.isActive !== false,
+      isOutOfStock: item.isOutOfStock || false,
       sortOrder: item.sortOrder ?? '',
     });
     setCustomBadge('');
@@ -209,6 +210,11 @@ export default function AdminItems() {
     await load();
   };
 
+  const toggleOutOfStock = async (item) => {
+    await updateMenuItem(rid, item.id, { isOutOfStock: !item.isOutOfStock });
+    await load();
+  };
+
   return (
     <AdminLayout>
       <Head><title>Menu Items — Advert Radical</title></Head>
@@ -306,6 +312,7 @@ export default function AdminItems() {
                           {item.isPopular && <span style={{ fontSize: 10, fontWeight: 700, color: '#E05A3A', background: 'rgba(224,90,58,0.1)', borderRadius: 20, padding: '2px 7px', flexShrink: 0 }}>✦ Popular</span>}
                           {item.offerBadge && item.offerLabel && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: item.offerColor || '#E05A3A', borderRadius: 20, padding: '2px 8px', flexShrink: 0 }}>🏷 {item.offerLabel}</span>}
                           {isSoldOutToday(item) && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#C04A28', borderRadius: 20, padding: '2px 8px', flexShrink: 0 }}>SOLD OUT</span>}
+                          {item.isOutOfStock && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#6B2020', borderRadius: 20, padding: '2px 8px', flexShrink: 0 }}>OUT OF STOCK</span>}
                         </div>
                         {item.description && <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.45)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>}
                         <div style={{ display: 'flex', gap: 8, marginTop: 3 }}>
@@ -336,11 +343,16 @@ export default function AdminItems() {
                       </div>
 
                       {/* Stock availability — dedicated column */}
-                      <div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <button onClick={() => toggleSoldOut(item)}
-                          title={isSoldOutToday(item) ? 'Mark as available' : 'Mark as sold out today'}
-                          style={{ padding: '5px 10px', borderRadius: 8, border: isSoldOutToday(item) ? '1.5px solid rgba(90,154,120,0.4)' : '1.5px solid rgba(224,90,58,0.3)', background: isSoldOutToday(item) ? 'rgba(90,154,120,0.1)' : 'rgba(224,90,58,0.07)', color: isSoldOutToday(item) ? '#1A6040' : '#C04A28', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          {isSoldOutToday(item) ? '✓ In Stock' : '✕ Sold Out'}
+                          title={isSoldOutToday(item) ? 'Mark as available today' : 'Mark sold out today'}
+                          style={{ padding: '4px 8px', borderRadius: 7, border: isSoldOutToday(item) ? '1.5px solid rgba(90,154,120,0.4)' : '1.5px solid rgba(224,90,58,0.3)', background: isSoldOutToday(item) ? 'rgba(90,154,120,0.1)' : 'rgba(224,90,58,0.07)', color: isSoldOutToday(item) ? '#1A6040' : '#C04A28', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          {isSoldOutToday(item) ? '✓ Today' : '✕ Today'}
+                        </button>
+                        <button onClick={() => toggleOutOfStock(item)}
+                          title={item.isOutOfStock ? 'Mark as in stock' : 'Mark permanently out of stock'}
+                          style={{ padding: '4px 8px', borderRadius: 7, border: item.isOutOfStock ? '1.5px solid rgba(107,32,32,0.5)' : '1.5px solid rgba(107,32,32,0.2)', background: item.isOutOfStock ? 'rgba(107,32,32,0.12)' : 'transparent', color: item.isOutOfStock ? '#6B2020' : 'rgba(42,31,16,0.4)', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          {item.isOutOfStock ? '✕ Perm' : '○ Perm'}
                         </button>
                       </div>
 

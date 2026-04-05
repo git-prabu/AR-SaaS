@@ -1,7 +1,9 @@
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid } from '../../../lib/db';
+import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse } from '../../../lib/db';
+import { db } from '../../../lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
 function getSessionId() {
@@ -459,6 +461,16 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     try { const s = sessionStorage.getItem('ar_payment_done'); return s ? JSON.parse(s).method : null; } catch { return null; }
   });
   const [billOpen, setBillOpen] = useState(false);
+  // Cart item notes
+  const [noteOpen, setNoteOpen] = useState({});
+  // Coupon
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  // Live order status
+  const [liveOrderStatus, setLiveOrderStatus] = useState(null);
   // Table session validation
   const router = useRouter();
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -536,14 +548,16 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
   const enrichedItems = (menuItems || []).map(item => {
     const soldOut = item.availableUntil === todayStr;
-    const activeOffer = !soldOut && (offers || []).find(o => o.linkedItemId === item.id);
-    if (!activeOffer) return { ...item, soldOut };
+    const isOutOfStock = item.isOutOfStock || false;
+    const activeOffer = !soldOut && !isOutOfStock && (offers || []).find(o => o.linkedItemId === item.id);
+    if (!activeOffer) return { ...item, soldOut, isOutOfStock };
     const savePct = activeOffer.discountedPrice && item.price
       ? Math.round(((item.price - activeOffer.discountedPrice) / item.price) * 100)
       : null;
     return {
       ...item,
       soldOut,
+      isOutOfStock,
       offerBadge: true,
       offerLabel: savePct ? `${savePct}% OFF` : activeOffer.title,
       offerColor: '#E05A3A',
@@ -687,8 +701,12 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     setCart(prev => {
       const existing = prev.find(c => c.id === item.id);
       if (existing) return prev.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { id: item.id, name: item.name, price: item.price || 0, qty: 1, imageURL: item.imageURL || null }];
+      return [...prev, { id: item.id, name: item.name, price: item.price || 0, qty: 1, imageURL: item.imageURL || null, note: '' }];
     });
+  }, []);
+
+  const updateCartNote = useCallback((itemId, note) => {
+    setCart(prev => prev.map(c => c.id === itemId ? { ...c, note } : c));
   }, []);
   const removeFromCart = useCallback((id) => {
     setCart(prev => {
@@ -697,7 +715,39 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
       return prev.filter(c => c.id !== id);
     });
   }, []);
-  const clearCart = useCallback(() => setCart([]), []);
+  const clearCart = useCallback(() => {
+    setCart([]);
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponCode('');
+    setCouponError('');
+  }, []);
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim() || !restaurant?.id) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const result = await validateCoupon(restaurant.id, couponCode, cartPrice);
+      if (result.valid) {
+        setAppliedCoupon(result.coupon);
+        setCouponDiscount(result.discount);
+      } else {
+        setCouponError(result.error);
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+      }
+    } catch { setCouponError('Failed to validate coupon'); }
+    setCouponLoading(false);
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponCode('');
+    setCouponError('');
+  };
+
   // Persist cart to sessionStorage
   useEffect(() => {
     try { sessionStorage.setItem('ar_cart', JSON.stringify(cart)); } catch {}
@@ -705,6 +755,15 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
 
   const cartTotal = cart.reduce((s, c) => s + c.qty, 0);
   const cartPrice = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
+
+  // Live order status subscription
+  useEffect(() => {
+    if (!placedOrder?.orderId || !restaurant?.id) return;
+    const unsub = onSnapshot(doc(db, 'restaurants', restaurant.id, 'orders', placedOrder.orderId), snap => {
+      if (snap.exists()) setLiveOrderStatus(snap.data().status);
+    });
+    return unsub;
+  }, [placedOrder?.orderId, restaurant?.id]);
 
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
@@ -729,20 +788,55 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     }
     setIsSubmitting(true);
     try {
+      const gstPct = restaurant?.gstPercent || 0;
+      const scPct = restaurant?.serviceChargePercent || 0;
+      const subtotal = cartPrice;
+      const serviceCharge = parseFloat((subtotal * scPct / 100).toFixed(2));
+      const cgst = parseFloat((subtotal * (gstPct / 2) / 100).toFixed(2));
+      const sgst = parseFloat((subtotal * (gstPct / 2) / 100).toFixed(2));
+      const discount = couponDiscount || 0;
+      const preRound = subtotal + serviceCharge + cgst + sgst - discount;
+      const roundOff = parseFloat((Math.round(preRound) - preRound).toFixed(2));
+      const grandTotal = Math.round(preRound);
+
       const orderId = await createOrder(restaurant.id, {
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
-        items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty })),
-        total: cartPrice,
+        items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty, note: c.note || '' })),
+        subtotal,
+        gstPercent: gstPct,
+        serviceChargePercent: scPct,
+        cgst,
+        sgst,
+        serviceCharge,
+        discount,
+        couponCode: appliedCoupon?.code || null,
+        roundOff,
+        total: grandTotal,
         specialInstructions: specialNote.trim() || null,
         sessionId: getSessionId(),
         restaurantName: restaurant.name,
         paymentStatus: 'unpaid',
       });
-      // Save snapshot for the bill view + persist in sessionStorage
-      const orderSnapshot = { items: cart.map(c => ({ ...c })), total: cartPrice, orderId, tableNumber: orderTableInput.trim() || tableNumber || 'Not specified' };
+
+      // Increment coupon usage
+      if (appliedCoupon?.id) {
+        incrementCouponUse(restaurant.id, appliedCoupon.id).catch(() => {});
+      }
+
+      // Save snapshot for the bill view
+      const orderSnapshot = {
+        items: cart.map(c => ({ ...c })),
+        subtotal, gstPercent: gstPct, serviceChargePercent: scPct,
+        cgst, sgst, serviceCharge, discount,
+        couponCode: appliedCoupon?.code || null,
+        roundOff, total: grandTotal,
+        orderId,
+        tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
+      };
       setPlacedOrder(orderSnapshot);
       setPaymentDone(false);
       setPaymentMethod(null);
+      setLiveOrderStatus('pending');
       try { sessionStorage.setItem('ar_placed_order', JSON.stringify(orderSnapshot)); sessionStorage.removeItem('ar_payment_done'); } catch {}
       setOrderStep('success');
       clearCart();
@@ -2424,7 +2518,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
           ) : (
             <div className="grid">
               {filtered.map((item, idx) => (
-                <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s`, opacity: item.soldOut ? 0.6 : 1, cursor: item.soldOut ? 'not-allowed' : 'pointer' }} onClick={() => { if (!item.soldOut) openItem(item); }}>
+                <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s`, opacity: (item.soldOut || item.isOutOfStock) ? 0.65 : 1, cursor: (item.soldOut || item.isOutOfStock) ? 'not-allowed' : 'pointer' }} onClick={() => { if (!item.soldOut && !item.isOutOfStock) openItem(item); }}>
                   <div className="c-img" style={{ position: 'relative' }}>
                     <div className={`img-skeleton${imgLoaded[item.id] ? ' loaded' : ''}`} />
                     <img src={imgSrc(item)} alt={item.name} loading="lazy"
@@ -2435,6 +2529,14 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                     {item.soldOut && (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: 'inherit' }}>
                         <span style={{ background: '#C04A28', color: '#fff', fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 20, letterSpacing: '0.06em' }}>SOLD OUT</span>
+                      </div>
+                    )}
+                    {item.isOutOfStock && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', borderRadius: 'inherit' }}>
+                        <div style={{ width: 82, height: 82, borderRadius: '50%', border: '3px solid #FF5A3A', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-18deg)', background: 'rgba(107,32,32,0.25)', flexDirection: 'column', gap: 1 }}>
+                          <span style={{ color: '#FF5A3A', fontSize: 8, fontWeight: 900, letterSpacing: '0.12em', lineHeight: 1.2, textAlign: 'center' }}>OUT OF</span>
+                          <span style={{ color: '#FF5A3A', fontSize: 8, fontWeight: 900, letterSpacing: '0.12em', lineHeight: 1.2 }}>STOCK</span>
+                        </div>
                       </div>
                     )}
                     {!item.soldOut && item.modelURL && (
@@ -2742,7 +2844,20 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                        <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>Qty: {c.qty}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)' }}>Qty: {c.qty}</div>
+                          <button onClick={() => setNoteOpen(n => ({ ...n, [c.id]: !n[c.id] }))}
+                            style={{ fontSize: 11, color: '#F79B3D', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
+                            {c.note ? '✏ Edit note' : '+ Note'}
+                          </button>
+                        </div>
+                        {c.note && !noteOpen[c.id] && <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', marginTop: 2, fontStyle: 'italic' }}>"{c.note}"</div>}
+                        {noteOpen[c.id] && (
+                          <input autoFocus value={c.note || ''} onChange={e => updateCartNote(c.id, e.target.value)}
+                            onBlur={() => setNoteOpen(n => ({ ...n, [c.id]: false }))}
+                            placeholder="e.g. No onion, extra spicy…"
+                            style={{ width: '100%', marginTop: 4, padding: '5px 9px', borderRadius: 8, border: `1px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.15)'}`, background: darkMode ? 'rgba(255,255,255,0.07)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 12, fontFamily: 'Inter,sans-serif', outline: 'none', boxSizing: 'border-box' }} />
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                         <button className="qty-btn" onClick={() => removeFromCart(c.id)}>−</button>
@@ -2751,6 +2866,29 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* Coupon code */}
+                <div style={{ marginBottom: 12 }}>
+                  {appliedCoupon ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#2D8B4E' }}>✓ {appliedCoupon.code} — Save ₹{couponDiscount}</div>
+                      <button onClick={removeCoupon} style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: '#2D8B4E', padding: 0, lineHeight: 1 }}>✕</button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input value={couponCode} onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                          placeholder="Coupon code"
+                          style={{ flex: 1, padding: '10px 13px', borderRadius: 10, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 13, fontFamily: 'monospace', letterSpacing: '0.06em', outline: 'none', textTransform: 'uppercase' }} />
+                        <button onClick={applyCoupon} disabled={!couponCode.trim() || couponLoading}
+                          style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#F79B3D', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: !couponCode.trim() ? 0.5 : 1 }}>
+                          {couponLoading ? '…' : 'Apply'}
+                        </button>
+                      </div>
+                      {couponError && <div style={{ fontSize: 12, color: '#E05A3A', marginTop: 5, fontWeight: 600 }}>{couponError}</div>}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: 10 }}>
@@ -2807,11 +2945,42 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{t.orderPlaced}</div>
                   <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{t.orderSentMsg}</div>
                   {/* Prompt to open bill tab */}
-                  {placedOrder && (
-                    <div style={{ marginTop: 8, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)', fontSize: 13, color: darkMode ? '#6EC98A' : '#1A6B38', fontWeight: 600 }}>
-                      🧾 Your bill is ready — tap the green "My Bill" button below
-                    </div>
-                  )}
+                  {/* Live order status tracker */}
+                  {placedOrder && (() => {
+                    const STATUS_STEPS = [
+                      { key: 'pending',   label: 'Order Placed',   icon: '✓', color: '#F79B3D' },
+                      { key: 'preparing', label: 'Preparing',      icon: '🍳', color: '#F79B3D' },
+                      { key: 'ready',     label: 'Ready!',         icon: '🎉', color: '#2D8B4E' },
+                      { key: 'served',    label: 'Served',         icon: '✅', color: '#2D8B4E' },
+                    ];
+                    const curIdx = STATUS_STEPS.findIndex(s => s.key === (liveOrderStatus || 'pending'));
+                    return (
+                      <div style={{ width: '100%', padding: '16px 18px', borderRadius: 16, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.03)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>Order Status</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+                          {/* Progress line */}
+                          <div style={{ position: 'absolute', top: 14, left: '10%', right: '10%', height: 3, background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)', borderRadius: 99, zIndex: 0 }}>
+                            <div style={{ height: '100%', borderRadius: 99, background: '#F79B3D', width: `${Math.min(100, (curIdx / (STATUS_STEPS.length - 1)) * 100)}%`, transition: 'width 0.5s' }} />
+                          </div>
+                          {STATUS_STEPS.map((s, i) => {
+                            const done = i <= curIdx;
+                            const active = i === curIdx;
+                            return (
+                              <div key={s.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, position: 'relative', zIndex: 1 }}>
+                                <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? s.color : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)', fontSize: 13, transition: 'background 0.3s', boxShadow: active ? `0 0 0 3px ${s.color}40` : 'none' }}>
+                                  {done ? <span style={{ fontSize: 12 }}>{s.icon}</span> : <span style={{ width: 8, height: 8, borderRadius: '50%', background: darkMode ? 'rgba(255,255,255,0.25)' : 'rgba(42,31,16,0.25)' }} />}
+                                </div>
+                                <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: done ? (darkMode ? '#FFF5E8' : '#1E1B18') : 'rgba(42,31,16,0.35)', whiteSpace: 'nowrap' }}>{s.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <div style={{ marginTop: 4, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)', fontSize: 13, color: darkMode ? '#6EC98A' : '#1A6B38', fontWeight: 600 }}>
+                    🧾 Your bill is ready — tap the green "My Bill" button below
+                  </div>
                   <button onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
                     style={{ marginTop: 4, padding: '11px 26px', borderRadius: 12, border: 'none', background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
                     Back to Menu
@@ -2994,11 +3163,34 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   ))}
                 </div>
 
-                {/* Total */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginBottom: 18 }}>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.55)' }}>Total</div>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 24, color: '#E05A3A' }}>₹{placedOrder.total.toFixed(0)}</div>
-                </div>
+                {/* Bill breakdown */}
+                {(() => {
+                  const sub = placedOrder.subtotal ?? placedOrder.total;
+                  const gstPct = placedOrder.gstPercent || 0;
+                  const scPct = placedOrder.serviceChargePercent || 0;
+                  const cgst = placedOrder.cgst || 0;
+                  const sgst = placedOrder.sgst || 0;
+                  const sc = placedOrder.serviceCharge || 0;
+                  const disc = placedOrder.discount || 0;
+                  const ro = placedOrder.roundOff || 0;
+                  const grand = placedOrder.total;
+                  const lineStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.6)' : 'rgba(42,31,16,0.6)', marginBottom: 6 };
+                  return (
+                    <div style={{ padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(42,31,16,0.02)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 18 }}>
+                      <div style={lineStyle}><span>Subtotal</span><span>₹{sub.toFixed(2)}</span></div>
+                      {sc > 0 && <div style={lineStyle}><span>Service Charge ({scPct}%)</span><span>₹{sc.toFixed(2)}</span></div>}
+                      {cgst > 0 && <div style={lineStyle}><span>C.G.S.T {(gstPct / 2).toFixed(1)}%</span><span>₹{cgst.toFixed(2)}</span></div>}
+                      {sgst > 0 && <div style={lineStyle}><span>S.G.S.T {(gstPct / 2).toFixed(1)}%</span><span>₹{sgst.toFixed(2)}</span></div>}
+                      {disc > 0 && <div style={{ ...lineStyle, color: '#2D8B4E', fontWeight: 600 }}><span>Discount ({placedOrder.couponCode})</span><span>−₹{disc.toFixed(0)}</span></div>}
+                      {ro !== 0 && <div style={lineStyle}><span>Round off</span><span>{ro > 0 ? '+' : ''}₹{ro.toFixed(2)}</span></div>}
+                      <div style={{ height: 1, background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.08)', margin: '10px 0' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.55)' }}>Grand Total</div>
+                        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 24, color: '#E05A3A' }}>₹{grand}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Payment section */}
                 {paymentDone ? (
@@ -3027,6 +3219,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                         { id: 'card', icon: '💳', label: 'Card', sub: 'Swipe / Tap' },
                         { id: 'gpay', icon: '📱', label: 'GPay', sub: 'Google Pay' },
                         { id: 'phonepe', icon: '📲', label: 'PhonePe', sub: 'UPI Payment' },
+                        { id: 'razorpay', icon: '⚡', label: 'Online', sub: 'Razorpay (soon)' },
                       ].map(m => (
                         <button key={m.id}
                           onClick={() => setPaymentMethod(m.id)}
@@ -3050,7 +3243,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       onClick={async () => {
                         if (!paymentMethod || !placedOrder?.orderId || !restaurant?.id) return;
                         try {
-                          const statusMap = { cash: 'cash_requested', card: 'card_requested', gpay: 'online_requested', phonepe: 'online_requested' };
+                          const statusMap = { cash: 'cash_requested', card: 'card_requested', gpay: 'online_requested', phonepe: 'online_requested', razorpay: 'online_requested' };
                           await updatePaymentStatus(restaurant.id, placedOrder.orderId, statusMap[paymentMethod] || 'cash_requested');
                           setPaymentDone(true);
                           try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderId: placedOrder.orderId })); } catch {}
@@ -3068,7 +3261,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                         minHeight: 52,
                         position: 'relative', zIndex: 5,
                       }}>
-                      {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : 'PhonePe'} Payment` : 'Select a payment method'}
+                      {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : paymentMethod === 'razorpay' ? 'Online' : 'PhonePe'} Payment` : 'Select a payment method'}
                     </button>
                   </>
                 )}

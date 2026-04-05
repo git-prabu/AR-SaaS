@@ -7,17 +7,20 @@ import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const navItems = [
   { href: '/admin/analytics', label: 'Analytics', icon: '◎' },
+  { href: '/admin/reports', label: 'Revenue Reports', icon: '📊' },
   { href: '/admin/items', label: 'Menu Items', icon: '🍽' },
   { href: '/admin/orders', label: 'Orders', icon: '🛒' },
   { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: '🍳' },
   { href: '/admin/waiter', label: 'Waiter', icon: '🛎' },
   { href: '/admin/staff', label: 'Staff Logins', icon: '👥' },
+  { href: '/admin/coupons', label: 'Coupons', icon: '🏷' },
   { href: '/admin/payments', label: 'Payments', icon: '💰' },
   { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
   { href: '/admin/requests', label: 'Add Items/Requests', icon: '◈' },
   { href: '/admin/combos', label: 'Combo Builder', icon: '🍱' },
   { href: '/admin/offers', label: 'Offers', icon: '◇' },
   { href: '/admin/qrcode', label: 'QR Code', icon: '⬡' },
+  { href: '/admin/settings', label: 'Settings', icon: '⚙' },
   { href: '/admin/subscription', label: 'Subscription', icon: '◉' },
 ];
 
