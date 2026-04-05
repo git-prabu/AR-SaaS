@@ -2619,6 +2619,15 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             {(placedOrder || cartTotal > 0) && (
               <div className="fab-row">
                 {placedOrder && !cartOpen && (
+                  <button className="bill-fab" onClick={() => { setCartOpen(true); setOrderStep('success'); }}
+                    style={{ background: liveOrderStatus === 'ready' ? '#2D8B4E' : undefined, borderColor: liveOrderStatus === 'ready' ? '#2D8B4E' : undefined }}>
+                    <span style={{ fontSize: 16 }}>
+                      {liveOrderStatus === 'ready' ? '🎉' : liveOrderStatus === 'preparing' ? '🍳' : liveOrderStatus === 'served' ? '✅' : '⏳'}
+                    </span>
+                    <span>{liveOrderStatus === 'ready' ? 'Order Ready!' : liveOrderStatus === 'preparing' ? 'Preparing…' : liveOrderStatus === 'served' ? 'Served!' : 'Order Status'}</span>
+                  </button>
+                )}
+                {placedOrder && !cartOpen && (
                   <button className="bill-fab" onClick={() => setBillOpen(true)}>
                     <span style={{ fontSize: 16 }}>🧾</span>
                     <span>My Bill</span>
