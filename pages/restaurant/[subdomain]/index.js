@@ -461,6 +461,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     try { const s = sessionStorage.getItem('ar_payment_done'); return s ? JSON.parse(s).method : null; } catch { return null; }
   });
   const [billOpen, setBillOpen] = useState(false);
+  const [upiOpened, setUpiOpened] = useState(false);
   // Cart item notes
   const [noteOpen, setNoteOpen] = useState({});
   // Coupon
@@ -3231,7 +3232,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       ].map(m => {
                         const sel = paymentMethod === m.id;
                         return (
-                          <button key={m.id} onClick={() => setPaymentMethod(m.id)}
+                          <button key={m.id} onClick={() => { setPaymentMethod(m.id); setUpiOpened(false); }}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 14,
                               padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
@@ -3252,38 +3253,61 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       })}
                     </div>
 
-                    {/* UPI: Open UPI App button */}
+                    {/* UPI: Step-by-step flow */}
                     {paymentMethod === 'upi' && restaurant?.upiId && (() => {
                       const upiUrl = `upi://pay?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${placedOrder.total}&cu=INR&tn=${encodeURIComponent('Order ' + (placedOrder.orderId?.slice(-6).toUpperCase() || ''))}`;
                       return (
                         <div style={{ marginBottom: 14 }}>
-                          <a href={upiUrl} style={{ textDecoration: 'none', display: 'block' }}>
-                            <div style={{
-                              width: '100%', padding: '15px', borderRadius: 14, textAlign: 'center',
-                              background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
-                              fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                              boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
-                              marginBottom: 10,
-                            }}>
+                          {!upiOpened ? (
+                            /* Step 1: Open UPI App */
+                            <button
+                              onClick={() => { setUpiOpened(true); window.open(upiUrl, '_self'); }}
+                              style={{
+                                width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                                background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
+                                fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                                boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
+                              }}>
                               Open UPI App — Pay ₹{placedOrder.total}
+                            </button>
+                          ) : (
+                            /* Step 2: After UPI app was opened */
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              <div style={{ textAlign: 'center', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(138,112,176,0.12)' : 'rgba(138,112,176,0.06)', border: '1.5px solid rgba(138,112,176,0.2)' }}>
+                                <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 4 }}>Pay to UPI ID</div>
+                                <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: darkMode ? '#FFF5E8' : '#1E1B18', letterSpacing: '0.03em' }}>{restaurant.upiId}</div>
+                                <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', marginTop: 6 }}>Amount: ₹{placedOrder.total}</div>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  if (!placedOrder?.orderId || !restaurant?.id) return;
+                                  try {
+                                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'online_requested');
+                                    setPaymentDone(true);
+                                    setUpiOpened(false);
+                                    try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderId: placedOrder.orderId })); } catch {}
+                                  } catch (e) { console.error(e); }
+                                }}
+                                style={{
+                                  width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                                  background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)', color: '#fff',
+                                  fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                                  boxShadow: '0 4px 20px rgba(45,139,78,0.4)',
+                                }}>
+                                I've paid — Confirm Payment
+                              </button>
+                              <button
+                                onClick={() => window.open(upiUrl, '_self')}
+                                style={{
+                                  width: '100%', padding: '12px', borderRadius: 14,
+                                  border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`,
+                                  background: 'transparent', color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)',
+                                  fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer',
+                                }}>
+                                Reopen UPI App
+                              </button>
                             </div>
-                          </a>
-                          <button
-                            onClick={async () => {
-                              if (!placedOrder?.orderId || !restaurant?.id) return;
-                              try {
-                                await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'online_requested');
-                                setPaymentDone(true);
-                                try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderId: placedOrder.orderId })); } catch {}
-                              } catch (e) { console.error(e); }
-                            }}
-                            style={{
-                              width: '100%', padding: '14px', borderRadius: 14, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`,
-                              background: 'transparent', color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.6)',
-                              fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer',
-                            }}>
-                            I've completed the payment
-                          </button>
+                          )}
                         </div>
                       );
                     })()}
