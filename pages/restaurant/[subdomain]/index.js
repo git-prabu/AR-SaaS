@@ -3142,7 +3142,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
             onClick={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
             {/* Spacer to absorb backdrop taps */}
             <div style={{ flex: 1 }} onClick={() => setBillOpen(false)} />
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', flexShrink: 0, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
@@ -3278,16 +3278,36 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 {/* Print Bill */}
                 <button
                   onClick={() => {
-                    const w = window.open('', '_blank', 'width=300,height=600');
+                    const w = window.open('', '_blank', 'width=300,height=700');
                     if (!w) return;
                     const rName = restaurant?.name || 'Restaurant';
+                    const rAddress = restaurant?.address || '';
+                    const rPhone = restaurant?.phone || '';
+                    const rGstin = restaurant?.gstNumber || '';
+                    const rFssai = restaurant?.fssaiNo || '';
                     const tbl = placedOrder.tableNumber && placedOrder.tableNumber !== 'Not specified' ? placedOrder.tableNumber : '';
                     const now = new Date();
                     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
                     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
                     const itemsHtml = placedOrder.items.map(it =>
-                      `<tr><td style="text-align:left">${it.name} x${it.qty}</td><td style="text-align:right">${(it.price * it.qty).toFixed(0)}</td></tr>`
+                      `<tr><td style="text-align:left">${it.name} x${it.qty}</td><td style="text-align:right">Rs.${(it.price * it.qty).toFixed(0)}</td></tr>`
                     ).join('');
+                    // Bill breakdown
+                    const sub = placedOrder.subtotal ?? placedOrder.total;
+                    const gstPct = placedOrder.gstPercent || 0;
+                    const scPct = placedOrder.serviceChargePercent || 0;
+                    const sc = placedOrder.serviceCharge || 0;
+                    const cgst = placedOrder.cgst || 0;
+                    const sgst = placedOrder.sgst || 0;
+                    const disc = placedOrder.discount || 0;
+                    const ro = placedOrder.roundOff || 0;
+                    const grand = placedOrder.total;
+                    const scRow = sc > 0 ? `<tr><td>Service Charge (${scPct}%)</td><td style="text-align:right">Rs.${sc.toFixed(2)}</td></tr>` : '';
+                    const cgstRow = cgst > 0 ? `<tr><td>C.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${cgst.toFixed(2)}</td></tr>` : '';
+                    const sgstRow = sgst > 0 ? `<tr><td>S.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${sgst.toFixed(2)}</td></tr>` : '';
+                    const discRow = disc > 0 ? `<tr><td>Discount${placedOrder.couponCode ? ' ('+placedOrder.couponCode+')' : ''}</td><td style="text-align:right">-Rs.${disc.toFixed(0)}</td></tr>` : '';
+                    const roRow = ro !== 0 ? `<tr><td>Round off</td><td style="text-align:right">${ro > 0 ? '+' : ''}Rs.${ro.toFixed(2)}</td></tr>` : '';
+                    const pmLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : paymentMethod === 'phonepe' ? 'PhonePe' : paymentMethod === 'razorpay' ? 'Online' : '';
                     w.document.write(`<!DOCTYPE html><html><head><title>Bill</title><style>
                       @page{size:80mm auto;margin:4mm}
                       *{margin:0;padding:0;box-sizing:border-box}
@@ -3297,18 +3317,28 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                       .line{border-top:1px dashed #000;margin:6px 0}
                       table{width:100%;border-collapse:collapse}
                       td{padding:2px 0;vertical-align:top}
-                      .total td{font-weight:bold;font-size:14px;padding-top:4px}
+                      .total td{font-weight:bold;font-size:14px;padding-top:6px}
                     </style></head><body>
-                      <div class="center bold" style="font-size:16px;margin-bottom:2px">${rName}</div>
-                      ${tbl ? `<div class="center" style="margin-bottom:2px">Table: ${tbl}</div>` : ''}
+                      <div class="center bold" style="font-size:15px;margin-bottom:2px">${rName}</div>
+                      ${rAddress ? `<div class="center" style="font-size:10px;margin-bottom:2px">${rAddress}</div>` : ''}
+                      ${rPhone ? `<div class="center" style="font-size:10px">Phone: ${rPhone}</div>` : ''}
+                      ${rGstin ? `<div class="center" style="font-size:10px">GSTIN: ${rGstin}</div>` : ''}
+                      <div class="line"></div>
+                      ${tbl ? `<div class="center" style="font-size:11px;margin-bottom:2px">Table: ${tbl}</div>` : ''}
                       <div class="center" style="font-size:10px">${dateStr} ${timeStr}</div>
                       ${placedOrder.orderId ? `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>` : ''}
                       <div class="line"></div>
                       <table>${itemsHtml}</table>
                       <div class="line"></div>
-                      <table><tr class="total"><td>TOTAL</td><td style="text-align:right">Rs.${placedOrder.total.toFixed(0)}</td></tr></table>
+                      <table>
+                        <tr><td>Subtotal</td><td style="text-align:right">Rs.${sub.toFixed(2)}</td></tr>
+                        ${scRow}${cgstRow}${sgstRow}${discRow}${roRow}
+                      </table>
                       <div class="line"></div>
-                      ${paymentMethod ? `<div class="center" style="margin-top:4px">Payment: ${paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : 'PhonePe'}</div>` : ''}
+                      <table><tr class="total"><td>GRAND TOTAL</td><td style="text-align:right">Rs.${grand}</td></tr></table>
+                      <div class="line"></div>
+                      ${pmLabel ? `<div class="center" style="margin-top:4px;font-size:11px">Payment: ${pmLabel}</div>` : ''}
+                      ${rFssai ? `<div class="center" style="margin-top:6px;font-size:10px">FSSAI Lic. No. ${rFssai}</div>` : ''}
                       <div class="center" style="margin-top:8px;font-size:10px">Thank you! Visit again</div>
                       <div class="center" style="margin-top:4px;font-size:9px">Powered by Advert Radical</div>
                     </body></html>`);
