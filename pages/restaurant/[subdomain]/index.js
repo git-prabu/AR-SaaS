@@ -3206,14 +3206,14 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                   <div style={{ textAlign: 'center', padding: '22px 16px', borderRadius: 16, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.06)', border: '1.5px solid rgba(45,139,78,0.25)' }}>
                     <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: '#2D8B4E', marginBottom: 6 }}>
-                      {paymentMethod === 'cash' ? 'Cash Payment Requested' : paymentMethod === 'card' ? 'Card Payment Requested' : 'Payment Requested'}
+                      {paymentMethod === 'cash' ? 'Cash Payment Requested' : paymentMethod === 'card' ? 'Card Payment Requested' : paymentMethod === 'upi' ? 'UPI Payment Done' : 'Payment Requested'}
                     </div>
                     <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', lineHeight: 1.6 }}>
                       {paymentMethod === 'cash'
                         ? 'Your waiter will come to collect the payment at your table.'
                         : paymentMethod === 'card'
                         ? 'Your waiter will bring the card machine to your table.'
-                        : paymentMethod === 'gpay' || paymentMethod === 'phonepe'
+                        : paymentMethod === 'upi'
                         ? 'Please show the payment confirmation to your waiter.'
                         : 'Your waiter has been notified.'}
                     </div>
@@ -3221,57 +3221,99 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                 ) : (
                   <>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>How would you like to pay?</div>
-                    {/* Payment methods */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+
+                    {/* Payment methods — professional vertical list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                       {[
-                        { id: 'cash', icon: '💵', label: 'Cash', sub: 'Pay at table' },
-                        { id: 'card', icon: '💳', label: 'Card', sub: 'Swipe / Tap' },
-                        { id: 'gpay', icon: '📱', label: 'GPay', sub: 'Google Pay' },
-                        { id: 'phonepe', icon: '📲', label: 'PhonePe', sub: 'UPI Payment' },
-                        { id: 'razorpay', icon: '⚡', label: 'Online', sub: 'Razorpay (soon)' },
-                      ].map(m => (
-                        <button key={m.id}
-                          onClick={() => setPaymentMethod(m.id)}
-                          style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                            padding: '16px 12px', borderRadius: 14, cursor: 'pointer',
-                            border: `2px solid ${paymentMethod === m.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
-                            background: paymentMethod === m.id
-                              ? (darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)')
-                              : 'transparent',
-                            transition: 'all 0.15s',
-                          }}>
-                          <span style={{ fontSize: 24 }}>{m.icon}</span>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{m.label}</span>
-                          <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>{m.sub}</span>
-                        </button>
-                      ))}
+                        { id: 'cash', icon: '💵', label: 'Cash', sub: 'Waiter will collect at your table', bg: darkMode ? 'rgba(45,139,78,0.15)' : 'rgba(45,139,78,0.08)' },
+                        { id: 'card', icon: '💳', label: 'Card', sub: 'Waiter will bring the card machine', bg: darkMode ? 'rgba(74,128,192,0.15)' : 'rgba(74,128,192,0.08)' },
+                        ...(restaurant?.upiId ? [{ id: 'upi', icon: '📱', label: 'UPI', sub: 'GPay, PhonePe, Paytm & more', bg: darkMode ? 'rgba(138,112,176,0.15)' : 'rgba(138,112,176,0.08)' }] : []),
+                      ].map(m => {
+                        const sel = paymentMethod === m.id;
+                        return (
+                          <button key={m.id} onClick={() => setPaymentMethod(m.id)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 14,
+                              padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
+                              border: `2px solid ${sel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}`,
+                              background: sel ? (darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.06)') : 'transparent',
+                              transition: 'all 0.15s', textAlign: 'left',
+                            }}>
+                            <div style={{ width: 46, height: 46, borderRadius: 13, background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{m.icon}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 15, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2 }}>{m.label}</div>
+                              <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.45)' }}>{m.sub}</div>
+                            </div>
+                            <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${sel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                              {sel && <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#F79B3D' }} />}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {/* Confirm payment */}
-                    <button
-                      onClick={async () => {
-                        if (!paymentMethod || !placedOrder?.orderId || !restaurant?.id) return;
-                        try {
-                          const statusMap = { cash: 'cash_requested', card: 'card_requested', gpay: 'online_requested', phonepe: 'online_requested', razorpay: 'online_requested' };
-                          await updatePaymentStatus(restaurant.id, placedOrder.orderId, statusMap[paymentMethod] || 'cash_requested');
-                          setPaymentDone(true);
-                          try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderId: placedOrder.orderId })); } catch {}
-                        } catch (e) { console.error(e); }
-                      }}
-                      disabled={!paymentMethod}
-                      style={{
-                        width: '100%', padding: '16px', borderRadius: 14, border: 'none',
-                        background: paymentMethod ? 'linear-gradient(135deg,#2D8B4E,#1A6B38)' : (darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.1)'),
-                        color: paymentMethod ? '#fff' : (darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(42,31,16,0.3)'),
-                        fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                        cursor: paymentMethod ? 'pointer' : 'not-allowed',
-                        boxShadow: paymentMethod ? '0 4px 20px rgba(45,139,78,0.4)' : 'none',
-                        transition: 'all 0.2s',
-                        minHeight: 52,
-                        position: 'relative', zIndex: 5,
-                      }}>
-                      {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : paymentMethod === 'razorpay' ? 'Online' : 'PhonePe'} Payment` : 'Select a payment method'}
-                    </button>
+
+                    {/* UPI: Open UPI App button */}
+                    {paymentMethod === 'upi' && restaurant?.upiId && (() => {
+                      const upiUrl = `upi://pay?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${placedOrder.total}&cu=INR&tn=${encodeURIComponent('Order ' + (placedOrder.orderId?.slice(-6).toUpperCase() || ''))}`;
+                      return (
+                        <div style={{ marginBottom: 14 }}>
+                          <a href={upiUrl} style={{ textDecoration: 'none', display: 'block' }}>
+                            <div style={{
+                              width: '100%', padding: '15px', borderRadius: 14, textAlign: 'center',
+                              background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
+                              fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                              boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
+                              marginBottom: 10,
+                            }}>
+                              Open UPI App — Pay ₹{placedOrder.total}
+                            </div>
+                          </a>
+                          <button
+                            onClick={async () => {
+                              if (!placedOrder?.orderId || !restaurant?.id) return;
+                              try {
+                                await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'online_requested');
+                                setPaymentDone(true);
+                                try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderId: placedOrder.orderId })); } catch {}
+                              } catch (e) { console.error(e); }
+                            }}
+                            style={{
+                              width: '100%', padding: '14px', borderRadius: 14, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`,
+                              background: 'transparent', color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.6)',
+                              fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer',
+                            }}>
+                            I've completed the payment
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Cash / Card: Confirm button */}
+                    {paymentMethod !== 'upi' && (
+                      <button
+                        onClick={async () => {
+                          if (!paymentMethod || !placedOrder?.orderId || !restaurant?.id) return;
+                          try {
+                            const statusMap = { cash: 'cash_requested', card: 'card_requested' };
+                            await updatePaymentStatus(restaurant.id, placedOrder.orderId, statusMap[paymentMethod] || 'cash_requested');
+                            setPaymentDone(true);
+                            try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderId: placedOrder.orderId })); } catch {}
+                          } catch (e) { console.error(e); }
+                        }}
+                        disabled={!paymentMethod}
+                        style={{
+                          width: '100%', padding: '16px', borderRadius: 14, border: 'none',
+                          background: paymentMethod ? 'linear-gradient(135deg,#2D8B4E,#1A6B38)' : (darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.1)'),
+                          color: paymentMethod ? '#fff' : (darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(42,31,16,0.3)'),
+                          fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                          cursor: paymentMethod ? 'pointer' : 'not-allowed',
+                          boxShadow: paymentMethod ? '0 4px 20px rgba(45,139,78,0.4)' : 'none',
+                          transition: 'all 0.2s', minHeight: 52,
+                          position: 'relative', zIndex: 5,
+                        }}>
+                        {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : 'Card'} Payment` : 'Select a payment method'}
+                      </button>
+                    )}
                   </>
                 )}
 
@@ -3307,7 +3349,7 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
                     const sgstRow = sgst > 0 ? `<tr><td>S.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${sgst.toFixed(2)}</td></tr>` : '';
                     const discRow = disc > 0 ? `<tr><td>Discount${placedOrder.couponCode ? ' ('+placedOrder.couponCode+')' : ''}</td><td style="text-align:right">-Rs.${disc.toFixed(0)}</td></tr>` : '';
                     const roRow = ro !== 0 ? `<tr><td>Round off</td><td style="text-align:right">${ro > 0 ? '+' : ''}Rs.${ro.toFixed(2)}</td></tr>` : '';
-                    const pmLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'gpay' ? 'GPay' : paymentMethod === 'phonepe' ? 'PhonePe' : paymentMethod === 'razorpay' ? 'Online' : '';
+                    const pmLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'upi' ? 'UPI' : '';
                     w.document.write(`<!DOCTYPE html><html><head><title>Bill</title><style>
                       @page{size:80mm auto;margin:4mm}
                       *{margin:0;padding:0;box-sizing:border-box}

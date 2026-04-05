@@ -29,6 +29,9 @@ export default function AdminSettings() {
   const [phone, setPhone] = useState('');
   const [fssaiNo, setFssaiNo] = useState('');
 
+  // Payment
+  const [upiId, setUpiId] = useState('');
+
   useEffect(() => {
     if (!rid) return;
     getRestaurantById(rid).then(r => {
@@ -40,6 +43,7 @@ export default function AdminSettings() {
       setAddress(r.address || '');
       setPhone(r.phone || '');
       setFssaiNo(r.fssaiNo || '');
+      setUpiId(r.upiId || '');
       setLoading(false);
     });
   }, [rid]);
@@ -60,6 +64,7 @@ export default function AdminSettings() {
         address: address.trim(),
         phone: phone.trim(),
         fssaiNo: fssaiNo.trim(),
+        upiId: upiId.trim(),
       });
       toast.success('Settings saved!');
     } catch (e) { toast.error('Failed to save: ' + e.message); }
@@ -147,6 +152,22 @@ export default function AdminSettings() {
             <div>
               <label style={S.label}>FSSAI Lic. No.</label>
               <input value={fssaiNo} onChange={e => setFssaiNo(e.target.value)} style={{ ...S.input, fontFamily: 'monospace' }} placeholder="e.g. 2242053900181" />
+            </div>
+          </div>
+        </div>
+
+        {/* UPI Payment Settings */}
+        <div style={S.card}>
+          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: '#1E1B18', marginBottom: 4 }}>UPI Payment</div>
+          <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.45)', marginBottom: 20 }}>Allow customers to pay directly via UPI from their phone. Leave blank to hide UPI option on the bill.</div>
+
+          <div>
+            <label style={S.label}>UPI ID</label>
+            <input value={upiId} onChange={e => setUpiId(e.target.value)}
+              style={{ ...S.input, fontFamily: 'monospace' }}
+              placeholder="e.g. yourrestaurant@ybl or 9876543210@paytm" />
+            <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.4)', marginTop: 6 }}>
+              Your UPI ID from GPay, PhonePe, Paytm, or any UPI app. Customers will be able to pay you directly.
             </div>
           </div>
         </div>
