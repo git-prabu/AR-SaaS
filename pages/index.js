@@ -1031,7 +1031,7 @@ export default function HomePage() {
             <button className="theme-toggle" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} onClick={handleToggle}>
               {mounted ? (dark ? <SunIcon/> : <MoonIcon/>) : <SunIcon/>}
             </button>
-            <Link href="/admin/login" className="nav-cta">Get started →</Link>
+            <Link href="/signup?plan=growth" className="nav-cta">Get started →</Link>
           </div>
         </nav>
 
@@ -1059,7 +1059,7 @@ export default function HomePage() {
                     Customers scan your QR, watch dishes appear life-size in 3D on their table, get AI-powered suggestions — and order more. No app. No friction.
                   </p>
                   <div style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', animation:'heroFade 0.7s ease 0.3s both'}}>
-                    <Link href="/admin/login"><button className="btn-amber">Start free trial</button></Link>
+                    <Link href="/signup?plan=growth"><button className="btn-amber">Start free trial</button></Link>
                     <a href="https://ar-saa-s-kbzn.vercel.app/restaurant/spot" target="_blank" rel="noreferrer">
                       <button className="btn-ghost">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -1363,7 +1363,7 @@ export default function HomePage() {
               Customers scan your QR, see dishes in 3D AR on their table, get AI suggestions — and order more.
             </p>
             <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginBottom:20}}>
-              <Link href="/admin/login"><button className="btn-amber" style={{fontSize:14,padding:'12px 24px'}}>Start free trial</button></Link>
+              <Link href="/signup?plan=growth"><button className="btn-amber" style={{fontSize:14,padding:'12px 24px'}}>Start free trial</button></Link>
             </div>
             <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap'}}>
               {[['↑ 28%','Avg order increase'],['500+','Restaurants']].map(([num,lbl])=>(
@@ -1478,7 +1478,7 @@ export default function HomePage() {
               </div>
             </div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',marginTop:4}}>
-              <Link href="/admin/login"><button className="btn-amber" style={{fontSize:14,padding:'12px 22px'}}>Start free trial →</button></Link>
+              <Link href="/signup?plan=growth"><button className="btn-amber" style={{fontSize:14,padding:'12px 22px'}}>Start free trial →</button></Link>
             </div>
           </div>
 
@@ -1677,7 +1677,7 @@ export default function HomePage() {
                   <h3 style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#FFF5E8', marginBottom:8}}>Instant QR & Subdomain</h3>
                   <p style={{fontSize:13.5, color:'rgba(255,245,220,0.46)', lineHeight:1.72, maxWidth:520}}>Your branded menu URL and QR code ready in under 5 minutes. Stick QRs on every table and your AR menu is live — no technical setup needed.</p>
                 </div>
-                <Link href="/admin/login" style={{flexShrink:0, padding:'12px 26px', borderRadius:12, border:'1px solid rgba(247,155,61,0.35)', background:'rgba(247,155,61,0.08)', color:'#F79B3D', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, textDecoration:'none', whiteSpace:'nowrap'}}>
+                <Link href="/signup?plan=growth" style={{flexShrink:0, padding:'12px 26px', borderRadius:12, border:'1px solid rgba(247,155,61,0.35)', background:'rgba(247,155,61,0.08)', color:'#F79B3D', fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, textDecoration:'none', whiteSpace:'nowrap'}}>
                   Get your QR →
                 </Link>
               </div>
@@ -1739,7 +1739,7 @@ export default function HomePage() {
                         </div>
                       ))}
                     </div>
-                    <Link href="/admin/login">
+                    <Link href={`/signup?plan=${p.name.toLowerCase()}`}>
                       <button style={{width:'100%', padding:'14px', borderRadius:12, border:f?'none':`1.5px solid var(--pc-btn-bd)`, background:f?'linear-gradient(135deg,#E05A3A,#F79B3D)':'var(--pc-btn-bg)', color:f?'#fff':'var(--pc-btn-tx)', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', boxShadow:f?'0 8px 24px rgba(224,90,58,0.4)':'none'}}>
                         {p.cta}
                       </button>
@@ -1765,7 +1765,7 @@ export default function HomePage() {
                 Start your free trial today. No credit card required. Your AR menu will be live in under 5 minutes.
               </p>
               <div style={{display:'flex', justifyContent:'center', gap:12, flexWrap:'wrap', marginBottom:48}}>
-                <Link href="/admin/login"><button className="btn-amber" style={{fontSize:16, padding:'16px 36px'}}>Start free trial →</button></Link>
+                <Link href="/signup?plan=growth"><button className="btn-amber" style={{fontSize:16, padding:'16px 36px'}}>Start free trial →</button></Link>
                 <a href="mailto:hello@advertradical.com"><button className="btn-ghost" style={{fontSize:16, padding:'16px 28px'}}>Talk to us</button></a>
               </div>
               <div style={{display:'flex', justifyContent:'center', gap:32, flexWrap:'wrap'}}>

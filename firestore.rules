@@ -33,6 +33,8 @@ service cloud.firestore {
       allow update: if isRestaurantAdmin(restaurantId) &&
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['isActive', 'plan', 'paymentStatus', 'maxItems', 'maxStorageMB']);
+      // Authenticated users: create restaurant (signup/onboarding)
+      allow create: if isAuth();
       // Super admin: full access
       allow read, write: if isSuperAdmin();
 

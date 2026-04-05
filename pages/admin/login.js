@@ -325,8 +325,8 @@ export default function AdminLogin() {
 
             <div style={{marginTop:28, paddingTop:24, borderTop:'1px solid rgba(255,245,220,0.07)', textAlign:'center'}}>
               <span style={{fontSize:13, color:'rgba(255,245,220,0.3)'}}>Not a restaurant yet? </span>
-              <Link href="/#plans" style={{fontSize:13, color:'#F79B3D', fontWeight:600, textDecoration:'none'}}>
-                Get started free
+              <Link href="/signup?plan=growth" style={{fontSize:13, color:'#F79B3D', fontWeight:600, textDecoration:'none'}}>
+                Start free trial →
               </Link>
             </div>
           </div>
