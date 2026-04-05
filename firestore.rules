@@ -112,6 +112,16 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin();
       }
 
+      // ── Coupons ───────────────────────────────────────────────
+      match /coupons/{couponId} {
+        // Public: customers need to read coupons to validate codes
+        allow read: if true;
+        // Restaurant admin: full manage (create, update, delete)
+        allow read, write: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow read, write: if isSuperAdmin();
+      }
+
       // ── Staff Logins ──────────────────────────────────────────
       match /staff/{staffId} {
         // Public: staff login page needs to verify username+pin without auth

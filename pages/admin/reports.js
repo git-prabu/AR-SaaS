@@ -5,7 +5,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { getOrders } from '../../lib/db';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Cell,
+  ResponsiveContainer,
 } from 'recharts';
 
 const S = {
