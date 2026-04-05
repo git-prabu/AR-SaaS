@@ -27,6 +27,12 @@ service cloud.firestore {
       allow read: if resource.data.isActive == true;
       // Restaurant admin: read their own restaurant doc
       allow read: if isRestaurantAdmin(restaurantId);
+      // Restaurant admin: update their own settings & metadata
+      // Blocked fields: isActive, plan, paymentStatus, maxItems, maxStorageMB
+      // (those are controlled by super admin only)
+      allow update: if isRestaurantAdmin(restaurantId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['isActive', 'plan', 'paymentStatus', 'maxItems', 'maxStorageMB']);
       // Super admin: full access
       allow read, write: if isSuperAdmin();
 
@@ -39,10 +45,10 @@ service cloud.firestore {
         allow read, write: if isRestaurantAdmin(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
-        // Public: allow incrementing view/arViews only (no auth needed)
+        // Public: allow incrementing views, arViews, and ratings (no auth needed)
         allow update: if !isAuth() &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['views', 'arViews']);
+            .hasOnly(['views', 'arViews', 'ratingSum', 'ratingCount', 'ratingAvg']);
       }
 
       // ── Analytics ─────────────────────────────────────────────
