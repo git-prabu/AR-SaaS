@@ -74,6 +74,9 @@ service cloud.firestore {
         // Public: customers can read their own order by orderId
         // (for order confirmation screen — no auth required)
         allow read: if true;
+        // Public: customers can update payment status only (Confirm Payment button)
+        allow update: if request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['paymentStatus', 'paymentUpdatedAt']);
         // Restaurant admin: read + update status (pending→preparing→ready→served)
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
         // Super admin: full access
