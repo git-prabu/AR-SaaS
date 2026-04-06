@@ -12,12 +12,12 @@ const USDA_KEY = 'fea6TbAGJ03EOEWPtWzEQ31VclGeRYsNqVhrWQ2A';
 const BLANK = { name:'', nameTA:'', nameHI:'', description:'', descriptionTA:'', descriptionHI:'', category:'', price:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'' };
 
 const S = {
-  page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
+  page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Outfit, sans-serif' },
   card:  { background:'#FFFFFF', border:'1px solid rgba(38,52,49,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(38,52,49,0.06)' },
   h1:    { fontFamily:"'Playfair Display', Georgia, serif", fontWeight:800, fontSize:24, color:'#263431', margin:0, letterSpacing:'-0.3px' },
   sub:   { fontSize:13, color:'rgba(38,52,49,0.45)', marginTop:4 },
   label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
+  input: { width:'100%', padding:'11px 14px', background:'#F0EFED', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Outfit, sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
   btn:   { padding:'11px 22px', borderRadius:10, fontSize:14, fontWeight:600, fontFamily:'Outfit, sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
 };
 
@@ -444,16 +444,16 @@ export default function AdminRequests() {
                     {showCatDrop && (
                       <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:'#fff', border:'1.5px solid rgba(38,52,49,0.1)', borderRadius:12, boxShadow:'0 8px 24px rgba(38,52,49,0.12)', marginTop:4, overflow:'hidden' }}>
                         <div style={{ padding:'10px 12px', borderBottom:'1px solid rgba(38,52,49,0.07)', display:'flex', gap:8 }}>
-                          <input autoFocus style={{ flex:1, padding:'7px 10px', fontSize:13, border:'1.5px solid rgba(38,52,49,0.12)', borderRadius:8, outline:'none', fontFamily:'Inter,sans-serif', color:'#263431' }} placeholder="Type new category…" value={newCatInput} onChange={e => setNewCatInput(e.target.value)}
+                          <input autoFocus style={{ flex:1, padding:'7px 10px', fontSize:13, border:'1.5px solid rgba(38,52,49,0.12)', borderRadius:8, outline:'none', fontFamily:'Outfit, sans-serif', color:'#263431' }} placeholder="Type new category…" value={newCatInput} onChange={e => setNewCatInput(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && newCatInput.trim()) { const cat = newCatInput.trim(); setForm(f => ({...f, category: cat})); if (!categories.includes(cat)) setCategories(c => [...c, cat].sort()); setNewCatInput(''); setShowCatDrop(false); } }}
                           />
-                          <button type="button" onClick={() => { if (!newCatInput.trim()) return; const cat = newCatInput.trim(); setForm(f => ({...f, category: cat})); if (!categories.includes(cat)) setCategories(c => [...c, cat].sort()); setNewCatInput(''); setShowCatDrop(false); }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#263431', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', flexShrink:0 }}>Add</button>
+                          <button type="button" onClick={() => { if (!newCatInput.trim()) return; const cat = newCatInput.trim(); setForm(f => ({...f, category: cat})); if (!categories.includes(cat)) setCategories(c => [...c, cat].sort()); setNewCatInput(''); setShowCatDrop(false); }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#263431', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Outfit, sans-serif', flexShrink:0 }}>Add</button>
                         </div>
                         <div style={{ maxHeight:180, overflowY:'auto' }}>
                           {categories.length === 0 && <div style={{ padding:'12px 14px', fontSize:12, color:'rgba(38,52,49,0.4)' }}>No categories yet — type above to add one</div>}
                           {categories.map(cat => (
                             <div key={cat} onClick={() => { setForm(f => ({...f, category: cat})); setShowCatDrop(false); setNewCatInput(''); }} style={{ padding:'10px 14px', fontSize:13, color:'#263431', cursor:'pointer', background: form.category === cat ? '#FFF5F0' : 'transparent', fontWeight: form.category === cat ? 600 : 400 }}
-                              onMouseEnter={e => e.currentTarget.style.background='#F7F5F2'}
+                              onMouseEnter={e => e.currentTarget.style.background='#F0EFED'}
                               onMouseLeave={e => e.currentTarget.style.background = form.category === cat ? '#FFF5F0' : 'transparent'}
                             >
                               {cat} {form.category === cat && <span style={{ color:'#8A4A42' }}>✓</span>}
@@ -516,8 +516,8 @@ export default function AdminRequests() {
                         toast.success('Translations filled! Review and edit if needed.');
                       } catch { toast.error('Translation failed — try again'); }
                       finally { setTranslating(false); }
-                    }} disabled={translating} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:'Inter,sans-serif', border:'1.5px solid rgba(74,128,192,0.4)', background:'rgba(74,128,192,0.06)', color:'#4A80C0', cursor: translating ? 'not-allowed' : 'pointer', opacity: translating ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                      {translating ? <><span style={{ width:11, height:11, border:'2px solid #4A80C0', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Translating…</> : '✦ Auto Translate'}
+                    }} disabled={translating} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:'Outfit, sans-serif', border:'1.5px solid rgba(74,128,192,0.4)', background:'rgba(74,128,192,0.06)', color:'#5A7A9A', cursor: translating ? 'not-allowed' : 'pointer', opacity: translating ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                      {translating ? <><span style={{ width:11, height:11, border:'2px solid #5A7A9A', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Translating…</> : '✦ Auto Translate'}
                     </button>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
@@ -546,7 +546,7 @@ export default function AdminRequests() {
                 <div style={{ marginBottom:16 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
                     <label style={{ ...S.label, marginBottom:0 }}>Ingredients (comma-separated)</label>
-                    <button type="button" className="calc-btn" onClick={handleAutoCalc} disabled={calcLoading} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:'Inter,sans-serif', border:'1.5px solid rgba(138,74,66,0.4)', background:'#FFF5F2', color:'#8A4A42', cursor: calcLoading ? 'not-allowed' : 'pointer', opacity: calcLoading ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                    <button type="button" className="calc-btn" onClick={handleAutoCalc} disabled={calcLoading} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:'Outfit, sans-serif', border:'1.5px solid rgba(138,74,66,0.4)', background:'rgba(138,74,66,0.04)', color:'#8A4A42', cursor: calcLoading ? 'not-allowed' : 'pointer', opacity: calcLoading ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
                       {calcLoading ? <><span style={{ width:11, height:11, border:'2px solid #8A4A42', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Calculating…</> : '✦ Auto Calculate'}
                     </button>
                   </div>
@@ -569,7 +569,7 @@ export default function AdminRequests() {
                     {['calories','protein','carbs','fats'].map(n => (
                       <div key={n}>
                         <label style={S.label}>{n.charAt(0).toUpperCase()+n.slice(1)}</label>
-                        <input className="inp" style={{ ...S.input, background: form[n] ? '#F0FBF5' : '#F7F5F2', borderColor: form[n] ? 'rgba(74,122,94,0.4)' : undefined }} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
+                        <input className="inp" style={{ ...S.input, background: form[n] ? '#F0FBF5' : '#F0EFED', borderColor: form[n] ? 'rgba(74,122,94,0.4)' : undefined }} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
                       </div>
                     ))}
                   </div>
@@ -578,7 +578,7 @@ export default function AdminRequests() {
                 {/* Photo */}
                 <div style={{ marginBottom:20 }}>
                   <label style={S.label}>Food Photo</label>
-                  <div className="upload-zone" onClick={()=>document.getElementById('img-upload').click()} style={{ border:'2px dashed rgba(38,52,49,0.15)', borderRadius:14, padding:24, textAlign:'center', cursor:'pointer', background:'#F7F5F2', transition:'all 0.15s' }}>
+                  <div className="upload-zone" onClick={()=>document.getElementById('img-upload').click()} style={{ border:'2px dashed rgba(38,52,49,0.15)', borderRadius:14, padding:24, textAlign:'center', cursor:'pointer', background:'#F0EFED', transition:'all 0.15s' }}>
                     {imagePreview
                       ? <img src={imagePreview} alt="Preview" style={{ maxHeight:120, margin:'0 auto', borderRadius:10, objectFit:'cover', display:'block' }} />
                       : <div><div style={{ fontSize:28, marginBottom:8 }}>📷</div><div style={{ fontSize:13, color:'rgba(38,52,49,0.4)' }}>Click to upload image (max 5MB)</div></div>
@@ -602,7 +602,7 @@ export default function AdminRequests() {
           {/* Filter tabs */}
           <div style={{ display:'flex', gap:6, marginBottom:20 }}>
             {['all','pending','approved','rejected'].map(s => (
-              <button key={s} onClick={()=>setFilter(s)} style={{ padding:'7px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background: filter===s?'#263431':'#fff', color: filter===s?'#EAE7E3':'rgba(38,52,49,0.55)', boxShadow: filter===s?'0 2px 8px rgba(28,40,37,0.18)':'0 1px 4px rgba(38,52,49,0.06)', transition:'all 0.15s' }}>
+              <button key={s} onClick={()=>setFilter(s)} style={{ padding:'7px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Outfit, sans-serif', textTransform:'capitalize', background: filter===s?'#263431':'#fff', color: filter===s?'#EAE7E3':'rgba(38,52,49,0.55)', boxShadow: filter===s?'0 2px 8px rgba(28,40,37,0.18)':'0 1px 4px rgba(38,52,49,0.06)', transition:'all 0.15s' }}>
                 {s==='pending' ? 'Awaiting AR' : s==='approved' ? 'AR Active' : s.charAt(0).toUpperCase()+s.slice(1)} ({s==='all'?requests.length:requests.filter(r=>r.status===s).length})
               </button>
             ))}
@@ -622,7 +622,7 @@ export default function AdminRequests() {
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {filtered.map(req => (
                 <div key={req.id} style={{ ...S.card, padding:18, display:'flex', alignItems:'flex-start', gap:16 }}>
-                  <div style={{ width:56, height:56, borderRadius:14, overflow:'hidden', background:'#F7F5F2', flexShrink:0 }}>
+                  <div style={{ width:56, height:56, borderRadius:14, overflow:'hidden', background:'#F0EFED', flexShrink:0 }}>
                     {req.imageURL ? <img src={req.imageURL} alt={req.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🍽️</div>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
@@ -640,7 +640,7 @@ export default function AdminRequests() {
                     {req.nutritionalData && Object.values(req.nutritionalData).some(v => v != null) && (
                       <div style={{ display:'flex', gap:10, marginTop:8, flexWrap:'wrap' }}>
                         {Object.entries(req.nutritionalData).map(([k,v]) => v != null && (
-                          <span key={k} style={{ fontSize:11, color:'rgba(38,52,49,0.5)', background:'#F7F5F2', borderRadius:6, padding:'2px 8px' }}>
+                          <span key={k} style={{ fontSize:11, color:'rgba(38,52,49,0.5)', background:'#F0EFED', borderRadius:6, padding:'2px 8px' }}>
                             {k.charAt(0).toUpperCase()+k.slice(1)}: <strong>{v}</strong>{k==='calories'?'kcal':'g'}
                           </span>
                         ))}

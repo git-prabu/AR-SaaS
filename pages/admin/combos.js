@@ -10,7 +10,7 @@ const S = {
   h1:    { fontFamily:"'Playfair Display', Georgia, serif", fontWeight:800, fontSize:24, color:'#263431', margin:0, letterSpacing:'-0.3px' },
   sub:   { fontSize:13, color:'rgba(38,52,49,0.45)', marginTop:4 },
   label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box' },
+  input: { width:'100%', padding:'11px 14px', background:'#F0EFED', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Outfit, sans-serif', outline:'none', boxSizing:'border-box' },
 };
 
 const EMPTY = { name:'', description:'', comboPrice:'', itemIds:[], tag:'', isActive:true };
@@ -164,7 +164,7 @@ export default function AdminCombos() {
                     <div key={item.id} onClick={()=>toggleItem(item.id)} style={{
                       padding:'10px 12px',borderRadius:12,cursor:'pointer',transition:'all 0.15s',
                       border:`1.5px solid ${sel?'rgba(196,168,109,0.6)':'rgba(38,52,49,0.1)'}`,
-                      background:sel?'rgba(196,168,109,0.07)':'#F7F5F2',
+                      background:sel?'rgba(196,168,109,0.07)':'#F0EFED',
                       display:'flex',alignItems:'center',gap:8
                     }}>
                       <div style={{width:18,height:18,borderRadius:5,border:`2px solid ${sel?'#C4A86D':'rgba(38,52,49,0.2)'}`,background:sel?'#C4A86D':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}}>

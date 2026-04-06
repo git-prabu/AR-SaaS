@@ -10,7 +10,7 @@ const S = {
   h1:    { fontFamily:"'Playfair Display', Georgia, serif", fontWeight:800, fontSize:24, color:'#263431', margin:0, letterSpacing:'-0.3px' },
   sub:   { fontSize:13, color:'rgba(38,52,49,0.45)', marginTop:4 },
   label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box' },
+  input: { width:'100%', padding:'11px 14px', background:'#F0EFED', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Outfit, sans-serif', outline:'none', boxSizing:'border-box' },
   btn:   { padding:'11px 22px', borderRadius:10, fontSize:14, fontWeight:600, fontFamily:'Outfit, sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
 };
 
@@ -108,7 +108,7 @@ export default function AdminOffers() {
   return (
     <AdminLayout>
       <Head><title>Offers — Advert Radical</title></Head>
-      <div style={{ background:'#EAE7E3', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
+      <div style={{ background:'#EAE7E3', minHeight:'100vh', padding:32, fontFamily:'Outfit, sans-serif' }}>
         <div style={{ maxWidth:860, margin:'0 auto' }}>
           <style>{`@keyframes spin{to{transform:rotate(360deg)}} .inp:focus{border-color:rgba(138,74,66,0.5)!important} .inp::placeholder{color:rgba(38,52,49,0.3)}`}</style>
 
@@ -132,7 +132,7 @@ export default function AdminOffers() {
                   {isEditing ? '✏️ Edit Offer' : 'Create Offer'}
                 </h2>
                 {isEditing && (
-                  <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:'rgba(74,128,192,0.1)', color:'#4A80C0' }}>
+                  <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:'rgba(74,128,192,0.1)', color:'#5A7A9A' }}>
                     Editing existing offer
                   </span>
                 )}
@@ -199,7 +199,7 @@ export default function AdminOffers() {
 
                 <div style={{ display:'flex', gap:10 }}>
                   <button type="submit" disabled={saving}
-                    style={{ ...S.btn, background: isEditing ? '#4A80C0' : '#263431', color:'#EAE7E3', padding:'13px 28px', borderRadius:10, opacity:saving?0.6:1 }}>
+                    style={{ ...S.btn, background: isEditing ? '#5A7A9A' : '#263431', color:'#EAE7E3', padding:'13px 28px', borderRadius:10, opacity:saving?0.6:1 }}>
                     {saving ? 'Saving…' : isEditing ? '✓ Save Changes' : 'Create Offer'}
                   </button>
                   <button type="button" onClick={closeForm}
@@ -227,7 +227,7 @@ export default function AdminOffers() {
                 const isActive      = offer.endDate >= today && (!offer.startDate || offer.startDate <= today);
                 const isBeingEdited = editingId === offer.id;
                 return (
-                  <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16, outline: isBeingEdited ? '2px solid #4A80C0' : 'none', outlineOffset:2 }}>
+                  <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16, outline: isBeingEdited ? '2px solid #5A7A9A' : 'none', outlineOffset:2 }}>
                     {offer.linkedItemImage
                       ? <img src={offer.linkedItemImage} alt={offer.linkedItemName} style={{ width:52, height:52, borderRadius:14, objectFit:'cover', flexShrink:0 }} />
                       : <div style={{ width:52, height:52, borderRadius:14, background:'rgba(138,74,66,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>
@@ -251,7 +251,7 @@ export default function AdminOffers() {
                         {isActive ? 'Active' : 'Expired'}
                       </span>
                       <button onClick={() => isBeingEdited ? closeForm() : openEdit(offer)}
-                        style={{ height:30, padding:'0 12px', borderRadius:10, border:`1.5px solid ${isBeingEdited ? 'rgba(74,128,192,0.5)' : 'rgba(74,128,192,0.3)'}`, background: isBeingEdited ? 'rgba(74,128,192,0.12)' : 'rgba(74,128,192,0.06)', color:'#4A80C0', cursor:'pointer', fontSize:12, fontWeight:600, transition:'all 0.15s' }}>
+                        style={{ height:30, padding:'0 12px', borderRadius:10, border:`1.5px solid ${isBeingEdited ? 'rgba(74,128,192,0.5)' : 'rgba(74,128,192,0.3)'}`, background: isBeingEdited ? 'rgba(74,128,192,0.12)' : 'rgba(74,128,192,0.06)', color:'#5A7A9A', cursor:'pointer', fontSize:12, fontWeight:600, transition:'all 0.15s' }}>
                         {isBeingEdited ? '✕ Cancel' : '✏️ Edit'}
                       </button>
                       <button onClick={() => handleDelete(offer.id)}

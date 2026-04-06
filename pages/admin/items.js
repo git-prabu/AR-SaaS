@@ -14,7 +14,7 @@ const OFFER_BADGES = [
   { label: 'Chef\'s Special', color: '#8A70B0' },
   { label: 'Best Seller', color: '#8A4A42' },
   { label: 'Must Try', color: '#4A7A5E' },
-  { label: 'New', color: '#4A80C0' },
+  { label: 'New', color: '#5A7A9A' },
   { label: 'Limited', color: '#8A4A42' },
   { label: 'Custom…', color: '#263431' },
 ];
@@ -24,7 +24,7 @@ const S = {
   h1: { ...ADMIN_STYLES.h1 },
   sub: { ...ADMIN_STYLES.sub },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: T.stone, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6, fontFamily: T.font },
-  input: { width: '100%', padding: '10px 13px', background: '#F7F5F2', border: `1.5px solid ${T.sand}`, borderRadius: T.radiusBtn, fontSize: 13, color: T.ink, fontFamily: T.font, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' },
+  input: { width: '100%', padding: '10px 13px', background: '#F0EFED', border: `1.5px solid ${T.sand}`, borderRadius: T.radiusBtn, fontSize: 13, color: T.ink, fontFamily: T.font, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' },
 };
 
 async function autoTranslate(text, targetLang) {
@@ -470,7 +470,7 @@ export default function AdminItems() {
                             toast.success('Translations filled! Review and edit if needed.');
                           } catch { toast.error('Translation failed'); }
                           finally { setTranslatingEdit(false); }
-                        }} disabled={translatingEdit} style={{ padding: '4px 12px', borderRadius: 7, fontSize: 11, fontWeight: 600, border: '1.5px solid rgba(74,128,192,0.4)', background: 'rgba(74,128,192,0.06)', color: '#4A80C0', cursor: translatingEdit ? 'not-allowed' : 'pointer', opacity: translatingEdit ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                        }} disabled={translatingEdit} style={{ padding: '4px 12px', borderRadius: 7, fontSize: 11, fontWeight: 600, border: '1.5px solid rgba(74,128,192,0.4)', background: 'rgba(74,128,192,0.06)', color: '#5A7A9A', cursor: translatingEdit ? 'not-allowed' : 'pointer', opacity: translatingEdit ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                           {translatingEdit ? '⏳ Translating…' : '✦ Auto Translate'}
                         </button>
                       </div>
@@ -583,7 +583,7 @@ export default function AdminItems() {
                                         : [...(d.pairsWith || []), i.id]
                                     }));
                                   }}
-                                  style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: maxed ? 'not-allowed' : 'pointer', border: `1.5px solid ${sel ? 'rgba(196,168,109,0.6)' : 'rgba(38,52,49,0.1)'}`, background: sel ? 'rgba(196,168,109,0.1)' : '#F7F5F2', color: sel ? '#A06010' : 'rgba(38,52,49,0.5)', opacity: maxed ? 0.4 : 1, transition: 'all 0.15s' }}>
+                                  style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: maxed ? 'not-allowed' : 'pointer', border: `1.5px solid ${sel ? 'rgba(196,168,109,0.6)' : 'rgba(38,52,49,0.1)'}`, background: sel ? 'rgba(196,168,109,0.1)' : '#F0EFED', color: sel ? '#A06010' : 'rgba(38,52,49,0.5)', opacity: maxed ? 0.4 : 1, transition: 'all 0.15s' }}>
                                   {sel ? '✓ ' : ''}{i.name}
                                 </button>
                               );

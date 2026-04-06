@@ -13,7 +13,7 @@ const OFFER_BADGES = [
   { label:'Chef\'s Special', color:'#8A70B0' },
   { label:'Best Seller',     color:'#8A4A42' },
   { label:'Must Try',        color:'#4A7A5E' },
-  { label:'New',             color:'#4A80C0' },
+  { label:'New',             color:'#5A7A9A' },
   { label:'Limited',         color:'#8A4A42' },
   { label:'Custom…',         color:'#263431' },
 ];
@@ -23,7 +23,7 @@ const S = {
   h1:    { fontFamily:"'Playfair Display', Georgia, serif", fontWeight:800, fontSize:24, color:'#263431', margin:0, letterSpacing:'-0.3px' },
   sub:   { fontSize:13, color:'rgba(38,52,49,0.45)', marginTop:4 },
   label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'10px 13px', background:'#F7F5F2', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:11, fontSize:13, color:'#263431', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
+  input: { width:'100%', padding:'10px 13px', background:'#F0EFED', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:11, fontSize:13, color:'#263431', fontFamily:'Outfit, sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
 };
 
 export default function AdminItems() {
@@ -206,7 +206,7 @@ export default function AdminItems() {
   return (
     <AdminLayout>
       <Head><title>Menu Items — Advert Radical</title></Head>
-      <div style={{ background:'#EAE7E3', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
+      <div style={{ background:'#EAE7E3', minHeight:'100vh', padding:32, fontFamily:'Outfit, sans-serif' }}>
         <div style={{ maxWidth:1000, margin:'0 auto' }}>
           <style>{`
             @keyframes spin{to{transform:rotate(360deg)}}
@@ -236,7 +236,7 @@ export default function AdminItems() {
             </div>
             <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
               {categories.map(c => (
-                <button key={c} onClick={()=>setCatFilter(c)} style={{ padding:'9px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background:catFilter===c?'#263431':'#fff', color:catFilter===c?'#EAE7E3':'rgba(38,52,49,0.55)', boxShadow:catFilter===c?'0 2px 8px rgba(28,40,37,0.18)':'0 1px 4px rgba(38,52,49,0.06)', transition:'all 0.15s' }}>
+                <button key={c} onClick={()=>setCatFilter(c)} style={{ padding:'9px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Outfit, sans-serif', textTransform:'capitalize', background:catFilter===c?'#263431':'#fff', color:catFilter===c?'#EAE7E3':'rgba(38,52,49,0.55)', boxShadow:catFilter===c?'0 2px 8px rgba(28,40,37,0.18)':'0 1px 4px rgba(38,52,49,0.06)', transition:'all 0.15s' }}>
                   {c === 'all' ? `All (${items.length})` : c}
                 </button>
               ))}
@@ -347,7 +347,7 @@ export default function AdminItems() {
 
                     {/* Edit panel */}
                     {isEdit && (
-                      <div style={{ background:'#F7F5F2', borderBottom:'1px solid rgba(38,52,49,0.06)', padding:'20px 18px 24px' }}>
+                      <div style={{ background:'#F0EFED', borderBottom:'1px solid rgba(38,52,49,0.06)', padding:'20px 18px 24px' }}>
                         <div style={{ fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:14, color:'#263431', marginBottom:18 }}>✏️ Editing: {item.name}</div>
 
                         {/* Cover image upload */}
@@ -486,7 +486,7 @@ export default function AdminItems() {
                                         : [...(d.pairsWith||[]), i.id]
                                     }));
                                   }}
-                                  style={{ padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor: maxed?'not-allowed':'pointer', border:`1.5px solid ${sel?'rgba(196,168,109,0.6)':'rgba(38,52,49,0.1)'}`, background: sel?'rgba(196,168,109,0.1)':'#F7F5F2', color: sel?'#A06010':'rgba(38,52,49,0.5)', opacity: maxed?0.4:1, transition:'all 0.15s' }}>
+                                  style={{ padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor: maxed?'not-allowed':'pointer', border:`1.5px solid ${sel?'rgba(196,168,109,0.6)':'rgba(38,52,49,0.1)'}`, background: sel?'rgba(196,168,109,0.1)':'#F0EFED', color: sel?'#A06010':'rgba(38,52,49,0.5)', opacity: maxed?0.4:1, transition:'all 0.15s' }}>
                                   {sel ? '✓ ' : ''}{i.name}
                                 </button>
                               );

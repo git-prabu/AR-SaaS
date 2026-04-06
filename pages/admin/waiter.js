@@ -7,7 +7,7 @@ import { resolveWaiterCall, updateOrderStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useAdminOrders, useAdminWaiterCalls } from '../../contexts/AdminDataContext';
-import { timeAgo } from '../../lib/utils';
+import { timeAgo, T } from '../../lib/utils';
 
 function isToday(seconds) {
   if (!seconds) return false;
@@ -25,12 +25,12 @@ const CALL_ICONS = {
   order: '🍽', bill: '🧾', water: '💧', condiment: '🧂', issue: '⚠', other: '🔔',
 };
 const CALL_COLORS = {
-  order: { color: '#F79B3D', bg: 'rgba(247,155,61,0.1)', label: 'Take Order' },
-  bill:  { color: '#E05A3A', bg: 'rgba(224,90,58,0.1)',  label: 'Bill Please' },
+  order: { color: '#C4A86D', bg: 'rgba(196,168,109,0.1)', label: 'Take Order' },
+  bill:  { color: '#8A4A42', bg: 'rgba(138,74,66,0.1)',  label: 'Bill Please' },
   water: { color: '#4A9FD4', bg: 'rgba(74,159,212,0.1)', label: 'Water Refill' },
   condiment: { color: '#8B6F47', bg: 'rgba(139,111,71,0.1)', label: 'Condiments' },
   issue: { color: '#DC2626', bg: 'rgba(220,38,38,0.1)', label: 'Issue at Table' },
-  other: { color: '#6366F1', bg: 'rgba(99,102,241,0.1)', label: 'Assistance' },
+  other: { color: '#5A8A9A', bg: 'rgba(99,102,241,0.1)', label: 'Assistance' },
 };
 
 function getCallMeta(reason) {
@@ -170,35 +170,35 @@ export default function WaiterDashboard() {
   ];
 
   const MainContent = (
-    <div style={{ fontFamily: 'Inter,sans-serif' }}>
+    <div style={{ fontFamily: T.font }}>
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Pending Calls',   value: pendingCalls.length,   color: '#E05A3A', bg: 'rgba(224,90,58,0.07)',   icon: '🔔' },
-          { label: 'Ready to Serve',  value: readyOrders.length,    color: '#2D8B4E', bg: 'rgba(45,139,78,0.07)',   icon: '🍽' },
-          { label: 'Resolved Today',  value: resolvedToday.length,  color: '#6366F1', bg: 'rgba(99,102,241,0.07)', icon: '✅' },
+          { label: 'Pending Calls',   value: pendingCalls.length,   color: '#8A4A42', bg: 'rgba(138,74,66,0.07)',   icon: '🔔' },
+          { label: 'Ready to Serve',  value: readyOrders.length,    color: '#4A7A5E', bg: 'rgba(74,122,94,0.07)',   icon: '🍽' },
+          { label: 'Resolved Today',  value: resolvedToday.length,  color: '#5A8A9A', bg: 'rgba(99,102,241,0.07)', icon: '✅' },
         ].map(c => (
           <div key={c.label} style={{ background: c.bg, border: `1.5px solid ${c.color}30`, borderRadius: 16, padding: '20px 22px' }}>
             <div style={{ fontSize: 22, marginBottom: 8 }}>{c.icon}</div>
-            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 32, color: c.color, lineHeight: 1 }}>{c.value}</div>
-            <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.5)', fontWeight: 600, marginTop: 6 }}>{c.label}</div>
+            <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 32, color: c.color, lineHeight: 1 }}>{c.value}</div>
+            <div style={{ fontSize: 12, color: T.stone, fontWeight: 600, marginTop: 6 }}>{c.label}</div>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', background: 'rgba(42,31,16,0.05)', borderRadius: 10, padding: 3, gap: 3, marginBottom: 18, width: 'fit-content' }}>
+      <div style={{ display: 'flex', background: 'rgba(38,52,49,0.05)', borderRadius: 10, padding: 3, gap: 3, marginBottom: 18, width: 'fit-content' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            fontWeight: 600, fontSize: 13, position: 'relative',
+            fontWeight: 600, fontSize: 13, position: 'relative', fontFamily: T.font,
             background: tab === t.key ? '#fff' : 'transparent',
-            color: tab === t.key ? '#1E1B18' : 'rgba(42,31,16,0.5)',
-            boxShadow: tab === t.key ? '0 1px 6px rgba(42,31,16,0.1)' : 'none',
+            color: tab === t.key ? T.ink : T.stone,
+            boxShadow: tab === t.key ? '0 1px 6px rgba(38,52,49,0.1)' : 'none',
           }}>
             {t.label}
             {t.badge > 0 && (
-              <span style={{ marginLeft: 6, background: '#E05A3A', color: '#fff', borderRadius: 20, padding: '1px 6px', fontSize: 11, fontWeight: 800 }}>
+              <span style={{ marginLeft: 6, background: '#8A4A42', color: '#fff', borderRadius: 20, padding: '1px 6px', fontSize: 11, fontWeight: 800 }}>
                 {t.badge}
               </span>
             )}
@@ -210,9 +210,9 @@ export default function WaiterDashboard() {
       {tab === 'calls' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pendingCalls.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(42,31,16,0.03)', borderRadius: 14, border: '1px dashed rgba(42,31,16,0.1)' }}>
+            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(38,52,49,0.03)', borderRadius: 14, border: `1px dashed rgba(38,52,49,0.1)` }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
-              <div style={{ fontWeight: 700, color: 'rgba(42,31,16,0.5)' }}>No pending calls</div>
+              <div style={{ fontWeight: 700, color: T.stone }}>No pending calls</div>
             </div>
           ) : pendingCalls.map(call => {
             const meta = getCallMeta(call.reason);
@@ -220,30 +220,30 @@ export default function WaiterDashboard() {
             return (
               <div key={call.id} style={{
                 background: '#fff', borderRadius: 14, padding: '16px 18px',
-                border: `1.5px solid ${waiting ? '#E05A3A' : meta.color}33`,
-                borderLeft: `4px solid ${waiting ? '#E05A3A' : meta.color}`,
-                boxShadow: waiting ? '0 2px 16px rgba(224,90,58,0.1)' : '0 2px 8px rgba(42,31,16,0.05)',
+                border: `1.5px solid ${waiting ? '#8A4A42' : meta.color}33`,
+                borderLeft: `4px solid ${waiting ? '#8A4A42' : meta.color}`,
+                boxShadow: waiting ? '0 2px 16px rgba(138,74,66,0.1)' : '0 2px 8px rgba(38,52,49,0.05)',
                 display: 'flex', alignItems: 'center', gap: 14,
                 animation: waiting ? 'callPulse 2s infinite' : 'none',
               }}>
                 <div style={{ fontSize: 30, flexShrink: 0 }}>{meta.icon}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: '#1E1B18' }}>
+                    <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 16, color: T.ink }}>
                       Table {call.tableNumber || '—'}
                     </div>
                     <div style={{ padding: '2px 10px', borderRadius: 20, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700 }}>
                       {meta.label}
                     </div>
-                    {waiting && <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(224,90,58,0.1)', color: '#E05A3A', fontSize: 11, fontWeight: 700 }}>Waiting long</div>}
+                    {waiting && <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(138,74,66,0.1)', color: '#8A4A42', fontSize: 11, fontWeight: 700 }}>Waiting long</div>}
                   </div>
-                  {call.reason && <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.5)', marginBottom: 2 }}>"{call.reason}"</div>}
-                  <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>{timeAgo(call.createdAt?.seconds)}</div>
+                  {call.reason && <div style={{ fontSize: 13, color: T.stone, marginBottom: 2 }}>"{call.reason}"</div>}
+                  <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.35)' }}>{timeAgo(call.createdAt?.seconds)}</div>
                 </div>
                 <button onClick={() => handleResolveCall(call)} disabled={resolvingCall === call.id} style={{
                   padding: '10px 18px', borderRadius: 10, border: 'none',
-                  background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)',
-                  color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                  background: 'linear-gradient(135deg,#4A7A5E,#3A6A4E)',
+                  color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: T.font,
                   opacity: resolvingCall === call.id ? 0.6 : 1, flexShrink: 0,
                 }}>
                   {resolvingCall === call.id ? '…' : 'Resolve'}
@@ -258,37 +258,37 @@ export default function WaiterDashboard() {
       {tab === 'serve' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {readyOrders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(42,31,16,0.03)', borderRadius: 14, border: '1px dashed rgba(42,31,16,0.1)' }}>
+            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(38,52,49,0.03)', borderRadius: 14, border: `1px dashed rgba(38,52,49,0.1)` }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}>👨‍🍳</div>
-              <div style={{ fontWeight: 700, color: 'rgba(42,31,16,0.5)' }}>No orders ready yet</div>
+              <div style={{ fontWeight: 700, color: T.stone }}>No orders ready yet</div>
             </div>
           ) : readyOrders.map(order => (
             <div key={order.id} style={{
               background: '#fff', borderRadius: 14, padding: '16px 18px',
-              border: '1.5px solid rgba(45,139,78,0.3)', borderLeft: '4px solid #2D8B4E',
-              boxShadow: '0 2px 14px rgba(45,139,78,0.1)',
+              border: '1.5px solid rgba(74,122,94,0.3)', borderLeft: '4px solid #4A7A5E',
+              boxShadow: '0 2px 14px rgba(74,122,94,0.1)',
               display: 'flex', alignItems: 'center', gap: 14,
             }}>
               <div style={{ fontSize: 30, flexShrink: 0 }}>🍽</div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 16, color: '#1E1B18', marginBottom: 6 }}>
+                <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 16, color: T.ink, marginBottom: 6 }}>
                   {order.tableNumber ? `Table ${order.tableNumber}` : 'No Table'}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 4 }}>
                   {(order.items || []).map((item, i) => (
-                    <div key={i} style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.08)', color: '#2D8B4E', fontSize: 12, fontWeight: 600 }}>
+                    <div key={i} style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(74,122,94,0.08)', color: '#4A7A5E', fontSize: 12, fontWeight: 600 }}>
                       {item.qty}x {item.name}
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>
+                <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.35)' }}>
                   Ready {timeAgo(order.updatedAt?.seconds || order.createdAt?.seconds)}
                 </div>
               </div>
               <button onClick={() => handleMarkServed(order)} disabled={servingOrder === order.id} style={{
                 padding: '10px 18px', borderRadius: 10, border: 'none',
-                background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)',
-                color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                background: 'linear-gradient(135deg,#4A7A5E,#3A6A4E)',
+                color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: T.font,
                 opacity: servingOrder === order.id ? 0.6 : 1, flexShrink: 0,
               }}>
                 {servingOrder === order.id ? '…' : 'Mark Served'}
@@ -301,26 +301,26 @@ export default function WaiterDashboard() {
       {/* Tab: History */}
       {tab === 'history' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(42,31,16,0.45)', marginBottom: 6 }}>Resolved calls — all time ({historyItems.length})</div>
-          {historyItems.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'rgba(42,31,16,0.3)' }}>No history yet</div>}
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.stone, marginBottom: 6 }}>Resolved calls — all time ({historyItems.length})</div>
+          {historyItems.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'rgba(38,52,49,0.3)' }}>No history yet</div>}
           {historyItems.map(call => {
             const meta = getCallMeta(call.reason);
             const waitSec = call.resolvedAt?.seconds && call.createdAt?.seconds
               ? call.resolvedAt.seconds - call.createdAt.seconds : null;
             const waitMin = waitSec !== null ? Math.round(waitSec / 60) : null;
             return (
-              <div key={call.id} style={{ background: 'rgba(42,31,16,0.02)', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div key={call.id} style={{ background: 'rgba(38,52,49,0.02)', border: '1px solid rgba(38,52,49,0.07)', borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ fontSize: 18 }}>{meta.icon}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: '#1E1B18' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: T.ink }}>
                     Table {call.tableNumber || '—'} — {meta.label}
                   </div>
-                  <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.4)', marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.4)', marginTop: 2 }}>
                     {timeAgo(call.createdAt?.seconds)}
                     {waitMin !== null && ` · Resolved in ${waitMin < 1 ? '<1' : waitMin}m`}
                   </div>
                 </div>
-                <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.08)', color: '#2D8B4E', fontSize: 11, fontWeight: 700 }}>Resolved</div>
+                <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(74,122,94,0.08)', color: '#4A7A5E', fontSize: 11, fontWeight: 700 }}>Resolved</div>
               </div>
             );
           })}
@@ -335,12 +335,12 @@ export default function WaiterDashboard() {
         <Head><title>Waiter Dashboard | Advert Radical</title></Head>
         <div style={{ padding: '28px 32px', maxWidth: 1000, paddingBottom: 60 }}>
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18' }}>Waiter Dashboard</div>
-            <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 }}>Live calls and ready-to-serve orders</div>
+            <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 22, color: T.ink }}>Waiter Dashboard</div>
+            <div style={{ fontSize: 13, color: T.stone, marginTop: 4, fontFamily: T.font }}>Live calls and ready-to-serve orders</div>
           </div>
           {MainContent}
         </div>
-        <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(42,31,16,0.05)} 50%{box-shadow:0 2px 20px rgba(224,90,58,0.2)} }`}</style>
+        <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(38,52,49,0.05)} 50%{box-shadow:0 2px 20px rgba(138,74,66,0.2)} }`}</style>
       </AdminLayout>
     );
   }
@@ -349,31 +349,31 @@ export default function WaiterDashboard() {
   return (
     <>
       <Head><title>Waiter Dashboard | Advert Radical</title></Head>
-      <div style={{ minHeight: '100vh', background: '#F9F6F1', fontFamily: 'Inter,sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: T.cream, fontFamily: T.font }}>
         {/* Staff header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid rgba(42,31,16,0.08)', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: '#fff', borderBottom: `1px solid rgba(38,52,49,0.08)`, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 16 }}>
-              <span style={{ color: '#1E1B18' }}>Advert </span><span style={{ color: '#F79B3D' }}>Radical</span>
+            <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 16 }}>
+              <span style={{ color: T.ink }}>Advert </span><span style={{ color: '#C4A86D' }}>Radical</span>
             </div>
-            <div style={{ width: 1, height: 18, background: 'rgba(42,31,16,0.15)' }} />
-            <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.5)', fontWeight: 600 }}>{staffSession?.restaurantName}</div>
+            <div style={{ width: 1, height: 18, background: 'rgba(38,52,49,0.15)' }} />
+            <div style={{ fontSize: 13, color: T.stone, fontWeight: 600 }}>{staffSession?.restaurantName}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.45)' }}>
-              <span style={{ color: '#F79B3D', fontWeight: 700 }}>{staffSession?.name}</span>
+            <div style={{ fontSize: 12, color: T.stone }}>
+              <span style={{ color: '#C4A86D', fontWeight: 700 }}>{staffSession?.name}</span>
             </div>
-            <button onClick={staffLogout} style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(42,31,16,0.15)', background: '#fff', color: 'rgba(42,31,16,0.5)', cursor: 'pointer', fontSize: 12 }}>
+            <button onClick={staffLogout} style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid rgba(38,52,49,0.15)`, background: '#fff', color: T.stone, cursor: 'pointer', fontSize: 12, fontFamily: T.font }}>
               Sign Out
             </button>
           </div>
         </div>
         <div style={{ padding: '20px 16px', maxWidth: 640, margin: '0 auto' }}>
-          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: '#1E1B18', marginBottom: 16 }}>Waiter Dashboard</div>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 20, color: T.ink, marginBottom: 16 }}>Waiter Dashboard</div>
           {MainContent}
         </div>
       </div>
-      <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(42,31,16,0.05)} 50%{box-shadow:0 2px 20px rgba(224,90,58,0.2)} }`}</style>
+      <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(38,52,49,0.05)} 50%{box-shadow:0 2px 20px rgba(138,74,66,0.2)} }`}</style>
     </>
   );
 }

@@ -280,7 +280,7 @@ export default function AdminLogin() {
             {/* Mobile-only logo */}
             <div className="al-mobile-logo" style={{marginBottom:32}}>
               <Link href="/" style={{textDecoration:'none'}}>
-                <span style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#EAE7E3'}}>
+                <span style={{fontFamily:'Outfit, sans-serif', fontWeight:800, fontSize:18, color:'#EAE7E3'}}>
                   Advert <span style={{background:'linear-gradient(135deg,#8A4A42,#C4A86D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
                 </span>
               </Link>

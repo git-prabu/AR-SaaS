@@ -19,7 +19,7 @@ const S = {
   sub: { fontSize: 13, color: 'rgba(38,52,49,0.45)', marginTop: 4 },
   label: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.38)' },
 };
-const tip = { backgroundColor: '#263431', border: 'none', borderRadius: 10, color: '#EAE7E3', fontSize: 12, fontFamily: 'Inter,sans-serif', padding: '8px 14px' };
+const tip = { backgroundColor: '#263431', border: 'none', borderRadius: 10, color: '#EAE7E3', fontSize: 12, fontFamily: 'Outfit, sans-serif', padding: '8px 14px' };
 const tipLabel = { color: '#EAE7E3', fontWeight: 600 };
 const tipItem = { color: 'rgba(234,231,227,0.8)' };
 const CAT_COLORS = ['#9B5B53', '#C4A86D', '#8A7A6A', '#5A8A6E', '#5A8A9A', '#9B5B53', '#7AAA8E', '#F4D070'];
@@ -255,7 +255,7 @@ export default function AdminAnalytics() {
     <AdminLayout>
       <Head><title>Analytics — Advert Radical</title></Head>
       <div style={{ background: '#EAE7E3', minHeight: '100vh', padding: 32 }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: 'Inter,sans-serif' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: 'Outfit, sans-serif' }}>
           <style>{`
             @keyframes spin  { to { transform:rotate(360deg) } }
             @keyframes fadeUp{ from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
@@ -271,11 +271,11 @@ export default function AdminAnalytics() {
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               {[7, 30, 90].map(d => (
-                <button key={d} onClick={() => setRange(d)} style={{ padding: '8px 18px', borderRadius: 30, border: range === d ? '1.5px solid #C4A86D' : '1.5px solid transparent', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter,sans-serif', transition: 'all 0.15s', background: range === d ? 'rgba(196,168,109,0.15)' : '#fff', color: range === d ? '#8A6A30' : 'rgba(38,52,49,0.55)', boxShadow: range === d ? '0 2px 10px rgba(196,168,109,0.25)' : '0 1px 4px rgba(38,52,49,0.06)' }}>
+                <button key={d} onClick={() => setRange(d)} style={{ padding: '8px 18px', borderRadius: 30, border: range === d ? '1.5px solid #C4A86D' : '1.5px solid transparent', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all 0.15s', background: range === d ? 'rgba(196,168,109,0.15)' : '#fff', color: range === d ? '#8A6A30' : 'rgba(38,52,49,0.55)', boxShadow: range === d ? '0 2px 10px rgba(196,168,109,0.25)' : '0 1px 4px rgba(38,52,49,0.06)' }}>
                   {d}d
                 </button>
               ))}
-              <button onClick={exportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', borderRadius: 30, border: '1.5px solid rgba(196,168,109,0.35)', background: 'linear-gradient(135deg, #FFFDF7, #FFF9ED)', color: '#8A6A30', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter,sans-serif', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(196,168,109,0.12)' }}
+              <button onClick={exportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', borderRadius: 30, border: '1.5px solid rgba(196,168,109,0.35)', background: 'linear-gradient(135deg, #FFFDF7, #FFF9ED)', color: '#8A6A30', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all 0.2s', boxShadow: '0 1px 4px rgba(196,168,109,0.12)' }}
                 onMouseOver={e => { e.currentTarget.style.borderColor = '#C4A86D'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(196,168,109,0.25)'; e.currentTarget.style.color = '#6A5020'; }}
                 onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(196,168,109,0.35)'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(196,168,109,0.12)'; e.currentTarget.style.color = '#8A6A30'; }}>
                 ↓ Export CSV
@@ -306,7 +306,7 @@ export default function AdminAnalytics() {
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
             {[['overview', '📊 Overview'], ['orders', '🛒 Orders & Revenue'], ['menu', '🔥 Menu Performance']].map(([id, label]) => (
-              <button key={id} onClick={() => setTab(id)} style={{ padding: '11px 24px', borderRadius: 30, border: tab === id ? '1.5px solid #C4A86D' : '1.5px solid transparent', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter,sans-serif', transition: 'all 0.15s', background: tab === id ? '#263431' : '#fff', color: tab === id ? '#F0E6CE' : 'rgba(38,52,49,0.55)', boxShadow: tab === id ? '0 3px 12px rgba(28,40,37,0.25)' : '0 1px 4px rgba(38,52,49,0.06)' }}>
+              <button key={id} onClick={() => setTab(id)} style={{ padding: '11px 24px', borderRadius: 30, border: tab === id ? '1.5px solid #C4A86D' : '1.5px solid transparent', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all 0.15s', background: tab === id ? '#263431' : '#fff', color: tab === id ? '#F0E6CE' : 'rgba(38,52,49,0.55)', boxShadow: tab === id ? '0 3px 12px rgba(28,40,37,0.25)' : '0 1px 4px rgba(38,52,49,0.06)' }}>
                 {label}
               </button>
             ))}

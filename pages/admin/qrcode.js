@@ -244,7 +244,7 @@ export default function AdminQRCode() {
                     <label style={S.label}>Size</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {SIZES.map(sz => (
-                        <div key={sz.value} onClick={() => setSelectedSize(sz)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: `1.5px solid ${selectedSize.value === sz.value ? 'rgba(74,122,94,0.4)' : 'rgba(38,52,49,0.08)'}`, background: selectedSize.value === sz.value ? 'rgba(74,122,94,0.05)' : '#F7F5F2', cursor: 'pointer', transition: 'all 0.15s' }}>
+                        <div key={sz.value} onClick={() => setSelectedSize(sz)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: `1.5px solid ${selectedSize.value === sz.value ? 'rgba(74,122,94,0.4)' : 'rgba(38,52,49,0.08)'}`, background: selectedSize.value === sz.value ? 'rgba(74,122,94,0.05)' : '#F0EFED', cursor: 'pointer', transition: 'all 0.15s' }}>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: '#263431' }}>{sz.label}</div>
                             <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.45)', marginTop: 2 }}>{sz.desc}</div>
@@ -347,7 +347,7 @@ export default function AdminQRCode() {
 
                     {/* Progress placeholder for generating */}
                     {generatingTables && Array.from({ length: tableCount - tableQRs.length }, (_, i) => (
-                      <div key={`placeholder-${i}`} style={{ borderRadius: 16, border: '2px solid rgba(38,52,49,0.07)', background: '#F7F5F2', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 160 }}>
+                      <div key={`placeholder-${i}`} style={{ borderRadius: 16, border: '2px solid rgba(38,52,49,0.07)', background: '#F0EFED', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 160 }}>
                         <div style={{ width: 24, height: 24, border: '2px solid rgba(38,52,49,0.15)', borderTopColor: '#C4A86D', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                       </div>
                     ))}
@@ -405,7 +405,7 @@ export default function AdminQRCode() {
                     const dotColor = valid ? (expiringSoon ? '#C4A86D' : '#4A7A5E') : 'rgba(38,52,49,0.2)';
 
                     return (
-                      <div key={tableNum} style={{ borderRadius: 14, border: `1.5px solid ${valid ? (expiringSoon ? 'rgba(196,168,109,0.35)' : 'rgba(74,122,94,0.3)') : 'rgba(38,52,49,0.08)'}`, background: valid ? (expiringSoon ? 'rgba(196,168,109,0.05)' : 'rgba(74,122,94,0.05)') : '#F7F5F2', padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div key={tableNum} style={{ borderRadius: 14, border: `1.5px solid ${valid ? (expiringSoon ? 'rgba(196,168,109,0.35)' : 'rgba(74,122,94,0.3)') : 'rgba(38,52,49,0.08)'}`, background: valid ? (expiringSoon ? 'rgba(196,168,109,0.05)' : 'rgba(74,122,94,0.05)') : '#F0EFED', padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
                         {/* Table number + status dot */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

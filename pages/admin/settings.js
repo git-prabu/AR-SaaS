@@ -4,11 +4,12 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById, updateRestaurant } from '../../lib/db';
 import toast from 'react-hot-toast';
+import { T } from '../../lib/utils';
 
 const S = {
-  label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(42,31,16,0.5)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6 },
-  input: { width: '100%', padding: '11px 14px', background: '#F7F5F2', border: '1.5px solid rgba(42,31,16,0.09)', borderRadius: 11, fontSize: 14, color: '#1E1B18', fontFamily: 'Inter,sans-serif', outline: 'none', boxSizing: 'border-box' },
-  card: { background: '#fff', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 20, padding: '24px 26px', marginBottom: 20, boxShadow: '0 2px 12px rgba(42,31,16,0.04)' },
+  label: { display: 'block', fontSize: 12, fontWeight: 600, color: T.stone, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6 },
+  input: { width: '100%', padding: '11px 14px', background: T.cream, border: `1.5px solid ${T.sand}`, borderRadius: 11, fontSize: 14, color: T.ink, fontFamily: T.font, outline: 'none', boxSizing: 'border-box' },
+  card: { background: T.white, border: `1px solid ${T.sand}`, borderRadius: T.radiusCard, padding: '24px 26px', marginBottom: 20, boxShadow: T.shadowCard },
 };
 
 export default function AdminSettings() {
@@ -74,7 +75,7 @@ export default function AdminSettings() {
   if (loading) return (
     <AdminLayout>
       <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}>
-        <div style={{ width: 32, height: 32, border: '3px solid #F79B3D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 32, height: 32, border: `3px solid ${T.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     </AdminLayout>
@@ -83,18 +84,18 @@ export default function AdminSettings() {
   return (
     <AdminLayout>
       <Head><title>Settings | Advert Radical</title></Head>
-      <div style={{ padding: '28px 32px', maxWidth: 720, paddingBottom: 60, fontFamily: 'Inter,sans-serif' }}>
+      <div style={{ padding: '28px 32px', maxWidth: 720, paddingBottom: 60, fontFamily: T.font }}>
 
         {/* Header */}
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18' }}>Settings</div>
-          <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 }}>Manage GST, billing details, and restaurant info shown on bills</div>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 22, color: T.ink }}>Settings</div>
+          <div style={{ fontSize: 13, color: 'rgba(38,52,49,0.45)', marginTop: 4 }}>Manage GST, billing details, and restaurant info shown on bills</div>
         </div>
 
         {/* GST & Billing */}
         <div style={S.card}>
-          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: '#1E1B18', marginBottom: 4 }}>GST & Billing</div>
-          <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.45)', marginBottom: 20 }}>These values appear on every customer bill. CGST & SGST will each be half of the GST %.</div>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 15, color: T.ink, marginBottom: 4 }}>GST & Billing</div>
+          <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.45)', marginBottom: 20 }}>These values appear on every customer bill. CGST & SGST will each be half of the GST %.</div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
@@ -103,10 +104,10 @@ export default function AdminSettings() {
                 <input type="number" min="0" max="100" step="0.5"
                   value={gstPercent} onChange={e => setGstPercent(e.target.value)}
                   style={S.input} placeholder="e.g. 5" />
-                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(42,31,16,0.4)', fontWeight: 600 }}>%</span>
+                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(38,52,49,0.4)', fontWeight: 600 }}>%</span>
               </div>
               {gstPercent && !isNaN(parseFloat(gstPercent)) && (
-                <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.45)', marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.45)', marginTop: 6 }}>
                   CGST {(parseFloat(gstPercent) / 2).toFixed(1)}% + SGST {(parseFloat(gstPercent) / 2).toFixed(1)}%
                 </div>
               )}
@@ -117,7 +118,7 @@ export default function AdminSettings() {
                 <input type="number" min="0" max="30" step="0.5"
                   value={serviceChargePercent} onChange={e => setServiceChargePercent(e.target.value)}
                   style={S.input} placeholder="e.g. 3 (or 0 to disable)" />
-                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(42,31,16,0.4)', fontWeight: 600 }}>%</span>
+                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(38,52,49,0.4)', fontWeight: 600 }}>%</span>
               </div>
             </div>
           </div>
@@ -132,8 +133,8 @@ export default function AdminSettings() {
 
         {/* Restaurant Info */}
         <div style={S.card}>
-          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: '#1E1B18', marginBottom: 4 }}>Restaurant Info on Bill</div>
-          <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.45)', marginBottom: 20 }}>Shown at the top of printed bills and digital receipts.</div>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 15, color: T.ink, marginBottom: 4 }}>Restaurant Info on Bill</div>
+          <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.45)', marginBottom: 20 }}>Shown at the top of printed bills and digital receipts.</div>
 
           <div style={{ marginBottom: 14 }}>
             <label style={S.label}>Restaurant Name</label>
@@ -158,29 +159,29 @@ export default function AdminSettings() {
 
         {/* UPI Payment Settings */}
         <div style={S.card}>
-          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: '#1E1B18', marginBottom: 4 }}>UPI Payment</div>
-          <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.45)', marginBottom: 20 }}>Allow customers to pay directly via UPI from their phone. Leave blank to hide UPI option on the bill.</div>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 15, color: T.ink, marginBottom: 4 }}>UPI Payment</div>
+          <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.45)', marginBottom: 20 }}>Allow customers to pay directly via UPI from their phone. Leave blank to hide UPI option on the bill.</div>
 
           <div>
             <label style={S.label}>UPI ID</label>
             <input value={upiId} onChange={e => setUpiId(e.target.value)}
               style={{ ...S.input, fontFamily: 'monospace' }}
               placeholder="e.g. yourrestaurant@ybl or 9876543210@paytm" />
-            <div style={{ fontSize: 11, color: 'rgba(42,31,16,0.4)', marginTop: 6 }}>
+            <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 6 }}>
               Your UPI ID from GPay, PhonePe, Paytm, or any UPI app. Customers will be able to pay you directly.
             </div>
           </div>
         </div>
 
         {/* Preview */}
-        <div style={{ background: 'rgba(247,155,61,0.05)', border: '1.5px solid rgba(247,155,61,0.2)', borderRadius: 16, padding: '18px 22px', marginBottom: 24 }}>
-          <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: '#1E1B18', marginBottom: 10 }}>Bill Preview</div>
-          <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.6)', lineHeight: 1.8, fontFamily: 'monospace' }}>
+        <div style={{ background: 'rgba(196,168,109,0.05)', border: '1.5px solid rgba(196,168,109,0.2)', borderRadius: 16, padding: '18px 22px', marginBottom: 24 }}>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: T.ink, marginBottom: 10 }}>Bill Preview</div>
+          <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.6)', lineHeight: 1.8, fontFamily: 'monospace' }}>
             <div style={{ fontWeight: 700, fontSize: 14, textAlign: 'center' }}>{restaurantName || 'Your Restaurant'}</div>
             {address && <div style={{ textAlign: 'center', marginTop: 2 }}>{address}</div>}
             {phone && <div style={{ textAlign: 'center' }}>Phone: {phone}</div>}
             {gstNumber && <div style={{ textAlign: 'center' }}>GSTIN: {gstNumber}</div>}
-            <div style={{ borderTop: '1px dashed rgba(42,31,16,0.2)', margin: '8px 0' }} />
+            <div style={{ borderTop: '1px dashed rgba(38,52,49,0.2)', margin: '8px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span>₹XXX.00</span></div>
             {parseFloat(serviceChargePercent) > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service Charge ({serviceChargePercent}%)</span><span>₹XX.XX</span></div>}
             {parseFloat(gstPercent) > 0 && <>
@@ -188,14 +189,14 @@ export default function AdminSettings() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>S.G.S.T {(parseFloat(gstPercent)/2).toFixed(1)}%</span><span>₹XX.XX</span></div>
             </>}
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Round off</span><span>+0.XX</span></div>
-            <div style={{ borderTop: '1px dashed rgba(42,31,16,0.2)', margin: '8px 0' }} />
+            <div style={{ borderTop: '1px dashed rgba(38,52,49,0.2)', margin: '8px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 14 }}><span>Grand Total</span><span>₹XXX</span></div>
             {fssaiNo && <div style={{ marginTop: 6, textAlign: 'center', fontSize: 11 }}>FSSAI Lic. No. {fssaiNo}</div>}
           </div>
         </div>
 
         <button onClick={handleSave} disabled={saving}
-          style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', background: saving ? 'rgba(42,31,16,0.2)' : '#F79B3D', color: saving ? 'rgba(42,31,16,0.4)' : '#fff', fontWeight: 700, fontSize: 15, fontFamily: 'Poppins,sans-serif' }}>
+          style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', cursor: saving ? 'not-allowed' : 'pointer', background: saving ? 'rgba(38,52,49,0.2)' : T.accent, color: saving ? 'rgba(38,52,49,0.4)' : T.shellText, fontWeight: 700, fontSize: 15, fontFamily: T.fontDisplay }}>
           {saving ? 'Saving…' : 'Save Settings'}
         </button>
       </div>
