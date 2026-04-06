@@ -43,13 +43,16 @@ export default function App({ Component, pageProps }) {
           position="top-right"
           toastOptions={{
             style: {
-              background: '#18181D',
-              color: '#F2F2EE',
-              border: '1px solid #27272E',
-              fontFamily: "Inter, sans-serif",
+              background: '#263431',
+              color: '#EAE7E3',
+              border: '1px solid rgba(234,231,227,0.1)',
+              fontFamily: "Outfit, sans-serif",
+              fontSize: 13,
+              borderRadius: 12,
+              boxShadow: '0 4px 24px rgba(38,52,49,0.35)',
             },
-            success: { iconTheme: { primary: '#FF6B35', secondary: '#09090B' } },
-            error: { iconTheme: { primary: '#EF4444', secondary: '#09090B' } },
+            success: { iconTheme: { primary: '#4A7A5E', secondary: '#E8EDEC' } },
+            error: { iconTheme: { primary: '#8A4A42', secondary: '#F3EDEC' } },
           }}
         />
       </SuperAdminAuthProvider>

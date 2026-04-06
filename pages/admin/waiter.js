@@ -6,6 +6,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { resolveWaiterCall, updateOrderStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { useAdminOrders, useAdminWaiterCalls } from '../../contexts/AdminDataContext';
 import { timeAgo } from '../../lib/utils';
 
 function isToday(seconds) {
@@ -55,8 +56,12 @@ export default function WaiterDashboard() {
   const router = useRouter();
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [calls, setCalls] = useState([]);
-  const [readyOrders, setReadyOrders] = useState([]);
+  // Admin view: shared data from AdminLayout context (no duplicate listeners)
+  // Staff view: own local state + listeners (not wrapped in AdminLayout)
+  const adminCtxCalls = useAdminWaiterCalls();
+  const adminCtxOrders = useAdminOrders();
+  const [staffCalls, setStaffCalls] = useState([]);
+  const [staffOrders, setStaffOrders] = useState([]);
   const [resolvingCall, setResolvingCall] = useState(null);
   const [servingOrder, setServingOrder] = useState(null);
   const [tab, setTab] = useState('calls');
@@ -106,27 +111,32 @@ export default function WaiterDashboard() {
     } catch {}
   };
 
-  // Waiter calls listener
+  // Staff-only listeners (admin gets data from AdminLayout context instead)
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || isAdmin) return;
     const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pendingCount = all.filter(c => c.status === 'pending').length;
       if (pendingCount > prevCallsCountRef.current) playBell();
       prevCallsCountRef.current = pendingCount;
-      setCalls(all);
+      setStaffCalls(all);
     });
-  }, [rid]);
+  }, [rid, isAdmin]);
 
-  // Ready orders listener
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || isAdmin) return;
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
-      setReadyOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => o.status === 'ready'));
+      setStaffOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-  }, [rid]);
+  }, [rid, isAdmin]);
+
+  // Unified data — admin uses context, staff uses local state
+  const calls = isAdmin ? adminCtxCalls.calls : staffCalls;
+  const readyOrders = isAdmin
+    ? adminCtxOrders.orders.filter(o => o.status === 'ready')
+    : staffOrders.filter(o => o.status === 'ready');
 
   const handleResolveCall = async (call) => {
     setResolvingCall(call.id);

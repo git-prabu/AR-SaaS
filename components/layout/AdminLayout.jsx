@@ -4,25 +4,27 @@ import { useAuth } from '../../hooks/useAuth';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { AdminDataProvider } from '../../contexts/AdminDataContext';
+import { T } from '../../lib/utils';
 
 const navItems = [
-  { href: '/admin/analytics', label: 'Analytics', icon: '◎' },
-  { href: '/admin/reports', label: 'Revenue Reports', icon: '📊' },
-  { href: '/admin/items', label: 'Menu Items', icon: '🍽' },
-  { href: '/admin/orders', label: 'Orders', icon: '🛒' },
-  { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: '🍳' },
-  { href: '/admin/waiter', label: 'Waiter', icon: '🛎' },
+  { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
+  { href: '/admin/reports', label: 'Revenue Reports', icon: '💰' },
+  { href: '/admin/items', label: 'Menu Items', icon: '🍽️' },
+  { href: '/admin/orders', label: 'Orders', icon: '📋' },
+  { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: '👨‍🍳' },
+  { href: '/admin/waiter', label: 'Waiter', icon: '🛎️' },
   { href: '/admin/staff', label: 'Staff Logins', icon: '👥' },
-  { href: '/admin/coupons', label: 'Coupons', icon: '🏷' },
-  { href: '/admin/payments', label: 'Payments', icon: '💰' },
+  { href: '/admin/coupons', label: 'Coupons', icon: '🎟️' },
+  { href: '/admin/payments', label: 'Payments', icon: '💳' },
   { href: '/admin/feedback', label: 'Customer Feedback', icon: '⭐' },
   { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
-  { href: '/admin/requests', label: 'Add Items/Requests', icon: '◈' },
-  { href: '/admin/combos', label: 'Combo Builder', icon: '🍱' },
-  { href: '/admin/offers', label: 'Offers', icon: '◇' },
-  { href: '/admin/qrcode', label: 'QR Code', icon: '⬡' },
-  { href: '/admin/settings', label: 'Settings', icon: '⚙' },
-  { href: '/admin/subscription', label: 'Subscription', icon: '◉' },
+  { href: '/admin/requests', label: 'Add Items/Requests', icon: '➕' },
+  { href: '/admin/combos', label: 'Combo Builder', icon: '🧩' },
+  { href: '/admin/offers', label: 'Offers', icon: '🏷️' },
+  { href: '/admin/qrcode', label: 'QR Code', icon: '📱' },
+  { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
+  { href: '/admin/subscription', label: 'Subscription', icon: '👑' },
 ];
 
 export default function AdminLayout({ children }) {
@@ -41,23 +43,25 @@ export default function AdminLayout({ children }) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Close sidebar when route changes on mobile
   useEffect(() => {
     if (isMobile) setSidebarOpen(false);
   }, [router.pathname, isMobile]);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
+  // ─── SHARED REAL-TIME DATA ────────────────────────────────────────────────
+  const [allOrders, setAllOrders] = useState([]);
+  const [allWaiterCalls, setAllWaiterCalls] = useState([]);
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
+  const [callsLoaded, setCallsLoaded] = useState(false);
+
   // ─── GLOBAL SOUND + NOTIFICATION SYSTEM ──────────────────────────────────
-  // Lives in AdminLayout so it runs on EVERY admin page, not just the page
-  // the admin happens to be looking at. Individual pages no longer play sounds.
   const prevCallRef   = useRef(0);
   const prevOrderRef  = useRef(0);
   const notifGranted  = useRef(false);
   const seenPaymentRequests = useRef(new Set());
   const audioCtxRef   = useRef(null);
 
-  // Request OS notification permission once (needed for background-tab alerts)
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission === 'granted') {
@@ -67,10 +71,8 @@ export default function AdminLayout({ children }) {
     }
   }, []);
 
-  // Check if sound is enabled (respects the toggle on the Notifications settings page)
   const soundAllowed = () => localStorage.getItem('ar_sound_enabled') !== 'false';
 
-  // Bell chime — used for waiter calls and payment requests (ding-ding tone via Web Audio API)
   const playBell = async () => {
     if (!soundAllowed()) return;
     try {
@@ -95,13 +97,11 @@ export default function AdminLayout({ children }) {
     } catch {}
   };
 
-  // MP3 alert — used for new orders
   const playAlert = () => {
     if (!soundAllowed()) return;
     try { new Audio('/notification.mp3').play().catch(() => {}); } catch {}
   };
 
-  // Show an OS notification popup — fires even when this tab is in the background
   const showOsNotif = (title, body) => {
     if (!notifGranted.current) return;
     try {
@@ -111,34 +111,36 @@ export default function AdminLayout({ children }) {
     } catch {}
   };
 
-  // Waiter-calls listener — always active on every admin page
   useEffect(() => {
     if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
-      const pending = snap.docs.filter(d => d.data().status === 'pending').length;
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const pending = docs.filter(d => d.status === 'pending').length;
       if (prevCallRef.current > 0 && pending > prevCallRef.current) {
         playBell();
-        showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
+        showOsNotif('New Waiter Call', 'A customer needs help');
       }
       prevCallRef.current = pending;
+      setAllWaiterCalls(docs);
+      setCallsLoaded(true);
     });
   }, [rid]);
 
-  // Orders listener — always active on every admin page
-  // Also detects cash payment requests
   useEffect(() => {
     if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
-      const pending = snap.docs.filter(d => d.data().status === 'pending').length;
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const pending = docs.filter(d => d.status === 'pending').length;
       if (prevOrderRef.current > 0 && pending > prevOrderRef.current) {
         playAlert();
-        showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
+        showOsNotif('New Order', 'A new order has arrived');
       }
       prevOrderRef.current = pending;
+      setAllOrders(docs);
+      setOrdersLoaded(true);
 
-      // Payment request detection — fires when customer taps "Pay Cash at Table"
       snap.docChanges().forEach(change => {
         if (change.type !== 'modified') return;
         const data = change.doc.data();
@@ -148,20 +150,19 @@ export default function AdminLayout({ children }) {
           seenPaymentRequests.current.add(id);
           const methodLabel = data.paymentStatus === 'card_requested' ? 'card' : data.paymentStatus === 'online_requested' ? 'online' : 'cash';
           playBell();
-          showOsNotif('💰 Payment Requested', `Table ${data.tableNumber || '?'} wants to pay by ${methodLabel}`);
+          showOsNotif('Payment Requested', `Table ${data.tableNumber || '?'} wants to pay by ${methodLabel}`);
         }
       });
     });
   }, [rid]);
-  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!loading && !user) router.push('/admin/login');
   }, [user, loading, router]);
 
   if (loading || !user) return (
-    <div style={{ minHeight: '100vh', background: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 36, height: 36, border: '3px solid #F79B3D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ minHeight: '100vh', background: T.cream, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 36, height: 36, border: `3px solid ${T.accent}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -169,23 +170,35 @@ export default function AdminLayout({ children }) {
   const isActive = (href) => href === '/admin' ? router.pathname === '/admin' : router.pathname.startsWith(href);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAF7F2', fontFamily: 'Inter,sans-serif', color: '#2B2B2B', display: 'flex', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: T.cream, fontFamily: T.font, color: T.ink, display: 'flex', position: 'relative' }}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
         .nlnk{
-          display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;
+          display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:10px;
           font-size:13.5px;font-weight:500;text-decoration:none;
-          color:rgba(255,225,185,0.6);transition:all 0.18s;margin-bottom:3px;
+          color:${T.shellMuted};transition:all 0.18s;margin-bottom:1px;
+          letter-spacing:-0.15px;
         }
-        .nlnk:hover{background:rgba(255,255,255,0.07);color:rgba(255,240,220,0.9);}
+        .nlnk:hover{background:rgba(234,231,227,0.08);color:${T.shellText};}
+        .nlnk .nav-icon{
+          font-size:14px;flex-shrink:0;opacity:0.5;transition:all 0.2s;
+          width:20px;text-align:center;
+          filter:grayscale(1) brightness(1.8);
+        }
+        .nlnk:hover .nav-icon{opacity:0.8;}
         .nlnk.on{
-          background:linear-gradient(135deg,#F79B3D,#F48A1E);
-          color:#fff;font-weight:700;
-          box-shadow:0 4px 16px rgba(247,155,61,0.38);
+          background:rgba(196,168,109,0.18);
+          color:#C4A86D;font-weight:600;
+        }
+        .nlnk.on .nav-icon{
+          opacity:1;filter:grayscale(1) brightness(2.2);
         }
         .admin-sidebar{
           transition:transform 0.25s cubic-bezier(.4,0,.2,1);
         }
+        .admin-sidebar nav::-webkit-scrollbar{width:3px;}
+        .admin-sidebar nav::-webkit-scrollbar-track{background:transparent;}
+        .admin-sidebar nav::-webkit-scrollbar-thumb{background:rgba(234,231,227,0.1);border-radius:3px;}
         .admin-mobile-topbar{display:none;}
         .admin-backdrop{display:none;}
         @media(max-width:767px){
@@ -195,86 +208,99 @@ export default function AdminLayout({ children }) {
           .admin-mobile-topbar{
             display:flex;align-items:center;gap:12px;
             position:fixed;top:0;left:0;right:0;z-index:18;
-            height:52px;padding:0 16px;
-            background:#1E1B18;
-            box-shadow:0 2px 12px rgba(0,0,0,0.15);
+            height:56px;padding:0 16px;
+            background:${T.shell};
+            box-shadow:0 2px 16px rgba(38,52,49,0.2);
           }
           .admin-backdrop{
             display:block;position:fixed;inset:0;z-index:19;
-            background:rgba(0,0,0,0.45);
+            background:rgba(38,52,49,0.35);
+            backdrop-filter:blur(4px);
             -webkit-tap-highlight-color:transparent;
           }
-          .admin-main{padding-top:52px !important;}
+          .admin-main{padding-top:56px !important;}
         }
       `}</style>
 
-      {/* ── Mobile top bar with hamburger ── */}
+      {/* Mobile top bar */}
       <div className="admin-mobile-topbar">
         <button onClick={() => setSidebarOpen(o => !o)}
-          style={{ background: 'none', border: 'none', color: '#F79B3D', fontSize: 24, cursor: 'pointer', padding: '4px 6px', lineHeight: 1 }}
+          style={{ background: 'none', border: 'none', color: T.shellText, fontSize: 20, cursor: 'pointer', padding: '4px 6px', lineHeight: 1 }}
           aria-label="Toggle menu">
           ☰
         </button>
-        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 15, color: '#FFF5E8' }}>
-          Advert <span style={{ background: 'linear-gradient(135deg,#F79B3D,#F4C06A)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Radical</span>
+        <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 18, color: T.shellText, letterSpacing: '-0.2px' }}>
+          Advert <span style={{ color: '#C4A86D', fontStyle: 'italic' }}>Radical</span>
         </div>
       </div>
 
-      {/* ── Backdrop overlay for mobile ── */}
+      {/* Backdrop */}
       {isMobile && sidebarOpen && (
         <div className="admin-backdrop" onClick={closeSidebar} />
       )}
 
-      {/* ── Dark warm sidebar ── */}
+      {/* Sidebar — dark navy */}
       <aside className={`admin-sidebar${sidebarOpen ? ' open' : ''}`} style={{
-        width: 220, flexShrink: 0, background: '#1E1B18',
+        width: 250, flexShrink: 0,
+        background: `linear-gradient(180deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
         display: 'flex', flexDirection: 'column',
         position: 'fixed', inset: '0 auto 0 0', zIndex: 20,
-        boxShadow: '4px 0 24px rgba(0,0,0,0.18)'
+        boxShadow: '3px 0 24px rgba(38,52,49,0.15)',
       }}>
-        {/* Amber accent strip */}
-        <div style={{ height: 4, background: 'linear-gradient(90deg,#F79B3D,#F4C06A,#C4B5D4)' }} />
+        {/* Top accent — frost red to fade */}
+        <div style={{ height: 3, background: `linear-gradient(90deg, ${T.accent}, ${T.sand}, transparent)` }} />
 
         {/* Brand */}
-        <div style={{ padding: '22px 18px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '28px 22px 24px', borderBottom: '1px solid rgba(234,231,227,0.1)' }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 17, color: '#FFF5E8' }}>
-              Advert <span style={{ background: 'linear-gradient(135deg,#F79B3D,#F4C06A)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Radical</span>
+            <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: T.shellText, letterSpacing: '-0.3px' }}>
+              Advert <span style={{ color: '#C4A86D', fontStyle: 'italic' }}>Radical</span>
             </div>
           </Link>
-          <div style={{ fontSize: 11, color: 'rgba(247,155,61,0.5)', marginTop: 3, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Restaurant Portal</div>
+          <div style={{ fontSize: 9, color: 'rgba(196,168,109,0.6)', marginTop: 6, fontWeight: 600, letterSpacing: '3px', textTransform: 'uppercase' }}>
+            Restaurant Portal
+          </div>
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
+        <nav style={{ flex: 1, padding: '14px 12px', overflowY: 'auto' }}>
           {navItems.map(item => (
-            <Link key={item.href} href={item.href} className={`nlnk${isActive(item.href) ? ' on' : ''}`} onClick={isMobile ? closeSidebar : undefined}>
-              <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{item.icon}</span>
+            <Link key={item.href} href={item.href}
+              className={`nlnk${isActive(item.href) ? ' on' : ''}`}
+              onClick={isMobile ? closeSidebar : undefined}>
+              <span className="nav-icon">{item.icon}</span>
               {item.label}
             </Link>
           ))}
         </nav>
 
         {/* User card */}
-        <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ padding: '10px 14px', marginBottom: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,240,220,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ padding: '12px 12px 18px', borderTop: '1px solid rgba(234,231,227,0.1)' }}>
+          <div style={{
+            padding: '14px 16px', marginBottom: 8,
+            background: 'rgba(234,231,227,0.08)',
+            borderRadius: 12,
+            border: '1px solid rgba(234,231,227,0.06)',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T.shellText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {userData?.restaurantName || userData?.email || user.email}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(247,155,61,0.5)', marginTop: 2 }}>Restaurant Admin</div>
+            <div style={{ fontSize: 10, color: T.stone, marginTop: 4, fontWeight: 500 }}>Restaurant Admin</div>
           </div>
           <button onClick={signOut}
-            style={{ width: '100%', padding: '9px 14px', borderRadius: 12, border: 'none', background: 'transparent', fontSize: 13, color: 'rgba(255,180,120,0.4)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
-            onMouseOver={e => { e.currentTarget.style.background = 'rgba(247,155,61,0.12)'; e.currentTarget.style.color = '#F79B3D' }}
-            onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,180,120,0.4)' }}>
+            style={{ width: '100%', padding: '10px 16px', borderRadius: T.radiusBtn, border: 'none', background: 'transparent', fontSize: 12, fontFamily: T.font, color: T.shellMuted, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', fontWeight: 500 }}
+            onMouseOver={e => { e.currentTarget.style.background = 'rgba(234,231,227,0.06)'; e.currentTarget.style.color = T.shellText; }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.shellMuted; }}>
             Sign out →
           </button>
         </div>
       </aside>
 
-      <main className="admin-main" style={{ flex: 1, marginLeft: 220, minHeight: '100vh', overflowY: 'auto' }}>
-        {children}
-      </main>
+      <AdminDataProvider value={{ orders: allOrders, waiterCalls: allWaiterCalls, ordersLoaded, callsLoaded }}>
+        <main className="admin-main" style={{ flex: 1, marginLeft: 250, minHeight: '100vh', overflowY: 'auto' }}>
+          {children}
+        </main>
+      </AdminDataProvider>
     </div>
   );
 }

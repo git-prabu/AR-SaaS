@@ -6,6 +6,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { updateOrderStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { useAdminOrders } from '../../contexts/AdminDataContext';
 
 const STATUS_META = {
   pending:   { label: 'New Order',  color: '#E05A3A', bg: 'rgba(224,90,58,0.15)',  border: 'rgba(224,90,58,0.4)',  next: 'preparing', nextLabel: 'Start Preparing', nextBg: '#E05A3A' },
@@ -52,7 +53,9 @@ export default function KitchenDashboard() {
   const router = useRouter();
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [orders, setOrders] = useState([]);
+  // Admin view: shared data from AdminLayout context (no duplicate listeners)
+  const adminCtxOrders = useAdminOrders();
+  const [staffOrders, setStaffOrders] = useState([]);
   const [filter, setFilter] = useState('active');
   const [updating, setUpdating] = useState(null);
   const [tick, setTick] = useState(0);
@@ -109,19 +112,22 @@ export default function KitchenDashboard() {
     } catch {}
   };
 
-  // Realtime orders
+  // Staff-only listener (admin gets data from AdminLayout context instead)
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || isAdmin) return;
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pendingCount = all.filter(o => o.status === 'pending').length;
       if (pendingCount > prevPendingRef.current) playAlert();
       prevPendingRef.current = pendingCount;
-      setOrders(all);
+      setStaffOrders(all);
     });
     return unsub;
-  }, [rid]);
+  }, [rid, isAdmin]);
+
+  // Unified data — admin uses context, staff uses local state
+  const orders = isAdmin ? adminCtxOrders.orders : staffOrders;
 
   const handleNext = async (order) => {
     const meta = STATUS_META[order.status];
