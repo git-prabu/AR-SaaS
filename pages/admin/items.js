@@ -81,7 +81,11 @@ export default function AdminItems() {
     setEditId(item.id);
     setEditData({
       name: item.name || '',
+      nameTA: item.nameTA || '',
+      nameHI: item.nameHI || '',
       description: item.description || '',
+      descriptionTA: item.descriptionTA || '',
+      descriptionHI: item.descriptionHI || '',
       category: item.category || '',
       price: item.price || '',
       prepTime: item.prepTime || '',
@@ -420,6 +424,30 @@ export default function AdminItems() {
                           <label style={S.label}>Description</label>
                           <textarea className="inp" style={{ ...S.input, resize: 'none' }} rows={2} value={editData.description} onChange={e => setEditData(d => ({ ...d, description: e.target.value }))} placeholder="Short description…" />
                         </div>
+                    {/* Translations */}
+                    <div style={{ gridColumn: '1/-1', padding: '14px 16px', borderRadius: 12, background: 'rgba(74,128,192,0.04)', border: '1px solid rgba(74,128,192,0.12)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(42,31,16,0.45)', letterSpacing: '0.04em', marginBottom: 10 }}>🌐 TRANSLATIONS (Optional)</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                        <div>
+                          <label style={S.label}>Tamil Name</label>
+                          <input style={S.input} value={editData.nameTA || ''} onChange={e => setEditData(d => ({ ...d, nameTA: e.target.value }))} placeholder="தமிழ் பெயர்" />
+                        </div>
+                        <div>
+                          <label style={S.label}>Hindi Name</label>
+                          <input style={S.input} value={editData.nameHI || ''} onChange={e => setEditData(d => ({ ...d, nameHI: e.target.value }))} placeholder="हिंदी नाम" />
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <label style={S.label}>Tamil Description</label>
+                          <input style={S.input} value={editData.descriptionTA || ''} onChange={e => setEditData(d => ({ ...d, descriptionTA: e.target.value }))} placeholder="தமிழ் விளக்கம்" />
+                        </div>
+                        <div>
+                          <label style={S.label}>Hindi Description</label>
+                          <input style={S.input} value={editData.descriptionHI || ''} onChange={e => setEditData(d => ({ ...d, descriptionHI: e.target.value }))} placeholder="हिंदी विवरण" />
+                        </div>
+                      </div>
+                    </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }}>
                           <div>
                             <label style={S.label}>⏱ Prep Time</label>

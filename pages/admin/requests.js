@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx';
 
 const USDA_KEY = 'fea6TbAGJ03EOEWPtWzEQ31VclGeRYsNqVhrWQ2A';
 
-const BLANK = { name:'', description:'', category:'', price:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'' };
+const BLANK = { name:'', nameTA:'', nameHI:'', description:'', descriptionTA:'', descriptionHI:'', category:'', price:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'' };
 
 const S = {
   page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
@@ -320,7 +320,11 @@ export default function AdminRequests() {
       const ingredients = form.ingredients ? form.ingredients.split(',').map(s => s.trim()).filter(Boolean) : [];
       await submitRequestAndPublish(rid, {
         name:        form.name.trim(),
+        nameTA:      form.nameTA?.trim() || null,
+        nameHI:      form.nameHI?.trim() || null,
         description: form.description.trim(),
+        descriptionTA: form.descriptionTA?.trim() || null,
+        descriptionHI: form.descriptionHI?.trim() || null,
         category:    form.category.trim(),
         price:       Number(form.price) || 0,
         ingredients,
@@ -466,6 +470,34 @@ export default function AdminRequests() {
                 <div style={{ marginBottom:16 }}>
                   <label style={S.label}>Description</label>
                   <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Brief description of the dish…" />
+                </div>
+
+                {/* Multi-language translations (optional) */}
+                <div style={{ marginBottom:16, padding:'16px 18px', borderRadius:14, background:'rgba(74,128,192,0.04)', border:'1px solid rgba(74,128,192,0.12)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+                    <span style={{ fontSize:15 }}>🌐</span>
+                    <span style={{ fontSize:12, fontWeight:700, color:'rgba(42,31,16,0.55)', letterSpacing:'0.04em' }}>TRANSLATIONS (Optional)</span>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+                    <div>
+                      <label style={S.label}>Tamil Name (தமிழ்)</label>
+                      <input className="inp" style={S.input} value={form.nameTA} onChange={e=>setForm(f=>({...f,nameTA:e.target.value}))} placeholder="e.g. பட்டர் சிக்கன்" />
+                    </div>
+                    <div>
+                      <label style={S.label}>Hindi Name (हिंदी)</label>
+                      <input className="inp" style={S.input} value={form.nameHI} onChange={e=>setForm(f=>({...f,nameHI:e.target.value}))} placeholder="e.g. बटर चिकन" />
+                    </div>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                    <div>
+                      <label style={S.label}>Tamil Description</label>
+                      <input className="inp" style={S.input} value={form.descriptionTA} onChange={e=>setForm(f=>({...f,descriptionTA:e.target.value}))} placeholder="தமிழ் விளக்கம்…" />
+                    </div>
+                    <div>
+                      <label style={S.label}>Hindi Description</label>
+                      <input className="inp" style={S.input} value={form.descriptionHI} onChange={e=>setForm(f=>({...f,descriptionHI:e.target.value}))} placeholder="हिंदी विवरण…" />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Ingredients + Auto Calc */}

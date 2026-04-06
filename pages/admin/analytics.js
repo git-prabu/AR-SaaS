@@ -209,9 +209,38 @@ export default function AdminAnalytics() {
   });
   const topOrderedItems = Object.values(itemFreq).sort((a, b) => b.qty - a.qty).slice(0, 8);
 
+  // Peak hours analysis
+  const hourlyOrders = Array(24).fill(0);
+  const hourlyRevenue = Array(24).fill(0);
+  ordersInRange.forEach(o => {
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now());
+    const hour = d.getHours();
+    hourlyOrders[hour] += 1;
+    hourlyRevenue[hour] += o.total || 0;
+  });
+  const peakHourData = hourlyOrders.map((count, h) => ({
+    hour: h,
+    label: `${h === 0 ? 12 : h > 12 ? h - 12 : h}${h < 12 ? 'AM' : 'PM'}`,
+    orders: count,
+    revenue: hourlyRevenue[h],
+  })).filter(h => h.orders > 0);
+  const peakHour = peakHourData.reduce((best, h) => h.orders > (best?.orders || 0) ? h : best, null);
+
+  // Day of week analysis
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dailyOrders = Array(7).fill(0);
+  ordersInRange.forEach(o => {
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now());
+    dailyOrders[d.getDay()] += 1;
+  });
+  const dayData = dailyOrders.map((count, i) => ({ day: dayNames[i], orders: count }));
+  const busiestDay = dayData.reduce((best, d) => d.orders > (best?.orders || 0) ? d : best, null);
+
   const exportCSV = () => {
     if (tab === 'overview') {
       downloadCSV(chartData.map(d => ({ date: d.date, visits: d.visits, unique_visitors: d.unique })), `analytics-${range}d.csv`);
+    } else if (tab === 'orders') {
+      downloadCSV(revenueChartData.map(d => ({ date: d.date, revenue: d.revenue, orders: d.orders })), `orders-revenue-${range}d.csv`);
     } else {
       downloadCSV(activeItems.map(i => ({
         name: i.name, category: i.category || '', views: i.views || 0,
@@ -372,6 +401,63 @@ export default function AdminAnalytics() {
                       })}
                     </div>
                   ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(42,31,16,0.3)', fontSize: 13 }}>No orders yet</div>}
+                </div>
+              </div>
+
+              {/* Peak Hours & Busiest Day */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+                {/* Peak Hours */}
+                <div style={{ ...S.card, padding: '22px 24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div>
+                      <div style={S.label}>⏰ Peak Hours</div>
+                      <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.4)', marginTop: 2 }}>When your orders come in</div>
+                    </div>
+                    {peakHour && <div style={{ fontSize: 12, fontWeight: 700, color: '#E05A3A', background: 'rgba(224,90,58,0.08)', padding: '4px 12px', borderRadius: 20 }}>Busiest: {peakHour.label}</div>}
+                  </div>
+                  {peakHourData.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(42,31,16,0.3)', fontSize: 13 }}>No order data yet</div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 120 }}>
+                      {peakHourData.map(h => {
+                        const maxO = Math.max(...peakHourData.map(x => x.orders));
+                        const pct = maxO > 0 ? (h.orders / maxO) * 100 : 0;
+                        const isPeak = h === peakHour;
+                        return (
+                          <div key={h.hour} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: isPeak ? '#E05A3A' : 'rgba(42,31,16,0.4)' }}>{h.orders}</span>
+                            <div style={{ width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 4, background: isPeak ? '#E05A3A' : '#F79B3D', opacity: isPeak ? 1 : 0.5, transition: 'height 0.3s' }} />
+                            <span style={{ fontSize: 8, color: 'rgba(42,31,16,0.4)', fontWeight: isPeak ? 700 : 400 }}>{h.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Busiest Days */}
+                <div style={{ ...S.card, padding: '22px 24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div>
+                      <div style={S.label}>📅 Busiest Days</div>
+                      <div style={{ fontSize: 12, color: 'rgba(42,31,16,0.4)', marginTop: 2 }}>Orders by day of week</div>
+                    </div>
+                    {busiestDay && busiestDay.orders > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: '#2D8B4E', background: 'rgba(45,139,78,0.08)', padding: '4px 12px', borderRadius: 20 }}>Busiest: {busiestDay.day}</div>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 120 }}>
+                    {dayData.map(d => {
+                      const maxD = Math.max(...dayData.map(x => x.orders));
+                      const pct = maxD > 0 ? (d.orders / maxD) * 100 : 0;
+                      const isBusiest = d === busiestDay;
+                      return (
+                        <div key={d.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: isBusiest ? '#2D8B4E' : 'rgba(42,31,16,0.4)' }}>{d.orders}</span>
+                          <div style={{ width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 6, background: isBusiest ? '#2D8B4E' : '#5A9A78', opacity: isBusiest ? 1 : 0.45, transition: 'height 0.3s' }} />
+                          <span style={{ fontSize: 10, color: 'rgba(42,31,16,0.45)', fontWeight: isBusiest ? 700 : 500 }}>{d.day}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>

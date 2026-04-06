@@ -69,6 +69,13 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin();
       }
 
+      // ── Feedback ──
+      match /feedback/{feedbackId} {
+        allow create: if true;
+        allow read, update, delete: if isRestaurantAdmin(restaurantId);
+        allow read, write: if isSuperAdmin();
+      }
+
       // ── Orders ────────────────────────────────────────────────
       match /orders/{orderId} {
         // Public: customers can create orders (from menu cart)

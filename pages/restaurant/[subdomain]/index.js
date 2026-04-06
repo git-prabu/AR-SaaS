@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomain, getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse } from '../../../lib/db';
+import { getRestaurantBySubdomain, getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse, submitFeedback } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(m => m.ARViewerEmbed), { ssr: false });
@@ -476,6 +476,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [couponLoading, setCouponLoading] = useState(false);
   // Live order status
   const [liveOrderStatus, setLiveOrderStatus] = useState(null);
+  // Customer feedback
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedbackSending, setFeedbackSending] = useState(false);
   // Table session validation
   const router = useRouter();
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -3047,6 +3052,54 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <div style={{ marginTop: 4, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)', fontSize: 13, color: darkMode ? '#6EC98A' : '#1A6B38', fontWeight: 600 }}>
                     🧾 Your bill is ready — tap the green "My Bill" button below
                   </div>
+                  {/* ── Customer Feedback ── */}
+                  {!feedbackSent ? (
+                    <div style={{ width: '100%', padding: '16px 18px', borderRadius: 16, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.03)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}`, textAlign: 'center' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.7)', marginBottom: 10 }}>How was your experience?</div>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
+                        {[1,2,3,4,5].map(s => (
+                          <button key={s} onClick={() => setFeedbackRating(s)}
+                            style={{ width: 40, height: 40, borderRadius: 10, border: 'none', fontSize: 20, cursor: 'pointer', background: s <= feedbackRating ? 'rgba(247,155,61,0.2)' : darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(42,31,16,0.05)', transition: 'all 0.15s', transform: s <= feedbackRating ? 'scale(1.15)' : 'scale(1)' }}>
+                            {s <= feedbackRating ? '⭐' : '☆'}
+                          </button>
+                        ))}
+                      </div>
+                      {feedbackRating > 0 && (
+                        <>
+                          <textarea
+                            value={feedbackComment}
+                            onChange={e => setFeedbackComment(e.target.value)}
+                            placeholder={feedbackRating >= 4 ? 'What did you love? (optional)' : 'How can we improve? (optional)'}
+                            rows={2}
+                            style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: darkMode ? 'rgba(255,255,255,0.06)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 13, fontFamily: 'Inter,sans-serif', resize: 'none', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
+                          />
+                          <button
+                            onClick={async () => {
+                              if (!restaurant?.id || feedbackSending) return;
+                              setFeedbackSending(true);
+                              try {
+                                await submitFeedback(restaurant.id, {
+                                  rating: feedbackRating,
+                                  comment: feedbackComment.trim(),
+                                  orderId: placedOrder?.id || null,
+                                  tableNumber: orderTableInput || tableNumber || null,
+                                });
+                                setFeedbackSent(true);
+                              } catch { /* silently fail */ }
+                              finally { setFeedbackSending(false); }
+                            }}
+                            disabled={feedbackSending}
+                            style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 13, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: feedbackSending ? 'not-allowed' : 'pointer', opacity: feedbackSending ? 0.6 : 1 }}>
+                            {feedbackSending ? 'Sending...' : 'Submit Feedback'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', fontSize: 13, color: darkMode ? '#F79B3D' : '#C07A20', fontWeight: 600 }}>
+                      🙏 Thank you for your feedback!
+                    </div>
+                  )}
                   <button onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
                     style={{ marginTop: 4, padding: '11px 26px', borderRadius: 12, border: 'none', background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
                     Back to Menu

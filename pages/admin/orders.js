@@ -94,7 +94,8 @@ export default function AdminOrders() {
             // New order notification
             const newPending = docs.filter(o => o.status === 'pending').length;
             if (prevCountRef.current > 0 && newPending > prevCountRef.current) {
-                // Sound + OS notification handled globally by AdminLayout
+                playAlert();
+                showOsNotif('🛒 New Order!', `Table ${docs.find(o => o.status === 'pending')?.tableNumber || '—'} placed an order`);
             }
             prevCountRef.current = newPending;
             setOrders(docs);
@@ -251,15 +252,15 @@ export default function AdminOrders() {
                                         )}
 
                                         {/* Payment status */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                                             {['paid_cash', 'paid_card', 'paid_online', 'paid'].includes(order.paymentStatus) ? (
-                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(45,139,78,0.12)', color: '#2D8B4E', border: '1px solid rgba(45,139,78,0.25)' }}>
-                                                    ✅ {order.paymentStatus === 'paid_card' ? 'Card Paid' : order.paymentStatus === 'paid_online' ? 'Paid Online' : 'Cash Paid'}
+                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: 'rgba(45,139,78,0.12)', color: '#2D8B4E', border: '1px solid rgba(45,139,78,0.25)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                                    ✅ {order.paymentStatus === 'paid_card' ? 'Card Payment Verified' : order.paymentStatus === 'paid_online' ? 'UPI Payment Verified' : 'Cash Payment Verified'}
                                                 </span>
                                             ) : ['cash_requested', 'card_requested', 'online_requested'].includes(order.paymentStatus) ? (
                                                 <>
-                                                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'rgba(247,155,61,0.15)', color: '#A06010', border: '1px solid rgba(247,155,61,0.35)' }}>
-                                                        {order.paymentStatus === 'cash_requested' ? '💵 Cash Requested' : order.paymentStatus === 'card_requested' ? '💳 Card Requested' : '📱 Online Payment'}
+                                                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: 'rgba(247,155,61,0.15)', color: '#A06010', border: '1px solid rgba(247,155,61,0.35)', animation: 'pulse 2s infinite' }}>
+                                                        {order.paymentStatus === 'cash_requested' ? '💵 Cash — Awaiting Collection' : order.paymentStatus === 'card_requested' ? '💳 Card — Awaiting Swipe' : '📱 UPI — Awaiting Confirmation'}
                                                     </span>
                                                     <button className="adv-btn"
                                                         onClick={async () => {
@@ -269,12 +270,38 @@ export default function AdminOrders() {
                                                             setUpdating(null);
                                                         }}
                                                         disabled={updating === order.id + '_pay'}
+                                                        style={{ background: '#2D8B4E', color: '#fff', padding: '6px 16px', fontSize: 11, borderRadius: 8 }}>
+                                                        ✓ Verify & Confirm
+                                                    </button>
+                                                    <button className="adv-btn"
+                                                        onClick={async () => {
+                                                            setUpdating(order.id + '_pay');
+                                                            await updatePaymentStatus(rid, order.id, 'payment_issue');
+                                                            setUpdating(null);
+                                                        }}
+                                                        disabled={updating === order.id + '_pay'}
+                                                        style={{ background: 'rgba(224,90,58,0.1)', color: '#C04A28', padding: '6px 12px', fontSize: 11, borderRadius: 8, border: '1px solid rgba(224,90,58,0.25)' }}>
+                                                        ✕ Issue
+                                                    </button>
+                                                </>
+                                            ) : order.paymentStatus === 'payment_issue' ? (
+                                                <>
+                                                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: 'rgba(224,90,58,0.1)', color: '#C04A28', border: '1px solid rgba(224,90,58,0.25)' }}>
+                                                        ⚠️ Payment Issue
+                                                    </span>
+                                                    <button className="adv-btn"
+                                                        onClick={async () => {
+                                                            setUpdating(order.id + '_pay');
+                                                            await updatePaymentStatus(rid, order.id, 'paid_cash');
+                                                            setUpdating(null);
+                                                        }}
+                                                        disabled={updating === order.id + '_pay'}
                                                         style={{ background: '#2D8B4E', color: '#fff', padding: '5px 14px', fontSize: 11 }}>
-                                                        ✓ Mark as Paid
+                                                        ✓ Resolved — Mark Paid
                                                     </button>
                                                 </>
                                             ) : (
-                                                <span style={{ fontSize: 11, color: 'rgba(42,31,16,0.35)' }}>Payment pending</span>
+                                                <span style={{ fontSize: 11, color: 'rgba(42,31,16,0.35)' }}>💳 Payment pending</span>
                                             )}
                                         </div>
 

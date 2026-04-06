@@ -160,7 +160,8 @@ export default function AdminNotifications() {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pending = data.filter(c => c.status === 'pending').length;
       if (prevCallCountRef.current > 0 && pending > prevCallCountRef.current) {
-        // Sound + OS notification handled globally by AdminLayout
+        playBell();
+        showOsNotif('🔔 Waiter Call', `Table ${data.find(c => c.status === 'pending')?.tableNumber || '—'} needs assistance`);
         toast('🔔 New waiter call!', { duration: 4000 });
       }
       prevCallCountRef.current = pending;
@@ -178,7 +179,8 @@ export default function AdminNotifications() {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pending = data.filter(o => o.status === 'pending').length;
       if (prevOrderCountRef.current > 0 && pending > prevOrderCountRef.current) {
-        // Sound + OS notification handled globally by AdminLayout
+        playBell();
+        showOsNotif('🛒 New Order', `New order from Table ${data.find(o => o.status === 'pending')?.tableNumber || '—'}`);
         toast('🛒 New order received!', { duration: 4000 });
       }
       prevOrderCountRef.current = pending;
