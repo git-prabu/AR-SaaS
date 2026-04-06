@@ -327,27 +327,85 @@ function filterItems(items, ans, groupSize = 1) {
 }
 
 
-/* ─── SheetOverlay — prevents iOS background scroll on bottom-sheet overlays ─── */
+/* ─── SheetOverlay — swipe-to-dismiss bottom sheet wrapper (like SwipeableSheet) ─── */
 function SheetOverlay({ onClose, children, zIndex = 60, darkMode }) {
   const overlayRef = useRef(null);
+  const sheetRef = useRef(null);
+  const startYRef = useRef(0);
+  const currentYRef = useRef(0);
+  const isDragging = useRef(false);
+  const startTime = useRef(0);
+  const [dragY, setDragY] = useState(0);
 
-  // Block touchmove on the overlay backdrop itself (not on children)
+  const DISMISS_THRESHOLD = 120;
+  const VELOCITY_THRESHOLD = 0.45;
+
+  const onTouchStart = (e) => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const touch = e.touches[0];
+    const rect = sheet.getBoundingClientRect();
+    // Only start drag if touch is within top 60px (handle zone)
+    if (touch.clientY - rect.top > 60) return;
+    isDragging.current = true;
+    startYRef.current = touch.clientY;
+    startTime.current = Date.now();
+    currentYRef.current = 0;
+  };
+
+  const onTouchEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const delta = currentYRef.current;
+    const elapsed = Math.max(1, Date.now() - startTime.current);
+    const velocity = delta / elapsed;
+    if (delta > DISMISS_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
+      onClose();
+    } else {
+      setDragY(0);
+    }
+    currentYRef.current = 0;
+  };
+
+  // Non-passive touchmove to enable preventDefault during drag
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const handleTouchMove = (e) => {
+      if (!isDragging.current) return;
+      e.preventDefault();
+      const delta = e.touches[0].clientY - startYRef.current;
+      if (delta <= 0) { setDragY(0); return; }
+      currentYRef.current = delta;
+      setDragY(delta);
+    };
+    sheet.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => sheet.removeEventListener('touchmove', handleTouchMove);
+  }, []);
+
+  // Block touchmove on the overlay backdrop itself
   useEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
-    const handler = (e) => {
-      // Only block if the touch is directly on the overlay (backdrop), not inside the sheet
-      if (e.target === el) e.preventDefault();
-    };
+    const handler = (e) => { if (e.target === el) e.preventDefault(); };
     el.addEventListener('touchmove', handler, { passive: false });
     return () => el.removeEventListener('touchmove', handler);
   }, []);
 
+  const progress = Math.min(dragY / 300, 1);
+  const bgAlpha = 0.45 * (1 - progress);
+
   return (
     <div ref={overlayRef}
-      style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
+      style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: `rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
       onClick={e => { if (e.target === e.currentTarget && onClose) onClose(); }}>
-      {children}
+      <div ref={sheetRef}
+        style={{ width: '100%', transform: `translateY(${dragY}px)`, transition: isDragging.current ? 'none' : 'transform 0.32s cubic-bezier(0.32,0.72,0,1)', willChange: 'transform', display: 'flex', justifyContent: 'center' }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -3118,6 +3176,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                   comment: feedbackComment.trim(),
                                   orderId: placedOrder?.id || null,
                                   tableNumber: orderTableInput || tableNumber || null,
+                                  orderItems: placedOrder?.items?.map(i => ({ name: i.name, qty: i.qty, price: i.price })) || [],
+                                  orderTotal: placedOrder?.total || null,
                                 });
                                 setFeedbackSent(true);
                               } catch { /* silently fail */ }

@@ -192,12 +192,28 @@ export default function AdminFeedback() {
                 </div>
                 {f.comment && f.comment.trim() && (
                   <div style={{
-                    padding: '12px 16px', borderRadius: 12,
+                    padding: '12px 16px', borderRadius: 12, marginBottom: (f.orderItems && f.orderItems.length > 0) ? 10 : 0,
                     background: f.rating >= 4 ? 'rgba(90,154,120,0.06)' : f.rating <= 2 ? 'rgba(224,90,58,0.06)' : 'rgba(247,155,61,0.06)',
                     border: `1px solid ${f.rating >= 4 ? 'rgba(90,154,120,0.12)' : f.rating <= 2 ? 'rgba(224,90,58,0.12)' : 'rgba(247,155,61,0.12)'}`,
                     fontSize: 14, color: '#1E1B18', lineHeight: 1.6, fontStyle: 'italic',
                   }}>
                     "{f.comment}"
+                  </div>
+                )}
+                {/* Order items */}
+                {f.orderItems && f.orderItems.length > 0 && (
+                  <div style={{ padding: '10px 14px', borderRadius: 12, background: 'rgba(42,31,16,0.025)', border: '1px solid rgba(42,31,16,0.06)', marginTop: (!f.comment || !f.comment.trim()) ? 10 : 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(42,31,16,0.4)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6 }}>🛒 Order</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {f.orderItems.map((item, i) => (
+                        <span key={i} style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(247,155,61,0.08)', border: '1px solid rgba(247,155,61,0.15)', fontSize: 12, fontWeight: 600, color: '#1E1B18' }}>
+                          {item.name} {item.qty > 1 ? `×${item.qty}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                    {f.orderTotal && (
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(42,31,16,0.5)', marginTop: 6 }}>Total: ₹{f.orderTotal}</div>
+                    )}
                   </div>
                 )}
               </div>
