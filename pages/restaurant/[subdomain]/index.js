@@ -327,9 +327,35 @@ function filterItems(items, ans, groupSize = 1) {
 }
 
 
+/* ─── SheetOverlay — prevents iOS background scroll on bottom-sheet overlays ─── */
+function SheetOverlay({ onClose, children, zIndex = 60, darkMode }) {
+  const overlayRef = useRef(null);
+
+  // Block touchmove on the overlay backdrop itself (not on children)
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    const handler = (e) => {
+      // Only block if the touch is directly on the overlay (backdrop), not inside the sheet
+      if (e.target === el) e.preventDefault();
+    };
+    el.addEventListener('touchmove', handler, { passive: false });
+    return () => el.removeEventListener('touchmove', handler);
+  }, []);
+
+  return (
+    <div ref={overlayRef}
+      style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
+      onClick={e => { if (e.target === e.currentTarget && onClose) onClose(); }}>
+      {children}
+    </div>
+  );
+}
+
 /* ─── SwipeableSheet — iOS-style drag-to-dismiss bottom sheet ─── */
 function SwipeableSheet({ onClose, children, darkMode }) {
   const sheetRef = useRef(null);
+  const overlayRef = useRef(null);
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
   const isDragging = useRef(false);
@@ -383,11 +409,21 @@ function SwipeableSheet({ onClose, children, darkMode }) {
     return () => sheet.removeEventListener('touchmove', handleTouchMove);
   }, []);
 
+  // Block touchmove on the overlay backdrop to prevent background page scroll on iOS
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    const handler = (e) => { if (e.target === el) e.preventDefault(); };
+    el.addEventListener('touchmove', handler, { passive: false });
+    return () => el.removeEventListener('touchmove', handler);
+  }, []);
+
   const progress = Math.min(dragY / 300, 1);
   const bgAlpha = darkMode ? 0.85 * (1 - progress) : 0.5 * (1 - progress);
 
   return (
     <div
+      ref={overlayRef}
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: `rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -580,9 +616,32 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return () => unsubs.forEach(u => u());
   }, [restaurant?.id]);
 
+  // Lock body scroll when any sheet/modal is open — iOS Safari needs position:fixed
+  const scrollYRef = useRef(0);
   useEffect(() => {
-    document.body.style.overflow = (selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal) ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal);
+    if (isOpen) {
+      scrollYRef.current = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollYRef.current}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollYRef.current);
+    }
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflow = '';
+    };
   }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal]);
 
 
@@ -2887,9 +2946,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
         {/* ─── CART DRAWER ─── */}
         {cartOpen && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
-            onClick={e => { if (e.target === e.currentTarget) { setCartOpen(false); setOrderStep('cart'); } }}>
-            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '24px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+          <SheetOverlay onClose={() => { setCartOpen(false); setOrderStep('cart'); }} darkMode={darkMode}>
+            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '24px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overscrollBehavior: 'contain' }}>
 
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
@@ -2905,7 +2963,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   </div>
                   <button onClick={() => { setCartOpen(false); setOrderStep('cart'); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}>
+                <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', marginBottom: 16 }}>
                   {cart.map(c => (
                     <div key={c.id} className="cart-item-row">
                       {c.imageURL && (
@@ -3107,14 +3165,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </div>
               )}
             </div>
-          </div>
+          </SheetOverlay>
         )}
 
         {/* ─── COMBO DETAIL MODAL ─── */}
         {selectedCombo && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
-            onClick={e => { if (e.target === e.currentTarget) setSelectedCombo(null); }}>
-            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 32px', maxHeight: '85vh', overflowY: 'auto', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
+          <SheetOverlay onClose={() => setSelectedCombo(null)} darkMode={darkMode}>
+            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 32px', maxHeight: '85vh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
@@ -3173,14 +3230,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </div>
               </div>
             </div>
-          </div>
+          </SheetOverlay>
         )}
 
         {/* ─── WAITER CALL MODAL ─── */}
         {waiterCallsEnabled && waiterModal && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
-            onClick={e => { if (e.target === e.currentTarget) { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); } }}>
-            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '85vh', overflowY: 'auto' }}>
+          <SheetOverlay onClose={() => { setWaiterModal(false); setWaiterReason(null); setWaiterSent(false); }} darkMode={darkMode}>
+            <div style={{ width: '100%', maxWidth: 440, background: darkMode ? '#1E1B18' : '#FFFDF9', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.25s cubic-bezier(0.32,0.72,0,1)', maxHeight: '85vh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                 <div style={{ width: 40, height: 5, borderRadius: 3, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
@@ -3243,21 +3299,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </>
               )}
             </div>
-          </div>
+          </SheetOverlay>
         )}
 
         {/* ─── MY BILL SHEET ─── */}
         {billOpen && placedOrder && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', animation: 'fadeIn 0.18s ease' }}
-            onClick={e => { if (e.target === e.currentTarget) setBillOpen(false); }}>
-            {/* Spacer to absorb backdrop taps */}
-            <div style={{ flex: 1 }} onClick={() => setBillOpen(false)} />
+          <SheetOverlay onClose={() => setBillOpen(false)} darkMode={darkMode}>
             <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', flexShrink: 0, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
               </div>
-              <div style={{ padding: '0 22px calc(env(safe-area-inset-bottom, 20px) + 24px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
+              <div style={{ padding: '0 22px calc(env(safe-area-inset-bottom, 20px) + 24px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', flex: 1 }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
@@ -3532,13 +3585,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </button>
               </div>
             </div>
-          </div>
+          </SheetOverlay>
         )}
 
         {/* ─── SMART MENU ASSISTANT ─── */}
         {smaOpen && (
-          <div className="sma-overlay" onClick={e => { if (e.target === e.currentTarget) closeSMA(); }}>
-            <div className="sma-sheet">
+          <SheetOverlay onClose={closeSMA} zIndex={55} darkMode={darkMode}>
+            <div className="sma-sheet" style={{ overscrollBehavior: 'contain' }}>
               <div className="handle-row"><div className="handle" /></div>
 
               {/* ── SCREEN 1: Solo vs Group picker ── */}
@@ -3692,7 +3745,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 );
               })()}
             </div>
-          </div>
+          </SheetOverlay>
         )}
       </div>
     </>
