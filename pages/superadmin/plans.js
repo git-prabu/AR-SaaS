@@ -229,7 +229,7 @@ export default function SuperAdminPlans() {
           ) : filtered.map((r, idx) => {
             const edit    = getEdit(r);
             const isOpen  = expanded === r.id;
-            const isDirty = JSON.stringify(edit) !== JSON.stringify(getEdit({ id:r.id }));
+            const isDirty = !!edits[r.id];
             const days    = daysLeft(edit.subscriptionEnd);
             const planInfo = PLANS.find(p => p.id === edit.plan) || PLANS[0];
 

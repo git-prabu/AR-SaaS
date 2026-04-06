@@ -23,8 +23,8 @@ service cloud.firestore {
 
     // ── Restaurants ──────────────────────────────────────────────
     match /restaurants/{restaurantId} {
-      // Public: read active restaurants (for subdomain routing)
-      allow read: if resource.data.isActive == true;
+      // Public: read any restaurant (for subdomain routing + real-time status detection)
+      allow read: if true;
       // Restaurant admin: read their own restaurant doc
       allow read: if isRestaurantAdmin(restaurantId);
       // Restaurant admin: update their own settings & metadata
