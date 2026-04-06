@@ -98,7 +98,7 @@ export default function AdminLayout({ children }) {
       const pending = snap.docs.filter(d => d.data().status === 'pending').length;
       if (prevCallRef.current > 0 && pending > prevCallRef.current) {
         playBell();
-        if (document.hidden) showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
+        showOsNotif('🔔 New Waiter Call', 'A customer needs help — tap to view');
       }
       prevCallRef.current = pending;
     });
@@ -113,7 +113,7 @@ export default function AdminLayout({ children }) {
       const pending = snap.docs.filter(d => d.data().status === 'pending').length;
       if (prevOrderRef.current > 0 && pending > prevOrderRef.current) {
         playAlert();
-        if (document.hidden) showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
+        showOsNotif('🛒 New Order', 'A new order has arrived — tap to view');
       }
       prevOrderRef.current = pending;
 

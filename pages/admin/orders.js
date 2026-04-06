@@ -94,8 +94,7 @@ export default function AdminOrders() {
             // New order notification
             const newPending = docs.filter(o => o.status === 'pending').length;
             if (prevCountRef.current > 0 && newPending > prevCountRef.current) {
-                playAlert();
-                showOsNotif('🛒 New Order!', `Table ${docs.find(o => o.status === 'pending')?.tableNumber || '—'} placed an order`);
+                // Sound + OS notification handled globally by AdminLayout
             }
             prevCountRef.current = newPending;
             setOrders(docs);

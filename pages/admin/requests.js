@@ -74,6 +74,21 @@ async function fetchIngredientNutrition(ingredientRaw) {
   } catch { return null; }
 }
 
+async function autoTranslate(text, targetLang) {
+  if (!text?.trim()) return '';
+  try {
+    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.trim())}&langpair=en|${targetLang}`);
+    const data = await res.json();
+    if (data?.responseStatus === 200 && data?.responseData?.translatedText) {
+      const result = data.responseData.translatedText;
+      // MyMemory returns UNTRANSLATED TEXT IN CAPS if it fails — detect and skip
+      if (result === text.trim().toUpperCase()) return '';
+      return result;
+    }
+    return '';
+  } catch { return ''; }
+}
+
 export default function AdminRequests() {
   const { userData } = useAuth();
   const [requests, setRequests]           = useState([]);
@@ -96,6 +111,7 @@ export default function AdminRequests() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filter, setFilter]               = useState('all');
   const [calcLoading, setCalcLoading]     = useState(false);
+  const [translating, setTranslating]     = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(null);
   const [bulkProgress, setBulkProgress]   = useState({ done:0, total:0, current:'' });
@@ -474,9 +490,34 @@ export default function AdminRequests() {
 
                 {/* Multi-language translations (optional) */}
                 <div style={{ marginBottom:16, padding:'16px 18px', borderRadius:14, background:'rgba(74,128,192,0.04)', border:'1px solid rgba(74,128,192,0.12)' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-                    <span style={{ fontSize:15 }}>🌐</span>
-                    <span style={{ fontSize:12, fontWeight:700, color:'rgba(42,31,16,0.55)', letterSpacing:'0.04em' }}>TRANSLATIONS (Optional)</span>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontSize:15 }}>🌐</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:'rgba(42,31,16,0.55)', letterSpacing:'0.04em' }}>TRANSLATIONS (Optional)</span>
+                    </div>
+                    <button type="button" onClick={async () => {
+                      if (!form.name.trim()) { toast.error('Enter item name first'); return; }
+                      setTranslating(true);
+                      try {
+                        const [nameTA, nameHI, descTA, descHI] = await Promise.all([
+                          autoTranslate(form.name, 'ta'),
+                          autoTranslate(form.name, 'hi'),
+                          form.description ? autoTranslate(form.description, 'ta') : Promise.resolve(''),
+                          form.description ? autoTranslate(form.description, 'hi') : Promise.resolve(''),
+                        ]);
+                        setForm(f => ({
+                          ...f,
+                          nameTA: nameTA || f.nameTA,
+                          nameHI: nameHI || f.nameHI,
+                          descriptionTA: descTA || f.descriptionTA,
+                          descriptionHI: descHI || f.descriptionHI,
+                        }));
+                        toast.success('Translations filled! Review and edit if needed.');
+                      } catch { toast.error('Translation failed — try again'); }
+                      finally { setTranslating(false); }
+                    }} disabled={translating} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:'Inter,sans-serif', border:'1.5px solid rgba(74,128,192,0.4)', background:'rgba(74,128,192,0.06)', color:'#4A80C0', cursor: translating ? 'not-allowed' : 'pointer', opacity: translating ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                      {translating ? <><span style={{ width:11, height:11, border:'2px solid #4A80C0', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Translating…</> : '✦ Auto Translate'}
+                    </button>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
                     <div>

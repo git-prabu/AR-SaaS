@@ -26,6 +26,20 @@ const S = {
   input: { width: '100%', padding: '10px 13px', background: '#F7F5F2', border: '1.5px solid rgba(42,31,16,0.09)', borderRadius: 11, fontSize: 13, color: '#1E1B18', fontFamily: 'Inter,sans-serif', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' },
 };
 
+async function autoTranslate(text, targetLang) {
+  if (!text?.trim()) return '';
+  try {
+    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.trim())}&langpair=en|${targetLang}`);
+    const data = await res.json();
+    if (data?.responseStatus === 200 && data?.responseData?.translatedText) {
+      const result = data.responseData.translatedText;
+      if (result === text.trim().toUpperCase()) return '';
+      return result;
+    }
+    return '';
+  } catch { return ''; }
+}
+
 export default function AdminItems() {
   const { userData } = useAuth();
   const [items, setItems] = useState([]);
@@ -37,6 +51,7 @@ export default function AdminItems() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [customBadge, setCustomBadge] = useState('');
+  const [translatingEdit, setTranslatingEdit] = useState(false);
   const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { progress, uploading } }
   const imgInputRef = useRef({});
   const dragItem = useRef(null);
@@ -426,7 +441,26 @@ export default function AdminItems() {
                         </div>
                     {/* Translations */}
                     <div style={{ gridColumn: '1/-1', padding: '14px 16px', borderRadius: 12, background: 'rgba(74,128,192,0.04)', border: '1px solid rgba(74,128,192,0.12)' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(42,31,16,0.45)', letterSpacing: '0.04em', marginBottom: 10 }}>🌐 TRANSLATIONS (Optional)</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(42,31,16,0.45)', letterSpacing: '0.04em' }}>🌐 TRANSLATIONS (Optional)</div>
+                        <button type="button" onClick={async () => {
+                          if (!editData.name?.trim()) { toast.error('Item name is empty'); return; }
+                          setTranslatingEdit(true);
+                          try {
+                            const [nTA, nHI, dTA, dHI] = await Promise.all([
+                              autoTranslate(editData.name, 'ta'),
+                              autoTranslate(editData.name, 'hi'),
+                              editData.description ? autoTranslate(editData.description, 'ta') : Promise.resolve(''),
+                              editData.description ? autoTranslate(editData.description, 'hi') : Promise.resolve(''),
+                            ]);
+                            setEditData(d => ({ ...d, nameTA: nTA || d.nameTA, nameHI: nHI || d.nameHI, descriptionTA: dTA || d.descriptionTA, descriptionHI: dHI || d.descriptionHI }));
+                            toast.success('Translations filled! Review and edit if needed.');
+                          } catch { toast.error('Translation failed'); }
+                          finally { setTranslatingEdit(false); }
+                        }} disabled={translatingEdit} style={{ padding: '4px 12px', borderRadius: 7, fontSize: 11, fontWeight: 600, border: '1.5px solid rgba(74,128,192,0.4)', background: 'rgba(74,128,192,0.06)', color: '#4A80C0', cursor: translatingEdit ? 'not-allowed' : 'pointer', opacity: translatingEdit ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                          {translatingEdit ? '⏳ Translating…' : '✦ Auto Translate'}
+                        </button>
+                      </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                         <div>
                           <label style={S.label}>Tamil Name</label>
