@@ -79,10 +79,19 @@ export default function AdminRequests() {
   const [requests, setRequests]           = useState([]);
   const [restaurant, setRestaurant]       = useState(null);
   const [loading, setLoading]             = useState(true);
-  const [showForm, setShowForm]           = useState(false);
-  const [form, setForm]                   = useState(BLANK);
+  const [showForm, setShowForm]           = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return sessionStorage.getItem('ar_req_showForm') === 'true'; } catch { return false; }
+  });
+  const [form, setForm]                   = useState(() => {
+    if (typeof window === 'undefined') return BLANK;
+    try { const s = sessionStorage.getItem('ar_req_form'); return s ? JSON.parse(s) : BLANK; } catch { return BLANK; }
+  });
   const [imageFile, setImageFile]         = useState(null);
-  const [imagePreview, setImagePreview]   = useState(null);
+  const [imagePreview, setImagePreview]   = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try { return sessionStorage.getItem('ar_req_imgPreview') || null; } catch { return null; }
+  });
   const [submitting, setSubmitting]       = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filter, setFilter]               = useState('all');
@@ -95,6 +104,17 @@ export default function AdminRequests() {
   const [showCatDrop, setShowCatDrop]     = useState(false);
   const [newCatInput, setNewCatInput]     = useState('');
   const rid = userData?.restaurantId;
+
+  // Auto-save form to sessionStorage so data survives navigation / reload
+  useEffect(() => {
+    try { sessionStorage.setItem('ar_req_form', JSON.stringify(form)); } catch {}
+  }, [form]);
+  useEffect(() => {
+    try { sessionStorage.setItem('ar_req_showForm', showForm ? 'true' : 'false'); } catch {}
+  }, [showForm]);
+  useEffect(() => {
+    try { if (imagePreview) sessionStorage.setItem('ar_req_imgPreview', imagePreview); else sessionStorage.removeItem('ar_req_imgPreview'); } catch {}
+  }, [imagePreview]);
 
   useEffect(() => {
     if (!rid) return;
@@ -315,6 +335,7 @@ export default function AdminRequests() {
       }, restaurant);
       toast.success('Item published to menu! AR will be added once our team uploads the 3D model.');
       setForm(BLANK); setImageFile(null); setImagePreview(null); setShowForm(false);
+      try { sessionStorage.removeItem('ar_req_form'); sessionStorage.removeItem('ar_req_showForm'); sessionStorage.removeItem('ar_req_imgPreview'); } catch {}
       const [updated, updatedRest] = await Promise.all([getRequests(rid), getRestaurantById(rid)]);
       setRequests(updated);
       setRestaurant(updatedRest);
