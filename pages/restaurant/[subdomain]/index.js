@@ -1,10 +1,11 @@
 import Head from 'next/head';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { getRestaurantBySubdomain, getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
-import { ARViewerEmbed } from '../../../components/ARViewer';
+const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(m => m.ARViewerEmbed), { ssr: false });
 
 function getSessionId() {
   if (typeof window === 'undefined') return 'ssr';
@@ -580,10 +581,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   }, [selectedItem, smaOpen, selectedCombo]);
 
 
-  // ── Enrich menu items with active offer data ──────────────────
-  const todayStr = new Date().toISOString().split('T')[0];
+  // ── Enrich menu items with active offer data (memoized) ──────────────────
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  const enrichedItems = (menuItems || []).map(item => {
+  const enrichedItems = useMemo(() => (menuItems || []).map(item => {
     const soldOut = item.availableUntil === todayStr;
     const isOutOfStock = item.isOutOfStock || false;
     const activeOffer = !soldOut && !isOutOfStock && (offers || []).find(o => o.linkedItemId === item.id);
@@ -602,10 +603,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       offerDescription: activeOffer.description,
       offerPrice: activeOffer.discountedPrice ?? null,
     };
-  });
+  }), [menuItems, offers, todayStr]);
 
-  const cats = ['All', ...new Set(enrichedItems.map(i => i.category).filter(Boolean))];
-  const filtered = activeCat === 'All' ? enrichedItems : enrichedItems.filter(i => i.category === activeCat);
+  const cats = useMemo(() => ['All', ...new Set(enrichedItems.map(i => i.category).filter(Boolean))], [enrichedItems]);
+  const filtered = useMemo(() => activeCat === 'All' ? enrichedItems : enrichedItems.filter(i => i.category === activeCat), [enrichedItems, activeCat]);
 
 
 
@@ -696,7 +697,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     });
     return () => { cancelAnimationFrame(raf); if (obs) obs.disconnect(); };
   }, [filtered]);
-  const arCount = (menuItems || []).filter(i => i.modelURL).length;
+  const arCount = useMemo(() => (menuItems || []).filter(i => i.modelURL).length, [menuItems]);
 
 
   /* ─── Rating handler ─── */
@@ -996,7 +997,6 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         <title>{restaurant.name} — Menu</title>
         <meta name="description" content={`Explore ${restaurant.name}'s menu`} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet" />
       </Head>
 
       <div className={darkMode ? 'dm' : ''} id="app-root" style={{ position: 'relative' }}>
@@ -2463,7 +2463,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       {/* Image area */}
                       <div style={{ height: 120, overflow: 'hidden', position: 'relative', background: darkMode ? '#2A2018' : '#F5EDE0' }}>
                         {linked?.imageURL ? (
-                          <img src={linked.imageURL} alt={linked.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={linked.imageURL} alt={linked.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>🏷️</div>
                         )}
@@ -2861,7 +2861,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor = 'rgba(247,155,61,0.25)'; }}>
                             {u.imageURL && (
                               <div style={{ width: 36, height: 36, borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
-                                <img src={u.imageURL} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={u.imageURL} alt={u.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
                             )}
                             <div>
@@ -2905,7 +2905,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <div key={c.id} className="cart-item-row">
                       {c.imageURL && (
                         <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-                          <img src={c.imageURL} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={c.imageURL} alt={c.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -3612,7 +3612,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             const shareable = isGroup && isShareable(item);
                             return (
                               <button key={item.id} className="sma-item" onClick={() => { closeSMA(); openItem(item); }}>
-                                <img className="sma-item-img" src={imgSrc(item)} alt={item.name}
+                                <img className="sma-item-img" src={imgSrc(item)} alt={item.name} loading="lazy"
                                   onError={() => setImgErr(e => ({ ...e, [item.id]: true }))} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div className="sma-item-name">{item.name}</div>
