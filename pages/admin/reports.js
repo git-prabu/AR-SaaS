@@ -105,7 +105,7 @@ export default function AdminReports() {
   return (
     <AdminLayout>
       <Head><title>Revenue Reports | Advert Radical</title></Head>
-      <div style={{ padding: '28px 32px', maxWidth: 1100, paddingBottom: 60, fontFamily: T.font }}>
+      <div style={{ padding: '28px 32px', maxWidth: 1100, margin: '0 auto', paddingBottom: 60, fontFamily: T.font }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 14 }}>

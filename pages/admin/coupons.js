@@ -89,7 +89,7 @@ export default function AdminCoupons() {
   return (
     <AdminLayout>
       <Head><title>Coupons | Advert Radical</title></Head>
-      <div style={{ padding: '28px 32px', maxWidth: 960, paddingBottom: 60, fontFamily: T.font }}>
+      <div style={{ padding: '28px 32px', maxWidth: 960, margin: '0 auto', paddingBottom: 60, fontFamily: T.font }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>

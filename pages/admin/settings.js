@@ -84,7 +84,7 @@ export default function AdminSettings() {
   return (
     <AdminLayout>
       <Head><title>Settings | Advert Radical</title></Head>
-      <div style={{ padding: '28px 32px', maxWidth: 720, paddingBottom: 60, fontFamily: T.font }}>
+      <div style={{ padding: '28px 32px', maxWidth: 720, margin: '0 auto', paddingBottom: 60, fontFamily: T.font }}>
 
         {/* Header */}
         <div style={{ marginBottom: 28 }}>

@@ -326,7 +326,7 @@ export default function WaiterDashboard() {
     return (
       <AdminLayout>
         <Head><title>Waiter Dashboard | Advert Radical</title></Head>
-        <div style={{ padding: '28px 32px', maxWidth: 1000, paddingBottom: 60 }}>
+        <div style={{ padding: '28px 32px', maxWidth: 1000, margin: '0 auto', paddingBottom: 60 }}>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 22, color: T.ink }}>Waiter Dashboard</div>
             <div style={{ fontSize: 13, color: T.stone, marginTop: 4, fontFamily: T.font }}>Live calls and ready-to-serve orders</div>
