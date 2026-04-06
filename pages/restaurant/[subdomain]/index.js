@@ -581,9 +581,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   }, [restaurant?.id]);
 
   useEffect(() => {
-    document.body.style.overflow = (selectedItem || smaOpen || selectedCombo) ? 'hidden' : '';
+    document.body.style.overflow = (selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [selectedItem, smaOpen, selectedCombo]);
+  }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal]);
 
 
   // ── Enrich menu items with active offer data (memoized) ──────────────────

@@ -15,6 +15,7 @@ const navItems = [
   { href: '/admin/staff', label: 'Staff Logins', icon: '👥' },
   { href: '/admin/coupons', label: 'Coupons', icon: '🏷' },
   { href: '/admin/payments', label: 'Payments', icon: '💰' },
+  { href: '/admin/feedback', label: 'Customer Feedback', icon: '⭐' },
   { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
   { href: '/admin/requests', label: 'Add Items/Requests', icon: '◈' },
   { href: '/admin/combos', label: 'Combo Builder', icon: '🍱' },
