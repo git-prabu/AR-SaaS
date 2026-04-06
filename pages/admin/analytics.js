@@ -100,7 +100,8 @@ export default function AdminAnalytics() {
       getOrders(rid),
     ]);
     setAnalytics(anal);
-    setPrevAnal(allAnal.slice(range));
+    // allAnal is sorted oldest→newest. Current period = last N items, previous = the ones before that
+    setPrevAnal(allAnal.slice(0, Math.max(0, allAnal.length - range)));
     setMenuItems(items);
     setTodayStat(today);
     setWaiterStat(waiter);
@@ -111,7 +112,7 @@ export default function AdminAnalytics() {
   useEffect(() => { load(); }, [load]);
 
   const sum = (arr, k) => arr.reduce((s, d) => s + (d[k] || 0), 0);
-  const delta = (curr, prev) => prev === 0 ? 0 : Math.round(((curr - prev) / prev) * 100);
+  const delta = (curr, prev) => prev === 0 ? (curr > 0 ? null : 0) : Math.round(((curr - prev) / prev) * 100);
 
   const totalVisits = sum(analytics, 'totalVisits');
   const uniqueVisits = sum(analytics, 'uniqueVisitors');
@@ -178,7 +179,7 @@ export default function AdminAnalytics() {
   const rangeStart = new Date(Date.now() - range * 24 * 60 * 60 * 1000);
   const ordersInRange = orders.filter(o => {
     if (!o.createdAt) return true;
-    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     return d >= rangeStart;
   });
   const totalOrders = ordersInRange.length;
@@ -190,7 +191,7 @@ export default function AdminAnalytics() {
   // Revenue by day chart
   const revByDay = {};
   ordersInRange.forEach(o => {
-    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now());
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     const key = d.toISOString().slice(5, 10); // MM-DD
     if (!revByDay[key]) revByDay[key] = { date: key, revenue: 0, orders: 0 };
     revByDay[key].revenue += o.total || 0;
@@ -213,7 +214,7 @@ export default function AdminAnalytics() {
   const hourlyOrders = Array(24).fill(0);
   const hourlyRevenue = Array(24).fill(0);
   ordersInRange.forEach(o => {
-    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now());
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     const hour = d.getHours();
     hourlyOrders[hour] += 1;
     hourlyRevenue[hour] += o.total || 0;
@@ -230,7 +231,7 @@ export default function AdminAnalytics() {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dailyOrders = Array(7).fill(0);
   ordersInRange.forEach(o => {
-    const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || Date.now());
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     dailyOrders[d.getDay()] += 1;
   });
   const dayData = dailyOrders.map((count, i) => ({ day: dayNames[i], orders: count }));

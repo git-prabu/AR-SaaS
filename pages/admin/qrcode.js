@@ -62,7 +62,7 @@ export default function AdminQRCode() {
   // Reset table QRs when style changes so they stay in sync
   useEffect(() => { setTableQRs([]); setTablesDone(false); }, [selectedStyle]);
 
-  const BASE_URL = 'https://ar-saa-s-kbzn.vercel.app';
+  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ar-saa-s-kbzn.vercel.app';
 
   const getMenuURL = (table = null, sid = null) => {
     const base = `${BASE_URL}/restaurant/${restaurant?.subdomain || ''}`;

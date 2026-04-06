@@ -37,6 +37,7 @@ export default function AdminLayout({ children }) {
   const prevOrderRef  = useRef(0);
   const notifGranted  = useRef(false);
   const seenPaymentRequests = useRef(new Set());
+  const audioCtxRef   = useRef(null);
 
   // Request OS notification permission once (needed for background-tab alerts)
   useEffect(() => {
@@ -55,7 +56,8 @@ export default function AdminLayout({ children }) {
   const playBell = async () => {
     if (!soundAllowed()) return;
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') await ctx.resume();
       const tone = (freq, start, dur, peak) => {
         const osc = ctx.createOscillator();

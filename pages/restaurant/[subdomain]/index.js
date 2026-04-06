@@ -681,7 +681,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
 
   // ── Enrich menu items with active offer data (memoized) ──────────────────
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [todayStr, setTodayStr] = useState(() => new Date().toISOString().split('T')[0]);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const now = new Date().toISOString().split('T')[0];
+      if (now !== todayStr) setTodayStr(now);
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [todayStr]);
 
   const enrichedItems = useMemo(() => (menuItems || []).map(item => {
     const soldOut = item.availableUntil === todayStr;
@@ -935,9 +942,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     }
     setIsSubmitting(true);
     try {
+      // Re-validate prices from live menu data
+      const freshCart = cart.map(c => {
+        const live = enrichedItems.find(i => i.id === c.id);
+        if (!live) return c;
+        const price = live.offerPrice ?? live.price;
+        return { ...c, price };
+      });
       const gstPct = restaurant?.gstPercent || 0;
       const scPct = restaurant?.serviceChargePercent || 0;
-      const subtotal = cartPrice;
+      const subtotal = freshCart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
       const serviceCharge = parseFloat((subtotal * scPct / 100).toFixed(2));
       const cgst = parseFloat((subtotal * (gstPct / 2) / 100).toFixed(2));
       const sgst = parseFloat((subtotal * (gstPct / 2) / 100).toFixed(2));
@@ -948,7 +962,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
       const orderId = await createOrder(restaurant.id, {
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
-        items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty, note: c.note || '' })),
+        items: freshCart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty, note: c.note || '' })),
         subtotal,
         gstPercent: gstPct,
         serviceChargePercent: scPct,
@@ -972,7 +986,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
       // Save snapshot for the bill view
       const orderSnapshot = {
-        items: cart.map(c => ({ ...c })),
+        items: freshCart.map(c => ({ ...c })),
         subtotal, gstPercent: gstPct, serviceChargePercent: scPct,
         cgst, sgst, serviceCharge, discount,
         couponCode: appliedCoupon?.code || null,
@@ -1105,7 +1119,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       <Head>
         <title>{restaurant.name} — Menu</title>
         <meta name="description" content={`Explore ${restaurant.name}'s menu`} />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <div className={darkMode ? 'dm' : ''} id="app-root" style={{ position: 'relative' }}>
