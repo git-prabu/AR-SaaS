@@ -1,9 +1,9 @@
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomain, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse } from '../../../lib/db';
+import { getRestaurantBySubdomain, getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { ARViewerEmbed } from '../../../components/ARViewer';
 
 function getSessionId() {
@@ -408,11 +408,14 @@ function SwipeableSheet({ onClose, children, darkMode }) {
   );
 }
 
-export default function RestaurantMenu({ restaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error }) {
-  // ── Live data state — seeded from ISR cache, refreshed from Firestore ──
+export default function RestaurantMenu({ restaurant: initialRestaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error }) {
+  // ── Live data state — seeded from ISR cache, updated in real-time via onSnapshot ──
+  const [liveRestaurant, setLiveRestaurant] = useState(initialRestaurant);
+  const restaurant = liveRestaurant || initialRestaurant;
   const [menuItems, setMenuItems] = useState(initialItems || []);
   const [offers, setOffers] = useState(initialOffers || []);
   const [combos, setCombos] = useState(initialCombos || []);
+  const [restaurantGone, setRestaurantGone] = useState(initialRestaurant?.isActive === false);
   const [activeCat, setActiveCat] = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedCombo, setSelectedCombo] = useState(null);
@@ -518,24 +521,57 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(() => { });
   }, [restaurant?.id]);
 
-  // ── Background data refresh — keeps menu fresh despite ISR cache ──
+  // ── Real-time Firestore listeners — INSTANT updates from admin ──
   useEffect(() => {
     if (!restaurant?.id) return;
-    const refresh = async () => {
-      try {
-        const [freshItems, freshOffers, freshCombos] = await Promise.all([
-          getMenuItems(restaurant.id),
-          getActiveOffers(restaurant.id),
-          getCombos(restaurant.id),
-        ]);
-        setMenuItems(freshItems || []);
-        setOffers(freshOffers || []);
-        setCombos(freshCombos || []);
-      } catch (e) { /* silently keep ISR data on error */ }
-    };
-    refresh(); // immediate background refresh on every page load
-    window.addEventListener('focus', refresh); // refresh when tab regains focus
-    return () => window.removeEventListener('focus', refresh);
+    const unsubs = [];
+
+    // 1) Restaurant doc — detect isActive toggle, name/settings changes
+    const restRef = doc(db, 'restaurants', restaurant.id);
+    unsubs.push(onSnapshot(restRef, (snap) => {
+      if (!snap.exists()) { setRestaurantGone(true); return; }
+      const data = { id: snap.id, ...snap.data() };
+      setLiveRestaurant(data);
+      if (data.isActive === false) setRestaurantGone(true);
+      else setRestaurantGone(false);
+    }, () => { /* ignore errors, keep ISR data */ }));
+
+    // 2) Menu items — real-time subcollection listener
+    const itemsQ = query(
+      collection(db, 'restaurants', restaurant.id, 'menuItems'),
+      where('isActive', '==', true)
+    );
+    unsubs.push(onSnapshot(itemsQ, (snap) => {
+      const items = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          if (a.isFeatured && !b.isFeatured) return -1;
+          if (!a.isFeatured && b.isFeatured) return 1;
+          const ao = a.sortOrder ?? 9999, bo = b.sortOrder ?? 9999;
+          if (ao !== bo) return ao - bo;
+          if ((a.category || '') < (b.category || '')) return -1;
+          if ((a.category || '') > (b.category || '')) return 1;
+          return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+        });
+      setMenuItems(items);
+    }, () => { /* ignore errors */ }));
+
+    // 3) Offers — real-time
+    const offersQ = query(
+      collection(db, 'restaurants', restaurant.id, 'offers'),
+      where('isActive', '==', true)
+    );
+    unsubs.push(onSnapshot(offersQ, (snap) => {
+      setOffers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, () => {}));
+
+    // 4) Combos — real-time
+    const combosRef = collection(db, 'restaurants', restaurant.id, 'combos');
+    unsubs.push(onSnapshot(combosRef, (snap) => {
+      setCombos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, () => {}));
+
+    return () => unsubs.forEach(u => u());
   }, [restaurant?.id]);
 
   useEffect(() => {
@@ -870,6 +906,26 @@ export default function RestaurantMenu({ restaurant, menuItems: initialItems, of
     if (smaStep < activeQs.length - 1) setSmaStep(smaStep + 1);
     else { setSmaResults(filterItems(menuItems || [], ans, groupSize)); setSmaStep(activeQs.length); }
   };
+
+  // ── Real-time: restaurant toggled off by admin → instant block ──
+  if (restaurantGone) return (
+    <div style={{ minHeight: '100vh', background: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter,sans-serif', padding: 24 }}>
+      <div style={{ textAlign: 'center', maxWidth: 420 }}>
+        <div style={{ fontSize: 56, marginBottom: 20 }}>🍽️</div>
+        <h1 style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 22, color: '#1E1B18', marginBottom: 10 }}>
+          {restaurant?.name || 'Restaurant'}
+        </h1>
+        <div style={{ padding: '20px 28px', background: '#fff', borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', border: '1px solid rgba(42,31,16,0.08)' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⏸️</div>
+          <div style={{ fontWeight: 700, fontSize: 17, color: '#1E1B18', marginBottom: 8 }}>Currently Unavailable</div>
+          <div style={{ color: 'rgba(42,31,16,0.55)', fontSize: 14, lineHeight: 1.6 }}>
+            This restaurant's digital menu is currently not available. Please check back later or ask a staff member for assistance.
+          </div>
+        </div>
+        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>Powered by Advert Radical</div>
+      </div>
+    </div>
+  );
 
   if (error || !restaurant) return (
     <div style={{ minHeight: '100vh', background: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif' }}>
@@ -3600,8 +3656,9 @@ export async function getStaticPaths() {
 
 export async function getStaticProps({ params }) {
   try {
-    const restaurant = await getRestaurantBySubdomain(params.subdomain);
+    const restaurant = await getRestaurantBySubdomainAny(params.subdomain);
     if (!restaurant) return { notFound: true };
+    // Fetch menu data even for inactive restaurants — real-time listener will block display
     const [menuItems, offers, combos] = await Promise.all([
       getMenuItems(restaurant.id),
       getActiveOffers(restaurant.id),
