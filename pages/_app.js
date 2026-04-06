@@ -46,7 +46,7 @@ export default function App({ Component, pageProps }) {
               background: '#18181D',
               color: '#F2F2EE',
               border: '1px solid #27272E',
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "Inter, sans-serif",
             },
             success: { iconTheme: { primary: '#FF6B35', secondary: '#09090B' } },
             error: { iconTheme: { primary: '#EF4444', secondary: '#09090B' } },

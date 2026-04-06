@@ -4,12 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getFeedback } from '../../lib/db';
 import toast from 'react-hot-toast';
-
-const S = {
-  card: { background: '#FFFFFF', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 20, boxShadow: '0 2px 14px rgba(42,31,16,0.05)' },
-  h1: { fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18', margin: 0 },
-  sub: { fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 },
-};
+import { ADMIN_STYLES as S } from '../../lib/utils';
 
 function Stars({ count }) {
   return (

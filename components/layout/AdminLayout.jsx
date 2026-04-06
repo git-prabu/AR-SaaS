@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
@@ -29,6 +29,24 @@ export default function AdminLayout({ children }) {
   const { user, userData, loading, signOut } = useAuth();
   const router = useRouter();
   const rid = userData?.restaurantId;
+
+  // ─── RESPONSIVE SIDEBAR STATE ────────────────────────────────────────────
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false);
+  }, [router.pathname, isMobile]);
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // ─── GLOBAL SOUND + NOTIFICATION SYSTEM ──────────────────────────────────
   // Lives in AdminLayout so it runs on EVERY admin page, not just the page
@@ -165,10 +183,50 @@ export default function AdminLayout({ children }) {
           color:#fff;font-weight:700;
           box-shadow:0 4px 16px rgba(247,155,61,0.38);
         }
+        .admin-sidebar{
+          transition:transform 0.25s cubic-bezier(.4,0,.2,1);
+        }
+        .admin-mobile-topbar{display:none;}
+        .admin-backdrop{display:none;}
+        @media(max-width:767px){
+          .admin-sidebar{transform:translateX(-100%);}
+          .admin-sidebar.open{transform:translateX(0);}
+          .admin-main{margin-left:0 !important;}
+          .admin-mobile-topbar{
+            display:flex;align-items:center;gap:12px;
+            position:fixed;top:0;left:0;right:0;z-index:18;
+            height:52px;padding:0 16px;
+            background:#1E1B18;
+            box-shadow:0 2px 12px rgba(0,0,0,0.15);
+          }
+          .admin-backdrop{
+            display:block;position:fixed;inset:0;z-index:19;
+            background:rgba(0,0,0,0.45);
+            -webkit-tap-highlight-color:transparent;
+          }
+          .admin-main{padding-top:52px !important;}
+        }
       `}</style>
 
+      {/* ── Mobile top bar with hamburger ── */}
+      <div className="admin-mobile-topbar">
+        <button onClick={() => setSidebarOpen(o => !o)}
+          style={{ background: 'none', border: 'none', color: '#F79B3D', fontSize: 24, cursor: 'pointer', padding: '4px 6px', lineHeight: 1 }}
+          aria-label="Toggle menu">
+          ☰
+        </button>
+        <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 15, color: '#FFF5E8' }}>
+          Advert <span style={{ background: 'linear-gradient(135deg,#F79B3D,#F4C06A)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Radical</span>
+        </div>
+      </div>
+
+      {/* ── Backdrop overlay for mobile ── */}
+      {isMobile && sidebarOpen && (
+        <div className="admin-backdrop" onClick={closeSidebar} />
+      )}
+
       {/* ── Dark warm sidebar ── */}
-      <aside style={{
+      <aside className={`admin-sidebar${sidebarOpen ? ' open' : ''}`} style={{
         width: 220, flexShrink: 0, background: '#1E1B18',
         display: 'flex', flexDirection: 'column',
         position: 'fixed', inset: '0 auto 0 0', zIndex: 20,
@@ -190,7 +248,7 @@ export default function AdminLayout({ children }) {
         {/* Nav */}
         <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
           {navItems.map(item => (
-            <Link key={item.href} href={item.href} className={`nlnk${isActive(item.href) ? ' on' : ''}`}>
+            <Link key={item.href} href={item.href} className={`nlnk${isActive(item.href) ? ' on' : ''}`} onClick={isMobile ? closeSidebar : undefined}>
               <span style={{ fontSize: 14, width: 20, textAlign: 'center' }}>{item.icon}</span>
               {item.label}
             </Link>
@@ -214,7 +272,7 @@ export default function AdminLayout({ children }) {
         </div>
       </aside>
 
-      <main style={{ flex: 1, marginLeft: 220, minHeight: '100vh', overflowY: 'auto' }}>
+      <main className="admin-main" style={{ flex: 1, marginLeft: 220, minHeight: '100vh', overflowY: 'auto' }}>
         {children}
       </main>
     </div>

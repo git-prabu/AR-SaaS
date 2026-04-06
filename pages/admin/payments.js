@@ -5,12 +5,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { updatePaymentStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-
-const S = {
-    card: { background: '#FFFFFF', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 20, boxShadow: '0 2px 14px rgba(42,31,16,0.05)' },
-    h1: { fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18', margin: 0 },
-    sub: { fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 },
-};
+import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
 const PAYMENT_STATUS = {
     cash_requested: { label: 'Cash Requested', icon: '💵', color: '#A06010', bg: 'rgba(247,155,61,0.12)', border: 'rgba(247,155,61,0.3)' },
@@ -22,14 +17,6 @@ const PAYMENT_STATUS = {
     unpaid: { label: 'Unpaid', icon: '⏳', color: 'rgba(42,31,16,0.45)', bg: 'rgba(42,31,16,0.04)', border: 'rgba(42,31,16,0.1)' },
 };
 
-function timeAgo(seconds) {
-    if (!seconds) return 'just now';
-    const diff = Math.floor(Date.now() / 1000) - seconds;
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
-}
-
 export default function AdminPayments() {
     const { userData } = useAuth();
     const [orders, setOrders] = useState([]);
@@ -38,6 +25,8 @@ export default function AdminPayments() {
     const [tick, setTick] = useState(0);
     const rid = userData?.restaurantId;
 
+    // This page needs its own onSnapshot listener (separate from AdminLayout's)
+    // because it uses orders data directly for the payments display list.
     useEffect(() => {
         if (!rid) return;
         const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));

@@ -7,6 +7,7 @@ import { resolveWaiterCall, deleteWaiterCall, getRestaurantById, updateRestauran
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
 const REASON_MAP = {
   water: { emoji: '💧', label: 'Need Water', color: '#4A80C0', bg: 'rgba(74,128,192,0.1)' },
@@ -14,20 +15,6 @@ const REASON_MAP = {
   assistance: { emoji: '🙋', label: 'Need Assistance', color: '#E05A3A', bg: 'rgba(224,90,58,0.1)' },
   order: { emoji: '📋', label: 'Ready to Order', color: '#5A9A78', bg: 'rgba(90,154,120,0.1)' },
 };
-
-const S = {
-  card: { background: '#FFFFFF', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 20, boxShadow: '0 2px 14px rgba(42,31,16,0.06)' },
-  h1: { fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18', margin: 0 },
-  sub: { fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 },
-};
-
-function timeAgo(seconds) {
-  const diff = Math.floor(Date.now() / 1000) - seconds;
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
 
 function ToggleSwitch({ enabled, onToggle, disabled }) {
   return (
@@ -125,31 +112,6 @@ export default function AdminNotifications() {
       toast(next ? '✅ Waiter calls enabled' : "⛔ Waiter calls paused", { duration: 3000 });
     } catch { toast.error('Failed to update setting'); }
     finally { setTogglingCalls(false); }
-  };
-
-  // ── Bell synthesizer ──────────────────────────────────────────────────────
-  const playBell = async () => {
-    if (!soundEnabledRef.current) return;
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // Browsers suspend AudioContext in background tabs; resume it first
-      if (ctx.state === 'suspended') await ctx.resume();
-      const playTone = (freq, startTime, duration, gainPeak) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-        osc.start(startTime); osc.stop(startTime + duration);
-      };
-      playTone(880, ctx.currentTime, 1.4, 0.55);
-      playTone(1760, ctx.currentTime, 0.7, 0.25);
-      playTone(880, ctx.currentTime + 0.55, 1.2, 0.45);
-      playTone(1760, ctx.currentTime + 0.55, 0.6, 0.2);
-    } catch { }
   };
 
   // ── Real-time waiter calls listener ──────────────────────────────────────

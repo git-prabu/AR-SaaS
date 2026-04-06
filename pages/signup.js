@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { adminAuth } from '../lib/firebase';
 import { createRestaurant, createUserDoc, getRestaurantBySubdomain } from '../lib/db';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 const PLAN_MAP = {
   starter: { label: 'Starter', price: '₹999/mo', maxItems: 20, maxStorageMB: 1000 },
@@ -151,7 +151,6 @@ export default function Signup() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet" />
       </Head>
-      <Toaster position="top-center" />
 
       <div style={{ minHeight: '100vh', background: '#0C0A08', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', fontFamily: 'Inter,sans-serif' }}>
         <div style={{ width: '100%', maxWidth: 480 }}>

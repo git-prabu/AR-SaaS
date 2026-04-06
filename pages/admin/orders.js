@@ -6,12 +6,7 @@ import { getOrders, updateOrderStatus, updatePaymentStatus } from '../../lib/db'
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
-
-const S = {
-    card: { background: '#FFFFFF', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 20, boxShadow: '0 2px 14px rgba(42,31,16,0.05)' },
-    h1: { fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#1E1B18', margin: 0 },
-    sub: { fontSize: 13, color: 'rgba(42,31,16,0.45)', marginTop: 4 },
-};
+import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
 const STATUS_FLOW = ['pending', 'preparing', 'ready', 'served'];
 
@@ -22,65 +17,13 @@ const STATUS_META = {
     served: { label: 'Served', color: 'rgba(42,31,16,0.35)', bg: 'rgba(42,31,16,0.05)', next: null, nextLabel: null },
 };
 
-function timeAgo(seconds) {
-    if (!seconds) return 'just now';
-    const diff = Math.floor(Date.now() / 1000) - seconds;
-    if (diff < 60) return `${diff}s ago`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
-}
-
 export default function AdminOrders() {
     const { userData } = useAuth();
     const [orders, setOrders] = useState([]);
     const [filter, setFilter] = useState('active'); // 'active' | 'served' | 'all'
     const [updating, setUpdating] = useState(null);
     const [tick, setTick] = useState(0);
-    const [soundOn, setSoundOn] = useState(() => {
-        if (typeof window === 'undefined') return true;
-        return localStorage.getItem('ar_order_sound') !== 'off';
-    });
     const prevCountRef = useRef(0);
-    const notifGrantedRef = useRef(false);   // tracks OS notification permission
-    const soundOnRef = useRef(soundOn);       // stable ref so snapshot closure stays fresh
-
-    // Keep soundOnRef in sync whenever the toggle changes
-    useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
-
-    // ── Browser OS notification permission ────────────────────────────────
-    useEffect(() => {
-        if (typeof window === 'undefined' || !('Notification' in window)) return;
-        if (Notification.permission === 'granted') {
-            notifGrantedRef.current = true;
-        } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission().then(p => {
-                notifGrantedRef.current = p === 'granted';
-            });
-        }
-    }, []);
-
-    const showOsNotif = (title, body) => {
-        if (!notifGrantedRef.current) return;
-        try {
-            const n = new Notification(title, { body, icon: '/favicon.ico', tag: 'ar-alert' });
-            setTimeout(() => n.close(), 8000);
-            n.onclick = () => { window.focus(); n.close(); };
-        } catch { }
-    };
-
-    const toggleSound = () => {
-        setSoundOn(prev => {
-            const next = !prev;
-            localStorage.setItem('ar_order_sound', next ? 'on' : 'off');
-            return next;
-        });
-    };
-
-    const playAlert = () => {
-        // Use ref (not state) so the snapshot closure always sees the latest toggle value
-        if (!soundOnRef.current) return;
-        try { new Audio('/notification.mp3').play().catch(() => { }); } catch { }
-    };
     const rid = userData?.restaurantId;
 
     /* ── Real-time listener ── */
@@ -156,13 +99,6 @@ export default function AdminOrders() {
                             <p style={S.sub}>Live incoming orders from your tables</p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                            {/* Sound toggle */}
-                            <button onClick={toggleSound}
-                                title={soundOn ? 'Sound alerts on — click to mute' : 'Sound alerts off — click to enable'}
-                                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 30, border: `1.5px solid ${soundOn ? 'rgba(90,154,120,0.35)' : 'rgba(42,31,16,0.15)'}`, background: soundOn ? 'rgba(90,154,120,0.08)' : 'rgba(42,31,16,0.04)', color: soundOn ? '#1A6040' : 'rgba(42,31,16,0.4)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', fontFamily: 'Inter,sans-serif' }}>
-                                <span style={{ fontSize: 14 }}>{soundOn ? '🔔' : '🔕'}</span>
-                                {soundOn ? 'Sound On' : 'Sound Off'}
-                            </button>
                             {/* New orders badge */}
                             {pendingCount > 0 && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 30, background: 'rgba(224,90,58,0.1)', border: '1px solid rgba(224,90,58,0.25)' }}>

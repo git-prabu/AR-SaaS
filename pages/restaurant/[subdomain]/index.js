@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomain, getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse, submitFeedback } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse, submitFeedback, sortMenuItems } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(m => m.ARViewerEmbed), { ssr: false });
@@ -631,17 +631,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       where('isActive', '==', true)
     );
     unsubs.push(onSnapshot(itemsQ, (snap) => {
-      const items = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
-          if (a.isFeatured && !b.isFeatured) return -1;
-          if (!a.isFeatured && b.isFeatured) return 1;
-          const ao = a.sortOrder ?? 9999, bo = b.sortOrder ?? 9999;
-          if (ao !== bo) return ao - bo;
-          if ((a.category || '') < (b.category || '')) return -1;
-          if ((a.category || '') > (b.category || '')) return 1;
-          return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
-        });
+      const items = sortMenuItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setMenuItems(items);
     }, () => { /* ignore errors */ }));
 
@@ -1118,8 +1108,35 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     <>
       <Head>
         <title>{restaurant.name} — Menu</title>
-        <meta name="description" content={`Explore ${restaurant.name}'s menu`} />
+        <meta name="description" content={`Explore ${restaurant.name}'s menu with AR previews. Order directly from your table.`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        {/* Open Graph */}
+        <meta property="og:title" content={`${restaurant.name} — Menu`} />
+        <meta property="og:description" content={`Explore ${restaurant.name}'s menu with AR previews. Order directly from your table.`} />
+        <meta property="og:type" content="restaurant" />
+        <meta property="og:url" content={`https://advertradical.com/restaurant/${restaurant.subdomain || ''}`} />
+        <meta property="og:image" content="https://advertradical.com/og-default.png" />
+
+        {/* Canonical URL */}
+        <link rel="canonical" href={`https://advertradical.com/restaurant/${restaurant.subdomain || ''}`} />
+
+        {/* JSON-LD structured data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Restaurant',
+            name: restaurant.name,
+            url: `https://advertradical.com/restaurant/${restaurant.subdomain || ''}`,
+            servesCuisine: restaurant.cuisine || undefined,
+            address: restaurant.city ? { '@type': 'PostalAddress', addressLocality: restaurant.city } : undefined,
+            hasMenu: {
+              '@type': 'Menu',
+              url: `https://advertradical.com/restaurant/${restaurant.subdomain || ''}`,
+            },
+          }) }}
+        />
       </Head>
 
       <div className={darkMode ? 'dm' : ''} id="app-root" style={{ position: 'relative' }}>

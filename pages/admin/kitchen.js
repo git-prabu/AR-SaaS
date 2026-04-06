@@ -14,6 +14,9 @@ const STATUS_META = {
   served:    { label: 'Served',     color: '#888',    bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.1)', next: null, nextLabel: null, nextBg: null },
 };
 
+// Must match the sidebar width in AdminLayout.jsx (currently 220px)
+const SIDEBAR_W = 220;
+
 const COLUMNS = [
   { key: 'pending',   title: 'New Orders',  dot: '#E05A3A' },
   { key: 'preparing', title: 'Preparing',   dot: '#F79B3D' },
@@ -79,7 +82,9 @@ export default function KitchenDashboard() {
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
 
-  // Timer tick
+  // Timer tick — 1s interval is intentional: kitchen staff need second-level
+  // elapsed-time accuracy per order to manage prep urgency. The tick only
+  // drives a lightweight counter increment (no heavy re-renders).
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 1000);
     return () => clearInterval(t);
@@ -290,7 +295,7 @@ export default function KitchenDashboard() {
     return (
       <AdminLayout>
         <Head><title>Kitchen Display | Advert Radical</title></Head>
-        <div style={{ position: 'fixed', top: 0, left: 220, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', background: '#0F0F0F', zIndex: 1 }}>
+        <div style={{ position: 'fixed', top: 0, left: SIDEBAR_W, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', background: '#0F0F0F', zIndex: 1 }}>
           {KDSContent}
         </div>
       </AdminLayout>

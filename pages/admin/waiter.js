@@ -6,14 +6,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { resolveWaiterCall, updateOrderStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-
-function timeAgo(seconds) {
-  if (!seconds) return 'just now';
-  const diff = Math.floor(Date.now() / 1000) - seconds;
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
-}
+import { timeAgo } from '../../lib/utils';
 
 function isToday(seconds) {
   if (!seconds) return false;
