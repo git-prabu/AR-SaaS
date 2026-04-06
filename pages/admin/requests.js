@@ -318,7 +318,7 @@ export default function AdminRequests() {
       const [updated, updatedRest] = await Promise.all([getRequests(rid), getRestaurantById(rid)]);
       setRequests(updated);
       setRestaurant(updatedRest);
-    } catch { toast.error('Failed to submit. Try again.'); }
+    } catch (err) { console.error('Submit error:', err); toast.error(err?.code === 'permission-denied' ? 'Permission denied — check Firestore rules' : (err?.message || 'Failed to submit. Try again.')); }
     finally { setSubmitting(false); setUploadProgress(0); }
   };
 
