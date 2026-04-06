@@ -355,7 +355,6 @@ function SheetOverlay({ onClose, children, zIndex = 60, darkMode }) {
 /* ─── SwipeableSheet — iOS-style drag-to-dismiss bottom sheet ─── */
 function SwipeableSheet({ onClose, children, darkMode }) {
   const sheetRef = useRef(null);
-  const overlayRef = useRef(null);
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
   const isDragging = useRef(false);
@@ -409,21 +408,11 @@ function SwipeableSheet({ onClose, children, darkMode }) {
     return () => sheet.removeEventListener('touchmove', handleTouchMove);
   }, []);
 
-  // Block touchmove on the overlay backdrop to prevent background page scroll on iOS
-  useEffect(() => {
-    const el = overlayRef.current;
-    if (!el) return;
-    const handler = (e) => { if (e.target === el) e.preventDefault(); };
-    el.addEventListener('touchmove', handler, { passive: false });
-    return () => el.removeEventListener('touchmove', handler);
-  }, []);
-
   const progress = Math.min(dragY / 300, 1);
   const bgAlpha = darkMode ? 0.85 * (1 - progress) : 0.5 * (1 - progress);
 
   return (
     <div
-      ref={overlayRef}
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: `rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -616,30 +605,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return () => unsubs.forEach(u => u());
   }, [restaurant?.id]);
 
-  // Lock body scroll when any sheet/modal is open — iOS Safari needs position:fixed
-  const scrollYRef = useRef(0);
+  // Lock body scroll when any sheet/modal is open
   useEffect(() => {
     const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal);
     if (isOpen) {
-      scrollYRef.current = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollYRef.current}px`;
-      document.body.style.left = '0';
-      document.body.style.right = '0';
+      document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
-      window.scrollTo(0, scrollYRef.current);
     }
     return () => {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
   }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal]);
@@ -3069,7 +3046,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
               {/* ── STEP: success ── */}
               {orderStep === 'success' && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px 0', gap: 16 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 0', gap: 16, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
                   <div style={{ fontSize: 56 }}>🎉</div>
                   <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{t.orderPlaced}</div>
                   <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{t.orderSentMsg}</div>
