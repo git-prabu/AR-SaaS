@@ -112,7 +112,7 @@ export default function AdminLayout({ children }) {
   };
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid) { setCallsLoaded(true); return; }
     const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -124,11 +124,14 @@ export default function AdminLayout({ children }) {
       prevCallRef.current = pending;
       setAllWaiterCalls(docs);
       setCallsLoaded(true);
+    }, err => {
+      console.error('waiterCalls listener error:', err);
+      setCallsLoaded(true);
     });
   }, [rid]);
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid) { setOrdersLoaded(true); return; }
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -153,6 +156,9 @@ export default function AdminLayout({ children }) {
           showOsNotif('Payment Requested', `Table ${data.tableNumber || '?'} wants to pay by ${methodLabel}`);
         }
       });
+    }, err => {
+      console.error('orders listener error:', err);
+      setOrdersLoaded(true);
     });
   }, [rid]);
 
