@@ -6,7 +6,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { updateOrderStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { useAdminOrders } from '../../contexts/AdminDataContext';
+// Direct Firestore listeners used instead of context for reliability
 import { T } from '../../lib/utils';
 
 const STATUS_META = {
@@ -54,9 +54,7 @@ export default function KitchenDashboard() {
   const router = useRouter();
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  // Admin view: shared data from AdminLayout context (no duplicate listeners)
-  const adminCtxOrders = useAdminOrders();
-  const [staffOrders, setStaffOrders] = useState([]);
+  const [allOrdersLocal, setAllOrdersLocal] = useState([]);
   const [filter, setFilter] = useState('active');
   const [updating, setUpdating] = useState(null);
   const [tick, setTick] = useState(0);
@@ -113,22 +111,21 @@ export default function KitchenDashboard() {
     } catch {}
   };
 
-  // Staff-only listener (admin gets data from AdminLayout context instead)
+  // Direct Firestore listener — always active for both admin and staff
   useEffect(() => {
-    if (!rid || isAdmin) return;
+    if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pendingCount = all.filter(o => o.status === 'pending').length;
       if (pendingCount > prevPendingRef.current) playAlert();
       prevPendingRef.current = pendingCount;
-      setStaffOrders(all);
+      setAllOrdersLocal(all);
     });
     return unsub;
-  }, [rid, isAdmin]);
+  }, [rid]);
 
-  // Unified data — admin uses context, staff uses local state
-  const orders = isAdmin ? adminCtxOrders.orders : staffOrders;
+  const orders = allOrdersLocal;
 
   const handleNext = async (order) => {
     const meta = STATUS_META[order.status];

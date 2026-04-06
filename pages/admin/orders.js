@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { updateOrderStatus, updatePaymentStatus } from '../../lib/db';
-import { useAdminOrders } from '../../contexts/AdminDataContext';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { timeAgo, T, ADMIN_STYLES as S } from '../../lib/utils';
 
@@ -16,11 +17,19 @@ const STATUS_META = {
 
 export default function AdminOrders() {
   const { userData } = useAuth();
-  const { orders } = useAdminOrders();
+  const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('active');
   const [updating, setUpdating] = useState(null);
   const [tick, setTick] = useState(0);
   const rid = userData?.restaurantId;
+
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => {
+      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, [rid]);
 
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 30000);

@@ -3,8 +3,9 @@ import Head from 'next/head';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { resolveWaiterCall, deleteWaiterCall, getRestaurantById, updateRestaurant } from '../../lib/db';
-import { useAdminOrders, useAdminWaiterCalls } from '../../contexts/AdminDataContext';
 import toast from 'react-hot-toast';
 import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
@@ -40,9 +41,9 @@ function ToggleSwitch({ enabled, onToggle, disabled }) {
 
 export default function AdminNotifications() {
   const { userData } = useAuth();
-  const { calls, loaded: callsLoaded } = useAdminWaiterCalls(); // shared from AdminLayout
-  const { orders, loaded: ordersLoaded } = useAdminOrders();     // shared from AdminLayout
-  const loading = !callsLoaded;
+  const [calls, setCalls] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState(null);
   const [tab, setTab] = useState('pending');
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -111,8 +112,28 @@ export default function AdminNotifications() {
     finally { setTogglingCalls(false); }
   };
 
-  // Real-time data (orders + waiterCalls) is shared from AdminLayout via context.
-  // No duplicate onSnapshot listeners needed here.
+  // ── Firestore: waiterCalls listener ────────────────────────────────────────
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setCalls(data);
+      setLoading(false);
+    });
+    return unsub;
+  }, [rid]);
+
+  // ── Firestore: orders listener ────────────────────────────────────────────
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setOrders(data);
+    });
+    return unsub;
+  }, [rid]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const handleResolve = async (call) => {
