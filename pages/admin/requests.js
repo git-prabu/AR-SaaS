@@ -321,6 +321,7 @@ export default function AdminRequests() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.name.trim()) { toast.error('Item name is required'); return; }
+    if (!form.category.trim()) { toast.error('Category is required'); return; }
     if (!form.price || Number(form.price) <= 0) { toast.error('Price is required'); return; }
     if (atLimit) {
       toast.error(`Item limit reached (${itemsUsed}/${maxItems}). Upgrade your plan to add more items.`);

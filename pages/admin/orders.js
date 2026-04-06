@@ -5,6 +5,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { getOrders, updateOrderStatus, updatePaymentStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 const S = {
     card: { background: '#FFFFFF', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 20, boxShadow: '0 2px 14px rgba(42,31,16,0.05)' },
@@ -112,7 +113,11 @@ export default function AdminOrders() {
         const meta = STATUS_META[order.status];
         if (!meta?.next) return;
         setUpdating(order.id);
-        await updateOrderStatus(rid, order.id, meta.next);
+        try {
+            await updateOrderStatus(rid, order.id, meta.next);
+        } catch {
+            toast.error('Failed to update order status');
+        }
         setUpdating(null);
     };
 
@@ -264,8 +269,12 @@ export default function AdminOrders() {
                                                     <button className="adv-btn"
                                                         onClick={async () => {
                                                             setUpdating(order.id + '_pay');
-                                                            const paidMap = { cash_requested: 'paid_cash', card_requested: 'paid_card', online_requested: 'paid_online' };
-                                                            await updatePaymentStatus(rid, order.id, paidMap[order.paymentStatus] || 'paid_cash');
+                                                            try {
+                                                                const paidMap = { cash_requested: 'paid_cash', card_requested: 'paid_card', online_requested: 'paid_online' };
+                                                                await updatePaymentStatus(rid, order.id, paidMap[order.paymentStatus] || 'paid_cash');
+                                                            } catch {
+                                                                toast.error('Failed to verify payment');
+                                                            }
                                                             setUpdating(null);
                                                         }}
                                                         disabled={updating === order.id + '_pay'}
@@ -275,7 +284,11 @@ export default function AdminOrders() {
                                                     <button className="adv-btn"
                                                         onClick={async () => {
                                                             setUpdating(order.id + '_pay');
-                                                            await updatePaymentStatus(rid, order.id, 'payment_issue');
+                                                            try {
+                                                                await updatePaymentStatus(rid, order.id, 'payment_issue');
+                                                            } catch {
+                                                                toast.error('Failed to update payment status');
+                                                            }
                                                             setUpdating(null);
                                                         }}
                                                         disabled={updating === order.id + '_pay'}
@@ -291,7 +304,11 @@ export default function AdminOrders() {
                                                     <button className="adv-btn"
                                                         onClick={async () => {
                                                             setUpdating(order.id + '_pay');
-                                                            await updatePaymentStatus(rid, order.id, 'paid_cash');
+                                                            try {
+                                                                await updatePaymentStatus(rid, order.id, 'paid_cash');
+                                                            } catch {
+                                                                toast.error('Failed to update payment status');
+                                                            }
                                                             setUpdating(null);
                                                         }}
                                                         disabled={updating === order.id + '_pay'}

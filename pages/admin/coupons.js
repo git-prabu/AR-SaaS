@@ -44,6 +44,10 @@ export default function AdminCoupons() {
   const handleSave = async () => {
     if (!form.code.trim()) { toast.error('Coupon code is required'); return; }
     if (!form.value || isNaN(parseFloat(form.value))) { toast.error('Enter a valid discount value'); return; }
+    if (form.type === 'percent' && parseFloat(form.value) > 100) { toast.error('Percentage discount cannot exceed 100%'); return; }
+    const codeUpper = form.code.toUpperCase().trim();
+    const duplicate = coupons.find(c => c.code === codeUpper && (modal === 'add' || c.id !== modal.id));
+    if (duplicate) { toast.error('A coupon with this code already exists'); return; }
     setSaving(true);
     try {
       const data = {

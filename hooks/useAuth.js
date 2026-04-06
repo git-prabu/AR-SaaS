@@ -19,15 +19,22 @@ export function AdminAuthProvider({ children }) {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(adminAuth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        const data = await getUserData(firebaseUser.uid);
-        setUserData(data);
-      } else {
+      try {
+        if (firebaseUser) {
+          setUser(firebaseUser);
+          const data = await getUserData(firebaseUser.uid);
+          setUserData(data);
+        } else {
+          setUser(null);
+          setUserData(null);
+        }
+      } catch (err) {
+        console.error('AdminAuth: failed to load user data', err);
         setUser(null);
         setUserData(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsub;
   }, []);

@@ -835,6 +835,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   /* ─── Smart Rule-Based Upsell ─── */
   // ── Cart helpers ─────────────────────────────────────────
   const addToCart = useCallback((item) => {
+    if (item.soldOut || item.isOutOfStock) return;
     setCart(prev => {
       const existing = prev.find(c => c.id === item.id);
       if (existing) return prev.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c);
@@ -892,6 +893,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
   const cartTotal = cart.reduce((s, c) => s + c.qty, 0);
   const cartPrice = cart.reduce((s, c) => s + c.qty * (c.price || 0), 0);
+
+  // Recalculate coupon discount when cart changes
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const newDiscount = appliedCoupon.type === 'percent'
+      ? Math.floor(cartPrice * appliedCoupon.value / 100)
+      : Math.min(appliedCoupon.value, cartPrice);
+    setCouponDiscount(newDiscount);
+  }, [cartPrice, appliedCoupon]);
 
   // Live order status subscription
   useEffect(() => {
@@ -3174,7 +3184,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                 await submitFeedback(restaurant.id, {
                                   rating: feedbackRating,
                                   comment: feedbackComment.trim(),
-                                  orderId: placedOrder?.id || null,
+                                  orderId: placedOrder?.orderId || placedOrder?.id || null,
                                   tableNumber: orderTableInput || tableNumber || null,
                                   orderItems: placedOrder?.items?.map(i => ({ name: i.name, qty: i.qty, price: i.price })) || [],
                                   orderTotal: placedOrder?.total || null,

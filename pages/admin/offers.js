@@ -68,6 +68,10 @@ export default function AdminOffers() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.title || !form.endDate) return;
+    if (form.discountedPrice !== '' && Number(form.discountedPrice) <= 0) {
+      toast.error('Discounted price must be greater than 0');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {

@@ -100,7 +100,7 @@ export default function AdminAnalytics() {
       getOrders(rid),
     ]);
     setAnalytics(anal);
-    setPrevAnal(allAnal.slice(0, range));
+    setPrevAnal(allAnal.slice(range));
     setMenuItems(items);
     setTodayStat(today);
     setWaiterStat(waiter);
@@ -184,7 +184,7 @@ export default function AdminAnalytics() {
   const totalOrders = ordersInRange.length;
   const totalRevenue = ordersInRange.reduce((s, o) => s + (o.total || 0), 0);
   const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
-  const completedOrders = ordersInRange.filter(o => o.status === 'completed' || o.status === 'done').length;
+  const completedOrders = ordersInRange.filter(o => o.status === 'served').length;
   const pendingOrders = ordersInRange.filter(o => o.status === 'pending').length;
 
   // Revenue by day chart

@@ -219,19 +219,31 @@ export default function AdminItems() {
   };
 
   const toggleActive = async (item) => {
-    await updateMenuItem(rid, item.id, { isActive: !item.isActive });
-    await load();
+    try {
+      await updateMenuItem(rid, item.id, { isActive: !item.isActive });
+      await load();
+    } catch {
+      toast.error('Failed to update item');
+    }
   };
 
   const toggleSoldOut = async (item) => {
-    const newVal = isSoldOutToday(item) ? null : today;
-    await updateMenuItem(rid, item.id, { availableUntil: newVal });
-    await load();
+    try {
+      const newVal = isSoldOutToday(item) ? null : today;
+      await updateMenuItem(rid, item.id, { availableUntil: newVal });
+      await load();
+    } catch {
+      toast.error('Failed to update sold out status');
+    }
   };
 
   const toggleOutOfStock = async (item) => {
-    await updateMenuItem(rid, item.id, { isOutOfStock: !item.isOutOfStock });
-    await load();
+    try {
+      await updateMenuItem(rid, item.id, { isOutOfStock: !item.isOutOfStock });
+      await load();
+    } catch {
+      toast.error('Failed to update out of stock status');
+    }
   };
 
   return (

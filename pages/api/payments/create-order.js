@@ -2,9 +2,9 @@
 import Razorpay from 'razorpay';
 
 const PLAN_AMOUNTS = {
-  basic:   99900,   // ₹999 in paise
-  pro:     249900,  // ₹2499
-  premium: 499900,  // ₹4999
+  starter: 99900,   // ₹999 in paise
+  growth:  249900,  // ₹2499
+  pro:     499900,  // ₹4999
 };
 
 export default async function handler(req, res) {

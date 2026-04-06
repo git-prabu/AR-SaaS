@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getFeedback } from '../../lib/db';
+import toast from 'react-hot-toast';
 
 const S = {
   card: { background: '#FFFFFF', border: '1px solid rgba(42,31,16,0.07)', borderRadius: 20, boxShadow: '0 2px 14px rgba(42,31,16,0.05)' },
@@ -44,17 +45,21 @@ export default function AdminFeedback() {
   const { userData } = useAuth();
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all' | '5' | '4' | '3' | '2' | '1'
 
   const rid = userData?.restaurantId;
 
-  useEffect(() => {
+  const loadFeedback = () => {
     if (!rid) return;
     setLoading(true);
+    setError(false);
     getFeedback(rid)
       .then(data => { setFeedback(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [rid]);
+      .catch(() => { setError(true); setLoading(false); });
+  };
+
+  useEffect(() => { loadFeedback(); }, [rid]);
 
   // Stats
   const total = feedback.length;
@@ -73,9 +78,15 @@ export default function AdminFeedback() {
       <div style={{ padding: '32px 28px 60px', maxWidth: 900, margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={S.h1}>Customer Feedback</h1>
-          <div style={S.sub}>See what your customers are saying</div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div>
+            <h1 style={S.h1}>Customer Feedback</h1>
+            <div style={S.sub}>See what your customers are saying</div>
+          </div>
+          <button onClick={loadFeedback} disabled={loading}
+            style={{ padding: '8px 18px', borderRadius: 10, border: '1.5px solid rgba(42,31,16,0.12)', background: '#fff', color: '#1E1B18', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter,sans-serif', opacity: loading ? 0.5 : 1 }}>
+            Refresh
+          </button>
         </div>
 
         {/* Stats Row */}
@@ -149,7 +160,21 @@ export default function AdminFeedback() {
         </div>
 
         {/* Feedback List */}
-        {loading ? (
+        {error ? (
+          <div style={{ ...S.card, padding: '60px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: '#1E1B18', marginBottom: 6 }}>
+              Failed to load feedback
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(42,31,16,0.45)', maxWidth: 280, margin: '0 auto 16px' }}>
+              Something went wrong. Please try again.
+            </div>
+            <button onClick={loadFeedback}
+              style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#F79B3D', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              Retry
+            </button>
+          </div>
+        ) : loading ? (
           <div style={{ textAlign: 'center', padding: 60, color: 'rgba(42,31,16,0.35)' }}>
             <div style={{ width: 32, height: 32, border: '3px solid #F79B3D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             Loading feedback...
