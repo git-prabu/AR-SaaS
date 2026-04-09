@@ -6,12 +6,12 @@ import { getAllOffers, createOffer, updateOffer, deleteOffer, getAllMenuItems } 
 import toast from 'react-hot-toast';
 
 const S = {
-  card:  { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
-  h1:    { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
-  sub:   { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
-  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(42,31,16,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(42,31,16,0.09)', borderRadius:12, fontSize:14, color:'#1E1B18', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box' },
-  btn:   { padding:'11px 22px', borderRadius:12, fontSize:14, fontWeight:600, fontFamily:'Poppins,sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
+  card:  { background:'#FFFFFF', border:'1px solid rgba(38,52,49,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(38,52,49,0.06)' },
+  h1:    { fontFamily:"'Playfair Display', Georgia, serif", fontWeight:800, fontSize:24, color:'#263431', margin:0, letterSpacing:'-0.3px' },
+  sub:   { fontSize:13, color:'rgba(38,52,49,0.45)', marginTop:4 },
+  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
+  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box' },
+  btn:   { padding:'11px 22px', borderRadius:10, fontSize:14, fontWeight:600, fontFamily:'Outfit, sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
 };
 
 const BLANK = { title:'', description:'', startDate:'', endDate:'', linkedItemId:'', discountedPrice:'' };
@@ -68,6 +68,10 @@ export default function AdminOffers() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!rid || !form.title || !form.endDate) return;
+    if (form.discountedPrice !== '' && Number(form.discountedPrice) <= 0) {
+      toast.error('Discounted price must be greater than 0');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -104,9 +108,9 @@ export default function AdminOffers() {
   return (
     <AdminLayout>
       <Head><title>Offers — Advert Radical</title></Head>
-      <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
+      <div style={{ background:'#EAE7E3', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
         <div style={{ maxWidth:860, margin:'0 auto' }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}} .inp:focus{border-color:rgba(224,90,58,0.5)!important} .inp::placeholder{color:rgba(42,31,16,0.3)}`}</style>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}} .inp:focus{border-color:rgba(138,74,66,0.5)!important} .inp::placeholder{color:rgba(38,52,49,0.3)}`}</style>
 
           {/* Header */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
@@ -115,16 +119,16 @@ export default function AdminOffers() {
               <p style={S.sub}>Active offers display as a horizontal strip on your live menu. Link a dish to make it clickable.</p>
             </div>
             <button onClick={showForm ? closeForm : openCreate}
-              style={{ ...S.btn, background:showForm?'#F2F0EC':'#1E1B18', color:showForm?'#1E1B18':'#FFF5E8', border:showForm?'1.5px solid rgba(42,31,16,0.12)':'none' }}>
+              style={{ ...S.btn, background:showForm?'#EAE7E3':'#263431', color:showForm?'#263431':'#EAE7E3', border:showForm?'1.5px solid rgba(38,52,49,0.12)':'none' }}>
               {showForm ? '✕ Cancel' : '+ New Offer'}
             </button>
           </div>
 
           {/* Form — create or edit */}
           {showForm && (
-            <div style={{ ...S.card, padding:28, marginBottom:24, border:`1.5px solid ${isEditing ? 'rgba(74,128,192,0.35)' : 'rgba(247,155,61,0.3)'}` }}>
+            <div style={{ ...S.card, padding:28, marginBottom:24, border:`1.5px solid ${isEditing ? 'rgba(74,128,192,0.35)' : 'rgba(196,168,109,0.3)'}` }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
-                <h2 style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:16, color:'#1E1B18', margin:0 }}>
+                <h2 style={{ fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:17, color:'#263431', margin:0 }}>
                   {isEditing ? '✏️ Edit Offer' : 'Create Offer'}
                 </h2>
                 {isEditing && (
@@ -136,7 +140,7 @@ export default function AdminOffers() {
 
               {/* Live preview */}
               {form.title && (
-                <div style={{ background:'linear-gradient(135deg,#E05A3A,#F07050)', borderRadius:12, padding:'12px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
+                <div style={{ background:'linear-gradient(135deg,#8A4A42,#F07050)', borderRadius:12, padding:'12px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
                   {linkedItem?.imageURL && (
                     <img src={linkedItem.imageURL} alt={linkedItem.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }} />
                   )}
@@ -166,7 +170,7 @@ export default function AdminOffers() {
                 </div>
 
                 {/* Link to a dish */}
-                <div style={{ marginBottom:14, padding:'16px', background:'rgba(247,155,61,0.05)', borderRadius:14, border:'1px solid rgba(247,155,61,0.2)' }}>
+                <div style={{ marginBottom:14, padding:'16px', background:'rgba(196,168,109,0.05)', borderRadius:14, border:'1px solid rgba(196,168,109,0.2)' }}>
                   <label style={S.label}>🔗 Link to a Dish <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(optional — makes card clickable, shows dish modal)</span></label>
                   <select className="inp" style={S.input} value={form.linkedItemId} onChange={e=>setForm(f=>({...f,linkedItemId:e.target.value,discountedPrice:''}))}>
                     <option value="">— No linked dish —</option>
@@ -195,11 +199,11 @@ export default function AdminOffers() {
 
                 <div style={{ display:'flex', gap:10 }}>
                   <button type="submit" disabled={saving}
-                    style={{ ...S.btn, background: isEditing ? '#4A80C0' : '#1E1B18', color:'#FFF5E8', padding:'13px 28px', opacity:saving?0.6:1 }}>
+                    style={{ ...S.btn, background: isEditing ? '#4A80C0' : '#263431', color:'#EAE7E3', padding:'13px 28px', borderRadius:10, opacity:saving?0.6:1 }}>
                     {saving ? 'Saving…' : isEditing ? '✓ Save Changes' : 'Create Offer'}
                   </button>
                   <button type="button" onClick={closeForm}
-                    style={{ ...S.btn, background:'transparent', color:'rgba(42,31,16,0.5)', border:'1.5px solid rgba(42,31,16,0.12)', padding:'13px 20px' }}>
+                    style={{ ...S.btn, background:'transparent', color:'rgba(38,52,49,0.5)', border:'1.5px solid rgba(38,52,49,0.12)', padding:'13px 20px', borderRadius:10 }}>
                     Cancel
                   </button>
                 </div>
@@ -210,10 +214,10 @@ export default function AdminOffers() {
           {/* List */}
           {loading ? (
             <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-              <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+              <div style={{ width:32, height:32, border:'3px solid #8A4A42', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
             </div>
           ) : offers.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
+            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(38,52,49,0.4)' }}>
               <div style={{ fontSize:40, marginBottom:12 }}>🎁</div>
               <p style={{ fontSize:14 }}>No offers yet. Create one to display on your menu.</p>
             </div>
@@ -226,32 +230,32 @@ export default function AdminOffers() {
                   <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16, outline: isBeingEdited ? '2px solid #4A80C0' : 'none', outlineOffset:2 }}>
                     {offer.linkedItemImage
                       ? <img src={offer.linkedItemImage} alt={offer.linkedItemName} style={{ width:52, height:52, borderRadius:14, objectFit:'cover', flexShrink:0 }} />
-                      : <div style={{ width:52, height:52, borderRadius:14, background:'rgba(224,90,58,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>
+                      : <div style={{ width:52, height:52, borderRadius:14, background:'rgba(138,74,66,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>
                     }
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontWeight:700, fontSize:14, color:'#1E1B18' }}>{offer.title}</div>
-                      {offer.description && <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)', marginTop:2 }}>{offer.description}</div>}
+                      <div style={{ fontWeight:700, fontSize:14, color:'#263431' }}>{offer.title}</div>
+                      {offer.description && <div style={{ fontSize:12, color:'rgba(38,52,49,0.5)', marginTop:2 }}>{offer.description}</div>}
                       {offer.linkedItemName && (
-                        <div style={{ fontSize:11, color:'#E05A3A', fontWeight:600, marginTop:3 }}>
+                        <div style={{ fontSize:11, color:'#8A4A42', fontWeight:600, marginTop:3 }}>
                           🔗 {offer.linkedItemName}
-                          {offer.linkedItemPrice && <span style={{ color:'rgba(42,31,16,0.4)', textDecoration:'line-through', marginLeft:6 }}>₹{offer.linkedItemPrice}</span>}
-                          {offer.discountedPrice && <span style={{ color:'#2D8B4E', fontWeight:800, marginLeft:6 }}>→ ₹{offer.discountedPrice}</span>}
+                          {offer.linkedItemPrice && <span style={{ color:'rgba(38,52,49,0.4)', textDecoration:'line-through', marginLeft:6 }}>₹{offer.linkedItemPrice}</span>}
+                          {offer.discountedPrice && <span style={{ color:'#4A7A5E', fontWeight:800, marginLeft:6 }}>→ ₹{offer.discountedPrice}</span>}
                         </div>
                       )}
-                      <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:4 }}>
+                      <div style={{ fontSize:11, color:'rgba(38,52,49,0.35)', marginTop:4 }}>
                         {offer.startDate ? `${offer.startDate} → ${offer.endDate}` : `Ends ${offer.endDate}`}
                       </div>
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-                      <span style={{ padding:'4px 12px', borderRadius:30, fontSize:11, fontWeight:700, background:isActive?'rgba(143,196,168,0.2)':'rgba(42,31,16,0.06)', color:isActive?'#1A5A38':'rgba(42,31,16,0.4)', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(42,31,16,0.1)'}` }}>
+                      <span style={{ padding:'4px 14px', borderRadius:20, fontSize:11, fontWeight:700, background:isActive?'rgba(122,170,142,0.15)':'rgba(38,52,49,0.06)', color:isActive?'#1A5A38':'rgba(38,52,49,0.4)', border:`1px solid ${isActive?'rgba(122,170,142,0.35)':'rgba(38,52,49,0.1)'}`, letterSpacing:'0.02em' }}>
                         {isActive ? 'Active' : 'Expired'}
                       </span>
                       <button onClick={() => isBeingEdited ? closeForm() : openEdit(offer)}
-                        style={{ height:30, padding:'0 12px', borderRadius:8, border:`1.5px solid ${isBeingEdited ? 'rgba(74,128,192,0.5)' : 'rgba(74,128,192,0.3)'}`, background: isBeingEdited ? 'rgba(74,128,192,0.12)' : 'rgba(74,128,192,0.06)', color:'#4A80C0', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                        style={{ height:30, padding:'0 12px', borderRadius:10, border:`1.5px solid ${isBeingEdited ? 'rgba(74,128,192,0.5)' : 'rgba(74,128,192,0.3)'}`, background: isBeingEdited ? 'rgba(74,128,192,0.12)' : 'rgba(74,128,192,0.06)', color:'#4A80C0', cursor:'pointer', fontSize:12, fontWeight:600, transition:'all 0.15s' }}>
                         {isBeingEdited ? '✕ Cancel' : '✏️ Edit'}
                       </button>
                       <button onClick={() => handleDelete(offer.id)}
-                        style={{ width:30, height:30, borderRadius:8, border:'none', background:'rgba(224,90,58,0.08)', color:'#E05A3A', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+                        style={{ width:30, height:30, borderRadius:10, border:'1.5px solid rgba(138,74,66,0.25)', background:'rgba(138,74,66,0.06)', color:'#8A4A42', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}>✕</button>
                     </div>
                   </div>
                 );

@@ -37,10 +37,10 @@ export default function AdminLogin() {
     <>
       <Head>
         <title>Sign In — Advert Radical</title>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet"/>
       </Head>
 
-      <div style={{maxHeight:'100vh', background:'#0C0A08', fontFamily:'Inter,sans-serif', display:'flex', position:'relative', overflow:'hidden'}}>
+      <div style={{maxHeight:'100vh', background:'#0C0A08', fontFamily:'Outfit, sans-serif', display:'flex', position:'relative', overflow:'hidden'}}>
         <style>{`
           * { box-sizing:border-box; margin:0; padding:0; }
 
@@ -50,7 +50,7 @@ export default function AdminLogin() {
           @keyframes floatD { 0%,100%{transform:translateY(0) rotate(2deg)}   50%{transform:translateY(-10px) rotate(-3deg)} }
           @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:none} }
           @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0.15} }
-          @keyframes pulse  { 0%,100%{box-shadow:0 0 0 0 rgba(247,155,61,0.45)} 50%{box-shadow:0 0 0 10px rgba(247,155,61,0)} }
+          @keyframes pulse  { 0%,100%{box-shadow:0 0 0 0 rgba(196,168,109,0.45)} 50%{box-shadow:0 0 0 10px rgba(196,168,109,0)} }
 
           /* ── Inputs ── */
           .al-input {
@@ -58,26 +58,26 @@ export default function AdminLogin() {
             background:rgba(255,245,220,0.05);
             border:1.5px solid rgba(255,245,220,0.1);
             border-radius:12px; font-size:14px;
-            color:#FFF5E8; outline:none;
-            transition:all 0.2s; font-family:Inter,sans-serif;
+            color:#EAE7E3; outline:none;
+            transition:all 0.2s; font-family:Outfit,sans-serif;
           }
           .al-input:focus {
-            border-color:rgba(247,155,61,0.5);
+            border-color:rgba(196,168,109,0.5);
             background:rgba(255,245,220,0.08);
-            box-shadow:0 0 0 4px rgba(247,155,61,0.1);
+            box-shadow:0 0 0 4px rgba(196,168,109,0.1);
           }
           .al-input::placeholder { color:rgba(255,245,220,0.2); }
 
           /* ── Submit button ── */
           .al-btn {
             width:100%; padding:15px; border-radius:12px; border:none;
-            background:linear-gradient(135deg,#E05A3A,#F79B3D);
-            color:#fff; font-family:Poppins,sans-serif;
-            font-weight:700; font-size:15px; cursor:pointer;
-            box-shadow:0 8px 28px rgba(224,90,58,0.45);
-            transition:all 0.2s;
+            background:#4A7A5E;
+            color:#fff; font-family:Outfit,sans-serif;
+            font-weight:600; font-size:15px; cursor:pointer;
+            box-shadow:0 8px 28px rgba(74,122,94,0.4);
+            transition:all 0.2s; letter-spacing:0.02em;
           }
-          .al-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 14px 36px rgba(224,90,58,0.55); }
+          .al-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 14px 36px rgba(74,122,94,0.5); background:#3D6A50; }
           .al-btn:disabled { opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none; }
 
           /* ── Layout panels ── */
@@ -140,8 +140,8 @@ export default function AdminLogin() {
         `}</style>
 
         {/* ── BG ambient glows ── */}
-        <div style={{position:'fixed', top:'-15%', left:'15%', width:800, height:800, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(247,155,61,0.09) 0%, transparent 60%)', pointerEvents:'none', filter:'blur(80px)'}}/>
-        <div style={{position:'fixed', bottom:'-20%', right:'5%', width:600, height:600, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(224,90,58,0.07) 0%, transparent 65%)', pointerEvents:'none', filter:'blur(60px)'}}/>
+        <div style={{position:'fixed', top:'-15%', left:'15%', width:800, height:800, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(196,168,109,0.09) 0%, transparent 60%)', pointerEvents:'none', filter:'blur(80px)'}}/>
+        <div style={{position:'fixed', bottom:'-20%', right:'5%', width:600, height:600, borderRadius:'50%', background:'radial-gradient(ellipse, rgba(138,74,66,0.07) 0%, transparent 65%)', pointerEvents:'none', filter:'blur(60px)'}}/>
         {/* Subtle grid */}
         <div style={{position:'fixed', inset:0, backgroundImage:'linear-gradient(rgba(255,245,220,0.016) 1px, transparent 1px), linear-gradient(90deg, rgba(255,245,220,0.016) 1px, transparent 1px)', backgroundSize:'64px 64px', pointerEvents:'none'}}/>
 
@@ -156,8 +156,8 @@ export default function AdminLogin() {
           {/* TOP — Logo pinned left of centered block */}
           <div style={{width:'100%', maxWidth:540}}>
             <Link href="/" style={{textDecoration:'none'}}>
-              <span style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#FFF5E8'}}>
-                Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
+              <span style={{fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:20, color:'#EAE7E3', letterSpacing:'-0.3px'}}>
+                Advert <span style={{background:'linear-gradient(135deg,#C4A86D,#D4B87D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
               </span>
             </Link>
           </div>
@@ -166,19 +166,19 @@ export default function AdminLogin() {
           <div className="al-content-block">
 
             {/* Label */}
-            <div style={{fontSize:11, fontWeight:700, color:'rgba(247,155,61,0.55)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:12}}>
+            <div style={{fontSize:11, fontWeight:700, color:'rgba(196,168,109,0.55)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:12}}>
               Restaurant Admin Portal
             </div>
 
             {/* Headline */}
-            <h2 style={{fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:'clamp(28px,2.8vw,44px)', color:'#FFF5E8', lineHeight:1.1, letterSpacing:'-0.025em', marginBottom:12}}>
+            <h2 style={{fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:'clamp(28px,2.8vw,44px)', color:'#EAE7E3', lineHeight:1.1, letterSpacing:'-0.025em', marginBottom:12}}>
               Manage your{' '}
-              <span style={{background:'linear-gradient(90deg,#F79B3D,#E05A3A)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>AR menu</span>
+              <span style={{background:'linear-gradient(90deg,#C4A86D,#8A4A42)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>AR menu</span>
               {' '}from anywhere.
             </h2>
 
             {/* Subtitle */}
-            <p style={{fontSize:14, color:'rgba(255,245,220,0.38)', lineHeight:1.85, maxWidth:400, marginBottom:28}}>
+            <p style={{fontSize:14, color:'rgba(255,245,220,0.38)', lineHeight:1.85, maxWidth:400, marginBottom:28, fontFamily:'Outfit, sans-serif'}}>
               Update dishes, track analytics, manage waiter calls, and grow your revenue — all in one dashboard.
             </p>
 
@@ -188,7 +188,7 @@ export default function AdminLogin() {
               {/* Card header */}
               <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16}}>
                 <div style={{display:'flex', alignItems:'center', gap:7}}>
-                  <div style={{width:8, height:8, borderRadius:'50%', background:'#F79B3D', animation:'pulse 2s infinite'}}/>
+                  <div style={{width:8, height:8, borderRadius:'50%', background:'#C4A86D', animation:'pulse 2s infinite'}}/>
                   <span style={{fontSize:10.5, fontWeight:700, color:'rgba(255,245,220,0.35)', letterSpacing:'0.09em', textTransform:'uppercase'}}>Live Overview</span>
                 </div>
                 <span style={{fontSize:10, color:'rgba(255,245,220,0.18)', fontWeight:500}}>Today</span>
@@ -197,13 +197,13 @@ export default function AdminLogin() {
               {/* 3 stat tiles */}
               <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:9, marginBottom:14}}>
                 {[
-                  {label:'AR Views',   value:'1,240', badge:'+18%', bg:'rgba(247,155,61,0.13)', bc:'#F79B3D'},
+                  {label:'AR Views',   value:'1,240', badge:'+18%', bg:'rgba(196,168,109,0.13)', bc:'#C4A86D'},
                   {label:'QR Scans',   value:'382',   badge:'+9%',  bg:'rgba(100,185,145,0.1)', bc:'#6AB090'},
-                  {label:'Avg Rating', value:'4.8★',  badge:'Top',  bg:'rgba(224,90,58,0.1)',   bc:'#E05A3A'},
+                  {label:'Avg Rating', value:'4.8★',  badge:'Top',  bg:'rgba(138,74,66,0.1)',   bc:'#8A4A42'},
                 ].map(s => (
                   <div key={s.label} style={{background:s.bg, borderRadius:13, padding:'12px 13px', textAlign:'left'}}>
                     <div style={{fontSize:9.5, color:'rgba(255,245,220,0.3)', fontWeight:600, marginBottom:5, letterSpacing:'0.04em'}}>{s.label}</div>
-                    <div style={{fontSize:18, fontWeight:900, color:'#FFF5E8', fontFamily:'Poppins,sans-serif', letterSpacing:'-0.02em', marginBottom:3}}>{s.value}</div>
+                    <div style={{fontSize:18, fontWeight:700, color:'#EAE7E3', fontFamily:"'Playfair Display', Georgia, serif", letterSpacing:'-0.02em', marginBottom:3}}>{s.value}</div>
                     <div style={{fontSize:10, fontWeight:700, color:s.bc}}>{s.badge}</div>
                   </div>
                 ))}
@@ -214,12 +214,12 @@ export default function AdminLogin() {
                 <div style={{fontSize:9.5, fontWeight:700, color:'rgba(255,245,220,0.2)', letterSpacing:'0.08em', marginBottom:9}}>WEEKLY AR VIEWS</div>
                 <div style={{display:'flex', alignItems:'flex-end', gap:5, height:52}}>
                   {[32,52,38,68,60,94,72].map((h, i) => (
-                    <div key={i} style={{flex:1, borderRadius:5, height:`${h}%`, background: i===5 ? 'linear-gradient(0deg,#E05A3A,#F79B3D)' : 'rgba(255,255,255,0.09)'}}/>
+                    <div key={i} style={{flex:1, borderRadius:5, height:`${h}%`, background: i===5 ? 'linear-gradient(0deg,#8A4A42,#C4A86D)' : 'rgba(255,255,255,0.09)'}}/>
                   ))}
                 </div>
                 <div style={{display:'flex', gap:5, marginTop:6}}>
                   {['M','T','W','T','F','S','S'].map((d,i) => (
-                    <div key={i} style={{flex:1, textAlign:'center', fontSize:8, fontWeight:600, color: i===5 ? 'rgba(247,155,61,0.55)' : 'rgba(255,245,220,0.2)'}}>{d}</div>
+                    <div key={i} style={{flex:1, textAlign:'center', fontSize:8, fontWeight:600, color: i===5 ? 'rgba(196,168,109,0.55)' : 'rgba(255,245,220,0.2)'}}>{d}</div>
                   ))}
                 </div>
               </div>
@@ -249,7 +249,7 @@ export default function AdminLogin() {
               {num:'5 min', label:'Setup time'},
             ].map(s => (
               <div key={s.label}>
-                <div style={{fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:20, color:'#FFF5E8', letterSpacing:'-0.02em'}}>{s.num}</div>
+                <div style={{fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:22, color:'#EAE7E3', letterSpacing:'-0.02em'}}>{s.num}</div>
                 <div style={{fontSize:11, color:'rgba(255,245,220,0.28)', marginTop:3}}>{s.label}</div>
               </div>
             ))}
@@ -280,18 +280,18 @@ export default function AdminLogin() {
             {/* Mobile-only logo */}
             <div className="al-mobile-logo" style={{marginBottom:32}}>
               <Link href="/" style={{textDecoration:'none'}}>
-                <span style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#FFF5E8'}}>
-                  Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
+                <span style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:18, color:'#EAE7E3'}}>
+                  Advert <span style={{background:'linear-gradient(135deg,#8A4A42,#C4A86D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
                 </span>
               </Link>
             </div>
 
             {/* Heading */}
             <div style={{marginBottom:36}}>
-              <h1 style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:28, color:'#FFF5E8', letterSpacing:'-0.02em', marginBottom:8}}>
+              <h1 style={{fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:30, color:'#EAE7E3', letterSpacing:'-0.02em', marginBottom:8}}>
                 Welcome back
               </h1>
-              <p style={{fontSize:14, color:'rgba(255,245,220,0.4)', lineHeight:1.65}}>
+              <p style={{fontSize:14, color:'rgba(255,245,220,0.4)', lineHeight:1.65, fontFamily:'Outfit, sans-serif'}}>
                 Sign in to your restaurant admin account.
               </p>
             </div>
@@ -299,7 +299,7 @@ export default function AdminLogin() {
             {/* Form */}
             <form onSubmit={handleSubmit}>
               <div style={{marginBottom:16}}>
-                <label style={{display:'block', fontSize:11, fontWeight:700, color:'rgba(255,245,220,0.36)', marginBottom:8, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+                <label style={{display:'block', fontSize:11, fontWeight:600, color:'rgba(255,245,220,0.36)', marginBottom:8, letterSpacing:'0.08em', textTransform:'uppercase', fontFamily:'Outfit, sans-serif'}}>
                   Email address
                 </label>
                 <input
@@ -309,7 +309,7 @@ export default function AdminLogin() {
                 />
               </div>
               <div style={{marginBottom:32}}>
-                <label style={{display:'block', fontSize:11, fontWeight:700, color:'rgba(255,245,220,0.36)', marginBottom:8, letterSpacing:'0.08em', textTransform:'uppercase'}}>
+                <label style={{display:'block', fontSize:11, fontWeight:600, color:'rgba(255,245,220,0.36)', marginBottom:8, letterSpacing:'0.08em', textTransform:'uppercase', fontFamily:'Outfit, sans-serif'}}>
                   Password
                 </label>
                 <input
@@ -325,8 +325,8 @@ export default function AdminLogin() {
 
             <div style={{marginTop:28, paddingTop:24, borderTop:'1px solid rgba(255,245,220,0.07)', textAlign:'center'}}>
               <span style={{fontSize:13, color:'rgba(255,245,220,0.3)'}}>Not a restaurant yet? </span>
-              <Link href="/#plans" style={{fontSize:13, color:'#F79B3D', fontWeight:600, textDecoration:'none'}}>
-                Get started free
+              <Link href="/signup?plan=growth" style={{fontSize:13, color:'#C4A86D', fontWeight:600, textDecoration:'none'}}>
+                Start free trial →
               </Link>
             </div>
           </div>
