@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { updatePaymentStatus } from '../../lib/db';
-import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { useAdminOrders } from '../../contexts/AdminDataContext';
 import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
 const PAYMENT_STATUS = {
@@ -19,21 +18,17 @@ const PAYMENT_STATUS = {
 
 export default function AdminPayments() {
     const { userData } = useAuth();
-    const [allOrders, setAllOrders] = useState([]);
+    const { orders: allOrders } = useAdminOrders(); // shared from AdminLayout — no duplicate listener
     const [filter, setFilter] = useState('pending'); // 'pending' | 'completed' | 'all'
     const [updating, setUpdating] = useState(null);
     const [tick, setTick] = useState(0);
     const rid = userData?.restaurantId;
 
-    useEffect(() => {
-        if (!rid) return;
-        const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
-        const unsub = onSnapshot(q, (snap) => {
-            const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setAllOrders(docs);
-        });
-        return unsub;
-    }, [rid]);
+    // Filter to only show orders relevant to payments
+    const orders = allOrders.filter(o =>
+        o.status === 'served' ||
+        ['cash_requested', 'card_requested', 'online_requested', 'paid_cash', 'paid_card', 'paid_online'].includes(o.paymentStatus)
+    );
 
     // Filter to only show orders relevant to payments
     const orders = allOrders.filter(o =>

@@ -13,10 +13,10 @@ const SIZES = [{ label: 'Small', value: 256, desc: 'Table card' }, { label: 'Med
 const STYLES = [{ label: 'Light', bg: '#FFFFFF', fg: '#263431', border: '#E8E4DE' }, { label: 'Coral', bg: '#EAE7E3', fg: '#8A4A42', border: '#F4D0A0' }, { label: 'Dark', bg: '#263431', fg: '#F5A876', border: '#3A3530' }];
 
 const S = {
-  card: { ...ADMIN_STYLES.card, borderRadius: 20 },
-  h1: { ...ADMIN_STYLES.h1, fontSize: 24 },
-  sub: { ...ADMIN_STYLES.sub, marginTop: 4 },
-  label: { display: 'block', fontSize: 11, fontWeight: 600, color: T.shellMuted, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 },
+  card: { background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.07)', borderRadius: 20, boxShadow: '0 2px 14px rgba(38,52,49,0.06)' },
+  h1: { fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: 24, color: '#263431', margin: 0, letterSpacing: '-0.3px' },
+  sub: { fontSize: 13, color: 'rgba(38,52,49,0.45)', marginTop: 4 },
+  label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(38,52,49,0.5)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 },
 };
 
 export default function AdminQRCode() {
@@ -188,7 +188,7 @@ export default function AdminQRCode() {
   return (
     <AdminLayout>
       <Head><title>QR Code — Advert Radical</title></Head>
-      <div style={{ background: T.cream, minHeight: '100vh', padding: 32, fontFamily: T.font }}>
+      <div style={{ background: '#EAE7E3', minHeight: '100vh', padding: 32, fontFamily: 'Outfit, sans-serif' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
           <div style={{ marginBottom: 28 }}>
@@ -198,7 +198,7 @@ export default function AdminQRCode() {
 
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
-              <div style={{ width: 32, height: 32, border: `3px solid ${T.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 32, height: 32, border: '3px solid #C4A86D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           ) : (
             <>
@@ -215,7 +215,7 @@ export default function AdminQRCode() {
                       }
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 17, color: selectedStyle.fg, marginBottom: 4 }}>{restaurant?.name}</div>
+                      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 17, color: selectedStyle.fg, marginBottom: 4 }}>{restaurant?.name}</div>
                       <div style={{ fontSize: 12, color: selectedStyle.fg + '99' }}>Scan to view in Augmented Reality</div>
                       <div style={{ display: 'inline-block', marginTop: 8, padding: '4px 12px', background: selectedStyle.fg + '18', border: `1px solid ${selectedStyle.fg}30`, borderRadius: 30, fontSize: 11, fontWeight: 600, color: selectedStyle.fg }}>⬡ AR Menu</div>
                     </div>
@@ -223,16 +223,16 @@ export default function AdminQRCode() {
 
                   {/* URL bar */}
                   <div style={{ ...S.card, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ flex: 1, fontSize: 13, color: T.stone, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getMenuURL()}</div>
-                    <button onClick={copyURL} style={{ padding: '6px 14px', borderRadius: T.radiusBtn, border: `1.5px solid ${T.sand}`, background: T.accent, color: T.cream, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: T.font, transition: 'all 0.15s' }}>Copy</button>
+                    <div style={{ flex: 1, fontSize: 13, color: 'rgba(38,52,49,0.6)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getMenuURL()}</div>
+                    <button onClick={copyURL} style={{ padding: '6px 14px', borderRadius: 10, border: '1.5px solid rgba(38,52,49,0.12)', background: '#263431', color: '#EAE7E3', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all 0.15s' }}>Copy</button>
                   </div>
 
                   {/* Action buttons */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <button onClick={downloadQR} disabled={!qrDataURL || generating} style={{ padding: '12px', borderRadius: T.radiusBtn, border: 'none', background: T.accent, color: T.cream, fontSize: 14, fontWeight: 600, fontFamily: T.font, cursor: 'pointer', opacity: (!qrDataURL || generating) ? 0.5 : 1 }}>
+                    <button onClick={downloadQR} disabled={!qrDataURL || generating} style={{ padding: '12px', borderRadius: 10, border: 'none', background: '#263431', color: '#EAE7E3', fontSize: 14, fontWeight: 600, fontFamily: 'Outfit, sans-serif', cursor: 'pointer', opacity: (!qrDataURL || generating) ? 0.5 : 1 }}>
                       ↓ Download
                     </button>
-                    <button onClick={printQR} disabled={!qrDataURL} style={{ padding: '12px', borderRadius: T.radiusBtn, border: `1.5px solid ${T.sand}`, background: T.white, color: T.ink, fontSize: 14, fontWeight: 600, fontFamily: T.font, cursor: 'pointer' }}>
+                    <button onClick={printQR} disabled={!qrDataURL} style={{ padding: '12px', borderRadius: 10, border: '1.5px solid rgba(38,52,49,0.12)', background: '#fff', color: '#263431', fontSize: 14, fontWeight: 600, fontFamily: 'Outfit, sans-serif', cursor: 'pointer' }}>
                       🖨 Print
                     </button>
                   </div>
@@ -245,12 +245,12 @@ export default function AdminQRCode() {
                     <label style={S.label}>Size</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {SIZES.map(sz => (
-                        <div key={sz.value} onClick={() => setSelectedSize(sz)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: T.radiusBtn, border: `1.5px solid ${selectedSize.value === sz.value ? 'rgba(74,122,94,0.4)' : T.accentSubtle}`, background: selectedSize.value === sz.value ? T.successLight : T.infoLight, cursor: 'pointer', transition: 'all 0.15s' }}>
+                        <div key={sz.value} onClick={() => setSelectedSize(sz)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: `1.5px solid ${selectedSize.value === sz.value ? 'rgba(74,122,94,0.4)' : 'rgba(38,52,49,0.08)'}`, background: selectedSize.value === sz.value ? 'rgba(74,122,94,0.05)' : '#F7F5F2', cursor: 'pointer', transition: 'all 0.15s' }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{sz.label}</div>
-                            <div style={{ fontSize: 11, color: T.stone, marginTop: 2 }}>{sz.desc}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#263431' }}>{sz.label}</div>
+                            <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.45)', marginTop: 2 }}>{sz.desc}</div>
                           </div>
-                          <span style={{ fontSize: 12, color: T.stone, fontFamily: 'monospace' }}>{sz.value}px</span>
+                          <span style={{ fontSize: 12, color: 'rgba(38,52,49,0.4)', fontFamily: 'monospace' }}>{sz.value}px</span>
                         </div>
                       ))}
                     </div>
@@ -261,7 +261,7 @@ export default function AdminQRCode() {
                     <label style={S.label}>Color Style</label>
                     <div style={{ display: 'flex', gap: 10 }}>
                       {STYLES.map(st => (
-                        <div key={st.label} onClick={() => setSelectedStyle(st)} style={{ flex: 1, padding: '14px 10px', borderRadius: T.radiusBtn, border: `2px solid ${selectedStyle.label === st.label ? 'rgba(74,122,94,0.5)' : T.accentSubtle}`, background: st.bg, cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
+                        <div key={st.label} onClick={() => setSelectedStyle(st)} style={{ flex: 1, padding: '14px 10px', borderRadius: 10, border: `2px solid ${selectedStyle.label === st.label ? 'rgba(74,122,94,0.5)' : 'rgba(38,52,49,0.08)'}`, background: st.bg, cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
                           <div style={{ width: 28, height: 28, borderRadius: 8, background: st.fg, margin: '0 auto 8px' }} />
                           <div style={{ fontSize: 11, fontWeight: 600, color: st.fg }}>{st.label}</div>
                         </div>
@@ -279,8 +279,8 @@ export default function AdminQRCode() {
                         { label: 'Plan', value: restaurant?.plan || 'Basic', cap: true },
                       ].map(s => (
                         <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 12, color: T.stone }}>{s.label}</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: s.mono ? 'monospace' : 'inherit', textTransform: s.cap ? 'capitalize' : 'none', maxWidth: 160, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</span>
+                          <span style={{ fontSize: 12, color: 'rgba(38,52,49,0.5)' }}>{s.label}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#263431', fontFamily: s.mono ? 'monospace' : 'inherit', textTransform: s.cap ? 'capitalize' : 'none', maxWidth: 160, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</span>
                         </div>
                       ))}
                     </div>
@@ -293,24 +293,24 @@ export default function AdminQRCode() {
                 {/* Section header */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 22 }}>
                   <div>
-                    <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 17, color: T.ink, marginBottom: 4 }}>
+                    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 17, color: '#263431', marginBottom: 4 }}>
                       🪑 Per-Table QR Codes
                     </div>
-                    <div style={{ fontSize: 13, color: T.stone, maxWidth: 420 }}>
+                    <div style={{ fontSize: 13, color: 'rgba(38,52,49,0.45)', maxWidth: 420 }}>
                       Each QR code links directly to your menu with the table number pre-filled — no manual selection needed.
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     {tablesDone && tableQRs.length > 0 && (
                       <button onClick={printAllTableQRs}
-                        style={{ padding: '10px 18px', borderRadius: T.radiusBtn, border: `1.5px solid ${T.sand}`, background: T.white, color: T.ink, fontSize: 13, fontWeight: 600, fontFamily: T.font, cursor: 'pointer' }}>
+                        style={{ padding: '10px 18px', borderRadius: 10, border: '1.5px solid rgba(38,52,49,0.12)', background: '#fff', color: '#263431', fontSize: 13, fontWeight: 600, fontFamily: 'Outfit, sans-serif', cursor: 'pointer' }}>
                         🖨 Print All
                       </button>
                     )}
                     <button onClick={generateTableQRs} disabled={generatingTables}
-                      style={{ padding: '10px 20px', borderRadius: T.radiusBtn, border: 'none', background: T.accent, color: T.cream, fontSize: 13, fontWeight: 600, fontFamily: T.font, cursor: generatingTables ? 'not-allowed' : 'pointer', opacity: generatingTables ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#263431', color: '#EAE7E3', fontSize: 13, fontWeight: 600, fontFamily: 'Outfit, sans-serif', cursor: generatingTables ? 'not-allowed' : 'pointer', opacity: generatingTables ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {generatingTables
-                        ? <><div style={{ width: 14, height: 14, border: `2px solid ${T.cream}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Generating…</>
+                        ? <><div style={{ width: 14, height: 14, border: '2px solid #EAE7E3', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Generating…</>
                         : '⚡ Generate QR Codes'
                       }
                     </button>
@@ -318,16 +318,16 @@ export default function AdminQRCode() {
                 </div>
 
                 {/* Table count input */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22, padding: '14px 18px', borderRadius: T.radiusCard, background: T.warningLight, border: `1px solid ${T.shellActive}` }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>Number of tables:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22, padding: '14px 18px', borderRadius: 14, background: 'rgba(196,168,109,0.06)', border: '1px solid rgba(196,168,109,0.18)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#263431' }}>Number of tables:</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <button onClick={() => setTableCount(c => Math.max(1, c - 1))}
-                      style={{ width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${T.sand}`, background: T.white, fontSize: 16, fontWeight: 700, color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                    <span style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.ink, minWidth: 32, textAlign: 'center' }}>{tableCount}</span>
+                      style={{ width: 30, height: 30, borderRadius: 8, border: '1.5px solid rgba(38,52,49,0.14)', background: '#fff', fontSize: 16, fontWeight: 700, color: '#263431', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: 18, color: '#263431', minWidth: 32, textAlign: 'center' }}>{tableCount}</span>
                     <button onClick={() => setTableCount(c => Math.min(50, c + 1))}
-                      style={{ width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${T.sand}`, background: T.white, fontSize: 16, fontWeight: 700, color: T.ink, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      style={{ width: 30, height: 30, borderRadius: 8, border: '1.5px solid rgba(38,52,49,0.14)', background: '#fff', fontSize: 16, fontWeight: 700, color: '#263431', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                   </div>
-                  <span style={{ fontSize: 12, color: T.stone }}>Tables 1 – {tableCount} · uses current color style</span>
+                  <span style={{ fontSize: 12, color: 'rgba(38,52,49,0.4)' }}>Tables 1 – {tableCount} · uses current color style</span>
                 </div>
 
                 {/* Table QR grid */}
@@ -337,7 +337,7 @@ export default function AdminQRCode() {
                       <div key={item.table} style={{ borderRadius: 16, border: `2px solid ${selectedStyle.border}`, background: selectedStyle.bg, padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'fadeIn 0.2s ease' }}>
                         <img src={item.dataURL} alt={`Table ${item.table}`} style={{ width: 100, height: 100, borderRadius: 8 }} />
                         <div style={{ fontWeight: 700, fontSize: 13, color: selectedStyle.fg }}>
-                          <span style={{ fontFamily: T.fontDisplay }}>Table </span><span style={{ fontFamily: T.font }}>{item.table}</span>
+                          <span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Table </span><span style={{ fontFamily: 'Outfit, sans-serif' }}>{item.table}</span>
                         </div>
                         <button onClick={() => downloadTableQR(item)}
                           style={{ width: '100%', padding: '6px 0', borderRadius: 8, border: 'none', background: selectedStyle.fg + '18', color: selectedStyle.fg, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
@@ -348,13 +348,13 @@ export default function AdminQRCode() {
 
                     {/* Progress placeholder for generating */}
                     {generatingTables && Array.from({ length: tableCount - tableQRs.length }, (_, i) => (
-                      <div key={`placeholder-${i}`} style={{ borderRadius: 16, border: `2px solid ${T.accentSubtle}`, background: T.infoLight, padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 160 }}>
-                        <div style={{ width: 24, height: 24, border: `2px solid ${T.sand}`, borderTopColor: T.warning, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                      <div key={`placeholder-${i}`} style={{ borderRadius: 16, border: '2px solid rgba(38,52,49,0.07)', background: '#F7F5F2', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 160 }}>
+                        <div style={{ width: 24, height: 24, border: '2px solid rgba(38,52,49,0.15)', borderTopColor: '#C4A86D', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '32px 0', color: T.stone }}>
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'rgba(38,52,49,0.35)' }}>
                     <div style={{ fontSize: 36, marginBottom: 10 }}>🪑</div>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>Set your table count and hit Generate</div>
                     <div style={{ fontSize: 12, marginTop: 6 }}>Each QR will encode your menu URL + table number automatically</div>
@@ -365,19 +365,19 @@ export default function AdminQRCode() {
               <div style={{ ...S.card, padding: 28, marginTop: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 22 }}>
                   <div>
-                    <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 17, color: T.ink, marginBottom: 4 }}>
+                    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 17, color: '#263431', marginBottom: 4 }}>
                       🔐 Table Session Manager
                     </div>
-                    <div style={{ fontSize: 13, color: T.stone, maxWidth: 460 }}>
+                    <div style={{ fontSize: 13, color: 'rgba(38,52,49,0.45)', maxWidth: 460 }}>
                       Activate a table when new guests sit down. Only active sessions can view the menu and place orders — prevents fake orders from outside the restaurant.
                     </div>
                   </div>
                   {/* Session duration selector */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: T.stone }}>Session:</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(38,52,49,0.5)' }}>Session:</span>
                     {[1, 2, 3, 4, 6].map(h => (
                       <button key={h} onClick={() => setSessionHours(h)}
-                        style={{ padding: '6px 12px', borderRadius: T.radiusPill, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: T.font, background: sessionHours === h ? T.accent : T.white, color: sessionHours === h ? T.cream : T.stone, boxShadow: sessionHours === h ? T.shadowBtn : T.shadowCard, transition: 'all 0.15s' }}>
+                        style={{ padding: '6px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', background: sessionHours === h ? '#263431' : '#fff', color: sessionHours === h ? '#EAE7E3' : 'rgba(38,52,49,0.5)', boxShadow: sessionHours === h ? '0 2px 8px rgba(28,40,37,0.2)' : '0 1px 4px rgba(38,52,49,0.06)', transition: 'all 0.15s' }}>
                         {h}h
                       </button>
                     ))}
@@ -386,8 +386,8 @@ export default function AdminQRCode() {
 
                 {/* Legend */}
                 <div style={{ display: 'flex', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
-                  {[[T.success, 'Active — guests can order'], [T.warning, 'Expiring soon (< 30 min)'], [T.sand, 'Inactive / Not started']].map(([color, label]) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: T.stone }}>
+                  {[['#4A7A5E', 'Active — guests can order'], ['#C4A86D', 'Expiring soon (< 30 min)'], ['rgba(38,52,49,0.2)', 'Inactive / Not started']].map(([color, label]) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(38,52,49,0.5)' }}>
                       <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, display: 'inline-block' }} />
                       {label}
                     </div>
@@ -403,19 +403,19 @@ export default function AdminQRCode() {
                     const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null;
                     const minsLeft = expiresAt ? Math.round((expiresAt - Date.now()) / 60000) : 0;
                     const expiringSoon = valid && minsLeft < 30;
-                    const dotColor = valid ? (expiringSoon ? T.warning : T.success) : T.sand;
+                    const dotColor = valid ? (expiringSoon ? '#C4A86D' : '#4A7A5E') : 'rgba(38,52,49,0.2)';
 
                     return (
-                      <div key={tableNum} style={{ borderRadius: T.radiusCard, border: `1.5px solid ${valid ? (expiringSoon ? T.shellActive : 'rgba(74,122,94,0.3)') : T.accentSubtle}`, background: valid ? (expiringSoon ? T.warningLight : T.successLight) : T.infoLight, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div key={tableNum} style={{ borderRadius: 14, border: `1.5px solid ${valid ? (expiringSoon ? 'rgba(196,168,109,0.35)' : 'rgba(74,122,94,0.3)') : 'rgba(38,52,49,0.08)'}`, background: valid ? (expiringSoon ? 'rgba(196,168,109,0.05)' : 'rgba(74,122,94,0.05)') : '#F7F5F2', padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
                         {/* Table number + status dot */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontWeight: 700, fontSize: 15, color: T.ink }}><span style={{ fontFamily: T.fontDisplay }}>Table </span><span style={{ fontFamily: T.font }}>{tableNum}</span></span>
+                          <span style={{ fontWeight: 700, fontSize: 15, color: '#263431' }}><span style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Table </span><span style={{ fontFamily: 'Outfit, sans-serif' }}>{tableNum}</span></span>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, display: 'inline-block', boxShadow: valid ? `0 0 6px ${dotColor}` : 'none' }} />
                         </div>
 
                         {/* Status text */}
-                        <div style={{ fontSize: 11, color: valid ? (expiringSoon ? '#C05A00' : '#1A6040') : T.stone, fontWeight: 600 }}>
+                        <div style={{ fontSize: 11, color: valid ? (expiringSoon ? '#C05A00' : '#1A6040') : 'rgba(38,52,49,0.4)', fontWeight: 600 }}>
                           {valid
                             ? expiringSoon
                               ? `Expires in ${minsLeft}m`
@@ -428,7 +428,7 @@ export default function AdminQRCode() {
 
                         {/* Session ID (truncated for reference) */}
                         {valid && session?.sid && (
-                          <div style={{ fontSize: 9, fontFamily: 'monospace', color: T.sand, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(38,52,49,0.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             sid: {session.sid}
                           </div>
                         )}
@@ -437,7 +437,7 @@ export default function AdminQRCode() {
                         {valid && (
                           <button
                             onClick={() => { navigator.clipboard.writeText(getTableURL(tableNum)); toast.success(`Table ${tableNum} URL copied!`); }}
-                            style={{ width: '100%', padding: '5px 0', borderRadius: T.radiusBtn, border: `1.5px solid ${T.sand}`, background: T.white, color: T.ink, fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: T.font }}>
+                            style={{ width: '100%', padding: '5px 0', borderRadius: 10, border: '1.5px solid rgba(38,52,49,0.12)', background: '#fff', color: '#263431', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
                             📋 Copy URL
                           </button>
                         )}
@@ -447,14 +447,14 @@ export default function AdminQRCode() {
                           <button
                             disabled={clearing === tableNum}
                             onClick={() => handleClear(tableNum)}
-                            style={{ width: '100%', padding: '7px 0', borderRadius: T.radiusBtn, border: `1.5px solid ${T.dangerLight}`, background: T.dangerLight, color: T.danger, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: T.font, transition: 'all 0.15s' }}>
+                            style={{ width: '100%', padding: '7px 0', borderRadius: 10, border: '1.5px solid rgba(138,74,66,0.3)', background: 'rgba(138,74,66,0.06)', color: '#8A4A42', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all 0.15s' }}>
                             {clearing === tableNum ? '…' : '✕ Clear Table'}
                           </button>
                         ) : (
                           <button
                             disabled={activating === tableNum}
                             onClick={() => handleActivate(tableNum)}
-                            style={{ width: '100%', padding: '7px 0', borderRadius: T.radiusBtn, border: 'none', background: T.accent, color: T.cream, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: T.font, transition: 'all 0.15s' }}>
+                            style={{ width: '100%', padding: '7px 0', borderRadius: 10, border: 'none', background: '#263431', color: '#EAE7E3', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', transition: 'all 0.15s' }}>
                             {activating === tableNum ? '…' : '⚡ Activate'}
                           </button>
                         )}
@@ -464,13 +464,13 @@ export default function AdminQRCode() {
                 </div>
 
                 {/* Activate / Clear all */}
-                <div style={{ display: 'flex', gap: 10, marginTop: 18, paddingTop: 18, borderTop: `1px solid ${T.accentSubtle}` }}>
+                <div style={{ display: 'flex', gap: 10, marginTop: 18, paddingTop: 18, borderTop: '1px solid rgba(38,52,49,0.07)' }}>
                   <button
                     onClick={async () => {
                       for (let i = 1; i <= tableCount; i++) await activateTableSession(rid, String(i), sessionHours);
                       toast.success(`All ${tableCount} tables activated for ${sessionHours}h`);
                     }}
-                    style={{ padding: '10px 20px', borderRadius: T.radiusBtn, border: 'none', background: T.accent, color: T.cream, fontSize: 13, fontWeight: 600, fontFamily: T.font, cursor: 'pointer', transition: 'all 0.15s' }}>
+                    style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: '#263431', color: '#EAE7E3', fontSize: 13, fontWeight: 600, fontFamily: 'Outfit, sans-serif', cursor: 'pointer', transition: 'all 0.15s' }}>
                     ⚡ Activate All Tables
                   </button>
                   <button
@@ -479,7 +479,7 @@ export default function AdminQRCode() {
                       for (let i = 1; i <= tableCount; i++) await clearTableSession(rid, String(i));
                       toast.success('All tables cleared');
                     }}
-                    style={{ padding: '10px 20px', borderRadius: T.radiusBtn, border: `1.5px solid ${T.dangerLight}`, background: T.dangerLight, color: T.danger, fontSize: 13, fontWeight: 600, fontFamily: T.font, cursor: 'pointer', transition: 'all 0.15s' }}>
+                    style={{ padding: '10px 20px', borderRadius: 10, border: '1.5px solid rgba(138,74,66,0.25)', background: 'rgba(138,74,66,0.06)', color: '#8A4A42', fontSize: 13, fontWeight: 600, fontFamily: 'Outfit, sans-serif', cursor: 'pointer', transition: 'all 0.15s' }}>
                     Clear All
                   </button>
                 </div>

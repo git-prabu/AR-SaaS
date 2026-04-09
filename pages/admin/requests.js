@@ -13,13 +13,13 @@ const USDA_KEY = 'fea6TbAGJ03EOEWPtWzEQ31VclGeRYsNqVhrWQ2A';
 const BLANK = { name:'', nameTA:'', nameHI:'', description:'', descriptionTA:'', descriptionHI:'', category:'', price:'', ingredients:'', calories:'', protein:'', carbs:'', fats:'', prepTime:'' };
 
 const S = {
-  page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:T.font },
-  card:  { ...ADMIN_STYLES.card, borderRadius:20 },
-  h1:    { ...ADMIN_STYLES.h1, fontSize:24, fontWeight:800 },
-  sub:   { ...ADMIN_STYLES.sub, marginTop:4, color:`rgba(38,52,49,0.45)` },
-  label: { display:'block', fontSize:11, fontWeight:600, color:T.shellMuted, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'11px 14px', background:T.cream, border:`1.5px solid ${T.accentSubtle}`, borderRadius:12, fontSize:14, color:T.ink, fontFamily:T.font, outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
-  btn:   { padding:'11px 22px', borderRadius:T.radiusBtn, fontSize:14, fontWeight:600, fontFamily:T.font, border:'none', cursor:'pointer', transition:'all 0.18s' },
+  page:  { padding:32, maxWidth:960, margin:'0 auto', fontFamily:'Inter,sans-serif' },
+  card:  { background:'#FFFFFF', border:'1px solid rgba(38,52,49,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(38,52,49,0.06)' },
+  h1:    { fontFamily:"'Playfair Display', Georgia, serif", fontWeight:800, fontSize:24, color:'#263431', margin:0, letterSpacing:'-0.3px' },
+  sub:   { fontSize:13, color:'rgba(38,52,49,0.45)', marginTop:4 },
+  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
+  input: { width:'100%', padding:'11px 14px', background:'#F7F5F2', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:12, fontSize:14, color:'#263431', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
+  btn:   { padding:'11px 22px', borderRadius:10, fontSize:14, fontWeight:600, fontFamily:'Outfit, sans-serif', border:'none', cursor:'pointer', transition:'all 0.18s' },
 };
 
 function parseIngredient(raw) {
@@ -370,14 +370,14 @@ export default function AdminRequests() {
   return (
     <AdminLayout>
       <Head><title>Menu Items — Advert Radical</title></Head>
-      <div style={{ background:T.cream, minHeight:'100vh' }}>
+      <div style={{ background:'#EAE7E3', minHeight:'100vh' }}>
         <div style={S.page}>
           <style>{`
             @keyframes spin{to{transform:rotate(360deg)}}
             .inp:focus{border-color:rgba(138,74,66,0.5)!important;box-shadow:0 0 0 3px rgba(138,74,66,0.08)}
             .inp::placeholder{color:rgba(38,52,49,0.3)}
             .upload-zone:hover{border-color:rgba(138,74,66,0.4)!important;background:#FFF8F5!important}
-            .calc-btn:hover:not(:disabled){background:${T.danger}!important;color:${T.white}!important;border-color:${T.danger}!important}
+            .calc-btn:hover:not(:disabled){background:#8A4A42!important;color:#fff!important;border-color:#8A4A42!important}
           `}</style>
 
           {/* Header */}
@@ -394,7 +394,7 @@ export default function AdminRequests() {
                 }
                 <input type="file" accept=".xlsx,.xls" onChange={handleBulkUpload} style={{ display:'none' }} disabled={bulkUploading || atLimit} />
               </label>
-              <button onClick={() => { if (atLimit) { toast.error(`Item limit reached (${itemsUsed}/${maxItems}). Upgrade your plan.`); return; } setShowForm(!showForm); }} style={{ ...S.btn, background: showForm ? T.cream : T.accent, color: showForm ? T.ink : T.shellText, border: showForm ? `1.5px solid ${T.accentSubtle}` : 'none' }}>
+              <button onClick={() => { if (atLimit) { toast.error(`Item limit reached (${itemsUsed}/${maxItems}). Upgrade your plan.`); return; } setShowForm(!showForm); }} style={{ ...S.btn, background: showForm ? '#EAE7E3' : '#263431', color: showForm ? '#263431' : '#EAE7E3', border: showForm ? '1.5px solid rgba(38,52,49,0.12)' : 'none' }}>
                 {showForm ? '✕ Cancel' : '+ New Item'}
               </button>
             </div>
@@ -402,12 +402,12 @@ export default function AdminRequests() {
 
           {/* Plan usage pill */}
           {restaurant && (
-            <div style={{ display:'inline-flex', alignItems:'center', gap:8, background: atLimit ? `${T.danger}14` : `${T.success}14`, border: `1px solid ${atLimit ? `${T.danger}40` : `${T.success}40`}`, borderRadius:30, padding:'6px 14px', marginBottom:20 }}>
-              <span style={{ fontSize:12, fontWeight:600, color: atLimit ? T.danger : T.success }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:8, background: atLimit ? 'rgba(138,74,66,0.08)' : 'rgba(90,138,106,0.08)', border: `1px solid ${atLimit ? 'rgba(138,74,66,0.25)' : 'rgba(90,138,106,0.25)'}`, borderRadius:30, padding:'6px 14px', marginBottom:20 }}>
+              <span style={{ fontSize:12, fontWeight:600, color: atLimit ? '#C04020' : '#3A7A50' }}>
                 {atLimit ? '⚠️' : '✓'} {itemsUsed} / {maxItems} items used
               </span>
-              {!atLimit && <span style={{ fontSize:11, color:T.shellMuted }}>· {remaining} slot{remaining!==1?'s':''} remaining</span>}
-              {atLimit && <span style={{ fontSize:11, color:T.danger }}>· Upgrade plan to add more</span>}
+              {!atLimit && <span style={{ fontSize:11, color:'rgba(38,52,49,0.4)' }}>· {remaining} slot{remaining!==1?'s':''} remaining</span>}
+              {atLimit && <span style={{ fontSize:11, color:'#C04020' }}>· Upgrade plan to add more</span>}
             </div>
           )}
 
@@ -415,20 +415,20 @@ export default function AdminRequests() {
           {bulkUploading && (
             <div style={{ background:T.white, borderRadius:T.radiusCard, padding:'16px 20px', marginBottom:16, border:`1px solid ${T.success}33` }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-                <span style={{ fontSize:13, fontWeight:600, color:T.ink }}>Publishing items…</span>
-                <span style={{ fontSize:12, color:T.stone }}>{ bulkProgress.done} / {bulkProgress.total}</span>
+                <span style={{ fontSize:13, fontWeight:600, color:'#263431' }}>Publishing items…</span>
+                <span style={{ fontSize:12, color:'rgba(38,52,49,0.5)' }}>{bulkProgress.done} / {bulkProgress.total}</span>
               </div>
-              <div style={{ height:5, background:T.accentSubtle, borderRadius:99, overflow:'hidden' }}>
-                <div style={{ height:'100%', borderRadius:99, background:`linear-gradient(90deg,${T.success},#7ABB8A)`, width:`${bulkProgress.total ? (bulkProgress.done/bulkProgress.total)*100 : 0}%`, transition:'width 0.25s' }} />
+              <div style={{ height:5, background:'rgba(38,52,49,0.08)', borderRadius:99, overflow:'hidden' }}>
+                <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#5A8A6A,#7ABB8A)', width:`${bulkProgress.total ? (bulkProgress.done/bulkProgress.total)*100 : 0}%`, transition:'width 0.25s' }} />
               </div>
-              {bulkProgress.current && <div style={{ fontSize:11, color:T.stone, marginTop:6 }}>Processing: {bulkProgress.current}</div>}
+              {bulkProgress.current && <div style={{ fontSize:11, color:'rgba(38,52,49,0.45)', marginTop:6 }}>Processing: {bulkProgress.current}</div>}
             </div>
           )}
 
           {/* Form */}
           {showForm && (
             <div style={{ ...S.card, padding:28, marginBottom:24 }}>
-              <h2 style={{ fontFamily:T.fontDisplay, fontWeight:700, fontSize:17, color:T.ink, marginBottom:22 }}>New Menu Item</h2>
+              <h2 style={{ fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:17, color:'#263431', marginBottom:22 }}>New Menu Item</h2>
               <form onSubmit={handleSubmit}>
                 {/* Row 1: Name + Category */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
@@ -439,25 +439,25 @@ export default function AdminRequests() {
                   <div style={{ position:'relative' }}>
                     <label style={S.label}>Category</label>
                     <div onClick={() => setShowCatDrop(d => !d)} style={{ ...S.input, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', userSelect:'none' }}>
-                      <span style={{ color: form.category ? T.ink : 'rgba(38,52,49,0.3)' }}>{form.category || 'Select or type new…'}</span>
-                      <span style={{ fontSize:10, color:T.shellMuted, marginLeft:8 }}>{showCatDrop ? '▲' : '▼'}</span>
+                      <span style={{ color: form.category ? '#263431' : 'rgba(38,52,49,0.3)' }}>{form.category || 'Select or type new…'}</span>
+                      <span style={{ fontSize:10, color:'rgba(38,52,49,0.4)', marginLeft:8 }}>{showCatDrop ? '▲' : '▼'}</span>
                     </div>
                     {showCatDrop && (
-                      <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:T.white, border:`1.5px solid ${T.accentSubtle}`, borderRadius:12, boxShadow:T.shadowElevated, marginTop:4, overflow:'hidden' }}>
-                        <div style={{ padding:'10px 12px', borderBottom:`1px solid ${T.accentSubtle}`, display:'flex', gap:8 }}>
-                          <input autoFocus style={{ flex:1, padding:'7px 10px', fontSize:13, border:`1.5px solid ${T.accentSubtle}`, borderRadius:8, outline:'none', fontFamily:T.font, color:T.ink }} placeholder="Type new category…" value={newCatInput} onChange={e => setNewCatInput(e.target.value)}
+                      <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:'#fff', border:'1.5px solid rgba(38,52,49,0.1)', borderRadius:12, boxShadow:'0 8px 24px rgba(38,52,49,0.12)', marginTop:4, overflow:'hidden' }}>
+                        <div style={{ padding:'10px 12px', borderBottom:'1px solid rgba(38,52,49,0.07)', display:'flex', gap:8 }}>
+                          <input autoFocus style={{ flex:1, padding:'7px 10px', fontSize:13, border:'1.5px solid rgba(38,52,49,0.12)', borderRadius:8, outline:'none', fontFamily:'Inter,sans-serif', color:'#263431' }} placeholder="Type new category…" value={newCatInput} onChange={e => setNewCatInput(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && newCatInput.trim()) { const cat = newCatInput.trim(); setForm(f => ({...f, category: cat})); if (!categories.includes(cat)) setCategories(c => [...c, cat].sort()); setNewCatInput(''); setShowCatDrop(false); } }}
                           />
-                          <button type="button" onClick={() => { if (!newCatInput.trim()) return; const cat = newCatInput.trim(); setForm(f => ({...f, category: cat})); if (!categories.includes(cat)) setCategories(c => [...c, cat].sort()); setNewCatInput(''); setShowCatDrop(false); }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:T.accent, color:T.white, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:T.font, flexShrink:0 }}>Add</button>
+                          <button type="button" onClick={() => { if (!newCatInput.trim()) return; const cat = newCatInput.trim(); setForm(f => ({...f, category: cat})); if (!categories.includes(cat)) setCategories(c => [...c, cat].sort()); setNewCatInput(''); setShowCatDrop(false); }} style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'#263431', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', flexShrink:0 }}>Add</button>
                         </div>
                         <div style={{ maxHeight:180, overflowY:'auto' }}>
-                          {categories.length === 0 && <div style={{ padding:'12px 14px', fontSize:12, color:T.shellMuted }}>No categories yet — type above to add one</div>}
+                          {categories.length === 0 && <div style={{ padding:'12px 14px', fontSize:12, color:'rgba(38,52,49,0.4)' }}>No categories yet — type above to add one</div>}
                           {categories.map(cat => (
-                            <div key={cat} onClick={() => { setForm(f => ({...f, category: cat})); setShowCatDrop(false); setNewCatInput(''); }} style={{ padding:'10px 14px', fontSize:13, color:T.ink, cursor:'pointer', background: form.category === cat ? T.accentLight : 'transparent', fontWeight: form.category === cat ? 600 : 400 }}
-                              onMouseEnter={e => e.currentTarget.style.background=T.cream}
-                              onMouseLeave={e => e.currentTarget.style.background = form.category === cat ? T.accentLight : 'transparent'}
+                            <div key={cat} onClick={() => { setForm(f => ({...f, category: cat})); setShowCatDrop(false); setNewCatInput(''); }} style={{ padding:'10px 14px', fontSize:13, color:'#263431', cursor:'pointer', background: form.category === cat ? '#FFF5F0' : 'transparent', fontWeight: form.category === cat ? 600 : 400 }}
+                              onMouseEnter={e => e.currentTarget.style.background='#F7F5F2'}
+                              onMouseLeave={e => e.currentTarget.style.background = form.category === cat ? '#FFF5F0' : 'transparent'}
                             >
-                              {cat} {form.category === cat && <span style={{ color:T.danger }}>✓</span>}
+                              {cat} {form.category === cat && <span style={{ color:'#8A4A42' }}>✓</span>}
                             </div>
                           ))}
                         </div>
@@ -471,7 +471,7 @@ export default function AdminRequests() {
                   <div>
                     <label style={S.label}>Price (₹) *</label>
                     <div style={{ position:'relative' }}>
-                      <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', fontSize:14, fontWeight:700, color:T.stone }}>₹</span>
+                      <span style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', fontSize:14, fontWeight:700, color:'rgba(38,52,49,0.5)' }}>₹</span>
                       <input className="inp" style={{ ...S.input, paddingLeft:30 }} type="number" min="0" step="0.01" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} placeholder="e.g. 280" required />
                     </div>
                   </div>
@@ -491,11 +491,11 @@ export default function AdminRequests() {
                 </div>
 
                 {/* Multi-language translations (optional) */}
-                <div style={{ marginBottom:16, padding:'16px 18px', borderRadius:T.radiusCard, background:T.accentSubtle, border:`1px solid ${T.accentSubtle}` }}>
+                <div style={{ marginBottom:16, padding:'16px 18px', borderRadius:14, background:'rgba(74,128,192,0.04)', border:'1px solid rgba(74,128,192,0.12)' }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <span style={{ fontSize:15 }}>🌐</span>
-                      <span style={{ fontSize:12, fontWeight:700, color:T.stone, letterSpacing:'0.04em' }}>TRANSLATIONS (Optional)</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:'rgba(38,52,49,0.55)', letterSpacing:'0.04em' }}>TRANSLATIONS (Optional)</span>
                     </div>
                     <button type="button" onClick={async () => {
                       if (!form.name.trim()) { toast.error('Enter item name first'); return; }
@@ -517,8 +517,8 @@ export default function AdminRequests() {
                         toast.success('Translations filled! Review and edit if needed.');
                       } catch { toast.error('Translation failed — try again'); }
                       finally { setTranslating(false); }
-                    }} disabled={translating} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:T.font, border:`1.5px solid ${T.info}66`, background:T.accentSubtle, color:T.info, cursor: translating ? 'not-allowed' : 'pointer', opacity: translating ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                      {translating ? <><span style={{ width:11, height:11, border:`2px solid ${T.info}`, borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Translating…</> : '✦ Auto Translate'}
+                    }} disabled={translating} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:'Inter,sans-serif', border:'1.5px solid rgba(74,128,192,0.4)', background:'rgba(74,128,192,0.06)', color:'#4A80C0', cursor: translating ? 'not-allowed' : 'pointer', opacity: translating ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                      {translating ? <><span style={{ width:11, height:11, border:'2px solid #4A80C0', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Translating…</> : '✦ Auto Translate'}
                     </button>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
@@ -547,13 +547,13 @@ export default function AdminRequests() {
                 <div style={{ marginBottom:16 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
                     <label style={{ ...S.label, marginBottom:0 }}>Ingredients (comma-separated)</label>
-                    <button type="button" className="calc-btn" onClick={handleAutoCalc} disabled={calcLoading} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:T.font, border:`1.5px solid ${T.danger}66`, background:`${T.danger}0A`, color:T.danger, cursor: calcLoading ? 'not-allowed' : 'pointer', opacity: calcLoading ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                      {calcLoading ? <><span style={{ width:11, height:11, border:`2px solid ${T.danger}`, borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Calculating…</> : '✦ Auto Calculate'}
+                    <button type="button" className="calc-btn" onClick={handleAutoCalc} disabled={calcLoading} style={{ padding:'5px 14px', borderRadius:8, fontSize:12, fontWeight:600, fontFamily:'Inter,sans-serif', border:'1.5px solid rgba(138,74,66,0.4)', background:'#FFF5F2', color:'#8A4A42', cursor: calcLoading ? 'not-allowed' : 'pointer', opacity: calcLoading ? 0.7 : 1, transition:'all 0.15s', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                      {calcLoading ? <><span style={{ width:11, height:11, border:'2px solid #8A4A42', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Calculating…</> : '✦ Auto Calculate'}
                     </button>
                   </div>
                   <input className="inp" style={S.input} value={form.ingredients} onChange={e=>setForm(f=>({...f,ingredients:e.target.value}))} placeholder="Chicken, Butter, Cream, Tomato, Spices" />
-                  {calcLoading && calcDetail && <div style={{ fontSize:11, color:`${T.danger}B3`, marginTop:5, fontStyle:'italic' }}>{calcDetail}</div>}
-                  <div style={{ fontSize:11, color:T.shellMuted, marginTop:4 }}>
+                  {calcLoading && calcDetail && <div style={{ fontSize:11, color:'rgba(138,74,66,0.7)', marginTop:5, fontStyle:'italic' }}>{calcDetail}</div>}
+                  <div style={{ fontSize:11, color:'rgba(38,52,49,0.4)', marginTop:4 }}>
                     For accurate nutrition add weight: <strong>Flour 150g, Garlic 10g, Butter 20g</strong> — or just names for estimates
                   </div>
                 </div>
@@ -563,14 +563,14 @@ export default function AdminRequests() {
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
                     <label style={{ ...S.label, marginBottom:0 }}>Nutrition (per serving)</label>
                     {(form.calories || form.protein || form.carbs || form.fats) && (
-                      <span style={{ fontSize:11, color:T.success, fontWeight:600 }}>✓ Values filled — edit if needed</span>
+                      <span style={{ fontSize:11, color:'#4A7A5E', fontWeight:600 }}>✓ Values filled — edit if needed</span>
                     )}
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
                     {['calories','protein','carbs','fats'].map(n => (
                       <div key={n}>
                         <label style={S.label}>{n.charAt(0).toUpperCase()+n.slice(1)}</label>
-                        <input className="inp" style={{ ...S.input, background: form[n] ? T.successLight : T.cream, borderColor: form[n] ? `${T.success}66` : undefined }} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
+                        <input className="inp" style={{ ...S.input, background: form[n] ? '#F0FBF5' : '#F7F5F2', borderColor: form[n] ? 'rgba(74,122,94,0.4)' : undefined }} type="number" min="0" value={form[n]} onChange={e=>setForm(f=>({...f,[n]:e.target.value}))} placeholder="0" />
                       </div>
                     ))}
                   </div>
@@ -579,23 +579,23 @@ export default function AdminRequests() {
                 {/* Photo */}
                 <div style={{ marginBottom:20 }}>
                   <label style={S.label}>Food Photo</label>
-                  <div className="upload-zone" onClick={()=>document.getElementById('img-upload').click()} style={{ border:`2px dashed ${T.sand}`, borderRadius:T.radiusCard, padding:24, textAlign:'center', cursor:'pointer', background:T.cream, transition:'all 0.15s' }}>
+                  <div className="upload-zone" onClick={()=>document.getElementById('img-upload').click()} style={{ border:'2px dashed rgba(38,52,49,0.15)', borderRadius:14, padding:24, textAlign:'center', cursor:'pointer', background:'#F7F5F2', transition:'all 0.15s' }}>
                     {imagePreview
-                      ? <img src={imagePreview} alt="Preview" style={{ maxHeight:120, margin:'0 auto', borderRadius:T.radiusBtn, objectFit:'cover', display:'block' }} />
-                      : <div><div style={{ fontSize:28, marginBottom:8 }}>📷</div><div style={{ fontSize:13, color:T.shellMuted }}>Click to upload image (max 5MB)</div></div>
+                      ? <img src={imagePreview} alt="Preview" style={{ maxHeight:120, margin:'0 auto', borderRadius:10, objectFit:'cover', display:'block' }} />
+                      : <div><div style={{ fontSize:28, marginBottom:8 }}>📷</div><div style={{ fontSize:13, color:'rgba(38,52,49,0.4)' }}>Click to upload image (max 5MB)</div></div>
                     }
                     <input id="img-upload" type="file" accept="image/*" onChange={handleImageChange} style={{ display:'none' }} />
                   </div>
                 </div>
                 {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div style={{ height:4, background:T.accentSubtle, borderRadius:99, overflow:'hidden', marginBottom:16 }}>
-                    <div style={{ height:'100%', borderRadius:99, background:`linear-gradient(90deg,${T.danger},#F07050)`, width:`${uploadProgress}%`, transition:'width 0.3s' }} />
+                  <div style={{ height:4, background:'rgba(38,52,49,0.08)', borderRadius:99, overflow:'hidden', marginBottom:16 }}>
+                    <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#8A4A42,#F07050)', width:`${uploadProgress}%`, transition:'width 0.3s' }} />
                   </div>
                 )}
-                <button type="submit" disabled={submitting} style={{ ...S.btn, background:T.accent, color:T.shellText, width:'100%', padding:'13px', borderRadius:T.radiusBtn, opacity:submitting?0.6:1 }}>
+                <button type="submit" disabled={submitting} style={{ ...S.btn, background:'#263431', color:'#EAE7E3', width:'100%', padding:'13px', borderRadius:10, opacity:submitting?0.6:1 }}>
                   {submitting ? 'Publishing…' : '🚀 Publish to Menu'}
                 </button>
-                <p style={{ textAlign:'center', fontSize:11, color:T.shellMuted, marginTop:10 }}>Item goes live immediately · AR unlocks after our team adds the 3D model</p>
+                <p style={{ textAlign:'center', fontSize:11, color:'rgba(38,52,49,0.4)', marginTop:10 }}>Item goes live immediately · AR unlocks after our team adds the 3D model</p>
               </form>
             </div>
           )}
@@ -603,7 +603,7 @@ export default function AdminRequests() {
           {/* Filter tabs */}
           <div style={{ display:'flex', gap:6, marginBottom:20 }}>
             {['all','pending','approved','rejected'].map(s => (
-              <button key={s} onClick={()=>setFilter(s)} style={{ padding:'7px 16px', borderRadius:T.radiusPill, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:T.font, textTransform:'capitalize', background: filter===s ? T.accent : T.white, color: filter===s ? T.shellText : T.stone, boxShadow: filter===s ? T.shadowBtn : T.shadowCard, transition:'all 0.15s' }}>
+              <button key={s} onClick={()=>setFilter(s)} style={{ padding:'7px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background: filter===s?'#263431':'#fff', color: filter===s?'#EAE7E3':'rgba(38,52,49,0.55)', boxShadow: filter===s?'0 2px 8px rgba(28,40,37,0.18)':'0 1px 4px rgba(38,52,49,0.06)', transition:'all 0.15s' }}>
                 {s==='pending' ? 'Awaiting AR' : s==='approved' ? 'AR Active' : s.charAt(0).toUpperCase()+s.slice(1)} ({s==='all'?requests.length:requests.filter(r=>r.status===s).length})
               </button>
             ))}
@@ -612,10 +612,10 @@ export default function AdminRequests() {
           {/* Request list */}
           {loading ? (
             <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-              <div style={{ width:32, height:32, border:`3px solid ${T.danger}`, borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+              <div style={{ width:32, height:32, border:'3px solid #8A4A42', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
             </div>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'60px 0', color:T.shellMuted }}>
+            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(38,52,49,0.4)' }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📭</div>
               <p style={{ fontSize:14 }}>No items yet. Add your first menu item above!</p>
             </div>
@@ -629,37 +629,37 @@ export default function AdminRequests() {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
                       <div>
-                        <div style={{ fontWeight:600, fontSize:14, color:T.ink }}>{req.name}</div>
-                        <div style={{ fontSize:12, color:T.stone, marginTop:2 }}>
+                        <div style={{ fontWeight:600, fontSize:14, color:'#263431' }}>{req.name}</div>
+                        <div style={{ fontSize:12, color:'rgba(38,52,49,0.45)', marginTop:2 }}>
                           {req.category && <span>{req.category}</span>}
-                          {req.price  && <span style={{ marginLeft:8, fontWeight:600, color:T.danger }}>₹{req.price}</span>}
+                          {req.price  && <span style={{ marginLeft:8, fontWeight:600, color:'#8A4A42' }}>₹{req.price}</span>}
                         </div>
                       </div>
                       <StatusBadge status={req.status} />
                     </div>
-                    {req.description && <p style={{ fontSize:12, color:T.stone, marginTop:6, lineHeight:1.5 }}>{req.description}</p>}
+                    {req.description && <p style={{ fontSize:12, color:'rgba(38,52,49,0.5)', marginTop:6, lineHeight:1.5 }}>{req.description}</p>}
                     {req.nutritionalData && Object.values(req.nutritionalData).some(v => v != null) && (
                       <div style={{ display:'flex', gap:10, marginTop:8, flexWrap:'wrap' }}>
                         {Object.entries(req.nutritionalData).map(([k,v]) => v != null && (
-                          <span key={k} style={{ fontSize:11, color:T.stone, background:T.cream, borderRadius:6, padding:'2px 8px' }}>
+                          <span key={k} style={{ fontSize:11, color:'rgba(38,52,49,0.5)', background:'#F7F5F2', borderRadius:6, padding:'2px 8px' }}>
                             {k.charAt(0).toUpperCase()+k.slice(1)}: <strong>{v}</strong>{k==='calories'?'kcal':'g'}
                           </span>
                         ))}
                       </div>
                     )}
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8, flexWrap:'wrap', gap:8 }}>
-                      <div style={{ fontSize:11, color:T.shellMuted }}>
+                      <div style={{ fontSize:11, color:'rgba(38,52,49,0.35)' }}>
                         Submitted {req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleDateString() : 'recently'}
                       </div>
                       {req.status === 'pending' && (
                         confirmCancel === req.id ? (
                           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                            <span style={{ fontSize:12, color:T.stone }}>Cancel AR request? Item stays on menu.</span>
-                            <button onClick={() => handleCancelRequest(req.id)} style={{ padding:'5px 14px', borderRadius:T.radiusBtn, border:'none', background:T.danger, color:T.shellText, fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>Yes, cancel</button>
-                            <button onClick={() => setConfirmCancel(null)} style={{ padding:'5px 14px', borderRadius:T.radiusBtn, border:`1.5px solid ${T.sand}`, background:'transparent', color:T.stone, fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>Keep</button>
+                            <span style={{ fontSize:12, color:'rgba(38,52,49,0.6)' }}>Cancel AR request? Item stays on menu.</span>
+                            <button onClick={() => handleCancelRequest(req.id)} style={{ padding:'5px 14px', borderRadius:10, border:'none', background:'#8A4A42', color:'#EAE7E3', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>Yes, cancel</button>
+                            <button onClick={() => setConfirmCancel(null)} style={{ padding:'5px 14px', borderRadius:10, border:'1.5px solid rgba(38,52,49,0.15)', background:'transparent', color:'rgba(38,52,49,0.6)', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>Keep</button>
                           </div>
                         ) : (
-                          <button onClick={() => setConfirmCancel(req.id)} style={{ padding:'5px 14px', borderRadius:T.radiusBtn, border:`1.5px solid ${T.danger}4D`, background:`${T.danger}0F`, color:T.danger, fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
+                          <button onClick={() => setConfirmCancel(req.id)} style={{ padding:'5px 14px', borderRadius:10, border:'1.5px solid rgba(138,74,66,0.3)', background:'rgba(138,74,66,0.06)', color:'#8A4A42', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}>
                             Cancel AR Request
                           </button>
                         )
@@ -679,9 +679,9 @@ AdminRequests.getLayout = (page) => page;
 
 function StatusBadge({ status }) {
   const map = {
-    pending:  { bg:T.warning, color:'#8B6020', label:'Live · Awaiting AR' },
-    approved: { bg:T.success, color:T.ink, label:'AR Active' },
-    rejected: { bg:T.danger, color:T.danger, label:'Rejected' },
+    pending:  { bg:'#F4D070', color:'#8B6020', label:'Live · Awaiting AR' },
+    approved: { bg:'#7AAA8E', color:'#1A5A38', label:'AR Active' },
+    rejected: { bg:'#F4A0B0', color:'#8B1A2A', label:'Rejected' },
   };
   const { bg, color, label } = map[status] || map.pending;
   return (

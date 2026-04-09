@@ -7,24 +7,34 @@ import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
 import { T } from '../../lib/utils';
 
-const navItems = [
-  { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
-  { href: '/admin/reports', label: 'Revenue Reports', icon: '💰' },
-  { href: '/admin/items', label: 'Menu Items', icon: '🍽️' },
-  { href: '/admin/orders', label: 'Orders', icon: '📋' },
-  { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: '👨‍🍳' },
-  { href: '/admin/waiter', label: 'Waiter', icon: '🛎️' },
-  { href: '/admin/staff', label: 'Staff Logins', icon: '👥' },
-  { href: '/admin/coupons', label: 'Coupons', icon: '🎟️' },
-  { href: '/admin/payments', label: 'Payments', icon: '💳' },
-  { href: '/admin/feedback', label: 'Customer Feedback', icon: '⭐' },
-  { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
-  { href: '/admin/requests', label: 'Add Items/Requests', icon: '➕' },
-  { href: '/admin/combos', label: 'Combo Builder', icon: '🧩' },
-  { href: '/admin/offers', label: 'Offers', icon: '🏷️' },
-  { href: '/admin/qrcode', label: 'QR Code', icon: '📱' },
-  { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
-  { href: '/admin/subscription', label: 'Subscription', icon: '👑' },
+const navSections = [
+  { label: 'OVERVIEW', items: [
+    { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
+    { href: '/admin/reports', label: 'Revenue Reports', icon: '💰' },
+  ]},
+  { label: 'OPERATIONS', items: [
+    { href: '/admin/orders', label: 'Orders', icon: '📋' },
+    { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: '👨‍🍳' },
+    { href: '/admin/waiter', label: 'Waiter', icon: '🛎️' },
+    { href: '/admin/payments', label: 'Payments', icon: '💳' },
+  ]},
+  { label: 'MENU', items: [
+    { href: '/admin/items', label: 'Menu Items', icon: '🍽️' },
+    { href: '/admin/combos', label: 'Combo Builder', icon: '🧩' },
+    { href: '/admin/offers', label: 'Offers', icon: '🏷️' },
+    { href: '/admin/coupons', label: 'Coupons', icon: '🎟️' },
+  ]},
+  { label: 'PEOPLE', items: [
+    { href: '/admin/staff', label: 'Staff Logins', icon: '👥' },
+    { href: '/admin/feedback', label: 'Customer Feedback', icon: '⭐' },
+    { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
+  ]},
+  { label: 'SETUP', items: [
+    { href: '/admin/requests', label: 'Add Items/Requests', icon: '➕' },
+    { href: '/admin/qrcode', label: 'QR Code', icon: '📱' },
+    { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
+    { href: '/admin/subscription', label: 'Subscription', icon: '👑' },
+  ]},
 ];
 
 export default function AdminLayout({ children }) {
@@ -269,14 +279,22 @@ export default function AdminLayout({ children }) {
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '14px 12px', overflowY: 'auto' }}>
-          {navItems.map(item => (
-            <Link key={item.href} href={item.href}
-              className={`nlnk${isActive(item.href) ? ' on' : ''}`}
-              onClick={isMobile ? closeSidebar : undefined}>
-              <span className="nav-icon">{item.icon}</span>
-              {item.label}
-            </Link>
+        <nav style={{ flex: 1, padding: '10px 12px', overflowY: 'auto' }}>
+          {navSections.map((section, si) => (
+            <div key={section.label} style={{ marginBottom: 4 }}>
+              {si > 0 && <div style={{ height: 1, background: 'rgba(234,231,227,0.08)', margin: '6px 18px 8px' }} />}
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(234,231,227,0.25)', padding: '6px 18px 4px', textTransform: 'uppercase' }}>
+                {section.label}
+              </div>
+              {section.items.map(item => (
+                <Link key={item.href} href={item.href}
+                  className={`nlnk${isActive(item.href) ? ' on' : ''}`}
+                  onClick={isMobile ? closeSidebar : undefined}>
+                  <span className="nav-icon">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
 
