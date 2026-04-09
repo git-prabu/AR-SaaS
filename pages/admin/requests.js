@@ -4,7 +4,6 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRequests, submitRequestAndPublish, getAllMenuItems, deleteRequest, getRestaurantById } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
-import { T, ADMIN_STYLES } from '../../lib/utils';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
@@ -387,9 +386,9 @@ export default function AdminRequests() {
               <p style={S.sub}>Items go live immediately. AR feature unlocks after our team uploads the 3D model.</p>
             </div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <label style={{ ...S.btn, background:T.success, color:T.white, cursor: bulkUploading||atLimit ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', gap:7, padding:'11px 18px', opacity: atLimit ? 0.5 : 1 }}>
+              <label style={{ ...S.btn, background:'#5A8A6A', color:'#fff', cursor: bulkUploading||atLimit ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', gap:7, padding:'11px 18px', opacity: atLimit ? 0.5 : 1 }}>
                 {bulkUploading
-                  ? <><span style={{ width:13, height:13, border:`2px solid ${T.white}`, borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Uploading {bulkProgress.done}/{bulkProgress.total}…</>
+                  ? <><span style={{ width:13, height:13, border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.7s linear infinite' }}/> Uploading {bulkProgress.done}/{bulkProgress.total}…</>
                   : <><span style={{ fontSize:16 }}>📥</span> Bulk Upload</>
                 }
                 <input type="file" accept=".xlsx,.xls" onChange={handleBulkUpload} style={{ display:'none' }} disabled={bulkUploading || atLimit} />
@@ -413,7 +412,7 @@ export default function AdminRequests() {
 
           {/* Bulk upload progress */}
           {bulkUploading && (
-            <div style={{ background:T.white, borderRadius:T.radiusCard, padding:'16px 20px', marginBottom:16, border:`1px solid ${T.success}33` }}>
+            <div style={{ background:'#fff', borderRadius:14, padding:'16px 20px', marginBottom:16, border:'1px solid rgba(90,138,106,0.2)' }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
                 <span style={{ fontSize:13, fontWeight:600, color:'#263431' }}>Publishing items…</span>
                 <span style={{ fontSize:12, color:'rgba(38,52,49,0.5)' }}>{bulkProgress.done} / {bulkProgress.total}</span>
@@ -623,7 +622,7 @@ export default function AdminRequests() {
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {filtered.map(req => (
                 <div key={req.id} style={{ ...S.card, padding:18, display:'flex', alignItems:'flex-start', gap:16 }}>
-                  <div style={{ width:56, height:56, borderRadius:T.radiusCard, overflow:'hidden', background:T.cream, flexShrink:0 }}>
+                  <div style={{ width:56, height:56, borderRadius:14, overflow:'hidden', background:'#F7F5F2', flexShrink:0 }}>
                     {req.imageURL ? <img src={req.imageURL} alt={req.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🍽️</div>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>

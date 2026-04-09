@@ -4,7 +4,6 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById } from '../../lib/db';
 import toast from 'react-hot-toast';
-import { T, ADMIN_STYLES } from '../../lib/utils';
 
 const PLANS = [
   { id:'basic',   name:'Basic',   price:999,  items:10,  storage:500,  period:'6 months' },
@@ -80,8 +79,8 @@ export default function AdminSubscription() {
         <div style={{ maxWidth:880, margin:'0 auto' }}>
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           <div style={{ marginBottom:28 }}>
-            <h1 style={ADMIN_STYLES.h1}>Subscription</h1>
-            <p style={ADMIN_STYLES.sub}>Manage your plan and billing</p>
+            <h1 style={S.h1}>Subscription</h1>
+            <p style={S.sub}>Manage your plan and billing</p>
           </div>
 
           {loading ? (
@@ -90,7 +89,7 @@ export default function AdminSubscription() {
             </div>
           ) : (<>
             {/* Current plan */}
-            <div style={{ ...ADMIN_STYLES.card, padding:28, marginBottom:28, borderLeft:`4px solid ${isExpired?'#F4A0B0':timeColor}` }}>
+            <div style={{ ...S.card, padding:28, marginBottom:28, borderLeft:`4px solid ${isExpired?'#F4A0B0':timeColor}` }}>
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
                 <div>
                   <div style={{ fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.4)', letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:6 }}>Current Plan</div>
@@ -102,7 +101,7 @@ export default function AdminSubscription() {
                   )}
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8 }}>
-                  <span style={{ padding:'6px 16px', borderRadius:T.radiusPill, fontSize:12, fontWeight:700, background:isActive?`rgba(143,196,168,0.2)`:`rgba(244,160,176,0.2)`, color:isActive?'#1A5A38':'#8B1A2A', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(244,160,176,0.4)'}` }}>
+                  <span style={{ padding:'6px 16px', borderRadius:30, fontSize:12, fontWeight:700, background:isActive?'rgba(143,196,168,0.2)':'rgba(244,160,176,0.2)', color:isActive?'#1A5A38':'#8B1A2A', border:`1px solid ${isActive?'rgba(143,196,168,0.4)':'rgba(244,160,176,0.4)'}` }}>
                     {isActive ? '● Active' : '● Inactive'}
                   </span>
                   {daysRemaining !== null && !isExpired && (
@@ -157,7 +156,7 @@ export default function AdminSubscription() {
                       <div style={{ position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', padding:'5px 16px', background:'linear-gradient(135deg,#C4A86D,#D4B87D)', color:'#fff', fontSize:11, fontWeight:700, borderRadius:30, whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(196,168,109,0.4)', letterSpacing:'0.03em' }}>✦ Popular</div>
                     )}
                     {isCurrent && (
-                      <div style={{ position:'absolute', top:14, right:14, padding:'3px 10px', background:`rgba(143,196,168,0.2)`, color:'#1A5A38', fontSize:10, fontWeight:700, borderRadius:20, border:`1px solid rgba(143,196,168,0.4)` }}>Current</div>
+                      <div style={{ position:'absolute', top:14, right:14, padding:'3px 10px', background:'rgba(143,196,168,0.2)', color:'#1A5A38', fontSize:10, fontWeight:700, borderRadius:20, border:'1px solid rgba(143,196,168,0.4)' }}>Current</div>
                     )}
                     <div style={{ fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:18, color:'#263431', marginBottom:8 }}>{plan.name}</div>
                     <div style={{ display:'flex', alignItems:'baseline', gap:4, marginBottom:20 }}>

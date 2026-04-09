@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
+// pages/admin/items.js
+import Head from 'next/head';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { T } from '../../lib/utils';
+import AdminLayout from '../../components/layout/AdminLayout';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem } from '../../lib/db';
+import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
+import toast from 'react-hot-toast';
 
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Very Spicy'];
 const SPICE_COLORS = { None:'#7AAA8E', Mild:'#F4D070', Medium:'#F4A060', Spicy:'#8A4A42', 'Very Spicy':'#B02020' };
@@ -549,3 +553,5 @@ export default function AdminItems() {
     </AdminLayout>
   );
 }
+
+AdminItems.getLayout = (page) => page;

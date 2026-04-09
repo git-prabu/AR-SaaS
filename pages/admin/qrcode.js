@@ -7,7 +7,6 @@ import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
-import { T, ADMIN_STYLES } from '../../lib/utils';
 
 const SIZES = [{ label: 'Small', value: 256, desc: 'Table card' }, { label: 'Medium', value: 512, desc: 'Menu insert' }, { label: 'Large', value: 1024, desc: 'Print / poster' }];
 const STYLES = [{ label: 'Light', bg: '#FFFFFF', fg: '#263431', border: '#E8E4DE' }, { label: 'Coral', bg: '#EAE7E3', fg: '#8A4A42', border: '#F4D0A0' }, { label: 'Dark', bg: '#263431', fg: '#F5A876', border: '#3A3530' }];

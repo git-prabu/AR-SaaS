@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
 const REASON_MAP = {
-  water: { emoji: '💧', label: 'Need Water', color: '#5A7A9A', bg: 'rgba(74,128,192,0.1)' },
+  water: { emoji: '💧', label: 'Need Water', color: '#4A80C0', bg: 'rgba(74,128,192,0.1)' },
   bill: { emoji: '🧾', label: 'Need Bill', color: '#8A5AC4', bg: 'rgba(138,90,196,0.1)' },
   assistance: { emoji: '🙋', label: 'Need Assistance', color: '#8A4A42', bg: 'rgba(138,74,66,0.1)' },
   order: { emoji: '📋', label: 'Ready to Order', color: '#4A7A5E', bg: 'rgba(74,122,94,0.1)' },

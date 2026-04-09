@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getCombos, createCombo, updateCombo, deleteCombo, getMenuItems } from '../../lib/db';
-import { T, ADMIN_STYLES } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
 const S = {
@@ -232,7 +231,7 @@ export default function AdminCombos() {
                       {c.description && <div style={{fontSize:13,color:'rgba(38,52,49,0.55)',marginBottom:10}}>{c.description}</div>}
                       <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
                         {comboItems.map(item=>(
-                          <span key={item.id} style={{padding:'4px 10px',borderRadius:T.radiusPill,background:'#F5E6D3',fontSize:12,fontWeight:500,color:'#4A3020'}}>{item.name}</span>
+                          <span key={item.id} style={{padding:'4px 10px',borderRadius:20,background:'#F5E6D3',fontSize:12,fontWeight:500,color:'#4A3020'}}>{item.name}</span>
                         ))}
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>

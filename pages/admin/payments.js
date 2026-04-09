@@ -30,12 +30,6 @@ export default function AdminPayments() {
         ['cash_requested', 'card_requested', 'online_requested', 'paid_cash', 'paid_card', 'paid_online'].includes(o.paymentStatus)
     );
 
-    // Filter to only show orders relevant to payments
-    const orders = allOrders.filter(o =>
-        o.status === 'served' ||
-        ['cash_requested', 'card_requested', 'online_requested', 'paid_cash', 'paid_card', 'paid_online'].includes(o.paymentStatus)
-    );
-
     useEffect(() => {
         const t = setInterval(() => setTick(n => n + 1), 30000);
         return () => clearInterval(t);

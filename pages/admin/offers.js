@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getAllOffers, createOffer, updateOffer, deleteOffer, getAllMenuItems } from '../../lib/db';
-import { T, ADMIN_STYLES } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
 const S = {
@@ -116,8 +115,8 @@ export default function AdminOffers() {
           {/* Header */}
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
             <div>
-              <h1 style={ADMIN_STYLES.h1}>Offers & Promotions</h1>
-              <p style={ADMIN_STYLES.sub}>Active offers display as a horizontal strip on your live menu. Link a dish to make it clickable.</p>
+              <h1 style={S.h1}>Offers & Promotions</h1>
+              <p style={S.sub}>Active offers display as a horizontal strip on your live menu. Link a dish to make it clickable.</p>
             </div>
             <button onClick={showForm ? closeForm : openCreate}
               style={{ ...S.btn, background:showForm?'#EAE7E3':'#263431', color:showForm?'#263431':'#EAE7E3', border:showForm?'1.5px solid rgba(38,52,49,0.12)':'none' }}>
@@ -133,7 +132,7 @@ export default function AdminOffers() {
                   {isEditing ? '✏️ Edit Offer' : 'Create Offer'}
                 </h2>
                 {isEditing && (
-                  <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:'rgba(74,128,192,0.1)', color:'#5A7A9A' }}>
+                  <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:'rgba(74,128,192,0.1)', color:'#4A80C0' }}>
                     Editing existing offer
                   </span>
                 )}
@@ -143,10 +142,10 @@ export default function AdminOffers() {
               {form.title && (
                 <div style={{ background:'linear-gradient(135deg,#8A4A42,#F07050)', borderRadius:12, padding:'12px 18px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
                   {linkedItem?.imageURL && (
-                    <img src={linkedItem.imageURL} alt={linkedItem.name} style={{ width:44, height:44, borderRadius:T.radiusBtn, objectFit:'cover', flexShrink:0, border:`2px solid rgba(255,255,255,0.3)` }} />
+                    <img src={linkedItem.imageURL} alt={linkedItem.name} style={{ width:44, height:44, borderRadius:10, objectFit:'cover', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }} />
                   )}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:14, color:T.white }}>{form.title}</div>
+                    <div style={{ fontWeight:700, fontSize:14, color:'#fff' }}>{form.title}</div>
                     {form.description && <div style={{ fontSize:12, color:'rgba(255,255,255,0.8)', marginTop:2 }}>{form.description}</div>}
                     {linkedItem && (
                       <div style={{ fontSize:11, color:'rgba(255,255,255,0.75)', marginTop:3 }}>
@@ -228,7 +227,7 @@ export default function AdminOffers() {
                 const isActive      = offer.endDate >= today && (!offer.startDate || offer.startDate <= today);
                 const isBeingEdited = editingId === offer.id;
                 return (
-                  <div key={offer.id} style={{ ...ADMIN_STYLES.card, padding:20, display:'flex', alignItems:'center', gap:16, outline: isBeingEdited ? '2px solid #5A7A9A' : 'none', outlineOffset:2 }}>
+                  <div key={offer.id} style={{ ...S.card, padding:20, display:'flex', alignItems:'center', gap:16, outline: isBeingEdited ? '2px solid #4A80C0' : 'none', outlineOffset:2 }}>
                     {offer.linkedItemImage
                       ? <img src={offer.linkedItemImage} alt={offer.linkedItemName} style={{ width:52, height:52, borderRadius:14, objectFit:'cover', flexShrink:0 }} />
                       : <div style={{ width:52, height:52, borderRadius:14, background:'rgba(138,74,66,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎉</div>

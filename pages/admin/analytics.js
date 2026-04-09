@@ -261,33 +261,6 @@ export default function AdminAnalytics() {
     }).sort((a, b) => b.revenue - a.revenue || b.views - a.views).slice(0, 12);
   }, [activeItems, itemFreq]);
 
-  // Peak hours analysis
-  const hourlyOrders = Array(24).fill(0);
-  const hourlyRevenue = Array(24).fill(0);
-  ordersInRange.forEach(o => {
-    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
-    const hour = d.getHours();
-    hourlyOrders[hour] += 1;
-    hourlyRevenue[hour] += o.total || 0;
-  });
-  const peakHourData = hourlyOrders.map((count, h) => ({
-    hour: h,
-    label: `${h === 0 ? 12 : h > 12 ? h - 12 : h}${h < 12 ? 'AM' : 'PM'}`,
-    orders: count,
-    revenue: hourlyRevenue[h],
-  })).filter(h => h.orders > 0);
-  const peakHour = peakHourData.reduce((best, h) => h.orders > (best?.orders || 0) ? h : best, null);
-
-  // Day of week analysis
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const dailyOrders = Array(7).fill(0);
-  ordersInRange.forEach(o => {
-    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
-    dailyOrders[d.getDay()] += 1;
-  });
-  const dayData = dailyOrders.map((count, i) => ({ day: dayNames[i], orders: count }));
-  const busiestDay = dayData.reduce((best, d) => d.orders > (best?.orders || 0) ? d : best, null);
-
   const exportCSV = () => {
     if (tab === 'overview') downloadCSV(chartData.map(d => ({ date: d.date, visits: d.visits, unique_visitors: d.unique })), `analytics-${range}d.csv`);
     else if (tab === 'orders') downloadCSV(revenueChartData.map(d => ({ date: d.date, revenue: d.revenue, orders: d.orders })), `orders-revenue-${range}d.csv`);
