@@ -198,8 +198,8 @@ export default function AdminAnalytics() {
 
   const funnelData = [
     { label: 'Menu Visits', value: totalVisits, pct: 100, color: '#5A8A9A' },
-    { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.round((totalViews / totalVisits) * 100) : 0, color: '#8A7A6A' },
-    { label: 'AR Launches', value: totalARViews, pct: totalViews > 0 ? Math.round((totalARViews / totalViews) * 100) : 0, color: T.warning },
+    { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.min(100, Math.round((totalViews / totalVisits) * 100)) : 0, color: '#8A7A6A' },
+    { label: 'AR Launches', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: T.warning },
   ];
 
   const insights = useMemo(() => {
@@ -227,11 +227,11 @@ export default function AdminAnalytics() {
   }, [totalOrders, avgRating, arRate, totalVisits]);
   const scoreColor = healthScore >= 80 ? '#5A8A6E' : healthScore >= 60 ? T.warning : '#9B5B53';
 
-  const viewToOrderRate = totalViews > 0 && totalOrders > 0 ? ((totalOrders / totalViews) * 100).toFixed(1) : '0.0';
+  const viewToOrderRate = totalVisits > 0 && totalOrders > 0 ? ((totalOrders / totalVisits) * 100).toFixed(1) : '0.0';
   const itemsWithAR = activeItems.filter(i => (i.arViews || 0) > 0);
   const arItemNames = new Set(itemsWithAR.map(i => i.name));
   const ordersFromARItems = ordersInRange.filter(o => (o.items || []).some(item => arItemNames.has(item.name))).length;
-  const arToOrderRate = totalARViews > 0 && ordersFromARItems > 0 ? ((ordersFromARItems / totalARViews) * 100).toFixed(1) : '0.0';
+  const arToOrderRate = totalARViews > 0 && ordersFromARItems > 0 ? Math.min(100, ((ordersFromARItems / totalARViews) * 100)).toFixed(1) : '0.0';
 
   // ── TODAY's live metrics ──
   const todayDate = new Date();
@@ -577,7 +577,7 @@ export default function AdminAnalytics() {
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(234,231,227,0.5)', marginBottom: 6 }}>OVERALL CONVERSION</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
                       <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 32, color: T.warning }}>{viewToOrderRate}%</span>
-                      <span style={{ fontSize: 13, color: 'rgba(234,231,227,0.45)' }}>views to orders</span>
+                      <span style={{ fontSize: 13, color: 'rgba(234,231,227,0.45)' }}>visits to orders</span>
                     </div>
                   </div>
                 </div>
@@ -909,7 +909,7 @@ export default function AdminAnalytics() {
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {[
-                  { label: 'VIEWS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
+                  { label: 'VISITS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
                   { label: 'AR → ORDERS', value: arToOrderRate + '%', sub: 'AR conversion' },
                   { label: 'AR ENGAGEMENT', value: arRate + '%', sub: `${totalARViews} launches` },
                   { label: 'AVG RATING', value: avgRating > 0 ? `★ ${avgRating}` : '—', sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} rated items` },
