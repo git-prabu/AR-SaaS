@@ -10,14 +10,13 @@ import { T, ADMIN_STYLES } from '../../lib/utils';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie,
-  LineChart, Line, ComposedChart, Legend,
+  LineChart, Line,
 } from 'recharts';
 
 const tip = { backgroundColor: T.ink, border: 'none', borderRadius: 10, color: T.cream, fontSize: 12, fontFamily: T.font, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' };
 const tipLabel = { color: T.cream, fontWeight: 600 };
 const tipItem = { color: 'rgba(234,231,227,0.8)' };
 const CAT_COLORS = ['#9B5B53', '#C4A86D', '#8A7A6A', '#5A8A6E', '#5A8A9A', '#7AAA8E', '#F4D070', '#A08060'];
-const BAR_PALETTE = ['#9B5B53', '#5A8A6E', '#C4A86D', '#5A8A9A', '#8A7A6A', '#7AAA8E'];
 
 const PieTip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
@@ -34,7 +33,7 @@ function Trend({ val }) {
   const up = val > 0;
   return (
     <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: up ? 'rgba(90,138,110,0.18)' : 'rgba(155,91,83,0.12)', color: up ? '#5A8A6E' : '#9B5B53' }}>
-      {up ? '\u25B2' : '\u25BC'} {Math.abs(val)}%
+      {up ? '▲' : '▼'} {Math.abs(val)}%
     </span>
   );
 }
@@ -43,7 +42,7 @@ function Stars({ avg, count }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
       {[1, 2, 3, 4, 5].map(s => (
-        <span key={s} style={{ fontSize: 11, color: s <= Math.round(avg || 0) ? T.warning : 'rgba(38,52,49,0.15)' }}>{'\u2605'}</span>
+        <span key={s} style={{ fontSize: 11, color: s <= Math.round(avg || 0) ? T.warning : 'rgba(38,52,49,0.15)' }}>★</span>
       ))}
       <span style={{ fontSize: 11, fontWeight: 700, color: T.warning }}>{(avg || 0).toFixed(1)}</span>
       {count !== undefined && <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)' }}>({count})</span>}
@@ -70,48 +69,10 @@ function downloadCSV(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
-/* Issue 11: Fix formatTime — handle absurd values */
 function formatTime(secs) {
-  if (!secs) return '\u2014';
-  if (secs > 86400) return '\u2014';
-  if (secs > 3600) {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    return `${h}h ${m}m`;
-  }
+  if (!secs) return '—';
   if (secs < 60) return `${secs}s`;
   return `${Math.floor(secs / 60)}m ${secs % 60}s`;
-}
-
-/* Issue 6: Image fallback placeholder */
-function DishImage({ item, size = 32, fontSize = 14 }) {
-  if (item?.imageURL) {
-    return <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
-  }
-  const initial = (item?.name || '?').charAt(0).toUpperCase();
-  return (
-    <div style={{
-      width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: `linear-gradient(135deg, ${T.sand} 0%, ${T.cream} 100%)`,
-      fontFamily: T.fontDisplay, fontWeight: 700, fontSize: fontSize, color: T.stone,
-    }}>{initial}</div>
-  );
-}
-
-/* Issue 10: Chart type toggle button */
-function ChartToggle({ mode, onToggle, options }) {
-  return (
-    <div style={{ display: 'inline-flex', borderRadius: 16, border: `1px solid ${T.sand}`, overflow: 'hidden' }}>
-      {options.map(opt => (
-        <button key={opt.value} onClick={() => onToggle(opt.value)} style={{
-          padding: '3px 10px', border: 'none', cursor: 'pointer',
-          background: mode === opt.value ? T.ink : 'transparent',
-          color: mode === opt.value ? T.cream : T.stone,
-          fontSize: 13, fontFamily: T.font, fontWeight: 600, transition: 'all 0.15s',
-        }}>{opt.icon}</button>
-      ))}
-    </div>
-  );
 }
 
 /* ═══════════════════════════════════════ */
@@ -126,19 +87,6 @@ export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(7);
   const [tab, setTab] = useState('overview');
-  /* Issue 10: chart mode states */
-  const [overviewChartMode, setOverviewChartMode] = useState('combo');
-  const [revenueChartMode, setRevenueChartMode] = useState('area');
-  const [ordersChartMode, setOrdersChartMode] = useState('bar');
-  /* Issue 16: bar color state */
-  const [barColor, setBarColor] = useState('#9B5B53');
-  /* Issue 19: menu table sort/filter state */
-  const [menuSort, setMenuSort] = useState('revenue');
-  const [menuSortDir, setMenuSortDir] = useState('desc');
-  const [menuCatFilter, setMenuCatFilter] = useState('all');
-  /* Issue 13: expandable alerts state */
-  const [expandedAlerts, setExpandedAlerts] = useState({});
-
   const rid = userData?.restaurantId;
 
   const load = useCallback(async () => {
@@ -159,11 +107,6 @@ export default function AdminAnalytics() {
   const sum = (arr, k) => arr.reduce((s, d) => s + (d[k] || 0), 0);
   const delta = (curr, prev) => prev === 0 ? (curr > 0 ? null : 0) : Math.round(((curr - prev) / prev) * 100);
 
-  const parseDate = (createdAt) => {
-    if (!createdAt) return new Date();
-    return createdAt?.toDate ? createdAt.toDate() : (createdAt?.seconds ? new Date(createdAt.seconds * 1000) : new Date(createdAt || Date.now()));
-  };
-
   const totalVisits = sum(analytics, 'totalVisits');
   const uniqueVisits = sum(analytics, 'uniqueVisitors');
   const prevVisits = sum(prevAnal, 'totalVisits');
@@ -183,26 +126,16 @@ export default function AdminAnalytics() {
   const rangeStart = new Date(Date.now() - range * 24 * 60 * 60 * 1000);
   const ordersInRange = orders.filter(o => {
     if (!o.createdAt) return true;
-    const d = parseDate(o.createdAt);
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     return d >= rangeStart;
   });
   const totalOrders = ordersInRange.length;
   const totalRevenue = ordersInRange.reduce((s, o) => s + (o.total || 0), 0);
   const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
 
-  /* Issue 14: Previous period for trend comparison */
-  const prevStart = new Date(Date.now() - range * 2 * 24 * 60 * 60 * 1000);
-  const prevOrdersInRange = orders.filter(o => {
-    const d = parseDate(o.createdAt);
-    return d >= prevStart && d < rangeStart;
-  });
-  const prevTotalOrders = prevOrdersInRange.length;
-  const prevTotalRevenue = prevOrdersInRange.reduce((s, o) => s + (o.total || 0), 0);
-  const prevAvgOrder = prevTotalOrders > 0 ? (prevTotalRevenue / prevTotalOrders) : 0;
-
   const revByDay = {};
   ordersInRange.forEach(o => {
-    const d = parseDate(o.createdAt);
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     const key = d.toISOString().slice(5, 10);
     if (!revByDay[key]) revByDay[key] = { date: key, revenue: 0, orders: 0 };
     revByDay[key].revenue += o.total || 0; revByDay[key].orders += 1;
@@ -221,7 +154,7 @@ export default function AdminAnalytics() {
 
   const hourlyOrders = Array(24).fill(0);
   ordersInRange.forEach(o => {
-    const d = parseDate(o.createdAt);
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     hourlyOrders[d.getHours()] += 1;
   });
   const peakHourData = hourlyOrders.map((count, h) => ({
@@ -232,7 +165,7 @@ export default function AdminAnalytics() {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dailyOrders = Array(7).fill(0);
   ordersInRange.forEach(o => {
-    const d = parseDate(o.createdAt);
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     dailyOrders[d.getDay()] += 1;
   });
   const dayData = dailyOrders.map((count, i) => ({ day: dayNames[i], orders: count }));
@@ -242,6 +175,12 @@ export default function AdminAnalytics() {
     .map(i => ({ ...i, score: (i.views || 0) + (i.arViews || 0) * 2 + (i.ratingAvg || 0) * 10, arRate: i.views > 0 ? Math.round(((i.arViews || 0) / i.views) * 100) : 0 }))
     .sort((a, b) => b.score - a.score);
   const maxScore = heatmapData[0]?.score || 1;
+  const heatColor = score => {
+    const p = score / maxScore;
+    if (p >= 0.7) return T.warning;
+    if (p >= 0.3) return '#5A8A6E';
+    return 'rgba(38,52,49,0.18)';
+  };
 
   const topRated = [...activeItems].filter(i => (i.ratingCount || 0) > 0).sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0)).slice(0, 5);
   const lowRated = [...activeItems].filter(i => (i.ratingAvg || 0) < 3.5 && (i.ratingCount || 0) > 0).sort((a, b) => (a.ratingAvg || 0) - (b.ratingAvg || 0)).slice(0, 3);
@@ -256,13 +195,11 @@ export default function AdminAnalytics() {
     catMap[cat].views += (i.views || 0) + (i.arViews || 0); catMap[cat].items += 1;
   });
   const catData = Object.values(catMap).sort((a, b) => b.views - a.views);
-  const allCategories = ['all', ...catData.map(c => c.name)];
 
-  /* Issue 5: Change "AR Launches" to "AR Views" */
   const funnelData = [
     { label: 'Menu Visits', value: totalVisits, pct: 100, color: '#5A8A9A' },
     { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.min(100, Math.round((totalViews / totalVisits) * 100)) : 0, color: '#8A7A6A' },
-    { label: 'AR Views', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: T.warning },
+    { label: 'AR Launches', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: T.warning },
   ];
 
   const insights = useMemo(() => {
@@ -272,11 +209,11 @@ export default function AdminAnalytics() {
       const revPct = totalRevenue > 0 ? Math.round((top.revenue / totalRevenue) * 100) : 0;
       if (revPct > 0) list.push({ text: `${top.name} drives ${revPct}% of revenue`, type: 'success' });
     }
-    if (parseFloat(arRate) > 0) list.push({ text: `AR engagement at ${arRate}% \u2014 ${parseFloat(arRate) >= 15 ? 'strong' : 'room to grow'}`, type: parseFloat(arRate) >= 15 ? 'success' : 'warning' });
+    if (parseFloat(arRate) > 0) list.push({ text: `AR engagement at ${arRate}% — ${parseFloat(arRate) >= 15 ? 'strong' : 'room to grow'}`, type: parseFloat(arRate) >= 15 ? 'success' : 'warning' });
     if (peakHour) list.push({ text: `Peak ordering time: ${peakHour.label} with ${peakHour.orders} orders`, type: 'info' });
     const viewedNotOrdered = activeItems.filter(i => (i.views || 0) > 10).filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0).sort((a, b) => (b.views || 0) - (a.views || 0));
     if (viewedNotOrdered.length > 0) list.push({ text: `${viewedNotOrdered[0].name}: ${viewedNotOrdered[0].views} views but 0 orders`, type: 'danger' });
-    if (zeroView.length > 0) list.push({ text: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views \u2014 update photos`, type: 'danger' });
+    if (zeroView.length > 0) list.push({ text: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views — update photos`, type: 'danger' });
     return list.slice(0, 4);
   }, [topOrderedItems, totalRevenue, arRate, peakHour, activeItems, itemFreq, zeroView]);
 
@@ -296,10 +233,10 @@ export default function AdminAnalytics() {
   const ordersFromARItems = ordersInRange.filter(o => (o.items || []).some(item => arItemNames.has(item.name))).length;
   const arToOrderRate = totalARViews > 0 && ordersFromARItems > 0 ? Math.min(100, ((ordersFromARItems / totalARViews) * 100)).toFixed(1) : '0.0';
 
-  // TODAY's live metrics
+  // ── TODAY's live metrics ──
   const todayDate = new Date();
   const todayOrders = orders.filter(o => {
-    const d = parseDate(o.createdAt);
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     return d.toDateString() === todayDate.toDateString();
   });
   const todayOrderCount = todayOrders.length;
@@ -307,67 +244,25 @@ export default function AdminAnalytics() {
   const todayVisits = todayStat?.totalVisits || 0;
   const todayWaiterCalls = todayStat?.waiterCalls || 0;
 
-  /* Issue 19: Full item intelligence for ALL items (not sliced) */
-  const allItemIntelligence = useMemo(() => {
+  const itemIntelligence = useMemo(() => {
     return activeItems.map(item => {
       const freq = itemFreq[item.name];
       const views = item.views || 0, arViews = item.arViews || 0, ordered = freq?.qty || 0, revenue = freq?.revenue || 0;
       const rating = item.ratingAvg || 0, ratingCount = item.ratingCount || 0;
       let suggestion = '', sColor = 'rgba(38,52,49,0.5)';
       if (views > 20 && ordered === 0) { suggestion = 'High views, no orders'; sColor = '#9B5B53'; }
-      else if (views === 0) { suggestion = 'No views \u2014 update photo'; sColor = '#9B5B53'; }
-      else if (rating > 0 && rating < 3) { suggestion = 'Low rating \u2014 improve'; sColor = '#9B5B53'; }
+      else if (views === 0) { suggestion = 'No views — update photo'; sColor = '#9B5B53'; }
+      else if (rating > 0 && rating < 3) { suggestion = 'Low rating — improve'; sColor = '#9B5B53'; }
       else if (ordered > 5 && rating >= 4) { suggestion = 'Star performer'; sColor = '#5A8A6E'; }
       else if (arViews > 0 && arViews / Math.max(views, 1) > 0.3) { suggestion = 'High AR interest'; sColor = T.warning; }
       else if (ordered > 0) { suggestion = 'Performing well'; sColor = 'rgba(38,52,49,0.35)'; }
       else { suggestion = 'Needs attention'; sColor = 'rgba(38,52,49,0.4)'; }
       return { ...item, ordered, revenue, suggestion, sColor, views, arViews, rating, ratingCount };
-    });
+    }).sort((a, b) => b.revenue - a.revenue || b.views - a.views).slice(0, 12);
   }, [activeItems, itemFreq]);
 
-  /* Issue 19: Sorted and filtered menu items */
-  const filteredMenuItems = useMemo(() => {
-    let items = [...allItemIntelligence];
-    if (menuCatFilter !== 'all') {
-      items = items.filter(i => {
-        const raw = i.category || 'Uncategorised';
-        const cat = raw.charAt(0).toUpperCase() + raw.slice(1);
-        return cat === menuCatFilter;
-      });
-    }
-    items.sort((a, b) => {
-      let aVal, bVal;
-      switch (menuSort) {
-        case 'name': aVal = (a.name || '').toLowerCase(); bVal = (b.name || '').toLowerCase(); return menuSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        case 'views': aVal = a.views || 0; bVal = b.views || 0; break;
-        case 'arViews': aVal = a.arViews || 0; bVal = b.arViews || 0; break;
-        case 'ordered': aVal = a.ordered || 0; bVal = b.ordered || 0; break;
-        case 'revenue': aVal = a.revenue || 0; bVal = b.revenue || 0; break;
-        case 'rating': aVal = a.rating || 0; bVal = b.rating || 0; break;
-        default: aVal = a.revenue || 0; bVal = b.revenue || 0;
-      }
-      if (typeof aVal === 'number') return menuSortDir === 'asc' ? aVal - bVal : bVal - aVal;
-      return 0;
-    });
-    return items;
-  }, [allItemIntelligence, menuSort, menuSortDir, menuCatFilter]);
-
-  const handleMenuSort = (col) => {
-    if (menuSort === col) {
-      setMenuSortDir(menuSortDir === 'asc' ? 'desc' : 'asc');
-    } else {
-      setMenuSort(col);
-      setMenuSortDir('desc');
-    }
-  };
-
-  const sortArrow = (col) => {
-    if (menuSort !== col) return '';
-    return menuSortDir === 'asc' ? ' \u25B2' : ' \u25BC';
-  };
-
   const exportCSV = () => {
-    if (tab === 'overview') downloadCSV(revenueChartData.map(d => ({ date: d.date, revenue: d.revenue, orders: d.orders })), `analytics-${range}d.csv`);
+    if (tab === 'overview') downloadCSV(chartData.map(d => ({ date: d.date, visits: d.visits, unique_visitors: d.unique })), `analytics-${range}d.csv`);
     else if (tab === 'orders') downloadCSV(revenueChartData.map(d => ({ date: d.date, revenue: d.revenue, orders: d.orders })), `orders-revenue-${range}d.csv`);
     else downloadCSV(activeItems.map(i => ({ name: i.name, category: i.category || '', views: i.views || 0, ar_views: i.arViews || 0, rating_avg: i.ratingAvg || 0 })), 'menu-performance.csv');
   };
@@ -377,10 +272,6 @@ export default function AdminAnalytics() {
   const topDishes = topOrderedItems.slice(0, 6);
   const restaurantName = userData?.restaurantName || 'Your Restaurant';
 
-  /* Issue 7: Dynamic gridRow for best seller */
-  const otherDishCount = topDishes.length - 1;
-  const bestSellerGridRow = otherDishCount <= 2 ? '1 / 2' : otherDishCount <= 4 ? '1 / 3' : '1 / 4';
-
   // Card + section shared styles
   const card = { background: T.white, borderRadius: 16, border: '1px solid rgba(38,52,49,0.06)', boxShadow: '0 2px 10px rgba(38,52,49,0.03)' };
   const secTitle = { fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: T.ink, letterSpacing: '-0.3px' };
@@ -388,7 +279,7 @@ export default function AdminAnalytics() {
 
   return (
     <AdminLayout>
-      <Head><title>Analytics &mdash; Advert Radical</title></Head>
+      <Head><title>Analytics — Advert Radical</title></Head>
       <div style={{ background: T.cream, minHeight: '100vh', fontFamily: T.font }}>
         <style>{`
           @keyframes spin{to{transform:rotate(360deg)}}
@@ -397,11 +288,9 @@ export default function AdminAnalytics() {
           .row-hover:hover{background:rgba(196,168,109,0.04)!important}
           .kpi-card{transition:transform 0.12s ease,box-shadow 0.12s ease}
           .kpi-card:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(38,52,49,0.07)!important}
-          .sort-header{cursor:pointer;user-select:none}
-          .sort-header:hover{color:${T.ink}!important}
         `}</style>
 
-        {/* HERO BANNER — no range selector here (moved to sticky bar) */}
+        {/* ═══ HERO BANNER ═══ */}
         <div style={{
           background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 60%, #1A2420 100%)`,
           padding: '28px 32px 24px', position: 'relative', overflow: 'hidden',
@@ -409,20 +298,37 @@ export default function AdminAnalytics() {
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.warning}, transparent)` }} />
           <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
             {/* Title row */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 30, color: T.shellText, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
-                {restaurantName} <span style={{ color: T.warning, fontWeight: 400, fontStyle: 'italic', fontSize: 24 }}>Analytics</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 30, color: T.shellText, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
+                  {restaurantName} <span style={{ color: T.warning, fontWeight: 400, fontStyle: 'italic', fontSize: 24 }}>Analytics</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'rgba(234,231,227,0.45)', marginTop: 5 }}>Performance dashboard — last {range} days</div>
               </div>
-              <div style={{ fontSize: 13, color: 'rgba(234,231,227,0.45)', marginTop: 5 }}>Performance dashboard &mdash; last {range} days</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[7, 30, 90].map(d => (
+                  <button key={d} onClick={() => setRange(d)} style={{
+                    padding: '6px 16px', borderRadius: 20,
+                    border: range === d ? `1.5px solid ${T.warning}` : '1.5px solid rgba(234,231,227,0.12)',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+                    background: range === d ? 'rgba(196,168,109,0.2)' : 'transparent',
+                    color: range === d ? T.warning : 'rgba(234,231,227,0.45)', transition: 'all 0.15s',
+                  }}>{d}d</button>
+                ))}
+                <button onClick={exportCSV} style={{
+                  padding: '6px 14px', borderRadius: 20, border: '1.5px solid rgba(234,231,227,0.12)',
+                  background: 'transparent', color: 'rgba(234,231,227,0.45)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+                }}>Export</button>
+              </div>
             </div>
 
-            {/* Issue 14: Hero stats with trends for ALL 4 cards */}
+            {/* Hero stats — ALL use selected range */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
                 { label: 'VISITORS', value: totalVisits.toLocaleString(), d: delta(totalVisits, prevVisits) },
-                { label: 'ORDERS', value: totalOrders.toLocaleString(), d: delta(totalOrders, prevTotalOrders) },
-                { label: 'REVENUE', value: `\u20B9${totalRevenue.toLocaleString('en-IN')}`, highlight: true, d: delta(totalRevenue, prevTotalRevenue) },
-                { label: 'AVG ORDER', value: `\u20B9${avgOrderValue.toFixed(0)}`, d: delta(Math.round(avgOrderValue), Math.round(prevAvgOrder)) },
+                { label: 'ORDERS', value: totalOrders.toLocaleString() },
+                { label: 'REVENUE', value: `₹${totalRevenue.toLocaleString('en-IN')}`, highlight: true },
+                { label: 'AVG ORDER', value: `₹${avgOrderValue.toFixed(0)}` },
               ].map(s => (
                 <div key={s.label} style={{ padding: '14px 18px', background: 'rgba(234,231,227,0.06)', borderRadius: 12, border: '1px solid rgba(234,231,227,0.08)' }}>
                   <div style={{ ...labelSm, color: 'rgba(234,231,227,0.3)', marginBottom: 6 }}>{s.label}</div>
@@ -437,50 +343,10 @@ export default function AdminAnalytics() {
           </div>
         </div>
 
-        {/* Issue 8: Sticky bar with Tabs (left) + Range buttons + Export (right) */}
-        <div style={{
-          position: 'sticky', top: 0, zIndex: 10,
-          background: T.cream,
-          borderBottom: `1px solid ${T.sand}`,
-          padding: '0 28px',
-        }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {/* Left: Tabs */}
-            <div style={{ display: 'flex', gap: 0 }}>
-              {[['overview', 'Overview'], ['orders', 'Orders & Revenue'], ['menu', 'Menu Performance']].map(([id, label]) => (
-                <button key={id} onClick={() => setTab(id)} style={{
-                  padding: '12px 24px', border: 'none', cursor: 'pointer', fontFamily: T.font,
-                  fontSize: 13, fontWeight: tab === id ? 700 : 500,
-                  color: tab === id ? T.ink : 'rgba(38,52,49,0.4)',
-                  background: 'transparent',
-                  borderBottom: tab === id ? `2.5px solid ${T.warning}` : '2.5px solid transparent',
-                  transition: 'all 0.15s',
-                }}>{label}</button>
-              ))}
-            </div>
-            {/* Right: Range + Export */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              {[7, 30, 90].map(d => (
-                <button key={d} onClick={() => setRange(d)} style={{
-                  padding: '5px 14px', borderRadius: 20,
-                  border: range === d ? `1.5px solid ${T.warning}` : `1.5px solid ${T.sand}`,
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
-                  background: range === d ? 'rgba(196,168,109,0.15)' : 'transparent',
-                  color: range === d ? T.warning : T.stone, transition: 'all 0.15s',
-                }}>{d}d</button>
-              ))}
-              <button onClick={exportCSV} style={{
-                padding: '5px 14px', borderRadius: 20, border: `1.5px solid ${T.sand}`,
-                background: 'transparent', color: T.stone, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
-              }}>Export</button>
-            </div>
-          </div>
-        </div>
-
-        {/* MAIN CONTENT */}
+        {/* ═══ MAIN CONTENT ═══ */}
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '18px 28px 40px' }}>
 
-          {/* TODAY'S LIVE DATA */}
+          {/* ── TODAY'S LIVE DATA — big card ── */}
           <div style={{
             background: T.white, borderRadius: 16, padding: '18px 22px', marginBottom: 14,
             border: '1px solid rgba(38,52,49,0.06)',
@@ -496,7 +362,7 @@ export default function AdminAnalytics() {
               {[
                 { label: 'VISITORS', value: todayVisits, color: '#5A8A9A', bg: 'rgba(90,138,154,0.1)', border: 'rgba(90,138,154,0.2)' },
                 { label: 'ORDERS', value: todayOrderCount, color: '#9B5B53', bg: 'rgba(155,91,83,0.08)', border: 'rgba(155,91,83,0.18)' },
-                { label: 'REVENUE', value: `\u20B9${todayRevenue.toLocaleString('en-IN')}`, color: '#5A8A6E', bg: 'rgba(90,138,110,0.08)', border: 'rgba(90,138,110,0.18)' },
+                { label: 'REVENUE', value: `₹${todayRevenue.toLocaleString('en-IN')}`, color: '#5A8A6E', bg: 'rgba(90,138,110,0.08)', border: 'rgba(90,138,110,0.18)' },
                 { label: 'WAITER CALLS', value: todayWaiterCalls, color: T.warning, bg: 'rgba(196,168,109,0.08)', border: 'rgba(196,168,109,0.18)' },
               ].map(s => (
                 <div key={s.label} style={{
@@ -513,7 +379,7 @@ export default function AdminAnalytics() {
             </div>
           </div>
 
-          {/* Insights */}
+          {/* ── Insights — green background ── */}
           {insights.length > 0 && (
             <div style={{
               background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
@@ -527,7 +393,7 @@ export default function AdminAnalytics() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(insights.length, 4)}, 1fr)`, gap: 10 }}>
                 {insights.map((ins, i) => {
-                  const icons = { success: '\u25B2', warning: '\u25C6', danger: '!', info: '\u2192' };
+                  const icons = { success: '▲', warning: '◆', danger: '!', info: '→' };
                   const colors = { success: '#7AAA8E', warning: T.warning, danger: '#E8907E', info: '#7ABAC8' };
                   return (
                     <div key={i} style={{
@@ -550,6 +416,20 @@ export default function AdminAnalytics() {
             </div>
           )}
 
+          {/* ── Tabs — clean, no emojis, underline style ── */}
+          <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
+            {[['overview', 'Overview'], ['orders', 'Orders & Revenue'], ['menu', 'Menu Performance']].map(([id, label]) => (
+              <button key={id} onClick={() => setTab(id)} style={{
+                padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: T.font,
+                fontSize: 13, fontWeight: tab === id ? 700 : 500,
+                color: tab === id ? T.ink : 'rgba(38,52,49,0.4)',
+                background: 'transparent',
+                borderBottom: tab === id ? `2.5px solid ${T.warning}` : '2.5px solid transparent',
+                marginBottom: -2, transition: 'all 0.15s',
+              }}>{label}</button>
+            ))}
+          </div>
+
           {/* Spinner */}
           {loading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
@@ -557,38 +437,21 @@ export default function AdminAnalytics() {
             </div>
 
           ) : tab === 'orders' ? (
-            /* ORDERS & REVENUE TAB */
+            /* ═══ ORDERS & REVENUE ═══ */
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
               <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <div style={secTitle}>Revenue Over Time</div>
-                  {/* Issue 10: chart toggle */}
-                  <ChartToggle mode={revenueChartMode} onToggle={setRevenueChartMode} options={[
-                    { value: 'area', icon: '\uD83D\uDCC8' },
-                    { value: 'bar', icon: '\uD83D\uDCCA' },
-                  ]} />
-                </div>
-                <div style={{ marginTop: 4 }}>
+                <div style={secTitle}>Revenue Over Time</div>
+                <div style={{ marginTop: 14 }}>
                   {revenueChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={220}>
-                      {revenueChartMode === 'bar' ? (
-                        <BarChart data={revenueChartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                          <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `\u20B9${v}`} />
-                          <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`\u20B9${v.toLocaleString('en-IN')}`, '']} />
-                          <Bar dataKey="revenue" name="Revenue" fill="#5A8A6E" radius={[5, 5, 0, 0]} />
-                        </BarChart>
-                      ) : (
-                        <AreaChart data={revenueChartData}>
-                          <defs><linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.3} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient></defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                          <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `\u20B9${v}`} />
-                          <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`\u20B9${v.toLocaleString('en-IN')}`, '']} />
-                          <Area type="monotone" dataKey="revenue" stroke="#5A8A6E" strokeWidth={2.5} fill="url(#revGrad)" dot={false} />
-                        </AreaChart>
-                      )}
+                      <AreaChart data={revenueChartData}>
+                        <defs><linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.3} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient></defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
+                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`₹${v.toLocaleString('en-IN')}`, '']} />
+                        <Area type="monotone" dataKey="revenue" stroke="#5A8A6E" strokeWidth={2.5} fill="url(#revGrad)" dot={false} />
+                      </AreaChart>
                     </ResponsiveContainer>
                   ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No order data in this period</div>}
                 </div>
@@ -596,46 +459,17 @@ export default function AdminAnalytics() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div style={{ ...card, padding: '18px 22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div style={secTitle}>Orders Per Day</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {/* Issue 16: Color palette */}
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        {BAR_PALETTE.map(c => (
-                          <button key={c} onClick={() => setBarColor(c)} style={{
-                            width: 16, height: 16, borderRadius: '50%', background: c, border: barColor === c ? `2px solid ${T.ink}` : '2px solid transparent',
-                            cursor: 'pointer', padding: 0, transition: 'border 0.15s',
-                          }} />
-                        ))}
-                      </div>
-                      {/* Issue 10: chart toggle */}
-                      <ChartToggle mode={ordersChartMode} onToggle={setOrdersChartMode} options={[
-                        { value: 'bar', icon: '\uD83D\uDCCA' },
-                        { value: 'line', icon: '\uD83D\uDCC8' },
-                      ]} />
-                    </div>
-                  </div>
-                  {/* Issue 15: increased height to 220 */}
-                  <div>
+                  <div style={secTitle}>Orders Per Day</div>
+                  <div style={{ marginTop: 12 }}>
                     {revenueChartData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={220}>
-                        {ordersChartMode === 'line' ? (
-                          <LineChart data={revenueChartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                            <Line type="monotone" dataKey="orders" name="Orders" stroke={barColor} strokeWidth={2.5} dot={{ r: 3, fill: barColor }} />
-                          </LineChart>
-                        ) : (
-                          <BarChart data={revenueChartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                            <Bar dataKey="orders" name="Orders" fill={barColor} radius={[5, 5, 0, 0]} />
-                          </BarChart>
-                        )}
+                      <ResponsiveContainer width="100%" height={170}>
+                        <BarChart data={revenueChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
+                          <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                          <Bar dataKey="orders" name="Orders" fill="#9B5B53" radius={[5, 5, 0, 0]} />
+                        </BarChart>
                       </ResponsiveContainer>
                     ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>}
                   </div>
@@ -657,7 +491,7 @@ export default function AdminAnalytics() {
                               <div style={{ height: '100%', borderRadius: 2, background: '#9B5B53', width: `${(item.qty / maxQ) * 100}%` }} />
                             </div>
                           </div>
-                          <span style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', flexShrink: 0 }}>{'\u20B9'}{item.revenue.toFixed(0)}</span>
+                          <span style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', flexShrink: 0 }}>₹{item.revenue.toFixed(0)}</span>
                         </div>
                       );
                     }) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No orders yet</div>}
@@ -665,49 +499,40 @@ export default function AdminAnalytics() {
                 </div>
               </div>
 
-              {/* Issue 17: Peak Hours & Busiest Days with proper Recharts */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div style={{ ...card, padding: '18px 22px' }}>
-                  {/* Issue 18: Fix badge alignment */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
                     <div style={secTitle}>Peak Hours</div>
-                    {peakHour && <span style={{ fontSize: 11, fontWeight: 700, color: '#9B5B53', background: 'rgba(155,91,83,0.08)', padding: '4px 12px', borderRadius: 20, display: 'inline-flex', alignItems: 'center' }}>Busiest: {peakHour.label}</span>}
+                    {peakHour && <span style={{ fontSize: 11, fontWeight: 700, color: '#9B5B53', background: 'rgba(155,91,83,0.08)', padding: '3px 10px', borderRadius: 20 }}>Busiest: {peakHour.label}</span>}
                   </div>
                   {peakHourData.length === 0 ? <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div> : (
-                    <ResponsiveContainer width="100%" height={160}>
-                      <BarChart data={peakHourData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                        <XAxis dataKey="label" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 9 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                        <Bar dataKey="orders" name="Orders" radius={[4, 4, 0, 0]}>
-                          {peakHourData.map((entry, idx) => (
-                            <Cell key={idx} fill={entry === peakHour ? '#9B5B53' : T.warning} opacity={entry === peakHour ? 1 : 0.5} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 110 }}>
+                      {peakHourData.map(h => {
+                        const maxO = Math.max(...peakHourData.map(x => x.orders)); const pct = maxO > 0 ? (h.orders / maxO) * 100 : 0; const isPeak = h === peakHour;
+                        return (<div key={h.hour} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: isPeak ? '#9B5B53' : 'rgba(38,52,49,0.35)' }}>{h.orders}</span>
+                          <div style={{ width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 3, background: isPeak ? '#9B5B53' : T.warning, opacity: isPeak ? 1 : 0.5 }} />
+                          <span style={{ fontSize: 8, color: 'rgba(38,52,49,0.35)' }}>{h.label}</span>
+                        </div>);
+                      })}
+                    </div>
                   )}
                 </div>
                 <div style={{ ...card, padding: '18px 22px' }}>
-                  {/* Issue 18: Fix badge alignment */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
                     <div style={secTitle}>Busiest Days</div>
-                    {busiestDay && busiestDay.orders > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#5A8A6E', background: 'rgba(90,138,110,0.08)', padding: '4px 12px', borderRadius: 20, display: 'inline-flex', alignItems: 'center' }}>Top: {busiestDay.day}</span>}
+                    {busiestDay && busiestDay.orders > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#5A8A6E', background: 'rgba(90,138,110,0.08)', padding: '3px 10px', borderRadius: 20 }}>Top: {busiestDay.day}</span>}
                   </div>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={dayData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                      <XAxis dataKey="day" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                      <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                      <Bar dataKey="orders" name="Orders" radius={[4, 4, 0, 0]}>
-                        {dayData.map((entry, idx) => (
-                          <Cell key={idx} fill={entry === busiestDay ? '#5A8A6E' : '#5A8A6E'} opacity={entry === busiestDay ? 1 : 0.4} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 110 }}>
+                    {dayData.map(d => {
+                      const maxD = Math.max(...dayData.map(x => x.orders)); const pct = maxD > 0 ? (d.orders / maxD) * 100 : 0; const isB = d === busiestDay;
+                      return (<div key={d.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: isB ? '#5A8A6E' : 'rgba(38,52,49,0.35)' }}>{d.orders}</span>
+                        <div style={{ width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 4, background: '#5A8A6E', opacity: isB ? 1 : 0.4 }} />
+                        <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.4)', fontWeight: isB ? 700 : 500 }}>{d.day}</span>
+                      </div>);
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -716,7 +541,7 @@ export default function AdminAnalytics() {
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
               {/* Journey + Dish Performance */}
               <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginBottom: 14 }}>
-                {/* Journey vertical funnel */}
+                {/* Journey — vertical funnel */}
                 <div style={{
                   background: `linear-gradient(180deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
                   borderRadius: 16, padding: '22px 24px',
@@ -757,7 +582,7 @@ export default function AdminAnalytics() {
                   </div>
                 </div>
 
-                {/* Dish Performance */}
+                {/* Dish Performance — cinematic bento */}
                 <div style={{ ...card, padding: '22px 24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                     <div style={secTitle}>Dish Performance</div>
@@ -765,25 +590,14 @@ export default function AdminAnalytics() {
                   </div>
                   {topDishes.length > 0 ? (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoRows: 'auto', gap: 10 }}>
-                      {/* Issue 6 & 7: Best seller hero card with image fallback and dynamic gridRow */}
+                      {/* Best seller — tall hero card */}
                       {bestSellerItem && (
                         <div style={{
-                          gridRow: bestSellerGridRow, borderRadius: 16, overflow: 'hidden', position: 'relative',
+                          gridRow: '1 / 4', borderRadius: 16, overflow: 'hidden', position: 'relative',
                           minHeight: 260, background: T.shellDarker,
                           boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
                         }}>
-                          {bestSellerItem.imageURL ? (
-                            <img src={bestSellerItem.imageURL} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <div style={{
-                              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-                            }}>
-                              <span style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 72, color: 'rgba(234,231,227,0.12)' }}>
-                                {(bestSellerItem.name || '?').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                          )}
+                          {bestSellerItem.imageURL && <img src={bestSellerItem.imageURL} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
                           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,40,37,0.9) 0%, rgba(28,40,37,0.3) 40%, rgba(0,0,0,0.05) 100%)' }} />
                           <div style={{ position: 'absolute', top: 12, left: 12 }}>
                             <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: T.shellDarker, background: T.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
@@ -793,12 +607,12 @@ export default function AdminAnalytics() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                               <span style={{ fontSize: 11, color: T.warning, fontWeight: 700 }}>{bestSeller.qty}x ordered</span>
                               <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
-                              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>{'\u20B9'}{bestSeller.revenue.toFixed(0)}</span>
+                              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>₹{bestSeller.revenue.toFixed(0)}</span>
                             </div>
                           </div>
                         </div>
                       )}
-                      {/* Issue 6: Other top dishes with image fallback */}
+                      {/* Other top dishes */}
                       {topDishes.slice(1, 6).map((dish, idx) => {
                         const menuItem = activeItems.find(m => m.name === dish.name);
                         const maxQty = topDishes[0]?.qty || 1;
@@ -811,7 +625,8 @@ export default function AdminAnalytics() {
                             boxShadow: '0 1px 4px rgba(38,52,49,0.03)',
                           }}>
                             <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', background: T.cream, flexShrink: 0, border: '1px solid rgba(38,52,49,0.04)' }}>
-                              <DishImage item={menuItem || { name: dish.name }} size={42} fontSize={18} />
+                              {menuItem?.imageURL ? <img src={menuItem.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: 'rgba(38,52,49,0.12)' }}>{idx + 2}</div>}
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
@@ -820,7 +635,7 @@ export default function AdminAnalytics() {
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                                 <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.4)', fontWeight: 600 }}>{dish.qty}x</span>
-                                <span style={{ fontSize: 10, color: '#5A8A6E', fontWeight: 700 }}>{'\u20B9'}{dish.revenue.toFixed(0)}</span>
+                                <span style={{ fontSize: 10, color: '#5A8A6E', fontWeight: 700 }}>₹{dish.revenue.toFixed(0)}</span>
                               </div>
                             </div>
                           </div>
@@ -831,7 +646,7 @@ export default function AdminAnalytics() {
                 </div>
               </div>
 
-              {/* Issue 9: Replace Visits Over Time with Orders & Revenue combo chart */}
+              {/* Visits chart — refined */}
               <div style={{
                 background: T.white, borderRadius: 16, padding: '22px 26px', marginBottom: 14,
                 border: '1px solid rgba(38,52,49,0.06)',
@@ -839,53 +654,34 @@ export default function AdminAnalytics() {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <div>
-                    <div style={secTitle}>Orders & Revenue</div>
-                    <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.35)', marginTop: 2 }}>Last {range} days</div>
+                    <div style={secTitle}>Visits Over Time</div>
+                    <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.35)', marginTop: 2 }}>Last {range} days traffic</div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'rgba(38,52,49,0.45)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 18, height: 8, background: T.warning, borderRadius: 2, opacity: 0.7 }} />Orders</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 18, height: 3, background: '#5A8A6E', borderRadius: 2 }} />Revenue</span>
-                    </div>
-                    {/* Issue 10: chart toggle */}
-                    <ChartToggle mode={overviewChartMode} onToggle={setOverviewChartMode} options={[
-                      { value: 'combo', icon: '\uD83D\uDCCA' },
-                      { value: 'line', icon: '\uD83D\uDCC8' },
-                    ]} />
+                  <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'rgba(38,52,49,0.45)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 18, height: 3, background: T.warning, borderRadius: 2 }} />Total</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 18, height: 3, background: '#5A8A6E', borderRadius: 2, opacity: 0.6 }} />Unique</span>
                   </div>
                 </div>
-                {revenueChartData.length > 0 ? (
+                {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
-                    {overviewChartMode === 'line' ? (
-                      <LineChart data={revenueChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
-                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis yAxisId="left" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis yAxisId="right" orientation="right" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `\u20B9${v}`} />
-                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                        <Line yAxisId="left" type="monotone" dataKey="orders" stroke={T.warning} strokeWidth={2.5} name="Orders" dot={{ r: 3, fill: T.warning }} />
-                        <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#5A8A6E" strokeWidth={2} name="Revenue" dot={false} />
-                      </LineChart>
-                    ) : (
-                      <ComposedChart data={revenueChartData}>
-                        <defs>
-                          <linearGradient id="revLineGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.2} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
-                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis yAxisId="left" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis yAxisId="right" orientation="right" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `\u20B9${v}`} />
-                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                        <Bar yAxisId="left" dataKey="orders" name="Orders" fill={T.warning} opacity={0.7} radius={[4, 4, 0, 0]} />
-                        <Line yAxisId="right" type="monotone" dataKey="revenue" name="Revenue" stroke="#5A8A6E" strokeWidth={2.5} dot={false} />
-                      </ComposedChart>
-                    )}
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={T.warning} stopOpacity={0.2} /><stop offset="95%" stopColor={T.warning} stopOpacity={0} /></linearGradient>
+                        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.1} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
+                      <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                      <Area type="monotone" dataKey="visits" stroke={T.warning} strokeWidth={2.5} fill="url(#g1)" name="Total" />
+                      <Area type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} fill="url(#g2)" name="Unique" strokeDasharray="5 3" />
+                    </AreaChart>
                   </ResponsiveContainer>
-                ) : <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data yet</div>}
+                ) : <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No visit data yet</div>}
               </div>
 
-              {/* Issue 11: Waiter + Top Menu Items — alignItems start for independent sizing */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+              {/* Waiter + Top Menu Items — refined */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div style={{
                   background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
                   borderRadius: 16, padding: '22px 24px',
@@ -896,7 +692,7 @@ export default function AdminAnalytics() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {[
                         { label: 'Total Calls', value: waiterStat.total, color: '#fff', sub: `${range}d period` },
-                        { label: 'Resolved', value: waiterStat.resolved, color: '#7AAA8E', sub: waiterStat.total > 0 ? `${Math.round((waiterStat.resolved / waiterStat.total) * 100)}% rate` : '\u2014' },
+                        { label: 'Resolved', value: waiterStat.resolved, color: '#7AAA8E', sub: waiterStat.total > 0 ? `${Math.round((waiterStat.resolved / waiterStat.total) * 100)}% rate` : '—' },
                         { label: 'Avg Response', value: formatTime(waiterStat.avgResponseSeconds), color: T.warning, sub: 'call to resolve' },
                       ].map(s => (
                         <div key={s.label} style={{
@@ -957,69 +753,29 @@ export default function AdminAnalytics() {
                         );
                       })}
                     </div>
-                    {/* Issue 12: View all items button */}
-                    <button onClick={() => setTab('menu')} style={{
-                      display: 'block', width: '100%', marginTop: 14, padding: '10px 0',
-                      background: 'transparent', border: `1px solid ${T.sand}`, borderRadius: T.radiusBtn,
-                      fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.stone,
-                      cursor: 'pointer', transition: 'all 0.15s',
-                    }}>View all items {'\u2192'}</button>
                   </div>
                 )}
               </div>
             </div>
 
           ) : (
-            /* MENU PERFORMANCE TAB — Issue 19: Single sortable table */
+            /* ═══ MENU PERFORMANCE ═══ */
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
               <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <div>
-                    <div style={secTitle}>Menu Performance</div>
-                    <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 2 }}>All items with sortable columns</div>
-                  </div>
-                  {/* Category filter dropdown */}
-                  <select
-                    value={menuCatFilter}
-                    onChange={e => setMenuCatFilter(e.target.value)}
-                    style={{
-                      padding: '6px 14px', borderRadius: T.radiusBtn,
-                      border: `1px solid ${T.sand}`, background: T.white,
-                      fontFamily: T.font, fontSize: 12, fontWeight: 600, color: T.ink,
-                      cursor: 'pointer', outline: 'none',
-                    }}
-                  >
-                    {allCategories.map(cat => (
-                      <option key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</option>
-                    ))}
-                  </select>
+                <div style={secTitle}>Item Intelligence</div>
+                <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 2, marginBottom: 14 }}>Performance breakdown with actionable suggestions</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 1fr 55px 55px 55px 60px 70px 150px', gap: 5, padding: '0 6px 8px', borderBottom: '1px solid rgba(38,52,49,0.06)' }}>
+                  {['', '', 'Dish', 'Views', 'AR', 'Orders', 'Rev', 'Rating', 'Suggestion'].map((h, i) => (
+                    <div key={i} style={{ ...labelSm, textAlign: i >= 3 && i <= 6 ? 'center' : 'left', fontSize: 9 }}>{h}</div>
+                  ))}
                 </div>
-
-                {/* Table header */}
-                <div style={{ display: 'grid', gridTemplateColumns: '32px 36px 1fr 60px 60px 60px 70px 80px 150px', gap: 5, padding: '0 6px 8px', borderBottom: `1px solid rgba(38,52,49,0.06)` }}>
-                  <div style={{ ...labelSm, fontSize: 9 }}>#</div>
-                  <div style={{ ...labelSm, fontSize: 9 }}></div>
-                  <div className="sort-header" onClick={() => handleMenuSort('name')} style={{ ...labelSm, fontSize: 9, cursor: 'pointer' }}>Dish{sortArrow('name')}</div>
-                  <div className="sort-header" onClick={() => handleMenuSort('views')} style={{ ...labelSm, fontSize: 9, textAlign: 'center', cursor: 'pointer' }}>Views{sortArrow('views')}</div>
-                  <div className="sort-header" onClick={() => handleMenuSort('arViews')} style={{ ...labelSm, fontSize: 9, textAlign: 'center', cursor: 'pointer' }}>AR{sortArrow('arViews')}</div>
-                  <div className="sort-header" onClick={() => handleMenuSort('ordered')} style={{ ...labelSm, fontSize: 9, textAlign: 'center', cursor: 'pointer' }}>Orders{sortArrow('ordered')}</div>
-                  <div className="sort-header" onClick={() => handleMenuSort('revenue')} style={{ ...labelSm, fontSize: 9, textAlign: 'center', cursor: 'pointer' }}>Rev{sortArrow('revenue')}</div>
-                  <div className="sort-header" onClick={() => handleMenuSort('rating')} style={{ ...labelSm, fontSize: 9, textAlign: 'center', cursor: 'pointer' }}>Rating{sortArrow('rating')}</div>
-                  <div style={{ ...labelSm, fontSize: 9 }}>Status</div>
-                </div>
-
-                {filteredMenuItems.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No items found</div>
-                ) : (
+                {itemIntelligence.length === 0 ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div> : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {filteredMenuItems.map((item, i) => (
-                      <div key={item.id || i} className="row-hover" style={{
-                        display: 'grid', gridTemplateColumns: '32px 36px 1fr 60px 60px 60px 70px 80px 150px',
-                        gap: 5, alignItems: 'center', padding: '7px 6px', borderRadius: 8, transition: 'background 0.12s',
-                      }}>
+                    {itemIntelligence.map((item, i) => (
+                      <div key={item.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '28px 36px 1fr 55px 55px 55px 60px 70px 150px', gap: 5, alignItems: 'center', padding: '7px 6px', borderRadius: 8, transition: 'background 0.12s' }}>
                         <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', textAlign: 'right' }}>#{i + 1}</span>
                         <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: T.cream }}>
-                          <DishImage item={item} size={32} fontSize={14} />
+                          {item.imageURL ? <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(38,52,49,0.2)' }}>—</div>}
                         </div>
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
@@ -1028,18 +784,100 @@ export default function AdminAnalytics() {
                         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(38,52,49,0.6)' }}>{item.views}</div>
                         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: T.warning }}>{item.arViews}</div>
                         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#9B5B53' }}>{item.ordered}</div>
-                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#5A8A6E' }}>{'\u20B9'}{item.revenue.toFixed(0)}</div>
-                        <div style={{ textAlign: 'center' }}>{item.ratingCount > 0 ? <Stars avg={item.rating} /> : <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)' }}>{'\u2014'}</span>}</div>
+                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#5A8A6E' }}>₹{item.revenue.toFixed(0)}</div>
+                        <div style={{ textAlign: 'center' }}>{item.ratingCount > 0 ? <Stars avg={item.rating} /> : <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)' }}>—</span>}</div>
                         <div style={{ fontSize: 11, fontWeight: 600, color: item.sColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.suggestion}</div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+
+              <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div>
+                    <div style={secTitle}>Engagement Heatmap</div>
+                    <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 2 }}>Score = views + (AR x2) + (rating x10)</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'rgba(38,52,49,0.4)' }}>
+                    {[[T.warning, 'Hot'], ['#5A8A6E', 'Active'], ['rgba(38,52,49,0.2)', 'Cold']].map(([c, l]) => (
+                      <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: c }} />{l}</span>
+                    ))}
+                  </div>
+                </div>
+                {heatmapData.length === 0 ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div> : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {heatmapData.slice(0, 10).map((item, i) => {
+                      const c = heatColor(item.score); const pct = Math.max(2, Math.round((item.score / maxScore) * 100));
+                      return (
+                        <div key={item.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '28px 34px 1fr 55px 55px 55px 70px', gap: 5, alignItems: 'center', padding: '6px 6px', borderRadius: 8 }}>
+                          <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', textAlign: 'right' }}>#{i + 1}</span>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: T.cream }}>
+                            {item.imageURL ? <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(38,52,49,0.2)' }}>—</div>}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                            <div style={{ height: 4, background: 'rgba(38,52,49,0.05)', borderRadius: 99, overflow: 'hidden' }}><div style={{ height: '100%', width: `${pct}%`, background: c, borderRadius: 99 }} /></div>
+                          </div>
+                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(38,52,49,0.6)' }}>{(item.views || 0).toLocaleString()}</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>views</div></div>
+                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: T.warning }}>{(item.arViews || 0).toLocaleString()}</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>AR</div></div>
+                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: item.arRate >= 30 ? '#5A8A6E' : 'rgba(38,52,49,0.45)' }}>{item.arRate}%</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>rate</div></div>
+                          <div style={{ textAlign: 'center' }}>{(item.ratingCount || 0) > 0 ? <Stars avg={item.ratingAvg} count={item.ratingCount} /> : <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)' }}>—</span>}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div style={{ ...card, padding: '18px 22px' }}>
+                  <div style={secTitle}>Category Breakdown</div>
+                  {catData.length > 0 ? (<>
+                    <div style={{ marginTop: 10 }}><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={catData} dataKey="views" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={32} paddingAngle={3}>{catData.map((_, i) => <Cell key={i} fill={CAT_COLORS[i % CAT_COLORS.length]} />)}</Pie><Tooltip content={<PieTip />} /></PieChart></ResponsiveContainer></div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {catData.slice(0, 5).map((cat, i) => (
+                        <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                          <div style={{ width: 9, height: 9, borderRadius: 2, background: CAT_COLORS[i % CAT_COLORS.length], flexShrink: 0 }} />
+                          <span style={{ flex: 1, color: T.ink, fontWeight: 600 }}>{cat.name}</span>
+                          <span style={{ color: 'rgba(38,52,49,0.4)', fontSize: 11 }}>{cat.items}</span>
+                          <span style={{ color: T.ink, fontWeight: 700 }}>{cat.views}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>) : <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>}
+                </div>
+                <div style={{ ...card, padding: '18px 22px' }}>
+                  <div style={secTitle}>Ratings Leaderboard</div>
+                  {topRated.length === 0 ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No ratings</div> : (<>
+                    <div style={{ ...labelSm, marginTop: 12 }}>TOP RATED</div>
+                    <div style={{ marginTop: 8, marginBottom: lowRated.length > 0 ? 12 : 0 }}>
+                      {topRated.map((item, i) => (
+                        <div key={item.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px', borderRadius: 8 }}>
+                          <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', width: 14, textAlign: 'right' }}>#{i + 1}</span>
+                          <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                          <Stars avg={item.ratingAvg} count={item.ratingCount} />
+                        </div>
+                      ))}
+                    </div>
+                    {lowRated.length > 0 && (<>
+                      <div style={{ ...labelSm, color: '#9B5B53' }}>NEEDS ATTENTION</div>
+                      <div style={{ marginTop: 8 }}>
+                        {lowRated.map(item => (
+                          <div key={item.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px', borderRadius: 8 }}>
+                            <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'rgba(38,52,49,0.5)' }}>{item.name}</span>
+                            <Stars avg={item.ratingAvg} />
+                          </div>
+                        ))}
+                      </div>
+                    </>)}
+                  </>)}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Restaurant Health — bottom of page */}
+          {/* ── Restaurant Health — bottom of page ── */}
           {!loading && (
             <div style={{
               background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
@@ -1063,18 +901,18 @@ export default function AdminAnalytics() {
               {healthScore >= 70 && (
                 <div style={{ marginBottom: 14, padding: '12px 16px', background: 'rgba(90,138,110,0.1)', borderRadius: 10, border: '1px solid rgba(90,138,110,0.18)' }}>
                   <div style={{ fontFamily: T.fontDisplay, fontStyle: 'italic', fontSize: 14, color: '#7AAA8E', lineHeight: 1.6 }}>
-                    {healthScore >= 90 ? '"Your restaurant is performing exceptionally \u2014 keep this momentum going!"'
+                    {healthScore >= 90 ? '"Your restaurant is performing exceptionally — keep this momentum going!"'
                     : healthScore >= 80 ? '"Great progress! Your menu and service are resonating with customers."'
-                    : '"You\'re on the right track \u2014 a few tweaks and you\'ll be in the top tier!"'}
+                    : '"You\'re on the right track — a few tweaks and you\'ll be in the top tier!"'}
                   </div>
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {[
-                  { label: 'VISITS \u2192 ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
-                  { label: 'AR \u2192 ORDERS', value: arToOrderRate + '%', sub: 'AR conversion' },
-                  { label: 'AR ENGAGEMENT', value: arRate + '%', sub: `${totalARViews} views` },
-                  { label: 'AVG RATING', value: avgRating > 0 ? `\u2605 ${avgRating}` : '\u2014', sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} rated items` },
+                  { label: 'VISITS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
+                  { label: 'AR → ORDERS', value: arToOrderRate + '%', sub: 'AR conversion' },
+                  { label: 'AR ENGAGEMENT', value: arRate + '%', sub: `${totalARViews} launches` },
+                  { label: 'AVG RATING', value: avgRating > 0 ? `★ ${avgRating}` : '—', sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} rated items` },
                 ].map(s => (
                   <div key={s.label} style={{ padding: '14px 16px', background: 'rgba(234,231,227,0.06)', borderRadius: 10, border: '1px solid rgba(234,231,227,0.08)' }}>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(234,231,227,0.5)', marginBottom: 6 }}>{s.label}</div>
@@ -1083,47 +921,15 @@ export default function AdminAnalytics() {
                   </div>
                 ))}
               </div>
-
-              {/* Issue 13: NEEDS ATTENTION — specific items with expandable lists */}
+              {/* ── Needs Attention / Status ── */}
               {(() => {
                 const alerts = [];
-
-                if (zeroView.length > 0) {
-                  alerts.push({
-                    type: 'danger',
-                    header: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views`,
-                    items: zeroView.map(i => ({ name: i.name, detail: i.category || 'Uncategorised', metric: '0 views' })),
-                  });
-                }
-
-                const viewedNotBought = activeItems
-                  .filter(i => (i.views || 0) > 10)
-                  .filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0)
-                  .sort((a, b) => (b.views || 0) - (a.views || 0));
-                if (viewedNotBought.length > 0) {
-                  alerts.push({
-                    type: 'warning',
-                    header: `${viewedNotBought.length} item${viewedNotBought.length > 1 ? 's' : ''} viewed but never ordered`,
-                    items: viewedNotBought.map(i => ({ name: i.name, detail: i.category || 'Uncategorised', metric: `${i.views} views` })),
-                  });
-                }
-
-                if (lowRated.length > 0) {
-                  alerts.push({
-                    type: 'danger',
-                    header: `${lowRated.length} item${lowRated.length > 1 ? 's' : ''} rated below 3.5`,
-                    items: lowRated.map(i => ({ name: i.name, detail: i.category || 'Uncategorised', metric: `${(i.ratingAvg || 0).toFixed(1)} rating` })),
-                  });
-                }
-
+                if (zeroView.length > 0) alerts.push({ type: 'danger', text: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views: ${zeroView.map(i => i.name).join(', ')}` });
+                const viewedNotBought = activeItems.filter(i => (i.views || 0) > 10).filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0);
+                if (viewedNotBought.length > 0) alerts.push({ type: 'warning', text: `${viewedNotBought.length} item${viewedNotBought.length > 1 ? 's' : ''} viewed but never ordered: ${viewedNotBought.slice(0, 3).map(i => i.name).join(', ')}` });
+                if (lowRated.length > 0) alerts.push({ type: 'danger', text: `${lowRated.length} item${lowRated.length > 1 ? 's' : ''} rated below 3.5: ${lowRated.map(i => `${i.name} (${(i.ratingAvg||0).toFixed(1)})`).join(', ')}` });
                 const noRating = activeItems.filter(i => (i.ratingCount || 0) === 0);
-                if (noRating.length > 0 && noRating.length < activeItems.length) {
-                  alerts.push({
-                    type: 'info',
-                    header: `${noRating.length} item${noRating.length > 1 ? 's' : ''} have no ratings yet`,
-                    items: noRating.map(i => ({ name: i.name, detail: i.category || 'Uncategorised', metric: '\u2014' })),
-                  });
-                }
+                if (noRating.length > 0 && noRating.length < activeItems.length) alerts.push({ type: 'info', text: `${noRating.length} item${noRating.length > 1 ? 's' : ''} have no ratings yet` });
 
                 return (
                   <div style={{ marginTop: 14 }}>
@@ -1131,56 +937,20 @@ export default function AdminAnalytics() {
                       {alerts.length > 0 ? 'NEEDS ATTENTION' : 'ALL CLEAR'}
                     </div>
                     {alerts.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {alerts.map((a, idx) => {
-                          const colorsMap = {
-                            danger: { bg: 'rgba(155,91,83,0.1)', border: 'rgba(155,91,83,0.18)', text: '#E8907E', headerBg: 'rgba(155,91,83,0.15)' },
-                            warning: { bg: 'rgba(196,168,109,0.08)', border: 'rgba(196,168,109,0.15)', text: T.warning, headerBg: 'rgba(196,168,109,0.12)' },
-                            info: { bg: 'rgba(90,138,154,0.08)', border: 'rgba(90,138,154,0.12)', text: '#7ABAC8', headerBg: 'rgba(90,138,154,0.1)' },
-                          };
-                          const c = colorsMap[a.type] || colorsMap.info;
-                          const isExpanded = expandedAlerts[idx];
-                          const visibleItems = isExpanded ? a.items : a.items.slice(0, 5);
-                          const remaining = a.items.length - 5;
-
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {alerts.map((a, i) => {
+                          const colors = { danger: { bg: 'rgba(155,91,83,0.1)', border: 'rgba(155,91,83,0.18)', text: '#E8907E' }, warning: { bg: 'rgba(196,168,109,0.08)', border: 'rgba(196,168,109,0.15)', text: T.warning }, info: { bg: 'rgba(90,138,154,0.08)', border: 'rgba(90,138,154,0.12)', text: '#7ABAC8' } };
+                          const c = colors[a.type] || colors.info;
                           return (
-                            <div key={idx} style={{ borderRadius: 10, border: `1px solid ${c.border}`, overflow: 'hidden' }}>
-                              <div style={{ padding: '10px 14px', background: c.headerBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: c.text }}>{a.header}</span>
-                                <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(234,231,227,0.4)' }}>{a.items.length} items</span>
-                              </div>
-                              <div style={{ background: c.bg, padding: '6px 0' }}>
-                                {visibleItems.map((item, itemIdx) => (
-                                  <div key={itemIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                      <span style={{ fontSize: 12, fontWeight: 600, color: T.shellText }}>{item.name}</span>
-                                      <span style={{ fontSize: 10, color: 'rgba(234,231,227,0.35)' }}>{item.detail}</span>
-                                    </div>
-                                    <span style={{ fontSize: 11, fontWeight: 700, color: c.text }}>{item.metric}</span>
-                                  </div>
-                                ))}
-                                {a.items.length > 5 && !isExpanded && (
-                                  <button onClick={() => setExpandedAlerts(prev => ({ ...prev, [idx]: true }))} style={{
-                                    display: 'block', width: '100%', padding: '6px 14px', background: 'transparent',
-                                    border: 'none', cursor: 'pointer', fontFamily: T.font, fontSize: 11,
-                                    fontWeight: 700, color: c.text, textAlign: 'left',
-                                  }}>and {remaining} more...</button>
-                                )}
-                                {isExpanded && a.items.length > 5 && (
-                                  <button onClick={() => setExpandedAlerts(prev => ({ ...prev, [idx]: false }))} style={{
-                                    display: 'block', width: '100%', padding: '6px 14px', background: 'transparent',
-                                    border: 'none', cursor: 'pointer', fontFamily: T.font, fontSize: 11,
-                                    fontWeight: 700, color: c.text, textAlign: 'left',
-                                  }}>show less</button>
-                                )}
-                              </div>
+                            <div key={i} style={{ padding: '10px 14px', background: c.bg, borderRadius: 8, border: `1px solid ${c.border}` }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: c.text }}>{a.text}</span>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
                       <div style={{ padding: '10px 14px', background: 'rgba(90,138,110,0.08)', borderRadius: 8, border: '1px solid rgba(90,138,110,0.15)' }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#7AAA8E' }}>All menu items are performing well &mdash; no issues detected</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#7AAA8E' }}>All menu items are performing well — no issues detected</span>
                       </div>
                     )}
                   </div>
