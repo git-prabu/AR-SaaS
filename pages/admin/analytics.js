@@ -113,18 +113,6 @@ export default function AdminAnalytics() {
   const uniqueVisits = sum(analytics, 'uniqueVisitors');
   const prevVisits = sum(prevAnal, 'totalVisits');
   const prevUnique = sum(prevAnal, 'uniqueVisitors');
-  const phonesByDay = {};
-  ordersInRange.forEach(o => {
-    if (!o.customerPhone) return;
-    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
-    const key = d.toISOString().slice(5, 10);
-    if (!phonesByDay[key]) phonesByDay[key] = new Set();
-    phonesByDay[key].add(o.customerPhone);
-  });
-  const chartData = analytics.map(d => {
-    const key = d.date?.slice(5) || '';
-    return { date: key, visits: d.totalVisits || 0, unique: d.uniqueVisitors || 0, customers: phonesByDay[key]?.size || 0 };
-  });
 
   const activeItems = menuItems.filter(i => i.isActive !== false);
   const totalViews = activeItems.reduce((s, i) => s + (i.views || 0), 0);
@@ -145,6 +133,19 @@ export default function AdminAnalytics() {
   const totalOrders = ordersInRange.length;
   const totalRevenue = ordersInRange.reduce((s, o) => s + (o.total || 0), 0);
   const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
+
+  const phonesByDay = {};
+  ordersInRange.forEach(o => {
+    if (!o.customerPhone) return;
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
+    const key = d.toISOString().slice(5, 10);
+    if (!phonesByDay[key]) phonesByDay[key] = new Set();
+    phonesByDay[key].add(o.customerPhone);
+  });
+  const chartData = analytics.map(d => {
+    const key = d.date?.slice(5) || '';
+    return { date: key, visits: d.totalVisits || 0, unique: d.uniqueVisitors || 0, customers: phonesByDay[key]?.size || 0 };
+  });
 
   const revByDay = {};
   ordersInRange.forEach(o => {
