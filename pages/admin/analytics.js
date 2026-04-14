@@ -199,7 +199,7 @@ export default function AdminAnalytics() {
   const funnelData = [
     { label: 'Menu Visits', value: totalVisits, pct: 100, color: '#5A8A9A' },
     { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.min(100, Math.round((totalViews / totalVisits) * 100)) : 0, color: '#8A7A6A' },
-    { label: 'AR Launches', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: T.warning },
+    { label: 'AR Views', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: T.warning },
   ];
 
   const insights = useMemo(() => {
