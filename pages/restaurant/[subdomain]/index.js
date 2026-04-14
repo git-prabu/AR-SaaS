@@ -10,9 +10,18 @@ const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(
 
 function getSessionId() {
   if (typeof window === 'undefined') return 'ssr';
-  let sid = sessionStorage.getItem('ar_sid');
-  if (!sid) { sid = Math.random().toString(36).substr(2, 16); sessionStorage.setItem('ar_sid', sid); }
+  let sid = localStorage.getItem('ar_sid');
+  if (!sid) { sid = Math.random().toString(36).substr(2, 16); localStorage.setItem('ar_sid', sid); }
   return sid;
+}
+
+function getSavedPhone() {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('ar_phone') || '';
+}
+
+function savePhone(phone) {
+  if (typeof window !== 'undefined' && phone) localStorage.setItem('ar_phone', phone);
 }
 
 const FOOD_PLACEHOLDERS = [
@@ -534,6 +543,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // Order flow
   const [orderStep, setOrderStep] = useState('cart'); // 'cart' | 'form' | 'success'
   const [orderTableInput, setOrderTableInput] = useState(''); // what customer types in the form
+  const [orderPhone, setOrderPhone] = useState(() => getSavedPhone());
   const [specialNote, setSpecialNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrder, setPlacedOrder] = useState(() => {
@@ -951,8 +961,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       const roundOff = parseFloat((Math.round(preRound) - preRound).toFixed(2));
       const grandTotal = Math.round(preRound);
 
+      // Save phone to localStorage for auto-fill on next visit
+      const phone = orderPhone.replace(/[^0-9+]/g, '');
+      if (phone) savePhone(phone);
+
       const orderId = await createOrder(restaurant.id, {
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
+        customerPhone: phone || null,
         items: freshCart.map(c => ({ id: c.id, name: c.name || '', price: c.price ?? 0, qty: c.qty || 1, note: c.note || '' })),
         subtotal,
         gstPercent: gstPct,
@@ -3132,6 +3147,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${tableNumber ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: tableNumber ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box', cursor: tableNumber ? 'default' : 'text' }}
                 />
                 {tableNumber && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginBottom: 10 }}>✓ Auto-filled from your table QR</div>}
+                {/* Phone number */}
+                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>MOBILE NUMBER <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                <input
+                  type="tel" inputMode="tel" placeholder="e.g. 9876543210"
+                  value={orderPhone} onChange={e => setOrderPhone(e.target.value.replace(/[^0-9+\- ]/g, '').slice(0, 15))}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${orderPhone ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: orderPhone ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box' }}
+                />
+                {orderPhone && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginBottom: 10 }}>✓ Saved for faster ordering next time</div>}
                 {/* Special instructions */}
                 <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.specialInst} <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
                 <textarea
