@@ -550,7 +550,7 @@ export default function AdminAnalytics() {
                   <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: '#fff', letterSpacing: '-0.3px' }}>Customer Journey</div>
                   <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 0 }}>
                     {funnelData.map((f, i) => {
-                      const widthPct = [100, 72, 48][i];
+                      const widthPct = [100, 75, 58][i];
                       return (
                         <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <div style={{
@@ -593,11 +593,12 @@ export default function AdminAnalytics() {
                       {/* Best seller — tall hero card */}
                       {bestSellerItem && (
                         <div style={{
-                          gridRow: '1 / 4', borderRadius: 16, overflow: 'hidden', position: 'relative',
+                          gridRow: `1 / ${Math.min(topDishes.length, 6)}`, borderRadius: 16, overflow: 'hidden', position: 'relative',
                           minHeight: 260, background: T.shellDarker,
                           boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
                         }}>
-                          {bestSellerItem.imageURL && <img src={bestSellerItem.imageURL} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+                          {bestSellerItem.imageURL ? <img src={bestSellerItem.imageURL} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> :
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, color: 'rgba(234,231,227,0.12)' }}>🍽️</div>}
                           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,40,37,0.9) 0%, rgba(28,40,37,0.3) 40%, rgba(0,0,0,0.05) 100%)' }} />
                           <div style={{ position: 'absolute', top: 12, left: 12 }}>
                             <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: T.shellDarker, background: T.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
@@ -626,7 +627,7 @@ export default function AdminAnalytics() {
                           }}>
                             <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', background: T.cream, flexShrink: 0, border: '1px solid rgba(38,52,49,0.04)' }}>
                               {menuItem?.imageURL ? <img src={menuItem.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: 'rgba(38,52,49,0.12)' }}>{idx + 2}</div>}
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🍽️</div>}
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
