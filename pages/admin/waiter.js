@@ -117,6 +117,8 @@ export default function WaiterDashboard() {
       if (pendingCount > prevCallsCountRef.current) playBell();
       prevCallsCountRef.current = pendingCount;
       setAllCalls(all);
+    }, err => {
+      console.error('Waiter calls listener error:', err);
     });
   }, [rid]);
 
@@ -125,6 +127,8 @@ export default function WaiterDashboard() {
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setAllOrdersLocal(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, err => {
+      console.error('Waiter orders listener error:', err);
     });
   }, [rid]);
 

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse, submitFeedback, sortMenuItems } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
+import toast from 'react-hot-toast';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(m => m.ARViewerEmbed), { ssr: false });
 
@@ -993,6 +994,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       clearCart();
     } catch (err) {
       console.error('Order failed:', err);
+      toast.error('Order failed — please try again.');
     } finally {
       setIsSubmitting(false);
     }
