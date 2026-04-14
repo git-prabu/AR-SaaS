@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import {
@@ -88,10 +88,11 @@ export default function AdminAnalytics() {
   const [range, setRange] = useState(7);
   const [tab, setTab] = useState('overview');
   const rid = userData?.restaurantId;
+  const initialLoadDone = useRef(false);
 
   const load = useCallback(async () => {
     if (!rid) return;
-    setLoading(true);
+    if (!initialLoadDone.current) setLoading(true);
     const [anal, allAnal, items, today, waiter, allOrders] = await Promise.all([
       getAnalytics(rid, range), getAnalytics(rid, range * 2), getAllMenuItems(rid),
       getTodayAnalytics(rid), getWaiterCallsCount(rid, range), getOrders(rid),
@@ -100,6 +101,7 @@ export default function AdminAnalytics() {
     setPrevAnal(allAnal.slice(0, Math.max(0, allAnal.length - range)));
     setMenuItems(items); setTodayStat(today); setWaiterStat(waiter);
     setOrders(allOrders || []); setLoading(false);
+    initialLoadDone.current = true;
   }, [rid, range]);
 
   useEffect(() => { load(); }, [load]);
@@ -444,6 +446,7 @@ export default function AdminAnalytics() {
               </div>
             </div>
           </div>
+          <div style={{ height: 18 }} />
 
           {/* Spinner */}
           {loading ? (
