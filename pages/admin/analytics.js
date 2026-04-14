@@ -590,17 +590,24 @@ export default function AdminAnalytics() {
                   </div>
                   {topDishes.length > 0 ? (() => {
                     const rightCount = Math.min(topDishes.length - 1, 5);
-                    const dishPlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%23EAE7E3'/%3E%3Ccircle cx='60' cy='58' r='32' fill='none' stroke='%23C4A86D' stroke-width='2' opacity='0.4'/%3E%3Ccircle cx='60' cy='58' r='20' fill='none' stroke='%23C4A86D' stroke-width='1.5' opacity='0.25'/%3E%3Cpath d='M38 90 L42 50 L44 90Z' fill='%23C4A86D' opacity='0.3' transform='rotate(-15 42 70)'/%3E%3Cpath d='M82 90 L78 50 L76 90Z' fill='%23C4A86D' opacity='0.3' transform='rotate(15 78 70)'/%3E%3C/svg%3E";
+                    const stockFoods = [
+                      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=400&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400&h=400&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&h=400&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=400&fit=crop&q=80',
+                    ];
                     return (
-                    <div style={{ display: 'grid', gridTemplateColumns: rightCount > 0 ? '1fr 1fr' : '1fr', gridAutoRows: 'auto', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: rightCount > 0 ? '1fr 1fr' : '1fr', gridAutoRows: 'auto', gap: 10, alignItems: 'start' }}>
                       {/* Best seller — tall hero card */}
                       {bestSellerItem && (
                         <div style={{
-                          gridRow: rightCount > 0 ? `1 / ${rightCount + 1}` : undefined, borderRadius: 16, overflow: 'hidden', position: 'relative',
-                          minHeight: 260, background: T.shellDarker,
+                          gridRow: rightCount > 1 ? `1 / ${rightCount + 1}` : undefined, borderRadius: 16, overflow: 'hidden', position: 'relative',
+                          minHeight: rightCount <= 1 ? 220 : 260, background: T.shellDarker,
                           boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
                         }}>
-                          <img src={bestSellerItem.imageURL || dishPlaceholder} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={bestSellerItem.imageURL || stockFoods[0]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,40,37,0.9) 0%, rgba(28,40,37,0.3) 40%, rgba(0,0,0,0.05) 100%)' }} />
                           <div style={{ position: 'absolute', top: 12, left: 12 }}>
                             <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: T.shellDarker, background: T.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
@@ -628,7 +635,7 @@ export default function AdminAnalytics() {
                             boxShadow: '0 1px 4px rgba(38,52,49,0.03)',
                           }}>
                             <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(38,52,49,0.06)' }}>
-                              <img src={menuItem?.imageURL || dishPlaceholder} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={menuItem?.imageURL || stockFoods[(idx + 1) % stockFoods.length]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
