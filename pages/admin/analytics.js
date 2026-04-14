@@ -588,17 +588,19 @@ export default function AdminAnalytics() {
                     <div style={secTitle}>Dish Performance</div>
                     {topDishes.length > 0 && <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)', fontWeight: 500 }}>{range}d data</span>}
                   </div>
-                  {topDishes.length > 0 ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoRows: 'auto', gap: 10 }}>
+                  {topDishes.length > 0 ? (() => {
+                    const rightCount = Math.min(topDishes.length - 1, 5);
+                    const dishPlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%23EAE7E3'/%3E%3Ccircle cx='60' cy='58' r='32' fill='none' stroke='%23C4A86D' stroke-width='2' opacity='0.4'/%3E%3Ccircle cx='60' cy='58' r='20' fill='none' stroke='%23C4A86D' stroke-width='1.5' opacity='0.25'/%3E%3Cpath d='M38 90 L42 50 L44 90Z' fill='%23C4A86D' opacity='0.3' transform='rotate(-15 42 70)'/%3E%3Cpath d='M82 90 L78 50 L76 90Z' fill='%23C4A86D' opacity='0.3' transform='rotate(15 78 70)'/%3E%3C/svg%3E";
+                    return (
+                    <div style={{ display: 'grid', gridTemplateColumns: rightCount > 0 ? '1fr 1fr' : '1fr', gridAutoRows: 'auto', gap: 10 }}>
                       {/* Best seller — tall hero card */}
                       {bestSellerItem && (
                         <div style={{
-                          gridRow: `1 / ${Math.min(topDishes.length, 6)}`, borderRadius: 16, overflow: 'hidden', position: 'relative',
+                          gridRow: rightCount > 0 ? `1 / ${rightCount + 1}` : undefined, borderRadius: 16, overflow: 'hidden', position: 'relative',
                           minHeight: 260, background: T.shellDarker,
                           boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
                         }}>
-                          {bestSellerItem.imageURL ? <img src={bestSellerItem.imageURL} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, color: 'rgba(234,231,227,0.12)' }}>🍽️</div>}
+                          <img src={bestSellerItem.imageURL || dishPlaceholder} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,40,37,0.9) 0%, rgba(28,40,37,0.3) 40%, rgba(0,0,0,0.05) 100%)' }} />
                           <div style={{ position: 'absolute', top: 12, left: 12 }}>
                             <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: T.shellDarker, background: T.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
@@ -625,9 +627,8 @@ export default function AdminAnalytics() {
                             display: 'flex', alignItems: 'center', gap: 10,
                             boxShadow: '0 1px 4px rgba(38,52,49,0.03)',
                           }}>
-                            <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', background: T.cream, flexShrink: 0, border: '1px solid rgba(38,52,49,0.04)' }}>
-                              {menuItem?.imageURL ? <img src={menuItem.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🍽️</div>}
+                            <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(38,52,49,0.06)' }}>
+                              <img src={menuItem?.imageURL || dishPlaceholder} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
@@ -643,7 +644,8 @@ export default function AdminAnalytics() {
                         );
                       })}
                     </div>
-                  ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No order data yet</div>}
+                    );
+                  })() : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No order data yet</div>}
                 </div>
               </div>
 
