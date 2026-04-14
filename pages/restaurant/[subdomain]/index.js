@@ -994,7 +994,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       clearCart();
     } catch (err) {
       console.error('Order failed:', err);
-      toast.error('Order failed — please try again.');
+      toast.error(`Order failed: ${err?.code || err?.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
