@@ -113,7 +113,18 @@ export default function AdminAnalytics() {
   const uniqueVisits = sum(analytics, 'uniqueVisitors');
   const prevVisits = sum(prevAnal, 'totalVisits');
   const prevUnique = sum(prevAnal, 'uniqueVisitors');
-  const chartData = analytics.map(d => ({ date: d.date?.slice(5) || '', visits: d.totalVisits || 0, unique: d.uniqueVisitors || 0 }));
+  const phonesByDay = {};
+  ordersInRange.forEach(o => {
+    if (!o.customerPhone) return;
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
+    const key = d.toISOString().slice(5, 10);
+    if (!phonesByDay[key]) phonesByDay[key] = new Set();
+    phonesByDay[key].add(o.customerPhone);
+  });
+  const chartData = analytics.map(d => {
+    const key = d.date?.slice(5) || '';
+    return { date: key, visits: d.totalVisits || 0, unique: d.uniqueVisitors || 0, customers: phonesByDay[key]?.size || 0 };
+  });
 
   const activeItems = menuItems.filter(i => i.isActive !== false);
   const totalViews = activeItems.reduce((s, i) => s + (i.views || 0), 0);
@@ -685,18 +696,27 @@ export default function AdminAnalytics() {
                     <div style={secTitle}>Visits Over Time</div>
                     <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.35)', marginTop: 2 }}>Last {range} days traffic</div>
                   </div>
+                  <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'rgba(38,52,49,0.45)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 3, background: T.warning, borderRadius: 2 }} />Visits</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 3, background: '#5A8A6E', borderRadius: 2 }} />Unique</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 3, background: '#E05A3A', borderRadius: 2 }} />Customers</span>
+                  </div>
                 </div>
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={T.warning} stopOpacity={0.2} /><stop offset="95%" stopColor={T.warning} stopOpacity={0} /></linearGradient>
+                        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.1} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient>
+                        <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#E05A3A" stopOpacity={0.12} /><stop offset="95%" stopColor="#E05A3A" stopOpacity={0} /></linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
                       <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
                       <Area type="monotone" dataKey="visits" stroke={T.warning} strokeWidth={2.5} fill="url(#g1)" name="Visits" />
+                      <Area type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} fill="url(#g2)" name="Unique Visitors" strokeDasharray="5 3" />
+                      <Area type="monotone" dataKey="customers" stroke="#E05A3A" strokeWidth={2} fill="url(#g3)" name="Customers (by phone)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No visit data yet</div>}
