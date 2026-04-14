@@ -416,18 +416,33 @@ export default function AdminAnalytics() {
             </div>
           )}
 
-          {/* ── Tabs — clean, no emojis, underline style ── */}
-          <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
-            {[['overview', 'Overview'], ['orders', 'Orders & Revenue'], ['menu', 'Menu Performance']].map(([id, label]) => (
-              <button key={id} onClick={() => setTab(id)} style={{
-                padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: T.font,
-                fontSize: 13, fontWeight: tab === id ? 700 : 500,
-                color: tab === id ? T.ink : 'rgba(38,52,49,0.4)',
-                background: 'transparent',
-                borderBottom: tab === id ? `2.5px solid ${T.warning}` : '2.5px solid transparent',
-                marginBottom: -2, transition: 'all 0.15s',
-              }}>{label}</button>
-            ))}
+          {/* ── Sticky tabs + range selector bar ── */}
+          <div style={{ position: 'sticky', top: 0, zIndex: 10, background: T.cream, marginLeft: -28, marginRight: -28, padding: '0 28px', borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: 0 }}>
+                {[['overview', 'Overview'], ['orders', 'Orders & Revenue'], ['menu', 'Menu Performance']].map(([id, label]) => (
+                  <button key={id} onClick={() => setTab(id)} style={{
+                    padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: T.font,
+                    fontSize: 13, fontWeight: tab === id ? 700 : 500,
+                    color: tab === id ? T.ink : 'rgba(38,52,49,0.4)',
+                    background: 'transparent',
+                    borderBottom: tab === id ? `2.5px solid ${T.warning}` : '2.5px solid transparent',
+                    marginBottom: -2, transition: 'all 0.15s',
+                  }}>{label}</button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[7, 30, 90].map(d => (
+                  <button key={d} onClick={() => setRange(d)} style={{
+                    padding: '4px 12px', borderRadius: 16,
+                    border: range === d ? `1.5px solid ${T.warning}` : '1.5px solid rgba(38,52,49,0.1)',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+                    background: range === d ? 'rgba(196,168,109,0.12)' : 'transparent',
+                    color: range === d ? T.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
+                  }}>{d}d</button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Spinner */}
