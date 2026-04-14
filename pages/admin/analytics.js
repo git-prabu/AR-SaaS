@@ -685,24 +685,18 @@ export default function AdminAnalytics() {
                     <div style={secTitle}>Visits Over Time</div>
                     <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.35)', marginTop: 2 }}>Last {range} days traffic</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'rgba(38,52,49,0.45)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 18, height: 3, background: T.warning, borderRadius: 2 }} />Total</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 18, height: 3, background: '#5A8A6E', borderRadius: 2, opacity: 0.6 }} />Unique</span>
-                  </div>
                 </div>
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={T.warning} stopOpacity={0.2} /><stop offset="95%" stopColor={T.warning} stopOpacity={0} /></linearGradient>
-                        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.1} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
                       <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                      <Area type="monotone" dataKey="visits" stroke={T.warning} strokeWidth={2.5} fill="url(#g1)" name="Total" />
-                      <Area type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} fill="url(#g2)" name="Unique" strokeDasharray="5 3" />
+                      <Area type="monotone" dataKey="visits" stroke={T.warning} strokeWidth={2.5} fill="url(#g1)" name="Visits" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No visit data yet</div>}
