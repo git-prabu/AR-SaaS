@@ -603,7 +603,7 @@ export default function AdminAnalytics() {
                       {/* Best seller — tall hero card */}
                       {bestSellerItem && (
                         <div style={{
-                          gridRow: rightCount > 1 ? `1 / ${rightCount + 1}` : undefined, borderRadius: 16, overflow: 'hidden', position: 'relative',
+                          gridRow: rightCount > 1 ? `1 / ${rightCount + 1}` : undefined, alignSelf: 'stretch', borderRadius: 16, overflow: 'hidden', position: 'relative',
                           minHeight: rightCount <= 1 ? 220 : 260, background: T.shellDarker,
                           boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
                         }}>
