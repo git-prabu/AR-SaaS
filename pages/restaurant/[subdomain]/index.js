@@ -937,7 +937,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       const freshCart = cart.map(c => {
         const live = enrichedItems.find(i => i.id === c.id);
         if (!live) return c;
-        const price = live.offerPrice ?? live.price;
+        const price = live.offerPrice ?? live.price ?? 0;
         return { ...c, price };
       });
       const gstPct = restaurant?.gstPercent || 0;
@@ -953,7 +953,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
       const orderId = await createOrder(restaurant.id, {
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
-        items: freshCart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty, note: c.note || '' })),
+        items: freshCart.map(c => ({ id: c.id, name: c.name || '', price: c.price ?? 0, qty: c.qty || 1, note: c.note || '' })),
         subtotal,
         gstPercent: gstPct,
         serviceChargePercent: scPct,
