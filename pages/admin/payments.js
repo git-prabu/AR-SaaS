@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { updatePaymentStatus } from '../../lib/db';
-import { useAdminOrders } from '../../contexts/AdminDataContext';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
 const PAYMENT_STATUS = {
@@ -18,11 +19,22 @@ const PAYMENT_STATUS = {
 
 export default function AdminPayments() {
     const { userData } = useAuth();
-    const { orders: allOrders } = useAdminOrders(); // shared from AdminLayout — no duplicate listener
+    const [allOrders, setAllOrders] = useState([]);
     const [filter, setFilter] = useState('pending'); // 'pending' | 'completed' | 'all'
     const [updating, setUpdating] = useState(null);
     const [tick, setTick] = useState(0);
     const rid = userData?.restaurantId;
+
+    // Direct Firestore listener — bypasses AdminDataContext timing issue
+    useEffect(() => {
+        if (!rid) return;
+        const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+        return onSnapshot(q, snap => {
+            setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, err => {
+            console.error('Payments orders listener error:', err);
+        });
+    }, [rid]);
 
     // Filter to only show orders relevant to payments
     const orders = allOrders.filter(o =>
