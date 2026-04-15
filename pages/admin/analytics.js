@@ -358,7 +358,7 @@ export default function AdminAnalytics() {
         </div>
 
         {/* ═══ MAIN CONTENT ═══ */}
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '18px 28px 40px' }}>
+        <div style={{ maxWidth: 1164, margin: '0 auto', padding: '18px 32px 40px' }}>
 
           {/* ── TODAY'S LIVE DATA — big card ── */}
           <div style={{
@@ -431,7 +431,7 @@ export default function AdminAnalytics() {
           )}
 
           {/* ── Sticky tabs + range selector bar ── */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 10, background: T.cream, marginLeft: -28, marginRight: -28, padding: '0 28px', borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
+          <div style={{ position: 'sticky', top: 0, zIndex: 10, background: T.cream, marginLeft: -32, marginRight: -32, padding: '0 32px', borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: 0 }}>
                 {[['overview', 'Overview'], ['orders', 'Orders & Revenue'], ['menu', 'Menu Performance']].map(([id, label]) => (
