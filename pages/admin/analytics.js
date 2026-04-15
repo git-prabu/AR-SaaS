@@ -542,16 +542,16 @@ export default function AdminAnalytics() {
                   {revenueChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={220}>
                       {getMode('revenue', 'line') === 'line' ? (
-                        <LineChart data={revenueChartData} margin={{ top: 5, right: 8, left: -10, bottom: 0 }}>
+                        <AreaChart data={revenueChartData} margin={{ top: 5, right: 8, left: -10, bottom: 0 }}>
                           <defs>
-                            <linearGradient id="revStroke" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={T.warning} /><stop offset="100%" stopColor="#5A8A6E" /></linearGradient>
+                            <linearGradient id="revStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#D4943A" /><stop offset="100%" stopColor="#4A9A5E" /></linearGradient>
                           </defs>
                           <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} />
                           <YAxis tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} width={45} tickFormatter={formatRupee} />
                           <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`₹${v.toLocaleString('en-IN')}`, '']} />
                           <ReferenceLine x={todayDotKey} stroke="rgba(38,52,49,0.15)" strokeDasharray="4 4" />
-                          <Line type="monotone" dataKey="revenue" stroke="url(#revStroke)" strokeWidth={2} dot={false} />
-                        </LineChart>
+                          <Area type="monotone" dataKey="revenue" stroke="url(#revStroke)" strokeWidth={2} fillOpacity={0} dot={false} />
+                        </AreaChart>
                       ) : (
                         <BarChart data={revenueChartData} margin={{ top: 5, right: 8, left: -10, bottom: 0 }}>
                           <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} />
@@ -594,16 +594,16 @@ export default function AdminAnalytics() {
                             <Bar dataKey="orders" name="Orders" fill="#9B5B53" radius={[5, 5, 0, 0]} />
                           </BarChart>
                         ) : (
-                          <LineChart data={revenueChartData} margin={{ top: 5, right: 5, left: -18, bottom: 0 }}>
+                          <AreaChart data={revenueChartData} margin={{ top: 5, right: 5, left: -18, bottom: 0 }}>
                             <defs>
-                              <linearGradient id="ordStroke" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={T.warning} /><stop offset="100%" stopColor="#9B5B53" /></linearGradient>
+                              <linearGradient id="ordStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#D4943A" /><stop offset="100%" stopColor="#9B5B53" /></linearGradient>
                             </defs>
                             <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} />
                             <YAxis tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
                             <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
                             <ReferenceLine x={todayDotKey} stroke="rgba(38,52,49,0.15)" strokeDasharray="4 4" />
-                            <Line type="monotone" dataKey="orders" stroke="url(#ordStroke)" strokeWidth={2} name="Orders" dot={false} />
-                          </LineChart>
+                            <Area type="monotone" dataKey="orders" stroke="url(#ordStroke)" strokeWidth={2} fillOpacity={0} name="Orders" dot={false} />
+                          </AreaChart>
                         )}
                       </ResponsiveContainer>
                     ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>}
@@ -820,18 +820,18 @@ export default function AdminAnalytics() {
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     {getMode('visits', 'line') === 'line' ? (
-                      <LineChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
+                      <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
                         <defs>
-                          <linearGradient id="visitStroke" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={T.warning} /><stop offset="100%" stopColor="#5A8A6E" /></linearGradient>
+                          <linearGradient id="visitStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#D4943A" /><stop offset="100%" stopColor="#4A9A5E" /></linearGradient>
                         </defs>
                         <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} />
                         <YAxis tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
                         <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
                         <ReferenceLine x={todayDotKey} stroke="rgba(38,52,49,0.15)" strokeDasharray="4 4" />
-                        <Line type="monotone" dataKey="visits" stroke="url(#visitStroke)" strokeWidth={2} dot={false} name="Visits" />
-                        <Line type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} dot={false} name="Unique Visitors" strokeDasharray="5 3" />
-                        <Line type="monotone" dataKey="customers" stroke="#E05A3A" strokeWidth={1.5} dot={false} name="Customers (by phone)" />
-                      </LineChart>
+                        <Area type="monotone" dataKey="visits" stroke="url(#visitStroke)" strokeWidth={2} fillOpacity={0} dot={false} name="Visits" />
+                        <Area type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} fillOpacity={0} dot={false} name="Unique Visitors" strokeDasharray="5 3" />
+                        <Area type="monotone" dataKey="customers" stroke="#E05A3A" strokeWidth={1.5} fillOpacity={0} dot={false} name="Customers (by phone)" />
+                      </AreaChart>
                     ) : (
                       <BarChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
                         <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} />
