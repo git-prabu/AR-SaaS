@@ -1,557 +1,666 @@
-// pages/admin/items.js
+// pages/admin/index.js — Admin Dashboard Home (Aspire-inspired, Cinematic Forest)
 import Head from 'next/head';
-import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem } from '../../lib/db';
-import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
-import toast from 'react-hot-toast';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { getAllMenuItems } from '../../lib/db';
+import { T, ADMIN_STYLES } from '../../lib/utils';
+import {
+  AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine,
+  BarChart, Bar, PieChart, Pie, Cell,
+} from 'recharts';
 
-const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Very Spicy'];
-const SPICE_COLORS = { None:'#7AAA8E', Mild:'#F4D070', Medium:'#F4A060', Spicy:'#8A4A42', 'Very Spicy':'#B02020' };
-const OFFER_BADGES = [
-  { label:'Chef\'s Special', color:'#8A70B0' },
-  { label:'Best Seller',     color:'#8A4A42' },
-  { label:'Must Try',        color:'#4A7A5E' },
-  { label:'New',             color:'#4A80C0' },
-  { label:'Limited',         color:'#8A4A42' },
-  { label:'Custom…',         color:'#263431' },
-];
+/* ─── helpers ──────────────────────────────────────────────────── */
 
-const S = {
-  card:  { background:'#FFFFFF', border:'1px solid rgba(38,52,49,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(38,52,49,0.06)' },
-  h1:    { fontFamily:"'Playfair Display', Georgia, serif", fontWeight:800, fontSize:24, color:'#263431', margin:0, letterSpacing:'-0.3px' },
-  sub:   { fontSize:13, color:'rgba(38,52,49,0.45)', marginTop:4 },
-  label: { display:'block', fontSize:11, fontWeight:600, color:'rgba(38,52,49,0.5)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 },
-  input: { width:'100%', padding:'10px 13px', background:'#F7F5F2', border:'1.5px solid rgba(38,52,49,0.09)', borderRadius:11, fontSize:13, color:'#263431', fontFamily:'Inter,sans-serif', outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' },
+const fmtINR = n => '₹' + Math.round(n || 0).toLocaleString('en-IN');
+const fmtINRShort = n => {
+  const v = Math.round(n || 0);
+  if (v >= 100000) return '₹' + (v / 100000).toFixed(1) + 'L';
+  if (v >= 1000) return '₹' + (v / 1000).toFixed(1) + 'K';
+  return '₹' + v;
+};
+const dayKey = d => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
+const fmtTick = key => {
+  const [y, m, d] = key.split('-').map(Number);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[m - 1]} ${d}`;
+};
+const todayKey = () => dayKey(new Date());
+
+const orderTotal = o => {
+  if (typeof o.total === 'number') return o.total;
+  return (o.items || []).reduce((s, it) => s + (it.price || 0) * (it.qty || it.quantity || 1), 0);
+};
+const orderTs = o => o.createdAt?.seconds ? o.createdAt.seconds * 1000 : (typeof o.createdAt === 'number' ? o.createdAt : Date.now());
+
+const timeAgoShort = ms => {
+  const diff = Math.floor((Date.now() - ms) / 1000);
+  if (diff < 60) return `${diff}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
 };
 
-export default function AdminItems() {
+/* ─── tiny UI atoms ────────────────────────────────────────────── */
+
+const labelSm = {
+  fontFamily: T.font, fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+  textTransform: 'uppercase', color: 'rgba(38,52,49,0.42)',
+};
+const cardTitle = {
+  fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: T.ink,
+  letterSpacing: '-0.3px', margin: 0,
+};
+const linkSm = {
+  fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.stone,
+  textDecoration: 'none', letterSpacing: '0.02em',
+};
+
+function TrendPill({ pct }) {
+  if (pct === null || pct === undefined || !isFinite(pct)) return null;
+  const up = pct >= 0;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3,
+      fontFamily: T.font, fontSize: 11, fontWeight: 700,
+      padding: '3px 9px', borderRadius: 999,
+      background: up ? 'rgba(74,122,94,0.14)' : 'rgba(138,74,66,0.12)',
+      color: up ? T.success : T.danger,
+    }}>
+      {up ? '▲' : '▼'} {Math.abs(Math.round(pct))}%
+    </span>
+  );
+}
+
+function CardChrome({ title, action, children, style }) {
+  return (
+    <section style={{ ...ADMIN_STYLES.card, padding: '18px 20px 16px', display: 'flex', flexDirection: 'column', ...style }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <h2 style={cardTitle}>{title}</h2>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/* ─── tooltips ─────────────────────────────────────────────────── */
+
+const tipStyle = {
+  background: T.ink, border: 'none', borderRadius: 10, padding: '8px 12px',
+  boxShadow: '0 6px 20px rgba(0,0,0,0.28)',
+};
+function ChartTip({ active, payload, label, prefix = '', suffix = '' }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={tipStyle}>
+      <div style={{ color: T.cream, fontSize: 11, fontWeight: 600, opacity: 0.7 }}>{label && fmtTick(label)}</div>
+      <div style={{ color: T.cream, fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+        {prefix}{Math.round(payload[0].value).toLocaleString('en-IN')}{suffix}
+      </div>
+    </div>
+  );
+}
+
+/* ─── main page ────────────────────────────────────────────────── */
+
+export default function AdminHome() {
   const { userData } = useAuth();
-  const [items,     setItems]     = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState('');
-  const [catFilter, setCatFilter] = useState('all');
-  const [editId,    setEditId]    = useState(null);
-  const [editData,  setEditData]  = useState({});
-  const [saving,    setSaving]    = useState(false);
-  const [deleting,  setDeleting]  = useState(null);
-  const [customBadge, setCustomBadge] = useState('');
-  const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { progress, uploading } }
-  const imgInputRef  = useRef({});
-  const dragItem     = useRef(null);
-  const dragOverItem = useRef(null);
-  const [dragging,   setDragging]   = useState(null);
   const rid = userData?.restaurantId;
 
-  const load = async () => {
+  const [orders, setOrders] = useState([]);
+  const [waiterCalls, setWaiterCalls] = useState([]);
+  const [items, setItems] = useState([]);
+  const [activityTab, setActivityTab] = useState('all'); // all | orders | calls
+
+  /* live orders */
+  useEffect(() => {
     if (!rid) return;
-    const data = await getAllMenuItems(rid);
-    // Sort by sortOrder first, then createdAt
-    const sorted = data.sort((a, b) => {
-      const ao = a.sortOrder ?? 9999, bo = b.sortOrder ?? 9999;
-      if (ao !== bo) return ao - bo;
-      return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
-    });
-    setItems(sorted);
-    setLoading(false);
-  };
+    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [rid]);
 
-  useEffect(() => { load(); }, [rid]);
+  /* live waiter calls */
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => setWaiterCalls(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [rid]);
 
-  const categories = ['all', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))];
+  /* one-shot menu items (used for table; refreshed when rid changes) */
+  useEffect(() => {
+    if (!rid) return;
+    let alive = true;
+    getAllMenuItems(rid).then(d => { if (alive) setItems(d || []); });
+    return () => { alive = false; };
+  }, [rid]);
 
-  const filtered = items.filter(item => {
-    const matchCat = catFilter === 'all' || item.category === catFilter;
-    const matchSearch = !search || item.name?.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  /* ─── derived metrics ─── */
 
-  const startEdit = (item) => {
-    setEditId(item.id);
-    setEditData({
-      name:        item.name        || '',
-      description: item.description || '',
-      category:    item.category    || '',
-      price:       item.price       || '',
-      prepTime:    item.prepTime    || '',
-      spiceLevel:  item.spiceLevel  || 'None',
-      isVeg:       item.isVeg !== undefined ? item.isVeg : '',
-      pairsWith:   item.pairsWith   || [],
-      offerBadge:  item.offerBadge  || '',
-      offerLabel:  item.offerLabel  || '',
-      offerColor:  item.offerColor  || '#8A4A42',
-      isPopular:   item.isPopular   || false,
-      isFeatured:  item.isFeatured  || false,
-      isActive:    item.isActive    !== false,
-      sortOrder:   item.sortOrder   ?? '',
-    });
-    setCustomBadge('');
-  };
+  const today = todayKey();
 
-  const cancelEdit = () => { setEditId(null); setEditData({}); };
-
-  const handleImageUpload = async (item, file) => {
-    if (!file) return;
-    if (fileSizeMB(file) > 5) { toast.error('Image must be under 5MB'); return; }
-    setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:0 } }));
-    try {
-      const path = buildImagePath(rid, file.name);
-      const url  = await uploadFile(file, path, (pct) =>
-        setImgUpload(u => ({ ...u, [item.id]: { uploading:true, progress:pct } }))
-      );
-      await updateMenuItem(rid, item.id, { imageURL: url });
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url } : i));
-      toast.success('Cover image updated!');
-    } catch (e) { toast.error('Upload failed: ' + e.message); }
-    finally { setImgUpload(u => ({ ...u, [item.id]: { uploading:false, progress:0 } })); }
-  };
-
-  const saveEdit = async () => {
-    if (!editData.name?.trim())     { toast.error('Item name is required'); return; }
-    if (!editData.category?.trim()) { toast.error('Category is required — please select or type a category'); return; }
-    if (editData.isVeg === undefined || editData.isVeg === null || editData.isVeg === '') {
-      toast.error('Please mark item as Veg or Non-Veg'); return;
+  // Build day-keyed buckets for the last 14 days (oldest → newest)
+  const days14 = useMemo(() => {
+    const arr = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      arr.push(dayKey(d));
     }
-    if (!editData.spiceLevel || editData.spiceLevel === '') { toast.error('Spice level is required'); return; }
-    setSaving(true);
-    try {
-      const finalLabel = editData.offerBadge === 'Custom…' ? customBadge : editData.offerBadge;
-      await updateMenuItem(rid, editId, {
-        ...editData,
-        offerLabel: finalLabel || '',
-        offerBadge: !!finalLabel,
-        sortOrder:  editData.sortOrder !== '' ? Number(editData.sortOrder) : null,
-        price:      editData.price !== '' ? Number(editData.price) : null,
-        pairsWith:  editData.pairsWith || [],
-      });
-      toast.success('Item updated!');
-      setEditId(null);
-      await load();
-    } catch (e) { toast.error('Failed to save: ' + e.message); }
-    finally { setSaving(false); }
-  };
+    return arr;
+  }, []);
 
-  const handleDelete = async (item) => {
-    if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
-    setDeleting(item.id);
-    try {
-      await deleteMenuItem(rid, item.id);
-      toast.success(`"${item.name}" deleted`);
-      await load();
-    } catch { toast.error('Delete failed'); }
-    finally { setDeleting(null); }
-  };
+  const revenueSeries = useMemo(() => {
+    const buckets = Object.fromEntries(days14.map(k => [k, { date: k, revenue: 0, orders: 0 }]));
+    for (const o of orders) {
+      const k = dayKey(orderTs(o));
+      if (buckets[k]) {
+        buckets[k].revenue += orderTotal(o);
+        buckets[k].orders += 1;
+      }
+    }
+    return days14.map(k => buckets[k]);
+  }, [orders, days14]);
 
-  const moveItem = async (item, direction) => {
-    // Find adjacent item in filtered list and swap sort orders
-    const idx = filtered.findIndex(i => i.id === item.id);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= filtered.length) return;
-    const swapItem = filtered[swapIdx];
-    const aOrder = item.sortOrder ?? idx;
-    const bOrder = swapItem.sortOrder ?? swapIdx;
-    await Promise.all([
-      updateMenuItem(rid, item.id,     { sortOrder: bOrder }),
-      updateMenuItem(rid, swapItem.id, { sortOrder: aOrder }),
-    ]);
-    await load();
-  };
+  const todayIdx = revenueSeries.findIndex(r => r.date === today);
+  const todayRevenue = revenueSeries[todayIdx]?.revenue || 0;
+  const todayOrders = revenueSeries[todayIdx]?.orders || 0;
 
-  const handleDragEnd = async () => {
-    const fromId = dragItem.current;
-    const toId   = dragOverItem.current;
-    setDragging(null);
-    if (!fromId || !toId || fromId === toId) { dragItem.current = null; dragOverItem.current = null; return; }
+  // last 7 days vs previous 7
+  const last7Rev = revenueSeries.slice(-7).reduce((s, r) => s + r.revenue, 0);
+  const prev7Rev = revenueSeries.slice(0, 7).reduce((s, r) => s + r.revenue, 0);
+  const revWoW = prev7Rev ? ((last7Rev - prev7Rev) / prev7Rev) * 100 : null;
 
-    const fromIdx = filtered.findIndex(i => i.id === fromId);
-    const toIdx   = filtered.findIndex(i => i.id === toId);
-    if (fromIdx === -1 || toIdx === -1) return;
+  const last7Ord = revenueSeries.slice(-7).reduce((s, r) => s + r.orders, 0);
+  const prev7Ord = revenueSeries.slice(0, 7).reduce((s, r) => s + r.orders, 0);
+  const ordWoW = prev7Ord ? ((last7Ord - prev7Ord) / prev7Ord) * 100 : null;
 
-    const reordered = [...filtered];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
+  // sparkline data — last 7 days only
+  const spark7 = revenueSeries.slice(-7);
 
-    // Optimistic UI update
-    const updatedIds = reordered.map(i => i.id);
-    setItems(prev => {
-      const rest = prev.filter(i => !updatedIds.includes(i.id));
-      return [...reordered, ...rest];
+  // status donut for today's orders
+  const todayOrdersList = useMemo(
+    () => orders.filter(o => dayKey(orderTs(o)) === today),
+    [orders, today]
+  );
+  const statusMix = useMemo(() => {
+    const counts = { pending: 0, preparing: 0, ready: 0, served: 0 };
+    for (const o of todayOrdersList) {
+      const s = (o.status || 'pending').toLowerCase();
+      if (counts[s] !== undefined) counts[s] += 1;
+      else counts.pending += 1;
+    }
+    return [
+      { name: 'Pending',   value: counts.pending,   color: T.warning },
+      { name: 'Preparing', value: counts.preparing, color: '#9B7BC4' },
+      { name: 'Ready',     value: counts.ready,     color: T.success },
+      { name: 'Served',    value: counts.served,    color: T.stone },
+    ];
+  }, [todayOrdersList]);
+  const totalToday = statusMix.reduce((s, r) => s + r.value, 0);
+
+  // top items today
+  const topItemsToday = useMemo(() => {
+    const map = new Map();
+    for (const o of todayOrdersList) {
+      for (const it of (o.items || [])) {
+        const key = it.id || it.itemId || it.name;
+        if (!key) continue;
+        const prev = map.get(key) || { id: key, name: it.name || 'Untitled', units: 0, revenue: 0 };
+        const qty = it.qty || it.quantity || 1;
+        prev.units += qty;
+        prev.revenue += (it.price || 0) * qty;
+        map.set(key, prev);
+      }
+    }
+    const enriched = Array.from(map.values()).map(row => {
+      const meta = items.find(m => m.id === row.id || m.name === row.name) || {};
+      return {
+        ...row,
+        category: meta.category || '—',
+        ratingAvg: meta.ratingAvg || 0,
+        imageURL: meta.imageURL || null,
+      };
     });
+    return enriched.sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+  }, [todayOrdersList, items]);
 
-    // Persist sortOrder
-    await Promise.all(
-      reordered.map((item, idx) => updateMenuItem(rid, item.id, { sortOrder: idx + 1 }))
-    );
+  // activity feed stream
+  const activity = useMemo(() => {
+    const orderEvents = orders.slice(0, 30).map(o => ({
+      kind: 'order',
+      id: o.id,
+      ts: orderTs(o),
+      table: o.tableNumber,
+      total: orderTotal(o),
+      status: o.status || 'pending',
+      itemCount: (o.items || []).length,
+    }));
+    const callEvents = waiterCalls.slice(0, 30).map(c => ({
+      kind: 'call',
+      id: c.id,
+      ts: c.createdAt?.seconds ? c.createdAt.seconds * 1000 : Date.now(),
+      table: c.tableNumber,
+      status: c.status || 'active',
+    }));
+    let merged = [...orderEvents, ...callEvents];
+    if (activityTab === 'orders') merged = orderEvents;
+    if (activityTab === 'calls') merged = callEvents;
+    return merged.sort((a, b) => b.ts - a.ts).slice(0, 14);
+  }, [orders, waiterCalls, activityTab]);
 
-    dragItem.current = null;
-    dragOverItem.current = null;
-  };
+  const activeCalls = waiterCalls.filter(c => (c.status || 'active') === 'active').length;
+  const pendingOrdersCount = orders.filter(o => (o.status || 'pending') === 'pending').length;
 
-  const toggleActive = async (item) => {
-    await updateMenuItem(rid, item.id, { isActive: !item.isActive });
-    await load();
-  };
-
-  const today = new Date().toISOString().split('T')[0];
-
-  const isSoldOutToday = (item) => item.availableUntil === today;
-
-  const toggleSoldOut = async (item) => {
-    const newVal = isSoldOutToday(item) ? null : today;
-    await updateMenuItem(rid, item.id, { availableUntil: newVal });
-    await load();
-  };
+  /* ─── render ─── */
 
   return (
     <AdminLayout>
-      <Head><title>Menu Items — Advert Radical</title></Head>
-      <div style={{ background:'#EAE7E3', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
-        <div style={{ maxWidth:1000, margin:'0 auto' }}>
-          <style>{`
-            @keyframes spin{to{transform:rotate(360deg)}}
-            .inp:focus{border-color:rgba(138,74,66,0.5)!important}
-            .inp::placeholder{color:rgba(38,52,49,0.3)}
-            .item-row:hover{background:#FAFAF8!important}
-            .act-btn:hover{opacity:1!important}
-            [draggable]{user-select:none}
-          `}</style>
+      <Head><title>Dashboard — {userData?.restaurantName || 'Advert Radical'}</title></Head>
 
-          {/* Header */}
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:28, flexWrap:'wrap', gap:12 }}>
-            <div>
-              <h1 style={S.h1}>Menu Items</h1>
-              <p style={S.sub}>Manage, edit, reorder and add offers to your approved AR menu items.</p>
+      {/* Page header */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: 12, marginBottom: 20,
+      }}>
+        <div>
+          <h1 style={{ ...ADMIN_STYLES.h1, fontSize: 30 }}>
+            Dashboard <span style={{ fontFamily: T.fontDisplay, fontStyle: 'italic', fontWeight: 500, color: T.warning }}>overview</span>
+          </h1>
+          <p style={{ ...ADMIN_STYLES.sub, marginTop: 4 }}>
+            {userData?.restaurantName || 'Your restaurant'} · live as of {new Date().toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {(activeCalls > 0 || pendingOrdersCount > 0) && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '7px 12px', borderRadius: 999,
+              background: 'rgba(196,168,109,0.14)', border: `1px solid ${T.warning}40`,
+              fontFamily: T.font, fontSize: 12, fontWeight: 600, color: T.ink,
+            }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.warning, animation: 'arPulse 1.6s ease-in-out infinite' }} />
+              {pendingOrdersCount > 0 && `${pendingOrdersCount} pending`}
+              {pendingOrdersCount > 0 && activeCalls > 0 && ' · '}
+              {activeCalls > 0 && `${activeCalls} call${activeCalls > 1 ? 's' : ''}`}
             </div>
-            <div style={{ padding:'10px 18px', borderRadius:20, background:'rgba(122,170,142,0.12)', border:'1px solid rgba(122,170,142,0.3)', fontSize:13, fontWeight:600, color:'#1A5A38' }}>
-              <span style={{ fontFamily:'Outfit, sans-serif', fontWeight:800 }}>{items.filter(i=>i.isActive).length}</span> active · <span style={{ fontFamily:'Outfit, sans-serif', fontWeight:800 }}>{items.length}</span> total
+          )}
+          <Link href="/admin/analytics" style={{
+            padding: '8px 14px', borderRadius: 10, background: T.ink, color: T.cream,
+            fontFamily: T.font, fontSize: 12, fontWeight: 600, textDecoration: 'none',
+            border: `1px solid ${T.ink}`,
+          }}>Open Analytics →</Link>
+        </div>
+      </div>
+
+      {/* GRID */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(12, 1fr)',
+        gridAutoRows: 'min-content',
+        gap: 14,
+      }}>
+
+        {/* ── Hero chart : Revenue last 14 days ── */}
+        <CardChrome
+          title="Revenue Trend"
+          style={{ gridColumn: 'span 8' }}
+          action={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                ...labelSm, padding: '5px 10px', borderRadius: 999,
+                background: T.cream, color: T.stone,
+              }}>LAST 14 DAYS</span>
             </div>
+          }
+        >
+          {/* floating annotation */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 6 }}>
+            <span style={{
+              fontFamily: T.font, fontWeight: 700, fontSize: 30, color: T.ink, letterSpacing: '-0.5px',
+            }}>{fmtINR(todayRevenue)}</span>
+            <TrendPill pct={revWoW} />
+            <span style={{ fontFamily: T.font, fontSize: 11, color: T.stone, marginLeft: 2 }}>
+              today · WoW vs prev 7 days
+            </span>
           </div>
 
-          {/* Search + filter bar */}
-          <div style={{ display:'flex', gap:10, marginBottom:20, flexWrap:'wrap' }}>
-            <div style={{ position:'relative', flex:1, minWidth:200 }}>
-              <span style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'rgba(38,52,49,0.35)', fontSize:15 }}>🔍</span>
-              <input className="inp" style={{ ...S.input, paddingLeft:38, borderRadius:30 }} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search items…" />
-            </div>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-              {categories.map(c => (
-                <button key={c} onClick={()=>setCatFilter(c)} style={{ padding:'9px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background:catFilter===c?'#263431':'#fff', color:catFilter===c?'#EAE7E3':'rgba(38,52,49,0.55)', boxShadow:catFilter===c?'0 2px 8px rgba(28,40,37,0.18)':'0 1px 4px rgba(38,52,49,0.06)', transition:'all 0.15s' }}>
-                  {c === 'all' ? `All (${items.length})` : c}
-                </button>
-              ))}
+          <div style={{ width: '100%', height: 220 }}>
+            <ResponsiveContainer>
+              <AreaChart data={revenueSeries} margin={{ top: 18, right: 16, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="strokeGradHome" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#D4943A" />
+                    <stop offset="100%" stopColor={T.success} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date" tickFormatter={fmtTick}
+                  tick={{ fontFamily: T.font, fontSize: 10, fill: T.stone }}
+                  axisLine={false} tickLine={false} minTickGap={28}
+                />
+                <YAxis
+                  tickFormatter={fmtINRShort}
+                  tick={{ fontFamily: T.font, fontSize: 10, fill: T.stone }}
+                  axisLine={false} tickLine={false} width={48}
+                />
+                <Tooltip content={<ChartTip prefix="₹" />} cursor={{ stroke: T.sand, strokeDasharray: '3 3' }} />
+                <ReferenceLine
+                  x={today} stroke={T.ink} strokeOpacity={0.35} strokeDasharray="3 4"
+                  label={{ value: 'Today', position: 'top', fill: T.ink, fontSize: 10, fontFamily: T.font, fontWeight: 700 }}
+                />
+                <Area
+                  type="monotone" dataKey="revenue"
+                  stroke="url(#strokeGradHome)" strokeWidth={2.5}
+                  fill="transparent" fillOpacity={0}
+                  dot={false}
+                  activeDot={{ r: 5, fill: T.ink, stroke: T.white, strokeWidth: 2 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </CardChrome>
+
+        {/* ── Donut : Today's order status ── */}
+        <CardChrome
+          title="Order Status"
+          style={{ gridColumn: 'span 4' }}
+          action={<Link href="/admin/orders" style={linkSm}>See All →</Link>}
+        >
+          <div style={{ position: 'relative', width: '100%', height: 220 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={totalToday > 0 ? statusMix : [{ name: 'No orders yet', value: 1, color: T.sand }]}
+                  dataKey="value" innerRadius={62} outerRadius={92}
+                  startAngle={90} endAngle={-270} paddingAngle={totalToday > 0 ? 3 : 0} stroke="none"
+                >
+                  {(totalToday > 0 ? statusMix : [{ color: T.sand }]).map((s, i) => (
+                    <Cell key={i} fill={s.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{
+              position: 'absolute', inset: 0, display: 'flex',
+              flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+            }}>
+              <div style={{ ...labelSm, marginBottom: 2 }}>Today</div>
+              <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 30, color: T.ink, letterSpacing: '-0.5px' }}>{totalToday}</div>
+              <div style={{ fontFamily: T.font, fontSize: 11, color: T.stone, marginTop: 1 }}>
+                order{totalToday !== 1 ? 's' : ''}
+              </div>
             </div>
           </div>
-
-          {/* Legend */}
-          <div style={{ display:'flex', gap:16, marginBottom:16, flexWrap:'wrap' }}>
-            {[['⠿ drag','Reorder priority'],['✦','Popular badge'],['🏷','Offer / badge'],['◐','Active toggle']].map(([icon,label])=>(
-              <div key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(38,52,49,0.4)' }}>
-                <span style={{ fontSize:12 }}>{icon}</span>{label}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 10 }}>
+            {statusMix.map(s => (
+              <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color }} />
+                <span style={{ fontFamily: T.font, fontSize: 11, color: T.stone, fontWeight: 500 }}>
+                  <strong style={{ color: T.ink, fontWeight: 700 }}>{s.value}</strong> {s.name}
+                </span>
               </div>
             ))}
           </div>
+        </CardChrome>
 
-          {loading ? (
-            <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-              <div style={{ width:32, height:32, border:'3px solid #8A4A42', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+        {/* ── Stat: Today's Orders (gold) ── */}
+        <StatCard
+          tone="gold"
+          label="Today's Orders"
+          value={todayOrders}
+          trend={ordWoW}
+          spark={spark7}
+          dataKey="orders"
+          link="/admin/orders"
+        />
+
+        {/* ── Stat: Today's Revenue (green) ── */}
+        <StatCard
+          tone="green"
+          label="Today's Revenue"
+          value={fmtINR(todayRevenue)}
+          trend={revWoW}
+          spark={spark7}
+          dataKey="revenue"
+          link="/admin/reports"
+        />
+
+        {/* ── Activity feed (tall right) ── */}
+        <CardChrome
+          title="Live Activity"
+          style={{ gridColumn: 'span 4', gridRow: 'span 2' }}
+          action={
+            <div style={{ display: 'flex', gap: 4, background: T.cream, padding: 3, borderRadius: 999 }}>
+              {[
+                { k: 'all', label: 'All' },
+                { k: 'orders', label: 'Orders' },
+                { k: 'calls', label: 'Calls' },
+              ].map(t => (
+                <button
+                  key={t.k}
+                  onClick={() => setActivityTab(t.k)}
+                  style={{
+                    padding: '4px 11px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                    fontFamily: T.font, fontSize: 11, fontWeight: 600,
+                    background: activityTab === t.k ? T.white : 'transparent',
+                    color: activityTab === t.k ? T.ink : T.stone,
+                    boxShadow: activityTab === t.k ? '0 1px 3px rgba(38,52,49,0.10)' : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >{t.label}</button>
+              ))}
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(38,52,49,0.4)' }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>🍽️</div>
-              <p style={{ fontSize:14 }}>No items yet. Submit a request to get AR items approved.</p>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: 540, overflowY: 'auto' }}>
+            {activity.length === 0 && (
+              <div style={{
+                padding: '40px 8px', textAlign: 'center',
+                fontFamily: T.font, fontSize: 12, color: T.stone,
+              }}>
+                Quiet for now — new orders & calls will appear here live.
+              </div>
+            )}
+            {activity.map((ev, i) => (
+              <ActivityRow key={`${ev.kind}-${ev.id}`} ev={ev} isLast={i === activity.length - 1} />
+            ))}
+          </div>
+        </CardChrome>
+
+        {/* ── Top selling items today ── */}
+        <CardChrome
+          title="Top Sellers Today"
+          style={{ gridColumn: 'span 8' }}
+          action={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Link href="/admin/items" style={linkSm}>All Items →</Link>
+            </div>
+          }
+        >
+          {topItemsToday.length === 0 ? (
+            <div style={{
+              padding: '32px 8px', textAlign: 'center',
+              fontFamily: T.font, fontSize: 12, color: T.stone,
+            }}>
+              No orders placed yet today. Top sellers will appear here as orders come in.
             </div>
           ) : (
-            <div style={{ ...S.card, overflow:'hidden' }}>
-              {/* Table header */}
-              <div style={{ display:'grid', gridTemplateColumns:'40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'11px 18px', borderBottom:'1px solid rgba(38,52,49,0.06)', background:'#FAFAF8' }}>
-                {['↕','','Item','Category','Prep','Spice','Status','Actions'].map(h=>(
-                  <div key={h} style={{ fontSize:10, fontWeight:700, color:'rgba(38,52,49,0.4)', letterSpacing:'0.06em', textTransform:'uppercase' }}>{h}</div>
-                ))}
-              </div>
-
-              {filtered.map((item, idx) => {
-                const isEdit = editId === item.id;
-                const popularity = (item.views||0) + (item.arViews||0)*2;
-                return (
-                  <div key={item.id}>
-                    {/* Main row */}
-                    <div
-                      className="item-row"
-                      draggable
-                      onDragStart={() => { dragItem.current = item.id; setDragging(item.id); }}
-                      onDragEnter={() => { dragOverItem.current = item.id; }}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={e => e.preventDefault()}
-                      style={{ display:'grid', gridTemplateColumns:'40px 56px 1fr 90px 90px 80px 100px 130px', gap:0, padding:'13px 18px', borderBottom: isEdit ? 'none' : '1px solid rgba(38,52,49,0.05)', alignItems:'center', background: dragging === item.id ? '#FFF5F0' : dragOverItem.current === item.id && dragging && dragging !== item.id ? '#F0F7F3' : '#fff', transition:'background 0.12s', opacity: item.isActive ? 1 : 0.5, cursor: dragging ? 'grabbing' : 'default', outline: dragOverItem.current === item.id && dragging && dragging !== item.id ? '2px dashed rgba(122,170,142,0.6)' : 'none' }}>
-
-                      {/* Drag handle */}
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', cursor:'grab', color:'rgba(38,52,49,0.25)', fontSize:16, userSelect:'none' }} title="Drag to reorder">⠿</div>
-
-                      {/* Image */}
-                      <div style={{ width:44, height:44, borderRadius:12, overflow:'hidden', background:'#EAE7E3', flexShrink:0 }}>
-                        {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🍽️</div>}
-                      </div>
-
-                      {/* Name + badges */}
-                      <div style={{ minWidth:0, paddingRight:8 }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                          <span style={{ fontWeight:600, fontSize:13, color:'#263431', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</span>
-                          {item.isPopular && <span style={{ fontSize:10, fontWeight:700, color:'#8A4A42', background:'rgba(138,74,66,0.1)', borderRadius:20, padding:'2px 7px', flexShrink:0 }}>✦ Popular</span>}
-                          {item.offerBadge && item.offerLabel && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background: item.offerColor||'#8A4A42', borderRadius:20, padding:'2px 8px', flexShrink:0 }}>🏷 {item.offerLabel}</span>}
-                          {isSoldOutToday(item) && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#8A4A42', borderRadius:20, padding:'2px 8px', flexShrink:0 }}>SOLD OUT</span>}
-                        </div>
-                        {item.description && <div style={{ fontSize:11, color:'rgba(38,52,49,0.45)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.description}</div>}
-                        <div style={{ display:'flex', gap:8, marginTop:3 }}>
-                          {item.price && <span style={{ fontSize:11, fontWeight:700, color:'#263431', fontFamily:'Outfit, sans-serif' }}>₹{item.price}</span>}
-                          <span style={{ fontSize:11, color:'rgba(38,52,49,0.35)' }}>👁 {(item.views||0) + (item.arViews||0)} views</span>
-                        </div>
-                      </div>
-
-                      {/* Category */}
-                      <div style={{ fontSize:12, color:'rgba(38,52,49,0.55)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.category || '—'}</div>
-
-                      {/* Prep time */}
-                      <div style={{ fontSize:11, color:'rgba(38,52,49,0.5)' }}>{item.prepTime ? `⏱ ${item.prepTime}` : '—'}</div>
-
-                      {/* Spice */}
-                      <div>
-                        {item.spiceLevel && item.spiceLevel !== 'None' ? (
-                          <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:20, background:(SPICE_COLORS[item.spiceLevel]||'#ccc')+'22', color:SPICE_COLORS[item.spiceLevel]||'#999', border:`1px solid ${(SPICE_COLORS[item.spiceLevel]||'#ccc')}44` }}>{item.spiceLevel}</span>
-                        ) : <span style={{ fontSize:11, color:'rgba(38,52,49,0.3)' }}>—</span>}
-                      </div>
-
-                      {/* Active toggle */}
-                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <div onClick={()=>toggleActive(item)} style={{ width:36, height:20, borderRadius:99, background:item.isActive?'#7AAA8E':'rgba(38,52,49,0.15)', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
-                          <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:item.isActive?19:3, transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }} />
-                        </div>
-                        <span style={{ fontSize:11, color:'rgba(38,52,49,0.4)' }}>{item.isActive?'On':'Off'}</span>
-                      </div>
-
-                      {/* Actions */}
-                      <div style={{ display:'flex', gap:6 }}>
-                        <button onClick={()=>toggleSoldOut(item)}
-                          title={isSoldOutToday(item) ? 'Mark as available' : 'Mark as sold out today'}
-                          style={{ padding:'6px 10px', borderRadius:9, border: isSoldOutToday(item) ? '1.5px solid rgba(74,122,94,0.4)' : '1.5px solid rgba(138,74,66,0.3)', background: isSoldOutToday(item) ? 'rgba(74,122,94,0.1)' : 'rgba(138,74,66,0.07)', color: isSoldOutToday(item) ? '#1A6040' : '#8A4A42', fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
-                          {isSoldOutToday(item) ? '✓ In Stock' : '✕ Sold Out'}
-                        </button>
-                        <button onClick={()=>isEdit?cancelEdit():startEdit(item)} style={{ padding:'6px 12px', borderRadius:9, border:'1.5px solid rgba(38,52,49,0.12)', background: isEdit?'rgba(138,74,66,0.08)':'transparent', color: isEdit?'#8A4A42':'rgba(38,52,49,0.6)', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.12s' }}>
-                          {isEdit ? 'Cancel' : 'Edit'}
-                        </button>
-                        <button onClick={()=>handleDelete(item)} disabled={deleting===item.id} style={{ padding:'6px 10px', borderRadius:10, border:'1.5px solid rgba(138,74,66,0.3)', background:'rgba(138,74,66,0.06)', color:'#8A4A42', fontSize:12, fontWeight:600, cursor:'pointer', opacity:deleting===item.id?0.5:1, transition:'all 0.15s' }}>
-                          {deleting===item.id?'…':'✕'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Edit panel */}
-                    {isEdit && (
-                      <div style={{ background:'#F7F5F2', borderBottom:'1px solid rgba(38,52,49,0.06)', padding:'20px 18px 24px' }}>
-                        <div style={{ fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:14, color:'#263431', marginBottom:18 }}>✏️ Editing: {item.name}</div>
-
-                        {/* Cover image upload */}
-                        <div style={{ background:'#fff', borderRadius:14, padding:16, marginBottom:16, border:'1px solid rgba(38,52,49,0.07)' }}>
-                          <label style={{ ...S.label, marginBottom:10 }}>📸 Cover Image</label>
-                          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-                            <div style={{ width:64, height:64, borderRadius:14, overflow:'hidden', background:'#EAE7E3', flexShrink:0 }}>
-                              {item.imageURL
-                                ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-                                : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28 }}>🍽️</div>}
-                            </div>
-                            <div>
-                              <div style={{ fontSize:11, color:'rgba(38,52,49,0.45)', marginBottom:8 }}>JPG, PNG · Max 5MB · Shown on menu card</div>
-                              <input
-                                type="file" accept="image/*" style={{ display:'none' }}
-                                ref={el => { if(el) imgInputRef.current[item.id]=el; }}
-                                onChange={e => handleImageUpload(item, e.target.files[0])}
-                              />
-                              <button
-                                onClick={() => imgInputRef.current[item.id]?.click()}
-                                disabled={imgUpload[item.id]?.uploading}
-                                style={{ padding:'8px 16px', borderRadius:10, border:'1.5px solid rgba(38,52,49,0.12)', background:'transparent', fontSize:12, fontWeight:600, color:'rgba(38,52,49,0.6)', cursor:'pointer', opacity:imgUpload[item.id]?.uploading?0.6:1 }}>
-                                {imgUpload[item.id]?.uploading ? `Uploading ${imgUpload[item.id].progress}%…` : item.imageURL ? '↑ Replace Image' : '↑ Upload Image'}
-                              </button>
-                            </div>
-                          </div>
-                          {imgUpload[item.id]?.uploading && (
-                            <div style={{ height:4, background:'rgba(38,52,49,0.07)', borderRadius:99, overflow:'hidden', marginTop:10 }}>
-                              <div style={{ height:'100%', background:'#8A4A42', borderRadius:99, width:`${imgUpload[item.id].progress}%`, transition:'width 0.2s' }}/>
-                            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Rank', 'Item', 'Category', 'Units', 'Revenue', 'Rating'].map(h => (
+                      <th key={h} style={{
+                        textAlign: h === 'Units' || h === 'Revenue' ? 'right' : 'left',
+                        padding: '8px 10px', borderBottom: `1px solid ${T.sand}`,
+                        ...labelSm, fontWeight: 700,
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {topItemsToday.map((it, i) => (
+                    <tr key={it.id} style={{ borderBottom: i === topItemsToday.length - 1 ? 'none' : `1px solid ${T.sand}40` }}>
+                      <td style={tdL}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 24, height: 24, borderRadius: 8,
+                          background: i === 0 ? 'rgba(196,168,109,0.20)' : T.cream,
+                          color: i === 0 ? T.warning : T.stone,
+                          fontFamily: T.font, fontSize: 11, fontWeight: 700,
+                        }}>{i + 1}</span>
+                      </td>
+                      <td style={tdL}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {it.imageURL ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={it.imageURL} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{
+                              width: 32, height: 32, borderRadius: 8, background: T.cream,
+                              display: 'inline-block',
+                            }} />
                           )}
+                          <span style={{ fontFamily: T.font, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                            {it.name}
+                          </span>
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
-                          <div>
-                            <label style={S.label}>Item Name *</label>
-                            <input className="inp" style={S.input} value={editData.name} onChange={e=>setEditData(d=>({...d,name:e.target.value}))} />
-                          </div>
-                          <div>
-                            <label style={S.label}>Category <span style={{color:'#8A4A42'}}>*</span></label>
-                            <input className="inp" style={{...S.input, borderColor:!editData.category?.trim()?'rgba(138,74,66,0.4)':undefined}} value={editData.category} onChange={e=>setEditData(d=>({...d,category:e.target.value}))} placeholder="e.g. Main Course" />
-                          </div>
-                          <div>
-                            <label style={S.label}>Price (₹)</label>
-                            <input className="inp" style={S.input} type="number" min="0" value={editData.price} onChange={e=>setEditData(d=>({...d,price:e.target.value}))} placeholder="e.g. 299" />
-                          </div>
-                        </div>
-                        <div style={{ marginBottom:14 }}>
-                          <label style={S.label}>Description</label>
-                          <textarea className="inp" style={{ ...S.input, resize:'none' }} rows={2} value={editData.description} onChange={e=>setEditData(d=>({...d,description:e.target.value}))} placeholder="Short description…" />
-                        </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:14 }}>
-                          <div>
-                            <label style={S.label}>⏱ Prep Time</label>
-                            <input className="inp" style={S.input} value={editData.prepTime} onChange={e=>setEditData(d=>({...d,prepTime:e.target.value}))} placeholder="10–15 minutes" />
-                          </div>
-                          <div>
-                            <label style={S.label}>🌶 Spice Level <span style={{color:'#8A4A42'}}>*</span></label>
-                            <select className="inp" style={S.input} value={editData.spiceLevel} onChange={e=>setEditData(d=>({...d,spiceLevel:e.target.value}))}>
-                              {SPICE_LEVELS.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label style={S.label}>Priority Order</label>
-                            <input className="inp" style={S.input} type="number" min="1" value={editData.sortOrder} onChange={e=>setEditData(d=>({...d,sortOrder:e.target.value}))} placeholder="1 = first" />
-                          </div>
-                        </div>
-
-                        {/* Veg / Non-Veg required field */}
-                        <div style={{ marginBottom:14 }}>
-                          <label style={{ ...S.label, marginBottom:8 }}>Veg / Non-Veg <span style={{color:'#8A4A42'}}>*</span></label>
-                          <div style={{ display:'flex', gap:10 }}>
-                            {[{val:true,label:'🟢 Veg',bg:'#4A7A5E'},{val:false,label:'🔴 Non-Veg',bg:'#C0392B'}].map(({val,label,bg})=>(
-                              <button key={String(val)}
-                                onClick={()=>setEditData(d=>({...d,isVeg:val}))}
-                                style={{
-                                  padding:'9px 22px', borderRadius:50, border:`2px solid ${editData.isVeg===val?bg:'rgba(38,52,49,0.12)'}`,
-                                  background: editData.isVeg===val ? bg+'18' : '#fff',
-                                  fontSize:13, fontWeight:700, color: editData.isVeg===val ? bg : 'rgba(38,52,49,0.45)',
-                                  cursor:'pointer', transition:'all 0.15s'
-                                }}>
-                                {label}
-                              </button>
-                            ))}
-                            {(editData.isVeg === undefined || editData.isVeg === null || editData.isVeg === '') && (
-                              <span style={{ fontSize:11, color:'#8A4A42', alignSelf:'center', marginLeft:4 }}>Required</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Offer badge section */}
-                        <div style={{ background:'#fff', borderRadius:14, padding:'16px', marginBottom:14, border:'1px solid rgba(38,52,49,0.07)' }}>
-                          <label style={{ ...S.label, marginBottom:10 }}>🏷 Offer / Badge</label>
-                          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:editData.offerBadge==='Custom…'?12:0 }}>
-                            <button onClick={()=>setEditData(d=>({...d,offerBadge:'',offerLabel:''}))} style={{ padding:'6px 14px', borderRadius:20, border:`1.5px solid ${!editData.offerBadge?'rgba(38,52,49,0.4)':'rgba(38,52,49,0.1)'}`, background:!editData.offerBadge?'rgba(38,52,49,0.07)':'transparent', fontSize:12, fontWeight:600, color:'rgba(38,52,49,0.6)', cursor:'pointer' }}>None</button>
-                            {OFFER_BADGES.map(b=>(
-                              <button key={b.label} onClick={()=>setEditData(d=>({...d,offerBadge:b.label,offerLabel:b.label==='Custom…'?d.offerLabel:b.label,offerColor:b.color}))} style={{ padding:'6px 14px', borderRadius:20, border:`1.5px solid ${editData.offerBadge===b.label?b.color:'rgba(38,52,49,0.1)'}`, background:editData.offerBadge===b.label?b.color+'22':'transparent', fontSize:12, fontWeight:700, color:editData.offerBadge===b.label?b.color:'rgba(38,52,49,0.5)', cursor:'pointer' }}>
-                                {b.label}
-                              </button>
-                            ))}
-                          </div>
-                          {editData.offerBadge === 'Custom…' && (
-                            <input className="inp" style={{ ...S.input, marginTop:8 }} value={customBadge} onChange={e=>setCustomBadge(e.target.value)} placeholder="Enter custom badge text e.g. '30% Off Tonight'" />
-                          )}
-                        </div>
-
-                        {/* Flags row */}
-                        <div style={{ display:'flex', gap:16, marginBottom:18, flexWrap:'wrap' }}>
-                          {[['isPopular','✦ Mark as Popular','Show popular badge on menu'],['isFeatured','⭐ Feature this item','Appear at top of category'],['isActive','👁 Visible on menu','Customers can see this item']].map(([key,title,desc])=>(
-                            <div key={key} onClick={()=>setEditData(d=>({...d,[key]:!d[key]}))} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 16px', borderRadius:12, border:`1.5px solid ${editData[key]?'rgba(138,74,66,0.35)':'rgba(38,52,49,0.09)'}`, background:editData[key]?'rgba(138,74,66,0.05)':'#fff', cursor:'pointer', transition:'all 0.15s' }}>
-                              <div style={{ width:32, height:18, borderRadius:99, background:editData[key]?'#8A4A42':'rgba(38,52,49,0.15)', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
-                                <div style={{ width:12, height:12, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:editData[key]?17:3, transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
-                              </div>
-                              <div>
-                                <div style={{ fontSize:12, fontWeight:700, color:'#263431' }}>{title}</div>
-                                <div style={{ fontSize:10, color:'rgba(38,52,49,0.4)' }}>{desc}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* ── Pairs Well With ── */}
-                        <div style={{ background:'#fff', borderRadius:14, padding:'16px', marginBottom:14, border:'1px solid rgba(38,52,49,0.07)' }}>
-                          <label style={{ ...S.label, marginBottom:10 }}>✨ Pairs Well With <span style={{ fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>— pick up to 3 items shown in modal</span></label>
-                          <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                            {items.filter(i => i.id !== editId).map(i => {
-                              const sel = (editData.pairsWith||[]).includes(i.id);
-                              const maxed = (editData.pairsWith||[]).length >= 3 && !sel;
-                              return (
-                                <button key={i.id}
-                                  onClick={() => {
-                                    if (maxed) return;
-                                    setEditData(d => ({
-                                      ...d,
-                                      pairsWith: sel
-                                        ? (d.pairsWith||[]).filter(x => x !== i.id)
-                                        : [...(d.pairsWith||[]), i.id]
-                                    }));
-                                  }}
-                                  style={{ padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor: maxed?'not-allowed':'pointer', border:`1.5px solid ${sel?'rgba(196,168,109,0.6)':'rgba(38,52,49,0.1)'}`, background: sel?'rgba(196,168,109,0.1)':'#F7F5F2', color: sel?'#A06010':'rgba(38,52,49,0.5)', opacity: maxed?0.4:1, transition:'all 0.15s' }}>
-                                  {sel ? '✓ ' : ''}{i.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {(editData.pairsWith||[]).length > 0 && (
-                            <div style={{ marginTop:8, fontSize:11, color:'rgba(38,52,49,0.4)' }}>
-                              Selected: {(editData.pairsWith||[]).map(id => items.find(i=>i.id===id)?.name).filter(Boolean).join(', ')}
-                            </div>
-                          )}
-                        </div>
-
-                        <div style={{ display:'flex', gap:10 }}>
-                          <button onClick={saveEdit} disabled={saving} style={{ padding:'11px 28px', borderRadius:10, border:'none', background:'#263431', color:'#EAE7E3', fontSize:14, fontWeight:700, fontFamily:'Outfit, sans-serif', cursor:'pointer', opacity:saving?0.6:1, transition:'all 0.15s' }}>
-                            {saving ? 'Saving…' : 'Save Changes'}
-                          </button>
-                          <button onClick={cancelEdit} style={{ padding:'11px 20px', borderRadius:10, border:'1.5px solid rgba(38,52,49,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(38,52,49,0.55)', cursor:'pointer', transition:'all 0.15s' }}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      </td>
+                      <td style={tdL}>
+                        <span style={{
+                          display: 'inline-block', padding: '3px 9px', borderRadius: 999,
+                          background: T.cream, fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.stone,
+                        }}>{it.category}</span>
+                      </td>
+                      <td style={tdR}>
+                        <span style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.ink }}>{it.units}</span>
+                      </td>
+                      <td style={tdR}>
+                        <span style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.success }}>
+                          {fmtINR(it.revenue)}
+                        </span>
+                      </td>
+                      <td style={tdL}>
+                        {it.ratingAvg > 0 ? (
+                          <span style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: T.warning }}>
+                            ★ {it.ratingAvg.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span style={{ fontFamily: T.font, fontSize: 11, color: 'rgba(38,52,49,0.25)' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
+        </CardChrome>
 
-          {/* Popularity insight card */}
-          {!loading && items.length > 0 && (
-            <div style={{ ...S.card, padding:24, marginTop:20 }}>
-              <div style={{ fontFamily:"'Playfair Display', Georgia, serif", fontWeight:700, fontSize:15, color:'#263431', marginBottom:16 }}>📊 Most Popular Items</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {[...items]
-                  .sort((a,b) => ((b.views||0)+(b.arViews||0)*2) - ((a.views||0)+(a.arViews||0)*2))
-                  .slice(0,5)
-                  .map((item, i) => {
-                    const score = (item.views||0) + (item.arViews||0)*2;
-                    const maxScore = (items[0]?.views||0) + (items[0]?.arViews||0)*2 || 1;
-                    const pct = Math.max(8, Math.round((score / Math.max(...items.map(x=>(x.views||0)+(x.arViews||0)*2),1)) * 100));
-                    return (
-                      <div key={item.id} style={{ display:'flex', alignItems:'center', gap:12 }}>
-                        <span style={{ fontSize:11, color:'rgba(38,52,49,0.35)', width:16, textAlign:'right', flexShrink:0 }}>#{i+1}</span>
-                        <div style={{ width:32, height:32, borderRadius:10, overflow:'hidden', background:'#EAE7E3', flexShrink:0 }}>
-                          {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <span style={{ fontSize:16, lineHeight:'32px', display:'block', textAlign:'center' }}>🍽️</span>}
-                        </div>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                            <span style={{ fontSize:13, fontWeight:500, color:'#263431', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</span>
-                            <span style={{ fontSize:11, color:'rgba(38,52,49,0.4)', flexShrink:0, marginLeft:8 }}>{item.views||0} views · {item.arViews||0} AR</span>
-                          </div>
-                          <div style={{ height:5, background:'rgba(38,52,49,0.07)', borderRadius:99, overflow:'hidden' }}>
-                            <div style={{ height:'100%', borderRadius:99, background: i===0?'#8A4A42':i===1?'#F4A060':'#7AAA8E', width:`${pct}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes arPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.55; transform: scale(1.4); }
+        }
+      `}</style>
     </AdminLayout>
   );
 }
 
-AdminItems.getLayout = (page) => page;
+/* ─── StatCard component ─────────────────────────────────────── */
+
+function StatCard({ tone, label, value, trend, spark, dataKey, link }) {
+  const isGreen = tone === 'green';
+  const barColor = isGreen ? T.success : '#D4943A';
+
+  return (
+    <section style={{
+      ...ADMIN_STYLES.card, gridColumn: 'span 4', padding: '18px 20px 14px',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={labelSm}>{label}</span>
+        {link && <Link href={link} style={linkSm}>See All →</Link>}
+      </header>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span style={{
+          fontFamily: T.font, fontWeight: 700, fontSize: 28, color: T.ink, letterSpacing: '-0.5px',
+        }}>{value}</span>
+        <TrendPill pct={trend} />
+      </div>
+      <div style={{ fontFamily: T.font, fontSize: 11, color: T.stone, marginTop: 2 }}>
+        vs previous 7 days
+      </div>
+      <div style={{ width: '100%', height: 56, marginTop: 8 }}>
+        <ResponsiveContainer>
+          <BarChart data={spark} margin={{ top: 6, right: 0, left: 0, bottom: 0 }}>
+            <Tooltip
+              cursor={{ fill: 'rgba(38,52,49,0.04)' }}
+              content={<ChartTip prefix={dataKey === 'revenue' ? '₹' : ''} />}
+            />
+            <Bar dataKey={dataKey} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={18} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Activity row ──────────────────────────────────────────── */
+
+const tdL = { padding: '11px 10px', textAlign: 'left', verticalAlign: 'middle' };
+const tdR = { padding: '11px 10px', textAlign: 'right', verticalAlign: 'middle' };
+
+function ActivityRow({ ev, isLast }) {
+  const isOrder = ev.kind === 'order';
+  const statusColor = isOrder
+    ? (ev.status === 'served' ? T.success : ev.status === 'ready' ? T.warning : ev.status === 'preparing' ? '#9B7BC4' : T.danger)
+    : (ev.status === 'resolved' ? T.success : T.danger);
+  const statusBg = `${statusColor}1F`;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '12px 2px', borderBottom: isLast ? 'none' : `1px solid ${T.sand}40`,
+    }}>
+      <div style={{
+        flexShrink: 0, width: 36, height: 36, borderRadius: 10,
+        background: isOrder ? 'rgba(196,168,109,0.14)' : 'rgba(138,74,66,0.12)',
+        color: isOrder ? T.warning : T.danger,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 16,
+      }}>
+        {isOrder ? '🍽️' : '🔔'}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.ink }}>
+            {isOrder ? `Order · Table ${ev.table || '—'}` : `Waiter Call · Table ${ev.table || '—'}`}
+          </span>
+          <span style={{
+            ...labelSm, padding: '2px 7px', borderRadius: 999,
+            background: statusBg, color: statusColor, fontSize: 9,
+          }}>{ev.status}</span>
+        </div>
+        <div style={{ fontFamily: T.font, fontSize: 11, color: T.stone, marginTop: 2 }}>
+          {isOrder
+            ? `${ev.itemCount} item${ev.itemCount !== 1 ? 's' : ''} · ${fmtINR(ev.total)}`
+            : 'Tap to attend'}
+        </div>
+      </div>
+      <span style={{
+        flexShrink: 0, fontFamily: T.font, fontSize: 10, fontWeight: 600,
+        color: T.stone, opacity: 0.7,
+      }}>{timeAgoShort(ev.ts)}</span>
+    </div>
+  );
+}
