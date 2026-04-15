@@ -300,7 +300,7 @@ export default function AdminAnalytics() {
     const isLine = mode === 'line';
     return (
       <button onClick={() => toggleChart(chartKey, fallback)} title={`Switch to ${isLine ? 'bar' : 'line'} chart`}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(38,52,49,0.1)', background: 'rgba(38,52,49,0.03)', cursor: 'pointer', fontFamily: T.font, fontSize: 10, fontWeight: 600, color: 'rgba(38,52,49,0.5)', transition: 'all 0.15s' }}>
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: `1.5px solid ${T.warning}`, background: 'rgba(196,168,109,0.10)', cursor: 'pointer', fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.warning, transition: 'all 0.15s', letterSpacing: '0.01em' }}>
         {isLine ? (
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="7" width="2.5" height="5" rx="0.8" fill="currentColor" /><rect x="5.75" y="4" width="2.5" height="8" rx="0.8" fill="currentColor" /><rect x="9.5" y="5.5" width="2.5" height="6.5" rx="0.8" fill="currentColor" /></svg>
         ) : (
