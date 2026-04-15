@@ -378,14 +378,10 @@ export default function AdminAnalytics() {
         </div>
 
         {/* ═══ MAIN CONTENT ═══ */}
-        <div style={{ maxWidth: 1164, margin: '0 auto', padding: '18px 32px 40px' }}>
+        <div style={{ maxWidth: 1164, margin: '0 auto', padding: '14px 32px 40px' }}>
 
           {/* ── TODAY'S LIVE DATA — big card ── */}
-          <div style={{
-            background: T.white, borderRadius: 16, padding: '18px 22px', marginBottom: 14,
-            border: '1px solid rgba(38,52,49,0.06)',
-            boxShadow: '0 2px 10px rgba(38,52,49,0.03)',
-          }}>
+          <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#5A8A6E', animation: 'pulse 2s ease infinite' }} />
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5A8A6E' }}>LIVE TODAY</span>
@@ -417,7 +413,7 @@ export default function AdminAnalytics() {
           {insights.length > 0 && (
             <div style={{
               background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-              borderRadius: 16, padding: '16px 20px', marginBottom: 14,
+              borderRadius: 16, padding: '18px 24px', marginBottom: 14,
               border: '1px solid rgba(234,231,227,0.06)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -425,7 +421,7 @@ export default function AdminAnalytics() {
                 <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.06)' }} />
                 <span style={{ fontSize: 11, color: 'rgba(234,231,227,0.45)', fontWeight: 500 }}>Auto-analysed</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(insights.length, 4)}, 1fr)`, gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(insights.length, 4)}, 1fr)`, gap: 12 }}>
                 {insights.map((ins, i) => {
                   const icons = { success: '▲', warning: '◆', danger: '!', info: '→' };
                   const colors = { success: '#7AAA8E', warning: T.warning, danger: '#E8907E', info: '#7ABAC8' };
@@ -478,7 +474,7 @@ export default function AdminAnalytics() {
               </div>
             </div>
           </div>
-          <div style={{ height: 18 }} />
+          <div style={{ height: 14 }} />
 
           {/* Spinner */}
           {loading ? (
@@ -521,7 +517,7 @@ export default function AdminAnalytics() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-                <div style={{ ...card, padding: '18px 22px' }}>
+                <div style={{ ...card, padding: '20px 24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={secTitle}>Orders Per Day</div>
                     <ChartToggle chartKey="orders" fallback="bar" />
@@ -551,7 +547,7 @@ export default function AdminAnalytics() {
                     ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>}
                   </div>
                 </div>
-                <div style={{ ...card, padding: '18px 22px' }}>
+                <div style={{ ...card, padding: '20px 24px' }}>
                   <div style={secTitle}>Most Ordered</div>
                   <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {topOrderedItems.length > 0 ? topOrderedItems.map((item, i) => {
@@ -577,7 +573,7 @@ export default function AdminAnalytics() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div style={{ ...card, padding: '18px 22px' }}>
+                <div style={{ ...card, padding: '20px 24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
                     <div style={secTitle}>Peak Hours</div>
                     {peakHour && <span style={{ fontSize: 11, fontWeight: 700, color: '#9B5B53', background: 'rgba(155,91,83,0.08)', padding: '3px 10px', borderRadius: 20 }}>Busiest: {peakHour.label}</span>}
@@ -595,7 +591,7 @@ export default function AdminAnalytics() {
                     </div>
                   )}
                 </div>
-                <div style={{ ...card, padding: '18px 22px' }}>
+                <div style={{ ...card, padding: '20px 24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
                     <div style={secTitle}>Busiest Days</div>
                     {busiestDay && busiestDay.orders > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#5A8A6E', background: 'rgba(90,138,110,0.08)', padding: '3px 10px', borderRadius: 20 }}>Top: {busiestDay.day}</span>}
@@ -621,7 +617,7 @@ export default function AdminAnalytics() {
                 {/* Journey — vertical funnel */}
                 <div style={{
                   background: `linear-gradient(180deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-                  borderRadius: 16, padding: '22px 24px',
+                  borderRadius: 16, padding: '20px 24px',
                   border: '1px solid rgba(234,231,227,0.06)',
                 }}>
                   <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: '#fff', letterSpacing: '-0.3px' }}>Customer Journey</div>
@@ -660,7 +656,7 @@ export default function AdminAnalytics() {
                 </div>
 
                 {/* Dish Performance — cinematic bento */}
-                <div style={{ ...card, padding: '22px 24px' }}>
+                <div style={{ ...card, padding: '20px 24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                     <div style={secTitle}>Dish Performance</div>
                     {topDishes.length > 0 && <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)', fontWeight: 500 }}>{range}d data</span>}
@@ -676,7 +672,7 @@ export default function AdminAnalytics() {
                       'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=400&fit=crop&q=80',
                     ];
                     return (
-                    <div style={{ display: 'grid', gridTemplateColumns: rightCount > 0 ? '1fr 1fr' : '1fr', gridAutoRows: 'auto', gap: 10, alignItems: 'start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: rightCount > 0 ? '1fr 1fr' : '1fr', gridAutoRows: 'auto', gap: 12, alignItems: 'start' }}>
                       {/* Best seller — tall hero card */}
                       {bestSellerItem && (
                         <div style={{
@@ -734,11 +730,7 @@ export default function AdminAnalytics() {
               </div>
 
               {/* Visits chart — refined */}
-              <div style={{
-                background: T.white, borderRadius: 16, padding: '22px 26px', marginBottom: 14,
-                border: '1px solid rgba(38,52,49,0.06)',
-                boxShadow: '0 2px 12px rgba(38,52,49,0.04)',
-              }}>
+              <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -789,7 +781,7 @@ export default function AdminAnalytics() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div style={{
                   background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-                  borderRadius: 16, padding: '22px 24px',
+                  borderRadius: 16, padding: '20px 24px',
                   border: '1px solid rgba(234,231,227,0.06)',
                 }}>
                   <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: '#fff', letterSpacing: '-0.3px', marginBottom: 16 }}>Waiter Summary</div>
@@ -816,11 +808,7 @@ export default function AdminAnalytics() {
                   ) : <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(234,231,227,0.4)', fontSize: 14 }}>No data</div>}
                 </div>
                 {topItems.length > 0 && (
-                  <div style={{
-                    background: T.white, borderRadius: 16, padding: '22px 24px',
-                    border: '1px solid rgba(38,52,49,0.06)',
-                    boxShadow: '0 2px 12px rgba(38,52,49,0.04)',
-                  }}>
+                  <div style={{ ...card, padding: '20px 24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                       <div style={secTitle}>Top Menu Items</div>
                       <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'rgba(38,52,49,0.4)' }}>
@@ -936,7 +924,7 @@ export default function AdminAnalytics() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div style={{ ...card, padding: '18px 22px' }}>
+                <div style={{ ...card, padding: '20px 24px' }}>
                   <div style={secTitle}>Category Breakdown</div>
                   {catData.length > 0 ? (<>
                     <div style={{ marginTop: 10 }}><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={catData} dataKey="views" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={32} paddingAngle={3}>{catData.map((_, i) => <Cell key={i} fill={CAT_COLORS[i % CAT_COLORS.length]} />)}</Pie><Tooltip content={<PieTip />} /></PieChart></ResponsiveContainer></div>
@@ -952,7 +940,7 @@ export default function AdminAnalytics() {
                     </div>
                   </>) : <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>}
                 </div>
-                <div style={{ ...card, padding: '18px 22px' }}>
+                <div style={{ ...card, padding: '20px 24px' }}>
                   <div style={secTitle}>Ratings Leaderboard</div>
                   {topRated.length === 0 ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No ratings</div> : (<>
                     <div style={{ ...labelSm, marginTop: 12 }}>TOP RATED</div>
@@ -986,7 +974,7 @@ export default function AdminAnalytics() {
           {!loading && (
             <div style={{
               background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-              borderRadius: 16, padding: '18px 22px', marginTop: 20,
+              borderRadius: 16, padding: '20px 24px', marginTop: 14,
               border: '1px solid rgba(234,231,227,0.06)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
