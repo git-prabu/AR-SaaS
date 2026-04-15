@@ -75,7 +75,7 @@ function formatTime(secs) {
   return `${Math.floor(secs / 60)}m ${secs % 60}s`;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function formatDateTick(val) {
   if (!val || typeof val !== 'string') return val;
   const parts = val.split('-');
@@ -531,15 +531,13 @@ export default function AdminAnalytics() {
                     <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.3)' }}>Last {range} days</span>
                   </div>
                 </div>
-                {(() => {
-                  const a = getAnnotation(revenueChartData, 'revenue'); return a ? (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
-                      <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 22, color: T.ink }}>₹{a.value.toLocaleString('en-IN')}</span>
-                      <Trend val={a.trend} />
-                      <span style={{ fontSize: 11, color: 'rgba(38,52,49,0.35)' }}>latest</span>
-                    </div>
-                  ) : null;
-                })()}
+                {(() => { const a = getAnnotation(revenueChartData, 'revenue'); return a ? (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
+                    <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 22, color: T.ink }}>₹{a.value.toLocaleString('en-IN')}</span>
+                    <Trend val={a.trend} />
+                    <span style={{ fontSize: 11, color: 'rgba(38,52,49,0.35)' }}>latest</span>
+                  </div>
+                ) : null; })()}
                 <div style={{ marginTop: 14 }}>
                   {revenueChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={220}>
@@ -577,15 +575,13 @@ export default function AdminAnalytics() {
                     </div>
                     <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(38,52,49,0.4)', padding: '3px 10px', borderRadius: 20, background: 'rgba(38,52,49,0.04)', border: '1px solid rgba(38,52,49,0.06)' }}>{dateRangeLabel}</span>
                   </div>
-                  {(() => {
-                    const a = getAnnotation(revenueChartData, 'orders'); return a ? (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
-                        <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.ink }}>{a.value}</span>
-                        <Trend val={a.trend} />
-                        <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)' }}>latest</span>
-                      </div>
-                    ) : null;
-                  })()}
+                  {(() => { const a = getAnnotation(revenueChartData, 'orders'); return a ? (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
+                      <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.ink }}>{a.value}</span>
+                      <Trend val={a.trend} />
+                      <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)' }}>latest</span>
+                    </div>
+                  ) : null; })()}
                   <div style={{ marginTop: 12 }}>
                     {revenueChartData.length > 0 ? (
                       <ResponsiveContainer width="100%" height={170}>
@@ -738,161 +734,117 @@ export default function AdminAnalytics() {
                       'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=400&fit=crop&q=80',
                     ];
                     return (
-                      <div style={{ display: 'grid', gridTemplateColumns: rightCount > 0 ? '1fr 1fr' : '1fr', gridAutoRows: 'auto', gap: 12, alignItems: 'start' }}>
-                        {/* Best seller — tall hero card */}
-                        {bestSellerItem && (
-                          <div style={{
-                            gridRow: rightCount > 1 ? `1 / ${rightCount + 1}` : undefined, alignSelf: 'stretch', borderRadius: 16, overflow: 'hidden', position: 'relative',
-                            minHeight: rightCount <= 1 ? 220 : 260, background: T.shellDarker,
-                            boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
-                          }}>
-                            <img src={bestSellerItem.imageURL || stockFoods[0]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,40,37,0.9) 0%, rgba(28,40,37,0.3) 40%, rgba(0,0,0,0.05) 100%)' }} />
-                            <div style={{ position: 'absolute', top: 12, left: 12 }}>
-                              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: T.shellDarker, background: T.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: rightCount > 0 ? '1fr 1fr' : '1fr', gridAutoRows: 'auto', gap: 12, alignItems: 'start' }}>
+                      {/* Best seller — tall hero card */}
+                      {bestSellerItem && (
+                        <div style={{
+                          gridRow: rightCount > 1 ? `1 / ${rightCount + 1}` : undefined, alignSelf: 'stretch', borderRadius: 16, overflow: 'hidden', position: 'relative',
+                          minHeight: rightCount <= 1 ? 220 : 260, background: T.shellDarker,
+                          boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
+                        }}>
+                          <img src={bestSellerItem.imageURL || stockFoods[0]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,40,37,0.9) 0%, rgba(28,40,37,0.3) 40%, rgba(0,0,0,0.05) 100%)' }} />
+                          <div style={{ position: 'absolute', top: 12, left: 12 }}>
+                            <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: T.shellDarker, background: T.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
+                          </div>
+                          <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
+                            <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 18, color: '#fff', lineHeight: 1.25 }}>{bestSellerItem.name}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                              <span style={{ fontSize: 11, color: T.warning, fontWeight: 700 }}>{bestSeller.qty}x ordered</span>
+                              <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
+                              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>₹{bestSeller.revenue.toFixed(0)}</span>
                             </div>
-                            <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
-                              <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 18, color: '#fff', lineHeight: 1.25 }}>{bestSellerItem.name}</div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                                <span style={{ fontSize: 11, color: T.warning, fontWeight: 700 }}>{bestSeller.qty}x ordered</span>
-                                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
-                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>₹{bestSeller.revenue.toFixed(0)}</span>
+                          </div>
+                        </div>
+                      )}
+                      {/* Other top dishes */}
+                      {topDishes.slice(1, 6).map((dish, idx) => {
+                        const menuItem = activeItems.find(m => m.name === dish.name);
+                        const maxQty = topDishes[0]?.qty || 1;
+                        const barPct = Math.max(8, Math.round((dish.qty / maxQty) * 100));
+                        return (
+                          <div key={dish.name} className="kpi-card" style={{
+                            borderRadius: 12, padding: '12px 14px',
+                            background: T.white, border: '1px solid rgba(38,52,49,0.06)',
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            boxShadow: '0 1px 4px rgba(38,52,49,0.03)',
+                          }}>
+                            <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(38,52,49,0.06)' }}>
+                              <img src={menuItem?.imageURL || stockFoods[(idx + 1) % stockFoods.length]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
+                              <div style={{ height: 3, borderRadius: 2, background: 'rgba(38,52,49,0.05)', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${T.warning}, #D4A85A)`, width: `${barPct}%`, transition: 'width 0.3s ease' }} />
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                                <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.4)', fontWeight: 600 }}>{dish.qty}x</span>
+                                <span style={{ fontSize: 10, color: '#5A8A6E', fontWeight: 700 }}>₹{dish.revenue.toFixed(0)}</span>
                               </div>
                             </div>
                           </div>
-                        )}
-                        {/* Other top dishes */}
-                        {topDishes.slice(1, 6).map((dish, idx) => {
-                          const menuItem = activeItems.find(m => m.name === dish.name);
-                          const maxQty = topDishes[0]?.qty || 1;
-                          const barPct = Math.max(8, Math.round((dish.qty / maxQty) * 100));
-                          return (
-                            <div key={dish.name} className="kpi-card" style={{
-                              borderRadius: 12, padding: '12px 14px',
-                              background: T.white, border: '1px solid rgba(38,52,49,0.06)',
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              boxShadow: '0 1px 4px rgba(38,52,49,0.03)',
-                            }}>
-                              <div style={{ width: 42, height: 42, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(38,52,49,0.06)' }}>
-                                <img src={menuItem?.imageURL || stockFoods[(idx + 1) % stockFoods.length]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              </div>
-                              <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
-                                <div style={{ height: 3, borderRadius: 2, background: 'rgba(38,52,49,0.05)', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${T.warning}, #D4A85A)`, width: `${barPct}%`, transition: 'width 0.3s ease' }} />
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                                  <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.4)', fontWeight: 600 }}>{dish.qty}x</span>
-                                  <span style={{ fontSize: 10, color: '#5A8A6E', fontWeight: 700 }}>₹{dish.revenue.toFixed(0)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                        );
+                      })}
+                    </div>
                     );
                   })() : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No order data yet</div>}
                 </div>
               </div>
 
-              {/* Visits Over Time — Aspire-exact single hero line */}
-              <div style={{ ...card, padding: '22px 26px 18px', marginBottom: 14 }}>
-                {/* Card header: title left · range selector right */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={secTitle}>Visits Over Time</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(38,52,49,0.55)', padding: '5px 11px', borderRadius: 999, background: 'rgba(38,52,49,0.045)', border: '1px solid rgba(38,52,49,0.07)', letterSpacing: '0.02em' }}>{dateRangeLabel}</span>
-                    <div style={{ position: 'relative' }}>
-                      <select
-                        value={range}
-                        onChange={e => setRange(Number(e.target.value))}
-                        style={{
-                          appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
-                          fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.ink,
-                          padding: '5px 26px 5px 11px', borderRadius: 999,
-                          background: T.white, border: '1px solid rgba(38,52,49,0.12)',
-                          cursor: 'pointer', outline: 'none', letterSpacing: '0.02em',
-                        }}
-                      >
-                        <option value={7}>Last 7 days</option>
-                        <option value={14}>Last 14 days</option>
-                        <option value={30}>Last 30 days</option>
-                        <option value={90}>Last 90 days</option>
-                      </select>
-                      <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 8, color: 'rgba(38,52,49,0.45)', pointerEvents: 'none' }}>▼</span>
+              {/* Visits chart — refined */}
+              <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={secTitle}>Visits Over Time</div>
+                      <ChartToggle chartKey="visits" fallback="line" />
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(38,52,49,0.4)', padding: '3px 10px', borderRadius: 20, background: 'rgba(38,52,49,0.04)', border: '1px solid rgba(38,52,49,0.06)' }}>{dateRangeLabel}</span>
+                      <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.3)' }}>Last {range} days</span>
+                    </div>
+                    {(() => { const a = getAnnotation(chartData, 'visits'); return a ? (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
+                        <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: T.ink }}>{a.value.toLocaleString()}</span>
+                        <Trend val={a.trend} />
+                        <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)' }}>latest visits</span>
+                      </div>
+                    ) : null; })()}
+                  </div>
+                  <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'rgba(38,52,49,0.45)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 3, background: T.warning, borderRadius: 2 }} />Visits</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 3, background: '#5A8A6E', borderRadius: 2 }} />Unique</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 3, background: '#E05A3A', borderRadius: 2 }} />Customers</span>
                   </div>
                 </div>
-
-                {chartData.length > 0 ? (() => {
-                  const a = getAnnotation(chartData, 'visits');
-                  const todayLabel = (() => {
-                    const d = new Date(); const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    return `${m[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-                  })();
-                  const trendVal = a?.trend;
-                  const trendUp = trendVal != null && trendVal >= 0;
-                  const valueStr = a ? a.value.toLocaleString() : '0';
-
-                  // Custom SVG label rendered on the today reference line
-                  const TodayLabel = ({ viewBox }) => {
-                    if (!viewBox) return null;
-                    const { x } = viewBox;
-                    // Floating value box anchored to LEFT of the today line
-                    const boxW = 92, boxH = 38;
-                    const boxX = x - boxW - 8;
-                    const boxY = 18;
-                    const trendW = 38;
-                    return (
-                      <g style={{ pointerEvents: 'none' }}>
-                        {/* Date text at top of line */}
-                        <text x={x} y={6} textAnchor="middle" fontSize={10} fontWeight={700} fill={T.ink} fontFamily={T.font} letterSpacing="0.02em">{todayLabel}</text>
-                        {/* Floating value+trend pill */}
-                        {a && (
-                          <g>
-                            <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={8} fill={T.white} stroke="rgba(38,52,49,0.10)" strokeWidth={1} style={{ filter: 'drop-shadow(0 4px 12px rgba(38,52,49,0.10))' }} />
-                            <text x={boxX + 10} y={boxY + 22} fontSize={15} fontWeight={800} fill={T.ink} fontFamily={T.font}>{valueStr}</text>
-                            {trendVal != null && (
-                              <g>
-                                <rect x={boxX + boxW - trendW - 8} y={boxY + 10} width={trendW} height={18} rx={9} fill={trendUp ? 'rgba(74,154,94,0.15)' : 'rgba(155,91,83,0.12)'} />
-                                <text x={boxX + boxW - trendW / 2 - 8} y={boxY + 22} textAnchor="middle" fontSize={9} fontWeight={700} fill={trendUp ? '#4A9A5E' : '#9B5B53'} fontFamily={T.font}>
-                                  {trendUp ? '▲' : '▼'} {Math.abs(Math.round(trendVal))}%
-                                </text>
-                              </g>
-                            )}
-                          </g>
-                        )}
-                      </g>
-                    );
-                  };
-
-                  return (
-                    <ResponsiveContainer width="100%" height={240}>
-                      <AreaChart data={chartData} margin={{ top: 30, right: 12, left: -18, bottom: 0 }}>
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    {getMode('visits', 'line') === 'line' ? (
+                      <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
                         <defs>
-                          <linearGradient id="visitStroke" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#D4943A" />
-                            <stop offset="100%" stopColor="#4A9A5E" />
-                          </linearGradient>
+                          <linearGradient id="visitStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#D4943A" /><stop offset="100%" stopColor="#4A9A5E" /></linearGradient>
                         </defs>
-                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 10, fontFamily: T.font }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} minTickGap={28} />
-                        <YAxis tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 10, fontFamily: T.font }} axisLine={false} tickLine={false} width={35} allowDecimals={false} />
-                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} cursor={{ stroke: 'rgba(38,52,49,0.15)', strokeDasharray: '3 3' }} />
-                        <ReferenceLine x={todayDotKey} stroke="rgba(38,52,49,0.30)" strokeDasharray="4 4" label={<TodayLabel />} />
-                        <Area
-                          type="monotone"
-                          dataKey="visits"
-                          stroke="url(#visitStroke)"
-                          strokeWidth={2}
-                          fillOpacity={0}
-                          dot={false}
-                          activeDot={{ r: 5, fill: T.white, stroke: '#4A9A5E', strokeWidth: 2 }}
-                          name="Visits"
-                        />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} />
+                        <YAxis tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
+                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                        <ReferenceLine x={todayDotKey} stroke="rgba(38,52,49,0.15)" strokeDasharray="4 4" />
+                        <Area type="monotone" dataKey="visits" stroke="url(#visitStroke)" strokeWidth={2} fillOpacity={0} dot={false} name="Visits" />
+                        <Area type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} fillOpacity={0} dot={false} name="Unique Visitors" strokeDasharray="5 3" />
+                        <Area type="monotone" dataKey="customers" stroke="#E05A3A" strokeWidth={1.5} fillOpacity={0} dot={false} name="Customers (by phone)" />
                       </AreaChart>
-                    </ResponsiveContainer>
-                  );
-                })() : <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No visit data yet</div>}
+                    ) : (
+                      <BarChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatDateTick} />
+                        <YAxis tick={{ fill: 'rgba(38,52,49,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
+                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                        <ReferenceLine x={todayDotKey} stroke="rgba(38,52,49,0.15)" strokeDasharray="4 4" />
+                        <Bar dataKey="visits" name="Visits" fill={T.warning} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="unique" name="Unique Visitors" fill="#5A8A6E" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="customers" name="Customers (by phone)" fill="#E05A3A" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    )}
+                  </ResponsiveContainer>
+                ) : <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No visit data yet</div>}
               </div>
 
               {/* Waiter + Top Menu Items — refined */}
@@ -1113,8 +1065,8 @@ export default function AdminAnalytics() {
                 <div style={{ marginBottom: 14, padding: '12px 16px', background: 'rgba(90,138,110,0.1)', borderRadius: 10, border: '1px solid rgba(90,138,110,0.18)' }}>
                   <div style={{ fontFamily: T.fontDisplay, fontStyle: 'italic', fontSize: 14, color: '#7AAA8E', lineHeight: 1.6 }}>
                     {healthScore >= 90 ? '"Your restaurant is performing exceptionally — keep this momentum going!"'
-                      : healthScore >= 80 ? '"Great progress! Your menu and service are resonating with customers."'
-                        : '"You\'re on the right track — a few tweaks and you\'ll be in the top tier!"'}
+                    : healthScore >= 80 ? '"Great progress! Your menu and service are resonating with customers."'
+                    : '"You\'re on the right track — a few tweaks and you\'ll be in the top tier!"'}
                   </div>
                 </div>
               )}
@@ -1138,7 +1090,7 @@ export default function AdminAnalytics() {
                 if (zeroView.length > 0) alerts.push({ type: 'danger', text: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views: ${zeroView.map(i => i.name).join(', ')}` });
                 const viewedNotBought = activeItems.filter(i => (i.views || 0) > 10).filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0);
                 if (viewedNotBought.length > 0) alerts.push({ type: 'warning', text: `${viewedNotBought.length} item${viewedNotBought.length > 1 ? 's' : ''} viewed but never ordered: ${viewedNotBought.slice(0, 3).map(i => i.name).join(', ')}` });
-                if (lowRated.length > 0) alerts.push({ type: 'danger', text: `${lowRated.length} item${lowRated.length > 1 ? 's' : ''} rated below 3.5: ${lowRated.map(i => `${i.name} (${(i.ratingAvg || 0).toFixed(1)})`).join(', ')}` });
+                if (lowRated.length > 0) alerts.push({ type: 'danger', text: `${lowRated.length} item${lowRated.length > 1 ? 's' : ''} rated below 3.5: ${lowRated.map(i => `${i.name} (${(i.ratingAvg||0).toFixed(1)})`).join(', ')}` });
                 const noRating = activeItems.filter(i => (i.ratingCount || 0) === 0);
                 if (noRating.length > 0 && noRating.length < activeItems.length) alerts.push({ type: 'info', text: `${noRating.length} item${noRating.length > 1 ? 's' : ''} have no ratings yet` });
 
