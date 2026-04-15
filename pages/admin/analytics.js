@@ -300,11 +300,11 @@ export default function AdminAnalytics() {
     const isLine = mode === 'line';
     return (
       <button onClick={() => toggleChart(chartKey, fallback)} title={`Switch to ${isLine ? 'bar' : 'line'} chart`}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: `1.5px solid ${T.warning}`, background: 'rgba(196,168,109,0.10)', cursor: 'pointer', fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.warning, transition: 'all 0.15s', letterSpacing: '0.01em' }}>
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 14, border: '1px solid rgba(196,168,109,0.5)', background: 'rgba(196,168,109,0.08)', cursor: 'pointer', fontFamily: T.font, fontSize: 10, fontWeight: 600, color: '#A08050', transition: 'all 0.15s', verticalAlign: 'middle', lineHeight: 1 }}>
         {isLine ? (
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="7" width="2.5" height="5" rx="0.8" fill="currentColor" /><rect x="5.75" y="4" width="2.5" height="8" rx="0.8" fill="currentColor" /><rect x="9.5" y="5.5" width="2.5" height="6.5" rx="0.8" fill="currentColor" /></svg>
+          <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><rect x="2" y="7" width="2.5" height="5" rx="0.8" fill="currentColor" /><rect x="5.75" y="4" width="2.5" height="8" rx="0.8" fill="currentColor" /><rect x="9.5" y="5.5" width="2.5" height="6.5" rx="0.8" fill="currentColor" /></svg>
         ) : (
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10 C3.5 8, 5 5, 6.5 6.5 S9.5 4, 12 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M2 10 C3.5 8, 5 5, 6.5 6.5 S9.5 4, 12 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
         )}
         {isLine ? 'Bar' : 'Line'}
       </button>
@@ -490,7 +490,7 @@ export default function AdminAnalytics() {
             /* ═══ ORDERS & REVENUE ═══ */
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
               <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={secTitle}>Revenue Over Time</div>
                   <ChartToggle chartKey="revenue" fallback="line" />
                 </div>
@@ -522,7 +522,7 @@ export default function AdminAnalytics() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div style={{ ...card, padding: '18px 22px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={secTitle}>Orders Per Day</div>
                     <ChartToggle chartKey="orders" fallback="bar" />
                   </div>
@@ -741,7 +741,7 @@ export default function AdminAnalytics() {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={secTitle}>Visits Over Time</div>
                       <ChartToggle chartKey="visits" fallback="line" />
                     </div>
