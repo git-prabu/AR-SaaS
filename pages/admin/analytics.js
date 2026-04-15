@@ -87,6 +87,7 @@ export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(7);
   const [tab, setTab] = useState('overview');
+  const [chartMode, setChartMode] = useState({}); // { revenue: 'line'|'bar', orders: 'line'|'bar', visits: 'line'|'bar' }
   const rid = userData?.restaurantId;
   const initialLoadDone = useRef(false);
 
@@ -291,6 +292,25 @@ export default function AdminAnalytics() {
   const secTitle = { fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: T.ink, letterSpacing: '-0.3px' };
   const labelSm = { fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.35)' };
 
+  // Chart type toggle
+  const getMode = (key, fallback) => chartMode[key] || fallback;
+  const toggleChart = (key, fallback) => setChartMode(p => ({ ...p, [key]: (p[key] || fallback) === 'line' ? 'bar' : 'line' }));
+  const ChartToggle = ({ chartKey, fallback = 'line' }) => {
+    const mode = getMode(chartKey, fallback);
+    const isLine = mode === 'line';
+    return (
+      <button onClick={() => toggleChart(chartKey, fallback)} title={`Switch to ${isLine ? 'bar' : 'line'} chart`}
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(38,52,49,0.1)', background: 'rgba(38,52,49,0.03)', cursor: 'pointer', fontFamily: T.font, fontSize: 10, fontWeight: 600, color: 'rgba(38,52,49,0.5)', transition: 'all 0.15s' }}>
+        {isLine ? (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="7" width="2.5" height="5" rx="0.8" fill="currentColor" /><rect x="5.75" y="4" width="2.5" height="8" rx="0.8" fill="currentColor" /><rect x="9.5" y="5.5" width="2.5" height="6.5" rx="0.8" fill="currentColor" /></svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10 C3.5 8, 5 5, 6.5 6.5 S9.5 4, 12 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+        )}
+        {isLine ? 'Bar' : 'Line'}
+      </button>
+    );
+  };
+
   return (
     <AdminLayout>
       <Head><title>Analytics — Advert Radical</title></Head>
@@ -470,18 +490,31 @@ export default function AdminAnalytics() {
             /* ═══ ORDERS & REVENUE ═══ */
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
               <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
-                <div style={secTitle}>Revenue Over Time</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={secTitle}>Revenue Over Time</div>
+                  <ChartToggle chartKey="revenue" fallback="line" />
+                </div>
                 <div style={{ marginTop: 14 }}>
                   {revenueChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={220}>
-                      <AreaChart data={revenueChartData}>
-                        <defs><linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.3} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient></defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
-                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`₹${v.toLocaleString('en-IN')}`, '']} />
-                        <Area type="monotone" dataKey="revenue" stroke="#5A8A6E" strokeWidth={2.5} fill="url(#revGrad)" dot={false} />
-                      </AreaChart>
+                      {getMode('revenue', 'line') === 'line' ? (
+                        <AreaChart data={revenueChartData}>
+                          <defs><linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.3} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient></defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
+                          <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
+                          <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`₹${v.toLocaleString('en-IN')}`, '']} />
+                          <Area type="monotone" dataKey="revenue" stroke="#5A8A6E" strokeWidth={2.5} fill="url(#revGrad)" dot={false} />
+                        </AreaChart>
+                      ) : (
+                        <BarChart data={revenueChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
+                          <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: 'rgba(38,52,49,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
+                          <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} formatter={v => [`₹${v.toLocaleString('en-IN')}`, '']} />
+                          <Bar dataKey="revenue" name="Revenue" fill="#5A8A6E" radius={[5, 5, 0, 0]} />
+                        </BarChart>
+                      )}
                     </ResponsiveContainer>
                   ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No order data in this period</div>}
                 </div>
@@ -489,17 +522,31 @@ export default function AdminAnalytics() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                 <div style={{ ...card, padding: '18px 22px' }}>
-                  <div style={secTitle}>Orders Per Day</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={secTitle}>Orders Per Day</div>
+                    <ChartToggle chartKey="orders" fallback="bar" />
+                  </div>
                   <div style={{ marginTop: 12 }}>
                     {revenueChartData.length > 0 ? (
                       <ResponsiveContainer width="100%" height={170}>
-                        <BarChart data={revenueChartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
-                          <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                          <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                          <Bar dataKey="orders" name="Orders" fill="#9B5B53" radius={[5, 5, 0, 0]} />
-                        </BarChart>
+                        {getMode('orders', 'bar') === 'bar' ? (
+                          <BarChart data={revenueChartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
+                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                            <Bar dataKey="orders" name="Orders" fill="#9B5B53" radius={[5, 5, 0, 0]} />
+                          </BarChart>
+                        ) : (
+                          <AreaChart data={revenueChartData}>
+                            <defs><linearGradient id="ordGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#9B5B53" stopOpacity={0.25} /><stop offset="95%" stopColor="#9B5B53" stopOpacity={0} /></linearGradient></defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.06)" />
+                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: 'rgba(38,52,49,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                            <Area type="monotone" dataKey="orders" stroke="#9B5B53" strokeWidth={2.5} fill="url(#ordGrad)" name="Orders" dot={false} />
+                          </AreaChart>
+                        )}
                       </ResponsiveContainer>
                     ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>}
                   </div>
@@ -694,7 +741,10 @@ export default function AdminAnalytics() {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <div>
-                    <div style={secTitle}>Visits Over Time</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={secTitle}>Visits Over Time</div>
+                      <ChartToggle chartKey="visits" fallback="line" />
+                    </div>
                     <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.35)', marginTop: 2 }}>Last {range} days traffic</div>
                   </div>
                   <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'rgba(38,52,49,0.45)' }}>
@@ -705,20 +755,32 @@ export default function AdminAnalytics() {
                 </div>
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={T.warning} stopOpacity={0.2} /><stop offset="95%" stopColor={T.warning} stopOpacity={0} /></linearGradient>
-                        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.1} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient>
-                        <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#E05A3A" stopOpacity={0.12} /><stop offset="95%" stopColor="#E05A3A" stopOpacity={0} /></linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
-                      <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
-                      <Area type="monotone" dataKey="visits" stroke={T.warning} strokeWidth={2.5} fill="url(#g1)" name="Visits" />
-                      <Area type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} fill="url(#g2)" name="Unique Visitors" strokeDasharray="5 3" />
-                      <Area type="monotone" dataKey="customers" stroke="#E05A3A" strokeWidth={2} fill="url(#g3)" name="Customers (by phone)" />
-                    </AreaChart>
+                    {getMode('visits', 'line') === 'line' ? (
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={T.warning} stopOpacity={0.2} /><stop offset="95%" stopColor={T.warning} stopOpacity={0} /></linearGradient>
+                          <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#5A8A6E" stopOpacity={0.1} /><stop offset="95%" stopColor="#5A8A6E" stopOpacity={0} /></linearGradient>
+                          <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#E05A3A" stopOpacity={0.12} /><stop offset="95%" stopColor="#E05A3A" stopOpacity={0} /></linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                        <Area type="monotone" dataKey="visits" stroke={T.warning} strokeWidth={2.5} fill="url(#g1)" name="Visits" />
+                        <Area type="monotone" dataKey="unique" stroke="#5A8A6E" strokeWidth={1.5} fill="url(#g2)" name="Unique Visitors" strokeDasharray="5 3" />
+                        <Area type="monotone" dataKey="customers" stroke="#E05A3A" strokeWidth={2} fill="url(#g3)" name="Customers (by phone)" />
+                      </AreaChart>
+                    ) : (
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(38,52,49,0.05)" />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: 'rgba(38,52,49,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={tip} labelStyle={tipLabel} itemStyle={tipItem} />
+                        <Bar dataKey="visits" name="Visits" fill={T.warning} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="unique" name="Unique Visitors" fill="#5A8A6E" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="customers" name="Customers (by phone)" fill="#E05A3A" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    )}
                   </ResponsiveContainer>
                 ) : <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No visit data yet</div>}
               </div>
