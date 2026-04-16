@@ -14,16 +14,43 @@ import {
 } from 'recharts';
 import CountUp from 'react-countup';
 
-const tip = { backgroundColor: T.ink, border: 'none', borderRadius: 10, color: T.cream, fontSize: 12, fontFamily: T.font, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' };
-const tipLabel = { color: T.cream, fontWeight: 600 };
+// ═══ Aspire theme (local to analytics page — replaces Cinematic Forest per user request) ═══
+const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const A = {
+  ...T,
+  font: INTER,
+  fontDisplay: INTER,
+  cream: '#EDEDED',
+  ink: '#1A1A1A',
+  shell: '#FFFFFF',
+  shellDarker: '#F8F8F8',
+  shellText: '#1A1A1A',
+  warning: '#C4A86D',               // Antique Gold — the brand signature (back from orange)
+  cardShadow: '0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)',
+  border: '1px solid rgba(0,0,0,0.06)',
+  mutedText: 'rgba(0,0,0,0.55)',
+  faintText: 'rgba(0,0,0,0.38)',
+  subtleBg: 'rgba(0,0,0,0.04)',
+  // Deep Forest tokens for signature dark cards
+  forest: '#263431',
+  forestDarker: '#1A2420',
+  forestText: '#EAE7E3',             // cream on forest
+  forestTextMuted: 'rgba(234,231,227,0.55)',
+  forestTextFaint: 'rgba(234,231,227,0.35)',
+  forestSubtleBg: 'rgba(234,231,227,0.06)',
+  forestBorder: '1px solid rgba(234,231,227,0.08)',
+};
+
+const tip = { backgroundColor: A.ink, border: 'none', borderRadius: 10, color: A.cream, fontSize: 12, fontFamily: A.font, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' };
+const tipLabel = { color: A.cream, fontWeight: 600 };
 const tipItem = { color: 'rgba(234,231,227,0.8)' };
 const CAT_COLORS = ['#9B5B53', '#C4A86D', '#8A7A6A', '#5A8A6E', '#5A8A9A', '#7AAA8E', '#F4D070', '#A08060'];
 
 const PieTip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: T.ink, borderRadius: 10, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
-      <div style={{ color: T.cream, fontWeight: 700, fontSize: 13 }}>{payload[0].name}</div>
+    <div style={{ background: A.ink, borderRadius: 10, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+      <div style={{ color: A.cream, fontWeight: 700, fontSize: 13 }}>{payload[0].name}</div>
       <div style={{ color: 'rgba(234,231,227,0.65)', fontSize: 12, marginTop: 2 }}>{payload[0].value} views</div>
     </div>
   );
@@ -43,9 +70,9 @@ function Stars({ avg, count }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
       {[1, 2, 3, 4, 5].map(s => (
-        <span key={s} style={{ fontSize: 11, color: s <= Math.round(avg || 0) ? T.warning : 'rgba(38,52,49,0.15)' }}>★</span>
+        <span key={s} style={{ fontSize: 11, color: s <= Math.round(avg || 0) ? A.warning : 'rgba(38,52,49,0.15)' }}>★</span>
       ))}
-      <span style={{ fontSize: 11, fontWeight: 700, color: T.warning }}>{(avg || 0).toFixed(1)}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: A.warning }}>{(avg || 0).toFixed(1)}</span>
       {count !== undefined && <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)' }}>({count})</span>}
     </div>
   );
@@ -230,7 +257,7 @@ export default function AdminAnalytics() {
   const maxScore = heatmapData[0]?.score || 1;
   const heatColor = score => {
     const p = score / maxScore;
-    if (p >= 0.7) return T.warning;
+    if (p >= 0.7) return A.warning;
     if (p >= 0.3) return '#5A8A6E';
     return 'rgba(38,52,49,0.18)';
   };
@@ -238,7 +265,7 @@ export default function AdminAnalytics() {
   const topRated = [...activeItems].filter(i => (i.ratingCount || 0) > 0).sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0)).slice(0, 5);
   const lowRated = [...activeItems].filter(i => (i.ratingAvg || 0) < 3.5 && (i.ratingCount || 0) > 0).sort((a, b) => (a.ratingAvg || 0) - (b.ratingAvg || 0)).slice(0, 3);
   const zeroView = heatmapData.filter(i => (i.views || 0) === 0);
-  const topItems = [...activeItems].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 8);
+  const topItems = [...activeItems].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
 
   const catMap = {};
   activeItems.forEach(i => {
@@ -252,7 +279,7 @@ export default function AdminAnalytics() {
   const funnelData = [
     { label: 'Menu Visits', value: totalVisits, pct: 100, color: '#5A8A9A' },
     { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.min(100, Math.round((totalViews / totalVisits) * 100)) : 0, color: '#8A7A6A' },
-    { label: 'AR Views', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: T.warning },
+    { label: 'AR Views', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: A.warning },
   ];
 
   const insights = useMemo(() => {
@@ -278,13 +305,14 @@ export default function AdminAnalytics() {
     if (totalVisits > 100) score += 5; else if (totalVisits > 20) score += 3;
     return Math.min(100, Math.round(score));
   }, [totalOrders, avgRating, arRate, totalVisits]);
-  const scoreColor = healthScore >= 80 ? '#5A8A6E' : healthScore >= 60 ? T.warning : '#9B5B53';
+  const scoreColor = healthScore >= 80 ? '#5A8A6E' : healthScore >= 60 ? A.warning : '#9B5B53';
 
   const viewToOrderRate = totalVisits > 0 && totalOrders > 0 ? ((totalOrders / totalVisits) * 100).toFixed(1) : '0.0';
   const itemsWithAR = activeItems.filter(i => (i.arViews || 0) > 0);
   const arItemNames = new Set(itemsWithAR.map(i => i.name));
   const ordersFromARItems = ordersInRange.filter(o => (o.items || []).some(item => arItemNames.has(item.name))).length;
-  const arToOrderRate = totalARViews > 0 && ordersFromARItems > 0 ? Math.min(100, ((ordersFromARItems / totalARViews) * 100)).toFixed(1) : '0.0';
+  // AR Item Order Ratio — % of orders that included at least one AR-enabled item
+  const arToOrderRate = totalOrders > 0 && ordersFromARItems > 0 ? Math.min(100, ((ordersFromARItems / totalOrders) * 100)).toFixed(1) : '0.0';
 
   // ── TODAY's live metrics ──
   const todayDate = new Date();
@@ -307,7 +335,7 @@ export default function AdminAnalytics() {
       else if (views === 0) { suggestion = 'No views — update photo'; sColor = '#9B5B53'; }
       else if (rating > 0 && rating < 3) { suggestion = 'Low rating — improve'; sColor = '#9B5B53'; }
       else if (ordered > 5 && rating >= 4) { suggestion = 'Star performer'; sColor = '#5A8A6E'; }
-      else if (arViews > 0 && arViews / Math.max(views, 1) > 0.3) { suggestion = 'High AR interest'; sColor = T.warning; }
+      else if (arViews > 0 && arViews / Math.max(views, 1) > 0.3) { suggestion = 'High AR interest'; sColor = A.warning; }
       else if (ordered > 0) { suggestion = 'Performing well'; sColor = 'rgba(38,52,49,0.35)'; }
       else { suggestion = 'Needs attention'; sColor = 'rgba(38,52,49,0.4)'; }
       return { ...item, ordered, revenue, suggestion, sColor, views, arViews, rating, ratingCount };
@@ -326,8 +354,8 @@ export default function AdminAnalytics() {
   const restaurantName = userData?.restaurantName || 'Your Restaurant';
 
   // Card + section shared styles
-  const card = { background: T.white, borderRadius: 16, border: '1px solid rgba(38,52,49,0.06)', boxShadow: '0 2px 10px rgba(38,52,49,0.03)' };
-  const secTitle = { fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: T.ink, letterSpacing: '-0.3px' };
+  const card = { background: A.white, borderRadius: 16, border: '1px solid rgba(38,52,49,0.06)', boxShadow: '0 2px 10px rgba(38,52,49,0.03)' };
+  const secTitle = { fontFamily: A.font, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' };
   const labelSm = { fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.35)' };
 
   // Date range label + today key for charts
@@ -354,7 +382,7 @@ export default function AdminAnalytics() {
     const isLine = mode === 'line';
     return (
       <button onClick={() => toggleChart(chartKey, fallback)} title={`Switch to ${isLine ? 'bar' : 'line'} chart`}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 14, border: '1px solid rgba(196,168,109,0.5)', background: 'rgba(196,168,109,0.08)', cursor: 'pointer', fontFamily: T.font, fontSize: 10, fontWeight: 600, color: '#A08050', transition: 'all 0.15s', verticalAlign: 'middle', lineHeight: 1 }}>
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 14, border: '1px solid rgba(196,168,109,0.5)', background: 'rgba(196,168,109,0.08)', cursor: 'pointer', fontFamily: A.font, fontSize: 10, fontWeight: 600, color: '#A08050', transition: 'all 0.15s', verticalAlign: 'middle', lineHeight: 1 }}>
         {isLine ? (
           <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><rect x="2" y="7" width="2.5" height="5" rx="0.8" fill="currentColor" /><rect x="5.75" y="4" width="2.5" height="8" rx="0.8" fill="currentColor" /><rect x="9.5" y="5.5" width="2.5" height="6.5" rx="0.8" fill="currentColor" /></svg>
         ) : (
@@ -368,7 +396,7 @@ export default function AdminAnalytics() {
   return (
     <AdminLayout>
       <Head><title>Analytics — Advert Radical</title></Head>
-      <div style={{ background: T.cream, minHeight: '100vh', fontFamily: T.font }}>
+      <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin{to{transform:rotate(360deg)}}
           @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -378,86 +406,99 @@ export default function AdminAnalytics() {
           .kpi-card:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(38,52,49,0.07)!important}
         `}</style>
 
-        {/* ═══ HERO BANNER ═══ */}
-        <div style={{
-          background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 60%, #1A2420 100%)`,
-          padding: '28px 32px 24px', position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.warning}, transparent)` }} />
-          <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+        {/* ═══ ASPIRE HEADER ═══ */}
+        <div style={{ padding: '24px 28px 0' }}>
+          <div style={{ margin: 0 }}>
             {/* Title row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
               <div>
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 30, color: T.shellText, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>
-                  {restaurantName} <span style={{ color: T.warning, fontWeight: 400, fontStyle: 'italic', fontSize: 24 }}>Analytics</span>
+                <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px' }}>
+                  {restaurantName} <span style={{ color: A.mutedText, fontWeight: 500 }}>Analytics</span>
                 </div>
-                <div style={{ fontSize: 13, color: 'rgba(234,231,227,0.45)', marginTop: 5 }}>Performance dashboard — last {range} days</div>
+                <div style={{ fontFamily: A.font, fontSize: 13, color: A.mutedText, marginTop: 3 }}>Performance dashboard — last {range} days</div>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[7, 30, 90].map(d => (
-                  <button key={d} onClick={() => setRange(d)} style={{
-                    padding: '6px 16px', borderRadius: 20,
-                    border: range === d ? `1.5px solid ${T.warning}` : '1.5px solid rgba(234,231,227,0.12)',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
-                    background: range === d ? 'rgba(196,168,109,0.2)' : 'transparent',
-                    color: range === d ? T.warning : 'rgba(234,231,227,0.45)', transition: 'all 0.15s',
-                  }}>{d}d</button>
-                ))}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div style={{ display: 'inline-flex', background: '#FFFFFF', border: A.border, borderRadius: 10, padding: 3 }}>
+                  {[7, 30, 90].map(d => (
+                    <button key={d} onClick={() => setRange(d)} style={{
+                      padding: '6px 14px', borderRadius: 7,
+                      border: 'none',
+                      fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: A.font,
+                      background: range === d ? A.subtleBg : 'transparent',
+                      color: range === d ? A.ink : A.mutedText, transition: 'all 0.15s',
+                    }}>{d}d</button>
+                  ))}
+                </div>
                 <button onClick={exportCSV} style={{
-                  padding: '6px 14px', borderRadius: 20, border: '1.5px solid rgba(234,231,227,0.12)',
-                  background: 'transparent', color: 'rgba(234,231,227,0.45)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+                  padding: '8px 14px', borderRadius: 10, border: A.border,
+                  background: '#FFFFFF', color: A.ink, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: A.font,
                 }}>Export</button>
               </div>
             </div>
 
-            {/* Hero stats — ALL use selected range */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            {/* Hero stats — white cards on light-grey bg (Aspire style) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }}>
               {[
                 { label: 'VISITORS', value: totalVisits, prefix: '', d: delta(totalVisits, prevVisits) },
                 { label: 'ORDERS', value: totalOrders, prefix: '' },
                 { label: 'REVENUE', value: totalRevenue, prefix: '₹', highlight: true },
                 { label: 'AVG ORDER', value: Math.round(avgOrderValue), prefix: '₹' },
               ].map(s => (
-                <div key={s.label} style={{ padding: '14px 18px', background: 'rgba(234,231,227,0.06)', borderRadius: 12, border: '1px solid rgba(234,231,227,0.08)', minHeight: 74 }}>
-                  <div style={{ ...labelSm, color: 'rgba(234,231,227,0.3)', marginBottom: 6 }}>{s.label}</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minHeight: 26 }}>
-                    <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: s.highlight ? T.warning : T.shellText, lineHeight: 1 }}>
+                <div key={s.label} style={{
+                  padding: '18px 20px', background: '#FFFFFF', borderRadius: 14,
+                  border: A.border, boxShadow: A.cardShadow, minHeight: 86,
+                }}>
+                  <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>{s.label}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 28 }}>
+                    <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
                       <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue redraw />
                     </span>
-                    {s.d !== undefined && s.d !== 0 && <Trend val={s.d} />}
+                    {s.d !== undefined && s.d !== 0 && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        fontFamily: A.font, fontSize: 11, fontWeight: 600,
+                        color: s.d > 0 ? '#3F9E5A' : '#D9534F',
+                        background: s.d > 0 ? 'rgba(63,158,90,0.10)' : 'rgba(217,83,79,0.10)',
+                        padding: '3px 8px', borderRadius: 999, lineHeight: 1,
+                      }}>{s.d > 0 ? '↗' : '↘'} {Math.abs(s.d)}%</span>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-
           </div>
         </div>
 
         {/* ═══ MAIN CONTENT ═══ */}
-        <div style={{ maxWidth: 1164, margin: '0 auto', padding: '14px 32px 40px' }}>
+        <div style={{ margin: 0, padding: '14px 28px 28px' }}>
 
-          {/* ── TODAY'S LIVE DATA — big card ── */}
-          <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#5A8A6E', animation: 'pulse 2s ease infinite' }} />
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5A8A6E' }}>LIVE TODAY</span>
-              <div style={{ flex: 1, height: 1, background: 'rgba(38,52,49,0.06)' }} />
-              <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.25)', fontWeight: 500 }}>{todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          {/* ── LIVE TODAY — Deep Forest signature dark card ── */}
+          <div style={{
+            background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+            borderRadius: 14, padding: '20px 24px', marginBottom: 14,
+            border: A.forestBorder,
+            boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#7AAA8E', animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(122,170,142,0.6)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>LIVE TODAY</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>{todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
-                { label: 'VISITORS', value: todayVisits, color: '#5A8A9A', bg: 'rgba(90,138,154,0.1)', border: 'rgba(90,138,154,0.2)', prefix: '' },
-                { label: 'ORDERS', value: todayOrderCount, color: '#9B5B53', bg: 'rgba(155,91,83,0.08)', border: 'rgba(155,91,83,0.18)', prefix: '' },
-                { label: 'REVENUE', value: todayRevenue, color: '#5A8A6E', bg: 'rgba(90,138,110,0.08)', border: 'rgba(90,138,110,0.18)', prefix: '₹' },
-                { label: 'WAITER CALLS', value: todayWaiterCalls, color: T.warning, bg: 'rgba(196,168,109,0.08)', border: 'rgba(196,168,109,0.18)', prefix: '' },
+                { label: 'VISITORS', value: todayVisits, prefix: '', accent: false },
+                { label: 'ORDERS', value: todayOrderCount, prefix: '', accent: false },
+                { label: 'REVENUE', value: todayRevenue, prefix: '₹', accent: true },
+                { label: 'WAITER CALLS', value: todayWaiterCalls, prefix: '', accent: false },
               ].map(s => (
                 <div key={s.label} style={{
-                  padding: '16px 18px', borderRadius: 12,
-                  background: s.bg,
-                  border: `1px solid ${s.border}`,
+                  padding: '16px 18px', borderRadius: 10,
+                  background: A.forestSubtleBg,
+                  border: A.forestBorder,
                 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: s.color, marginBottom: 8 }}>{s.label}</div>
-                  <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 30, color: T.ink, lineHeight: 1 }}>
+                  <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>{s.label}</div>
+                  <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 28, color: s.accent ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
                     <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue redraw />
                   </div>
                 </div>
@@ -465,38 +506,38 @@ export default function AdminAnalytics() {
             </div>
           </div>
 
-          {/* ── Insights — green background (fixed height; empty slots omitted) ── */}
+          {/* ── Smart Insights (Aspire light) ── */}
           {insights.length > 0 && (
             <div style={{
-              background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-              borderRadius: 16, padding: '18px 24px', marginBottom: 14,
-              border: '1px solid rgba(234,231,227,0.06)',
+              background: '#FFFFFF',
+              borderRadius: 14, padding: '18px 22px', marginBottom: 14,
+              border: A.border, boxShadow: A.cardShadow,
               minHeight: 146,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.warning }}>SMART INSIGHTS</div>
-                <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.06)' }} />
-                <span style={{ fontSize: 11, color: 'rgba(234,231,227,0.45)', fontWeight: 500 }}>Auto-analysed</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.warning }}>SMART INSIGHTS</div>
+                <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.06)' }} />
+                <span style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, fontWeight: 500 }}>Auto-analysed</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(insights.length, 4)}, 1fr)`, gap: 12 }}>
                 {insights.map((ins, i) => {
                   const icons = { success: '▲', warning: '◆', danger: '!', info: '→' };
-                  const colors = { success: '#7AAA8E', warning: T.warning, danger: '#E8907E', info: '#7ABAC8' };
+                  const colors = { success: '#3F9E5A', warning: A.warning, danger: '#D9534F', info: '#4B8FB9' };
                   return (
                     <div key={i} style={{
                       padding: '14px 16px', borderRadius: 10,
-                      background: 'rgba(234,231,227,0.06)',
-                      border: '1px solid rgba(234,231,227,0.08)',
+                      background: A.subtleBg,
+                      border: '1px solid rgba(0,0,0,0.04)',
                       borderLeft: `3px solid ${colors[ins.type]}`,
                       minHeight: 78,
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                        <span style={{ fontSize: 9, fontWeight: 800, color: colors[ins.type], width: 16, height: 16, borderRadius: '50%', background: `${colors[ins.type]}30`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{icons[ins.type]}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors[ins.type] }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: colors[ins.type], width: 16, height: 16, borderRadius: '50%', background: `${colors[ins.type]}22`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{icons[ins.type]}</span>
+                        <span style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: colors[ins.type] }}>
                           {ins.type === 'success' ? 'WIN' : ins.type === 'warning' ? 'OPPORTUNITY' : ins.type === 'danger' ? 'ACTION NEEDED' : 'INSIGHT'}
                         </span>
                       </div>
-                      <div style={{ fontSize: 13, color: '#fff', fontWeight: 600, lineHeight: 1.5 }}>{ins.text}</div>
+                      <div style={{ fontFamily: A.font, fontSize: 13, color: A.ink, fontWeight: 500, lineHeight: 1.5 }}>{ins.text}</div>
                     </div>
                   );
                 })}
@@ -505,16 +546,16 @@ export default function AdminAnalytics() {
           )}
 
           {/* ── Sticky tabs + range selector bar ── */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 10, background: T.cream, marginLeft: -32, marginRight: -32, padding: '0 32px', borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
+          <div style={{ position: 'sticky', top: 0, zIndex: 10, background: A.cream, marginLeft: -28, marginRight: -28, padding: '0 28px', borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: 0 }}>
                 {[['overview', 'Overview'], ['orders', 'Orders & Revenue'], ['menu', 'Menu Performance']].map(([id, label]) => (
                   <button key={id} onClick={() => setTab(id)} style={{
-                    padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: T.font,
+                    padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: A.font,
                     fontSize: 13, fontWeight: tab === id ? 700 : 500,
-                    color: tab === id ? T.ink : 'rgba(38,52,49,0.4)',
+                    color: tab === id ? A.ink : 'rgba(38,52,49,0.4)',
                     background: 'transparent',
-                    borderBottom: tab === id ? `2.5px solid ${T.warning}` : '2.5px solid transparent',
+                    borderBottom: tab === id ? `2.5px solid ${A.warning}` : '2.5px solid transparent',
                     marginBottom: -2, transition: 'all 0.15s',
                   }}>{label}</button>
                 ))}
@@ -523,10 +564,10 @@ export default function AdminAnalytics() {
                 {[7, 30, 90].map(d => (
                   <button key={d} onClick={() => setRange(d)} style={{
                     padding: '4px 12px', borderRadius: 16,
-                    border: range === d ? `1.5px solid ${T.warning}` : '1.5px solid rgba(38,52,49,0.1)',
-                    fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+                    border: range === d ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
                     background: range === d ? 'rgba(196,168,109,0.12)' : 'transparent',
-                    color: range === d ? T.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
+                    color: range === d ? A.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
                   }}>{d}d</button>
                 ))}
               </div>
@@ -537,7 +578,7 @@ export default function AdminAnalytics() {
           {/* Spinner */}
           {loading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
-              <div style={{ width: 28, height: 28, border: `3px solid ${T.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 28, height: 28, border: `3px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
 
           ) : tab === 'orders' ? (
@@ -588,7 +629,7 @@ export default function AdminAnalytics() {
                     <div style={{ background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(38,52,49,0.10)', fontFamily: aspireFont, minWidth: 110 }}>
                       <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: T.ink, letterSpacing: '-0.3px' }}>₹{v.toLocaleString('en-IN')}</span>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>₹{v.toLocaleString('en-IN')}</span>
                         {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#4A9A5E' : '#9B5B53' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
                       </div>
                     </div>
@@ -602,23 +643,23 @@ export default function AdminAnalytics() {
                       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
                     </Head>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: T.ink, letterSpacing: '-0.2px' }}>Revenue Over Time</div>
+                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Revenue Over Time</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
                           {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
                             const active = revMode === opt.k;
                             return (
-                              <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, revenue: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? T.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                              <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, revenue: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
                                 <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
                               </button>
                             );
                           })}
                         </div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: T.ink }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink }}>
                           <span style={{ fontSize: 13, opacity: 0.55 }}>📅</span>{chipTxt}
                         </div>
                         <div style={{ position: 'relative' }}>
-                          <button type="button" onClick={() => setRevRangeOpen(o => !o)} onBlur={() => setTimeout(() => setRevRangeOpen(false), 150)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: T.ink, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, cursor: 'pointer', outline: 'none', boxShadow: revRangeOpen ? '0 0 0 3px rgba(38,52,49,0.06)' : 'none' }}>
+                          <button type="button" onClick={() => setRevRangeOpen(o => !o)} onBlur={() => setTimeout(() => setRevRangeOpen(false), 150)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, cursor: 'pointer', outline: 'none', boxShadow: revRangeOpen ? '0 0 0 3px rgba(38,52,49,0.06)' : 'none' }}>
                             Last {range} days
                             <span style={{ fontSize: 9, color: 'rgba(38,52,49,0.5)', transition: 'transform 0.18s', transform: revRangeOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
                           </button>
@@ -627,7 +668,7 @@ export default function AdminAnalytics() {
                               {[7, 14, 30, 90].map(d => {
                                 const active = range === d;
                                 return (
-                                  <button key={d} type="button" onMouseDown={(e) => { e.preventDefault(); setRange(d); setRevRangeOpen(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontFamily: aspireFont, fontSize: 13, fontWeight: active ? 600 : 500, color: active ? T.ink : 'rgba(38,52,49,0.75)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Last {d} days</button>
+                                  <button key={d} type="button" onMouseDown={(e) => { e.preventDefault(); setRange(d); setRevRangeOpen(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontFamily: aspireFont, fontSize: 13, fontWeight: active ? 600 : 500, color: active ? A.ink : 'rgba(38,52,49,0.75)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Last {d} days</button>
                                 );
                               })}
                             </div>
@@ -648,7 +689,7 @@ export default function AdminAnalytics() {
                       const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
                       return (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: T.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix="₹" preserveValue redraw /></span>
+                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix="₹" preserveValue redraw /></span>
                           {up !== null && (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -747,7 +788,7 @@ export default function AdminAnalytics() {
                       <div style={{ background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(38,52,49,0.10)', fontFamily: aspireFont, minWidth: 100 }}>
                         <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 18, fontWeight: 700, color: T.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
+                          <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
                           {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#4A9A5E' : '#9B5B53' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
                         </div>
                       </div>
@@ -756,12 +797,12 @@ export default function AdminAnalytics() {
                   return (
                     <div style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: T.ink, letterSpacing: '-0.2px' }}>Orders Per Day</div>
+                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Orders Per Day</div>
                         <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
                           {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
                             const active = ordMode === opt.k;
                             return (
-                              <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, orders: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? T.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                              <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, orders: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
                                 <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
                               </button>
                             );
@@ -780,7 +821,7 @@ export default function AdminAnalytics() {
                         const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                            <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: T.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," preserveValue redraw /></span>
+                            <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," preserveValue redraw /></span>
                             {up !== null && (
                               <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -845,7 +886,7 @@ export default function AdminAnalytics() {
                           <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(38,52,49,0.25)', width: 14, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: A.ink, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                               <span style={{ fontSize: 12, fontWeight: 700, color: '#9B5B53', flexShrink: 0 }}>{item.qty}x</span>
                             </div>
                             <div style={{ height: 3, borderRadius: 2, background: 'rgba(38,52,49,0.06)', overflow: 'hidden' }}>
@@ -869,7 +910,7 @@ export default function AdminAnalytics() {
                     <div style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
                          onMouseLeave={() => setPeakBarHover(null)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: T.ink, letterSpacing: '-0.2px' }}>Peak Hours</div>
+                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Peak Hours</div>
                         {peakHour && (
                           <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#9B5B53', background: 'rgba(155,91,83,0.10)', padding: '5px 11px', borderRadius: 999 }}>Busiest: {peakHour.label}</span>
                         )}
@@ -892,7 +933,7 @@ export default function AdminAnalytics() {
                                 <span style={{ fontFamily: aspireFont, fontSize: 10, fontWeight: 700, color: isPeak ? '#9B5B53' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1 }}>{h.orders}</span>
                                 <div style={{
                                   width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 3,
-                                  background: isPeak ? '#9B5B53' : T.warning,
+                                  background: isPeak ? '#9B5B53' : A.warning,
                                   opacity: dim ? 0.25 : (isPeak ? 1 : 0.55),
                                   boxShadow: isHover ? '0 4px 10px rgba(38,52,49,0.22)' : 'none',
                                   transition: 'opacity 0.15s, box-shadow 0.15s, transform 0.15s',
@@ -916,7 +957,7 @@ export default function AdminAnalytics() {
                     <div style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
                          onMouseLeave={() => setDayBarHover(null)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: T.ink, letterSpacing: '-0.2px' }}>Busiest Days</div>
+                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Busiest Days</div>
                         {busiestDay && busiestDay.orders > 0 && (
                           <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#5A8A6E', background: 'rgba(90,138,110,0.10)', padding: '5px 11px', borderRadius: 999 }}>Top: {busiestDay.day}</span>
                         )}
@@ -955,45 +996,66 @@ export default function AdminAnalytics() {
 
           ) : tab === 'overview' ? (
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
-              {/* Journey + Dish Performance */}
+              {/* Journey + Dish Performance — grid default stretch so both cards equal height */}
               <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginBottom: 14 }}>
-                {/* Journey — vertical funnel */}
+                {/* Journey — vertical funnel (Aspire light) — grid default stretches to Dish Performance height */}
                 <div style={{
-                  background: `linear-gradient(180deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-                  borderRadius: 16, padding: '20px 24px',
-                  border: '1px solid rgba(234,231,227,0.06)',
+                  background: '#FFFFFF',
+                  borderRadius: 14, padding: '20px 22px',
+                  border: A.border, boxShadow: A.cardShadow,
+                  display: 'flex', flexDirection: 'column',
                 }}>
-                  <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: '#fff', letterSpacing: '-0.3px' }}>Customer Journey</div>
-                  <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  <div style={{ fontFamily: A.font, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Customer Journey</div>
+                  <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 0 }}>
                     {funnelData.map((f, i) => {
                       const widthPct = [100, 75, 58][i];
                       return (
                         <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <div style={{
-                            width: `${widthPct}%`, padding: '16px 20px', borderRadius: 12,
-                            background: i === 2 ? 'rgba(196,168,109,0.18)' : `rgba(234,231,227,${0.06 + i * 0.02})`,
-                            border: `1px solid ${i === 2 ? 'rgba(196,168,109,0.35)' : 'rgba(234,231,227,0.1)'}`,
+                            width: `${widthPct}%`, padding: '14px 18px', borderRadius: 10,
+                            background: i === 2 ? 'rgba(232,145,67,0.10)' : A.subtleBg,
+                            border: `1px solid ${i === 2 ? 'rgba(232,145,67,0.30)' : 'rgba(0,0,0,0.05)'}`,
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           }}>
-                            <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(234,231,227,0.8)' }}>{f.label}</span>
-                            <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: i === 2 ? T.warning : '#fff' }}>{f.value.toLocaleString()}</span>
+                            <span style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: A.mutedText }}>{f.label}</span>
+                            <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 20, color: i === 2 ? A.warning : A.ink, letterSpacing: '-0.3px' }}>{f.value.toLocaleString()}</span>
                           </div>
                           {i < funnelData.length - 1 && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0' }}>
-                              <div style={{ width: 1, height: 12, background: 'rgba(234,231,227,0.15)' }} />
-                              <span style={{ fontSize: 11, fontWeight: 700, color: T.warning, background: 'rgba(196,168,109,0.15)', padding: '3px 10px', borderRadius: 10 }}>{funnelData[i + 1].pct}%</span>
-                              <div style={{ width: 1, height: 12, background: 'rgba(234,231,227,0.15)' }} />
+                              <div style={{ width: 1, height: 12, background: 'rgba(0,0,0,0.12)' }} />
+                              <span style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, color: A.warning, background: 'rgba(232,145,67,0.12)', padding: '3px 10px', borderRadius: 999 }}>{funnelData[i + 1].pct}%</span>
+                              <div style={{ width: 1, height: 12, background: 'rgba(0,0,0,0.12)' }} />
                             </div>
                           )}
                         </div>
                       );
                     })}
                   </div>
-                  <div style={{ marginTop: 18, padding: '16px 18px', background: 'rgba(196,168,109,0.1)', borderRadius: 12, border: '1px solid rgba(196,168,109,0.2)', textAlign: 'center' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(234,231,227,0.5)', marginBottom: 6 }}>OVERALL CONVERSION</div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
-                      <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 32, color: T.warning }}>{viewToOrderRate}%</span>
-                      <span style={{ fontSize: 13, color: 'rgba(234,231,227,0.45)' }}>visits to orders</span>
+                  {/* Stats summary box — flex-grow to fill remaining card height */}
+                  <div style={{
+                    marginTop: 14, padding: '14px 14px',
+                    background: 'rgba(232,145,67,0.08)', borderRadius: 10,
+                    border: '1px solid rgba(232,145,67,0.20)',
+                    flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                  }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.mutedText, marginBottom: 4 }}>OVERALL CONVERSION</div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6 }}>
+                        <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 26, color: A.warning, letterSpacing: '-0.5px', lineHeight: 1 }}>{viewToOrderRate}%</span>
+                        <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText }}>visits to orders</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 1, background: 'rgba(232,145,67,0.20)', margin: '10px 6px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-around', gap: 6 }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: A.font, fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 2 }}>AR ITEM ORDERS</div>
+                        <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 14, color: A.ink, letterSpacing: '-0.3px' }}>{arToOrderRate}%</div>
+                      </div>
+                      <div style={{ width: 1, background: 'rgba(232,145,67,0.20)' }} />
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: A.font, fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 2 }}>AR ENGAGEMENT</div>
+                        <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 14, color: A.ink, letterSpacing: '-0.3px' }}>{arRate}%</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1020,18 +1082,18 @@ export default function AdminAnalytics() {
                         {bestSellerItem && (
                           <div style={{
                             gridRow: rightCount > 1 ? `1 / ${rightCount + 1}` : undefined, alignSelf: 'stretch', borderRadius: 16, overflow: 'hidden', position: 'relative',
-                            minHeight: rightCount <= 1 ? 220 : 260, background: T.shellDarker,
+                            minHeight: rightCount <= 1 ? 220 : 260, background: A.shellDarker,
                             boxShadow: '0 8px 24px rgba(38,52,49,0.12)',
                           }}>
                             <img src={bestSellerItem.imageURL || stockFoods[0]} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,40,37,0.9) 0%, rgba(28,40,37,0.3) 40%, rgba(0,0,0,0.05) 100%)' }} />
                             <div style={{ position: 'absolute', top: 12, left: 12 }}>
-                              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: T.shellDarker, background: T.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
+                              <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: A.shellDarker, background: A.warning, padding: '4px 10px', borderRadius: 6, textTransform: 'uppercase' }}>Best Seller</span>
                             </div>
                             <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
-                              <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 18, color: '#fff', lineHeight: 1.25 }}>{bestSellerItem.name}</div>
+                              <div style={{ fontFamily: A.fontDisplay, fontWeight: 700, fontSize: 18, color: '#fff', lineHeight: 1.25 }}>{bestSellerItem.name}</div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                                <span style={{ fontSize: 11, color: T.warning, fontWeight: 700 }}>{bestSeller.qty}x ordered</span>
+                                <span style={{ fontSize: 11, color: A.warning, fontWeight: 700 }}>{bestSeller.qty}x ordered</span>
                                 <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
                                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>₹{bestSeller.revenue.toFixed(0)}</span>
                               </div>
@@ -1046,7 +1108,7 @@ export default function AdminAnalytics() {
                           return (
                             <div key={dish.name} className="kpi-card" style={{
                               borderRadius: 12, padding: '12px 14px',
-                              background: T.white, border: '1px solid rgba(38,52,49,0.06)',
+                              background: A.white, border: '1px solid rgba(38,52,49,0.06)',
                               display: 'flex', alignItems: 'center', gap: 10,
                               boxShadow: '0 1px 4px rgba(38,52,49,0.03)',
                             }}>
@@ -1054,9 +1116,9 @@ export default function AdminAnalytics() {
                                 <img src={menuItem?.imageURL || stockFoods[(idx + 1) % stockFoods.length]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
                               <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
                                 <div style={{ height: 3, borderRadius: 2, background: 'rgba(38,52,49,0.05)', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${T.warning}, #D4A85A)`, width: `${barPct}%`, transition: 'width 0.3s ease' }} />
+                                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${A.warning}, #D4A85A)`, width: `${barPct}%`, transition: 'width 0.3s ease' }} />
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                                   <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.4)', fontWeight: 600 }}>{dish.qty}x</span>
@@ -1149,7 +1211,7 @@ export default function AdminAnalytics() {
                     }}>
                       <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: T.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
                         {up !== null && (
                           <span style={{
                             fontSize: 11, fontWeight: 700,
@@ -1173,7 +1235,7 @@ export default function AdminAnalytics() {
 
                     {/* Header: title left · controls right */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: T.ink, letterSpacing: '-0.2px', paddingLeft: 8 }}>
+                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px', paddingLeft: 8 }}>
                         Visits Over Time
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1199,7 +1261,7 @@ export default function AdminAnalytics() {
                                   display: 'inline-flex', alignItems: 'center', gap: 4,
                                   padding: '5px 10px',
                                   fontFamily: aspireFont, fontSize: 13, fontWeight: 500,
-                                  color: active ? T.ink : 'rgba(38,52,49,0.55)',
+                                  color: active ? A.ink : 'rgba(38,52,49,0.55)',
                                   background: active ? 'rgba(38,52,49,0.06)' : 'transparent',
                                   border: 'none', borderRadius: 6, cursor: 'pointer',
                                   transition: 'all 0.15s',
@@ -1219,7 +1281,7 @@ export default function AdminAnalytics() {
                           background: '#FFFFFF',
                           border: '1px solid rgba(38,52,49,0.12)',
                           borderRadius: 8,
-                          fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: T.ink,
+                          fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink,
                         }}>
                           <span style={{ fontSize: 13, opacity: 0.55 }}>📅</span>
                           {aspireRangeChip}
@@ -1233,7 +1295,7 @@ export default function AdminAnalytics() {
                             onBlur={() => setTimeout(() => setVisitsRangeOpen(false), 150)}
                             style={{
                               display: 'inline-flex', alignItems: 'center', gap: 8,
-                              fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: T.ink,
+                              fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink,
                               padding: '7px 12px',
                               background: '#FFFFFF',
                               border: '1px solid rgba(38,52,49,0.12)',
@@ -1273,7 +1335,7 @@ export default function AdminAnalytics() {
                                       display: 'block', width: '100%', textAlign: 'left',
                                       padding: '8px 12px',
                                       fontFamily: aspireFont, fontSize: 13, fontWeight: active ? 600 : 500,
-                                      color: active ? T.ink : 'rgba(38,52,49,0.75)',
+                                      color: active ? A.ink : 'rgba(38,52,49,0.75)',
                                       background: active ? 'rgba(38,52,49,0.06)' : 'transparent',
                                       border: 'none', borderRadius: 6, cursor: 'pointer',
                                       transition: 'background 0.12s',
@@ -1290,6 +1352,35 @@ export default function AdminAnalytics() {
                         </div>
                       </div>
                     </div>
+
+                    {/* "Latest" annotation — same pattern as Revenue/Orders */}
+                    {(() => {
+                      if (!chartData.length) return null;
+                      const i = chartData.length - 1;
+                      const v = Number(chartData[i]?.visits) || 0;
+                      const prev = i > 0 ? (Number(chartData[i - 1]?.visits) || 0) : 0;
+                      let trendPct = null, isNew = false;
+                      if (prev > 0) trendPct = Math.max(-99, Math.min(99, ((v - prev) / prev) * 100));
+                      else if (v > 0) isNew = true;
+                      const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingLeft: 8 }}>
+                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}>
+                            <CountUp end={v} duration={1.5} separator="," preserveValue redraw />
+                          </span>
+                          {up !== null && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 3,
+                              fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
+                              color: up ? '#4A9A5E' : '#9B5B53',
+                              background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
+                              padding: '3px 9px', borderRadius: 999, lineHeight: 1,
+                            }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
+                          )}
+                          <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(38,52,49,0.5)', lineHeight: 1 }}>latest</span>
+                        </div>
+                      );
+                    })()}
 
                     {/* Chart */}
                     {chartData.length > 0 ? (
@@ -1421,47 +1512,125 @@ export default function AdminAnalytics() {
                 );
               })()}
 
-              {/* Waiter + Top Menu Items — refined */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div style={{
-                  background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-                  borderRadius: 16, padding: '20px 24px',
-                  border: '1px solid rgba(234,231,227,0.06)',
-                }}>
-                  <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: '#fff', letterSpacing: '-0.3px', marginBottom: 16 }}>Waiter Summary</div>
+              {/* Waiter + Top Menu Items — grid default stretch so both columns equal height */}
+              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14 }}>
+                {/* Left column: Waiter Summary + Busiest Day + Customer Mix */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Customer Mix — top card */}
+                  {(() => {
+                    const allPhones = new Set();
+                    const phoneCounts = {};
+                    ordersInRange.forEach(o => {
+                      if (!o.customerPhone) return;
+                      allPhones.add(o.customerPhone);
+                      phoneCounts[o.customerPhone] = (phoneCounts[o.customerPhone] || 0) + 1;
+                    });
+                    const uniqueCount = allPhones.size;
+                    if (uniqueCount === 0) return null;
+                    const returning = Object.values(phoneCounts).filter(c => c > 1).length;
+                    const returningPct = uniqueCount > 0 ? Math.round((returning / uniqueCount) * 100) : 0;
+                    const newCount = uniqueCount - returning;
+                    const newPct = 100 - returningPct;
+                    return (
+                      <div style={{
+                        background: '#FFFFFF', borderRadius: 14, padding: '18px 22px',
+                        border: A.border, boxShadow: A.cardShadow,
+                      }}>
+                        <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 10 }}>Customer Mix</div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: uniqueCount >= 3 ? 10 : 0 }}>
+                          <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px' }}>{uniqueCount}</span>
+                          <span style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText }}>unique {uniqueCount === 1 ? 'customer' : 'customers'}</span>
+                        </div>
+                        {uniqueCount >= 3 && (
+                          <>
+                            <div style={{ display: 'flex', height: 6, borderRadius: 999, overflow: 'hidden', background: A.subtleBg, marginBottom: 8 }}>
+                              <div style={{ width: `${returningPct}%`, background: A.warning }} />
+                              <div style={{ width: `${newPct}%`, background: 'rgba(0,0,0,0.12)' }} />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: A.font, fontSize: 11, fontWeight: 500 }}>
+                              <span style={{ color: A.ink }}><span style={{ color: A.warning, fontWeight: 700 }}>{returning}</span> <span style={{ color: A.mutedText }}>returning ({returningPct}%)</span></span>
+                              <span style={{ color: A.mutedText }}>{newCount} new</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Busiest Day mini card */}
+                  {busiestDay && busiestDay.orders > 0 && (() => {
+                    const totalDayOrders = dayData.reduce((s, d) => s + d.orders, 0);
+                    const avgPerDay = totalDayOrders / 7;
+                    const vsAvg = avgPerDay > 0 ? Math.max(-99, Math.min(99, Math.round(((busiestDay.orders - avgPerDay) / avgPerDay) * 100))) : 0;
+                    const fullDayName = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' }[busiestDay.day];
+                    return (
+                      <div style={{
+                        background: '#FFFFFF', borderRadius: 14, padding: '18px 22px',
+                        border: A.border, boxShadow: A.cardShadow,
+                      }}>
+                        <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 10 }}>Busiest Day</div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <span style={{ fontFamily: A.font, fontWeight: 500, fontSize: 22, color: A.ink, letterSpacing: '-0.3px' }}>{fullDayName}</span>
+                          <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 22, color: A.warning, letterSpacing: '-0.3px' }}>{busiestDay.orders}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText }}>orders</span>
+                          {vsAvg !== 0 && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 3,
+                              fontFamily: A.font, fontSize: 11, fontWeight: 600,
+                              color: vsAvg > 0 ? '#3F9E5A' : '#D9534F',
+                              background: vsAvg > 0 ? 'rgba(63,158,90,0.10)' : 'rgba(217,83,79,0.10)',
+                              padding: '3px 8px', borderRadius: 999, lineHeight: 1,
+                            }}>{vsAvg > 0 ? '↗' : '↘'} {Math.abs(vsAvg)}% vs avg</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Waiter Summary — bottom card, flex:1 fills remaining column height */}
+                  <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: 14, padding: '20px 22px',
+                    border: A.border, boxShadow: A.cardShadow,
+                    flex: 1, display: 'flex', flexDirection: 'column',
+                  }}>
+                  <div style={{ fontFamily: A.font, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px', marginBottom: 16 }}>Waiter Summary</div>
                   {waiterStat ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {[
-                        { label: 'Total Calls', value: waiterStat.total, color: '#fff', sub: `${range}d period` },
-                        { label: 'Resolved', value: waiterStat.resolved, color: '#7AAA8E', sub: waiterStat.total > 0 ? `${Math.round((waiterStat.resolved / waiterStat.total) * 100)}% rate` : '—' },
-                        { label: 'Avg Response', value: formatTime(waiterStat.avgResponseSeconds), color: T.warning, sub: 'call to resolve' },
+                        { label: 'Total Calls', value: waiterStat.total, color: A.ink, sub: `${range}d period` },
+                        { label: 'Resolved', value: waiterStat.resolved, color: '#3F9E5A', sub: waiterStat.total > 0 ? `${Math.round((waiterStat.resolved / waiterStat.total) * 100)}% rate` : '—' },
+                        { label: 'Avg Response', value: formatTime(waiterStat.avgResponseSeconds), color: A.warning, sub: 'call to resolve' },
                       ].map(s => (
                         <div key={s.label} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '14px 18px', background: 'rgba(234,231,227,0.06)',
-                          borderRadius: 10, border: '1px solid rgba(234,231,227,0.1)',
+                          padding: '14px 16px', background: A.subtleBg,
+                          borderRadius: 10, border: '1px solid rgba(0,0,0,0.04)',
                         }}>
                           <div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(234,231,227,0.7)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{s.label}</div>
-                            <div style={{ fontSize: 11, color: 'rgba(234,231,227,0.4)', marginTop: 3 }}>{s.sub}</div>
+                            <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, color: A.mutedText, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{s.label}</div>
+                            <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, marginTop: 3 }}>{s.sub}</div>
                           </div>
-                          <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 26, color: s.color }}>{s.value}</div>
+                          <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 20, color: s.color, letterSpacing: '-0.3px', whiteSpace: 'nowrap' }}>{s.value}</div>
                         </div>
                       ))}
                     </div>
-                  ) : <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(234,231,227,0.4)', fontSize: 14 }}>No data</div>}
+                  ) : <div style={{ textAlign: 'center', padding: '30px 0', color: A.faintText, fontSize: 14, fontFamily: A.font }}>No data</div>}
+                  </div>
                 </div>
                 {topItems.length > 0 && (
                   <div style={{ ...card, padding: '20px 24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                       <div style={secTitle}>Top Menu Items</div>
                       <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'rgba(38,52,49,0.4)' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: T.warning }} />Views</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: A.warning }} />Views</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#5A8A6E' }} />AR</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                      {topItems.slice(0, 8).map((item, i) => {
+                      {topItems.slice(0, 10).map((item, i) => {
                         const maxV = topItems[0]?.views || 1;
                         const vPct = Math.max(6, Math.round(((item.views || 0) / maxV) * 100));
                         const arViews = item.arViews || 0;
@@ -1472,17 +1641,17 @@ export default function AdminAnalytics() {
                             background: i === 0 ? 'rgba(196,168,109,0.06)' : 'transparent',
                             border: i === 0 ? '1px solid rgba(196,168,109,0.12)' : '1px solid transparent',
                           }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? T.warning : 'rgba(38,52,49,0.25)', width: 16, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? A.warning : 'rgba(38,52,49,0.25)', width: 16, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>{item.views || 0}</span>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: A.ink }}>{item.views || 0}</span>
                                   {arViews > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#5A8A6E' }}>{arViews}</span>}
                                 </div>
                               </div>
                               <div style={{ height: 5, borderRadius: 3, background: 'rgba(38,52,49,0.05)', overflow: 'hidden', display: 'flex', gap: 1 }}>
-                                <div style={{ height: '100%', borderRadius: 3, background: T.warning, width: `${vPct}%`, transition: 'width 0.3s' }} />
+                                <div style={{ height: '100%', borderRadius: 3, background: A.warning, width: `${vPct}%`, transition: 'width 0.3s' }} />
                                 {arViews > 0 && <div style={{ height: '100%', borderRadius: 3, background: '#5A8A6E', width: `${Math.max(3, Math.round((arViews / maxV) * 100))}%` }} />}
                               </div>
                             </div>
@@ -1511,15 +1680,15 @@ export default function AdminAnalytics() {
                     {itemIntelligence.map((item, i) => (
                       <div key={item.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '28px 36px 1fr 55px 55px 55px 60px 70px 150px', gap: 5, alignItems: 'center', padding: '7px 6px', borderRadius: 8, transition: 'background 0.12s' }}>
                         <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', textAlign: 'right' }}>#{i + 1}</span>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: T.cream }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: A.cream }}>
                           {item.imageURL ? <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(38,52,49,0.2)' }}>—</div>}
                         </div>
                         <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                           <div style={{ fontSize: 10, color: 'rgba(38,52,49,0.3)' }}>{item.category || ''}</div>
                         </div>
                         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(38,52,49,0.6)' }}>{item.views}</div>
-                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: T.warning }}>{item.arViews}</div>
+                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: A.warning }}>{item.arViews}</div>
                         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#9B5B53' }}>{item.ordered}</div>
                         <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#5A8A6E' }}>₹{item.revenue.toFixed(0)}</div>
                         <div style={{ textAlign: 'center' }}>{item.ratingCount > 0 ? <Stars avg={item.rating} /> : <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)' }}>—</span>}</div>
@@ -1537,7 +1706,7 @@ export default function AdminAnalytics() {
                     <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 2 }}>Score = views + (AR x2) + (rating x10)</div>
                   </div>
                   <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'rgba(38,52,49,0.4)' }}>
-                    {[[T.warning, 'Hot'], ['#5A8A6E', 'Active'], ['rgba(38,52,49,0.2)', 'Cold']].map(([c, l]) => (
+                    {[[A.warning, 'Hot'], ['#5A8A6E', 'Active'], ['rgba(38,52,49,0.2)', 'Cold']].map(([c, l]) => (
                       <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: c }} />{l}</span>
                     ))}
                   </div>
@@ -1549,15 +1718,15 @@ export default function AdminAnalytics() {
                       return (
                         <div key={item.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '28px 34px 1fr 55px 55px 55px 70px', gap: 5, alignItems: 'center', padding: '6px 6px', borderRadius: 8 }}>
                           <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', textAlign: 'right' }}>#{i + 1}</span>
-                          <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: T.cream }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: A.cream }}>
                             {item.imageURL ? <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(38,52,49,0.2)' }}>—</div>}
                           </div>
                           <div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: A.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                             <div style={{ height: 4, background: 'rgba(38,52,49,0.05)', borderRadius: 99, overflow: 'hidden' }}><div style={{ height: '100%', width: `${pct}%`, background: c, borderRadius: 99 }} /></div>
                           </div>
                           <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(38,52,49,0.6)' }}>{(item.views || 0).toLocaleString()}</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>views</div></div>
-                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: T.warning }}>{(item.arViews || 0).toLocaleString()}</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>AR</div></div>
+                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: A.warning }}>{(item.arViews || 0).toLocaleString()}</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>AR</div></div>
                           <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: item.arRate >= 30 ? '#5A8A6E' : 'rgba(38,52,49,0.45)' }}>{item.arRate}%</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>rate</div></div>
                           <div style={{ textAlign: 'center' }}>{(item.ratingCount || 0) > 0 ? <Stars avg={item.ratingAvg} count={item.ratingCount} /> : <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)' }}>—</span>}</div>
                         </div>
@@ -1576,9 +1745,9 @@ export default function AdminAnalytics() {
                       {catData.slice(0, 5).map((cat, i) => (
                         <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                           <div style={{ width: 9, height: 9, borderRadius: 2, background: CAT_COLORS[i % CAT_COLORS.length], flexShrink: 0 }} />
-                          <span style={{ flex: 1, color: T.ink, fontWeight: 600 }}>{cat.name}</span>
+                          <span style={{ flex: 1, color: A.ink, fontWeight: 600 }}>{cat.name}</span>
                           <span style={{ color: 'rgba(38,52,49,0.4)', fontSize: 11 }}>{cat.items}</span>
-                          <span style={{ color: T.ink, fontWeight: 700 }}>{cat.views}</span>
+                          <span style={{ color: A.ink, fontWeight: 700 }}>{cat.views}</span>
                         </div>
                       ))}
                     </div>
@@ -1592,7 +1761,7 @@ export default function AdminAnalytics() {
                       {topRated.map((item, i) => (
                         <div key={item.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px', borderRadius: 8 }}>
                           <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', width: 14, textAlign: 'right' }}>#{i + 1}</span>
-                          <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                          <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                           <Stars avg={item.ratingAvg} count={item.ratingCount} />
                         </div>
                       ))}
@@ -1614,30 +1783,31 @@ export default function AdminAnalytics() {
             </div>
           )}
 
-          {/* ── Restaurant Health — bottom of page ── */}
+          {/* ── RESTAURANT HEALTH — Deep Forest signature card (bookend to LIVE TODAY) ── */}
           {!loading && (
             <div style={{
-              background: `linear-gradient(135deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
-              borderRadius: 16, padding: '20px 24px', marginTop: 14,
-              border: '1px solid rgba(234,231,227,0.06)',
+              background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+              borderRadius: 14, padding: '20px 24px', marginTop: 14,
+              border: A.forestBorder,
+              boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.warning }}>RESTAURANT HEALTH</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>RESTAURANT HEALTH</div>
                 <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <svg width="32" height="32" viewBox="0 0 32 32">
-                    <circle cx="16" cy="16" r="13" fill="none" stroke="rgba(234,231,227,0.1)" strokeWidth="3" />
+                    <circle cx="16" cy="16" r="13" fill="none" stroke="rgba(234,231,227,0.12)" strokeWidth="3" />
                     <circle cx="16" cy="16" r="13" fill="none" stroke={scoreColor} strokeWidth="3"
                       strokeDasharray={`${(healthScore / 100) * 81.7} 81.7`} strokeLinecap="round" transform="rotate(-90 16 16)" />
                   </svg>
-                  <span style={{ fontFamily: T.font, fontWeight: 800, fontSize: 22, color: scoreColor }}>{healthScore}</span>
-                  <span style={{ fontSize: 13, color: 'rgba(234,231,227,0.5)' }}>/100</span>
+                  <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 22, color: scoreColor, letterSpacing: '-0.3px' }}>{healthScore}</span>
+                  <span style={{ fontFamily: A.font, fontSize: 13, color: A.forestTextMuted }}>/100</span>
                 </div>
               </div>
               {/* Motivation quote */}
               {healthScore >= 70 && (
-                <div style={{ marginBottom: 14, padding: '12px 16px', background: 'rgba(90,138,110,0.1)', borderRadius: 10, border: '1px solid rgba(90,138,110,0.18)' }}>
-                  <div style={{ fontFamily: T.fontDisplay, fontStyle: 'italic', fontSize: 14, color: '#7AAA8E', lineHeight: 1.6 }}>
+                <div style={{ marginBottom: 14, padding: '12px 16px', background: 'rgba(122,170,142,0.10)', borderRadius: 10, border: '1px solid rgba(122,170,142,0.22)' }}>
+                  <div style={{ fontFamily: A.font, fontStyle: 'italic', fontSize: 14, color: '#9FCAA9', lineHeight: 1.6 }}>
                     {healthScore >= 90 ? '"Your restaurant is performing exceptionally — keep this momentum going!"'
                       : healthScore >= 80 ? '"Great progress! Your menu and service are resonating with customers."'
                         : '"You\'re on the right track — a few tweaks and you\'ll be in the top tier!"'}
@@ -1647,14 +1817,14 @@ export default function AdminAnalytics() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {[
                   { label: 'VISITS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
-                  { label: 'AR → ORDERS', value: arToOrderRate + '%', sub: 'AR conversion' },
+                  { label: 'AR ITEM ORDERS', value: arToOrderRate + '%', sub: 'of all orders' },
                   { label: 'AR ENGAGEMENT', value: arRate + '%', sub: `${totalARViews} launches` },
                   { label: 'AVG RATING', value: avgRating > 0 ? `★ ${avgRating}` : '—', sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} rated items` },
                 ].map(s => (
-                  <div key={s.label} style={{ padding: '14px 16px', background: 'rgba(234,231,227,0.06)', borderRadius: 10, border: '1px solid rgba(234,231,227,0.08)' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(234,231,227,0.5)', marginBottom: 6 }}>{s.label}</div>
-                    <div style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.warning, lineHeight: 1 }}>{s.value}</div>
-                    <div style={{ fontSize: 12, color: 'rgba(234,231,227,0.4)', marginTop: 4 }}>{s.sub}</div>
+                  <div key={s.label} style={{ padding: '14px 16px', background: A.forestSubtleBg, borderRadius: 10, border: A.forestBorder }}>
+                    <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 6 }}>{s.label}</div>
+                    <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.warning, lineHeight: 1, letterSpacing: '-0.3px' }}>{s.value}</div>
+                    <div style={{ fontFamily: A.font, fontSize: 12, color: A.forestTextMuted, marginTop: 4 }}>{s.sub}</div>
                   </div>
                 ))}
               </div>
@@ -1670,24 +1840,28 @@ export default function AdminAnalytics() {
 
                 return (
                   <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: alerts.length > 0 ? '#E8907E' : '#7AAA8E', marginBottom: 8 }}>
+                    <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: alerts.length > 0 ? '#E8907E' : '#9FCAA9', marginBottom: 8 }}>
                       {alerts.length > 0 ? 'NEEDS ATTENTION' : 'ALL CLEAR'}
                     </div>
                     {alerts.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {alerts.map((a, i) => {
-                          const colors = { danger: { bg: 'rgba(155,91,83,0.1)', border: 'rgba(155,91,83,0.18)', text: '#E8907E' }, warning: { bg: 'rgba(196,168,109,0.08)', border: 'rgba(196,168,109,0.15)', text: T.warning }, info: { bg: 'rgba(90,138,154,0.08)', border: 'rgba(90,138,154,0.12)', text: '#7ABAC8' } };
+                          const colors = {
+                            danger:  { bg: 'rgba(232,144,126,0.10)', border: 'rgba(232,144,126,0.24)', text: '#F0A89A' },
+                            warning: { bg: 'rgba(196,168,109,0.12)', border: 'rgba(196,168,109,0.28)', text: '#D8BA80' },
+                            info:    { bg: 'rgba(122,186,200,0.10)', border: 'rgba(122,186,200,0.22)', text: '#9BCCD9' },
+                          };
                           const c = colors[a.type] || colors.info;
                           return (
                             <div key={i} style={{ padding: '10px 14px', background: c.bg, borderRadius: 8, border: `1px solid ${c.border}` }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: c.text }}>{a.text}</span>
+                              <span style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: c.text }}>{a.text}</span>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      <div style={{ padding: '10px 14px', background: 'rgba(90,138,110,0.08)', borderRadius: 8, border: '1px solid rgba(90,138,110,0.15)' }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#7AAA8E' }}>All menu items are performing well — no issues detected</span>
+                      <div style={{ padding: '10px 14px', background: 'rgba(122,170,142,0.10)', borderRadius: 8, border: '1px solid rgba(122,170,142,0.22)' }}>
+                        <span style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: '#9FCAA9' }}>All menu items are performing well — no issues detected</span>
                       </div>
                     )}
                   </div>
