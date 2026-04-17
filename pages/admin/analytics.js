@@ -291,27 +291,162 @@ export default function AdminAnalytics() {
 
   const insights = useMemo(() => {
     const list = [];
-    if (topOrderedItems.length > 0) {
+    const now = Date.now();
+    const daysSince = (ts) => ts?.toDate ? Math.floor((now - ts.toDate().getTime()) / 86400000) : ts?.seconds ? Math.floor((now - ts.seconds * 1000) / 86400000) : null;
+
+    // ── CRITICAL (priority 100) — risks to revenue or reputation ──
+
+    // Low-rated dish — specific item + exact rating
+    if (lowRated.length > 0) {
+      const worst = lowRated[0];
+      list.push({
+        priority: 100, type: 'danger',
+        text: `${worst.name} is rated ${(worst.ratingAvg || 0).toFixed(1)}★ across ${worst.ratingCount} rating${worst.ratingCount > 1 ? 's' : ''}. Try it yourself — something is off.`,
+      });
+    }
+
+    // Revenue concentration risk — top dish is too much of the pie (only meaningful at 10+ orders)
+    if (topOrderedItems.length > 0 && totalRevenue > 0 && totalOrders >= 10) {
       const top = topOrderedItems[0];
-      const revPct = totalRevenue > 0 ? Math.round((top.revenue / totalRevenue) * 100) : 0;
-      if (revPct > 0) list.push({ text: `${top.name} drives ${revPct}% of revenue`, type: 'success' });
+      const revPct = Math.round((top.revenue / totalRevenue) * 100);
+      if (revPct >= 40) {
+        list.push({
+          priority: 100, type: 'warning',
+          text: `${top.name} is ${revPct}% of revenue. High concentration — if it's off the menu one day, revenue drops hard. Feature your #2 and #3 dishes more.`,
+        });
+      }
     }
-    // AR adoption — lifetime scale. Strategic question: "is AR getting used overall?"
+
+    // AR models exist but nobody launches them — discoverability problem
+    if (totalARViewsLifetime === 0) {
+      const arItems = activeItems.filter(i => i.modelURL);
+      if (arItems.length > 0) {
+        list.push({
+          priority: 100, type: 'danger',
+          text: `${arItems.length} dish${arItems.length > 1 ? 'es have' : ' has'} AR ready but 0 launches ever. The AR button may not be visible to customers.`,
+        });
+      }
+    }
+
+    // ── ACTIONABLE (priority 80) — specific item problems/opportunities ──
+
+    // Viewed but not ordered — lifetime views, recent-range orders
+    const viewedNotOrdered = activeItems
+      .filter(i => (i.views || 0) > 10)
+      .filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0)
+      .sort((a, b) => (b.views || 0) - (a.views || 0));
+    if (viewedNotOrdered.length > 0) {
+      const w = viewedNotOrdered[0];
+      list.push({
+        priority: 80, type: 'warning',
+        text: `${w.name}: ${w.views} lifetime views but no orders in the last ${range}d. Photo, description, or price may be the problem.`,
+      });
+    }
+
+    // Hidden gem — high rating but low orders
+    const hiddenGem = activeItems
+      .filter(i => (i.ratingCount || 0) >= 3 && (i.ratingAvg || 0) >= 4.5)
+      .filter(i => !itemFreq[i.name] || itemFreq[i.name].qty < 3)
+      .sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0))[0];
+    if (hiddenGem) {
+      list.push({
+        priority: 80, type: 'info',
+        text: `${hiddenGem.name} has a ${hiddenGem.ratingAvg.toFixed(1)}★ rating but few orders — hidden gem. Feature it on your homepage.`,
+      });
+    }
+
+    // Stale new item — added 14+ days ago, still 0 views
+    const staleNew = activeItems
+      .filter(i => (i.views || 0) === 0)
+      .map(i => ({ ...i, age: daysSince(i.createdAt) }))
+      .filter(i => i.age !== null && i.age >= 14)
+      .sort((a, b) => b.age - a.age)[0];
+    if (staleNew) {
+      list.push({
+        priority: 80, type: 'warning',
+        text: `${staleNew.name} was added ${staleNew.age} days ago with 0 views. Consider hiding it or replacing the photo.`,
+      });
+    }
+
+    // ── STRATEGIC (priority 60) — patterns worth knowing ──
+
+    // Day-of-week concentration (only meaningful with enough orders)
+    if (busiestDay && busiestDay.orders > 0 && totalOrders >= 10) {
+      const totalDayOrders = dayData.reduce((s, d) => s + d.orders, 0);
+      const sharePct = Math.round((busiestDay.orders / totalDayOrders) * 100);
+      const fullDay = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' }[busiestDay.day];
+      if (sharePct >= 30) {
+        list.push({
+          priority: 60, type: 'info',
+          text: `${fullDay} drives ${sharePct}% of your orders. Worth a ${fullDay}-specific promo or extra staffing.`,
+        });
+      }
+    }
+
+    // Rating capture rate — low ratings per order means customers don't engage
+    const totalRatings = activeItems.reduce((s, i) => s + (i.ratingCount || 0), 0);
+    if (totalOrders >= 10 && totalRatings > 0) {
+      const capturePct = Math.round((totalRatings / totalOrders) * 100);
+      if (capturePct < 20) {
+        list.push({
+          priority: 60, type: 'warning',
+          text: `Only ${capturePct}% of orders get rated (${totalRatings} of ${totalOrders}). Add a rating prompt after the meal.`,
+        });
+      }
+    }
+
+    // AR adoption — lifetime tier (requires enough views to be statistically meaningful)
     const arLife = parseFloat(arRateLifetime);
-    if (totalARViewsLifetime > 0) {
-      if (arLife >= 20) list.push({ text: `AR is a hit — ${arLife}% of item views launch AR. Keep adding AR to new dishes.`, type: 'success' });
-      else if (arLife >= 10) list.push({ text: `AR adoption at ${arLife}% — solid. Add AR to your top 3 dishes to push higher.`, type: 'info' });
-      else if (arLife >= 3) list.push({ text: `AR at ${arLife}% — room to grow. Highlight the AR badge more prominently on item cards.`, type: 'warning' });
-      else list.push({ text: `AR at ${arLife}% — underused. Only ${totalARViewsLifetime} launches ever. Check the AR button is visible.`, type: 'warning' });
-    } else if (activeItems.some(i => i.modelURL)) {
-      list.push({ text: `You have AR-enabled dishes but 0 launches ever — AR button may not be discoverable.`, type: 'danger' });
+    if (totalARViewsLifetime > 0 && totalViewsLifetime >= 20) {
+      if (arLife >= 20) {
+        list.push({ priority: 40, type: 'success', text: `AR is a hit — ${arLife}% of item views launch AR. Keep adding AR to new dishes.` });
+      } else if (arLife >= 10) {
+        list.push({ priority: 60, type: 'info', text: `AR adoption at ${arLife}%. Add AR to your top 3 dishes to push higher.` });
+      } else if (arLife >= 3) {
+        list.push({ priority: 60, type: 'warning', text: `AR at ${arLife}% — underused. Highlight the AR badge more prominently on item cards.` });
+      } else {
+        list.push({ priority: 80, type: 'warning', text: `AR at ${arLife}% — only ${totalARViewsLifetime} launches ever. Check the AR button is discoverable.` });
+      }
     }
-    if (peakHour) list.push({ text: `Peak ordering time: ${peakHour.label} with ${peakHour.orders} orders`, type: 'info' });
-    const viewedNotOrdered = activeItems.filter(i => (i.views || 0) > 10).filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0).sort((a, b) => (b.views || 0) - (a.views || 0));
-    if (viewedNotOrdered.length > 0) list.push({ text: `${viewedNotOrdered[0].name}: ${viewedNotOrdered[0].views} views but 0 orders`, type: 'danger' });
-    if (zeroView.length > 0) list.push({ text: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views — update photos`, type: 'danger' });
-    return list.slice(0, 4);
-  }, [topOrderedItems, totalRevenue, arRateLifetime, totalARViewsLifetime, peakHour, activeItems, itemFreq, zeroView]);
+
+    // ── WINS (priority 40) — positive signal ──
+
+    // Strong AR conversion — specific: an item with high AR launch rate
+    const arStar = activeItems
+      .filter(i => (i.views || 0) >= 10 && (i.arViews || 0) > 0)
+      .map(i => ({ ...i, arConv: (i.arViews / i.views) * 100 }))
+      .filter(i => i.arConv >= 25)
+      .sort((a, b) => b.arConv - a.arConv)[0];
+    if (arStar) {
+      list.push({
+        priority: 40, type: 'success',
+        text: `${arStar.name} has ${arStar.arConv.toFixed(0)}% AR launch rate — customers love seeing it in 3D.`,
+      });
+    }
+
+    // ── INFORMATIONAL (priority 20) ──
+
+    // Dead items — 0 views ever, but specific
+    const deadItems = activeItems
+      .filter(i => (i.views || 0) === 0)
+      .map(i => ({ ...i, age: daysSince(i.createdAt) }))
+      .filter(i => i.age === null || i.age < 14); // exclude ones already flagged as stale-new
+    if (deadItems.length >= 3) {
+      list.push({
+        priority: 20, type: 'info',
+        text: `${deadItems.length} items have 0 views — recently added or buried in the menu order.`,
+      });
+    }
+
+    // Sort by priority desc, then by severity (danger > warning > info > success), take top 4
+    const severityRank = { danger: 4, warning: 3, info: 2, success: 1 };
+    return list
+      .sort((a, b) => (b.priority - a.priority) || (severityRank[b.type] - severityRank[a.type]))
+      .slice(0, 4);
+  }, [
+    topOrderedItems, totalRevenue, totalOrders, arRateLifetime, totalARViewsLifetime, totalViewsLifetime,
+    activeItems, itemFreq, lowRated, busiestDay, dayData, range,
+  ]);
 
   const healthScore = useMemo(() => {
     let score = 50;
