@@ -173,9 +173,16 @@ export default function AdminAnalytics() {
   const prevUnique = sum(prevAnal, 'uniqueVisitors');
 
   const activeItems = menuItems.filter(i => i.isActive !== false);
-  const totalViews = activeItems.reduce((s, i) => s + (i.views || 0), 0);
-  const totalARViews = activeItems.reduce((s, i) => s + (i.arViews || 0), 0);
+  // Per-day sums (range-responsive) — populated from incrementItemView/incrementARView dual-writes.
+  // Customer Journey + conversion rates use these so they respond to the date filter.
+  const totalViews = sum(analytics, 'itemViews');
+  const totalARViews = sum(analytics, 'arViews');
   const arRate = totalViews > 0 ? ((totalARViews / totalViews) * 100).toFixed(1) : '0.0';
+  // Lifetime sums (range-independent) — used by Smart Insights for strategic "overall adoption" questions
+  // and by any insight that needs the long view (e.g. items with zero views, popularity rankings).
+  const totalViewsLifetime = activeItems.reduce((s, i) => s + (i.views || 0), 0);
+  const totalARViewsLifetime = activeItems.reduce((s, i) => s + (i.arViews || 0), 0);
+  const arRateLifetime = totalViewsLifetime > 0 ? ((totalARViewsLifetime / totalViewsLifetime) * 100).toFixed(1) : '0.0';
   const avgRating = (() => {
     const rated = activeItems.filter(i => (i.ratingCount || 0) > 0);
     if (!rated.length) return 0;
@@ -289,13 +296,22 @@ export default function AdminAnalytics() {
       const revPct = totalRevenue > 0 ? Math.round((top.revenue / totalRevenue) * 100) : 0;
       if (revPct > 0) list.push({ text: `${top.name} drives ${revPct}% of revenue`, type: 'success' });
     }
-    if (parseFloat(arRate) > 0) list.push({ text: `AR engagement at ${arRate}% — ${parseFloat(arRate) >= 15 ? 'strong' : 'room to grow'}`, type: parseFloat(arRate) >= 15 ? 'success' : 'warning' });
+    // AR adoption — lifetime scale. Strategic question: "is AR getting used overall?"
+    const arLife = parseFloat(arRateLifetime);
+    if (totalARViewsLifetime > 0) {
+      if (arLife >= 20) list.push({ text: `AR is a hit — ${arLife}% of item views launch AR. Keep adding AR to new dishes.`, type: 'success' });
+      else if (arLife >= 10) list.push({ text: `AR adoption at ${arLife}% — solid. Add AR to your top 3 dishes to push higher.`, type: 'info' });
+      else if (arLife >= 3) list.push({ text: `AR at ${arLife}% — room to grow. Highlight the AR badge more prominently on item cards.`, type: 'warning' });
+      else list.push({ text: `AR at ${arLife}% — underused. Only ${totalARViewsLifetime} launches ever. Check the AR button is visible.`, type: 'warning' });
+    } else if (activeItems.some(i => i.modelURL)) {
+      list.push({ text: `You have AR-enabled dishes but 0 launches ever — AR button may not be discoverable.`, type: 'danger' });
+    }
     if (peakHour) list.push({ text: `Peak ordering time: ${peakHour.label} with ${peakHour.orders} orders`, type: 'info' });
     const viewedNotOrdered = activeItems.filter(i => (i.views || 0) > 10).filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0).sort((a, b) => (b.views || 0) - (a.views || 0));
     if (viewedNotOrdered.length > 0) list.push({ text: `${viewedNotOrdered[0].name}: ${viewedNotOrdered[0].views} views but 0 orders`, type: 'danger' });
     if (zeroView.length > 0) list.push({ text: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views — update photos`, type: 'danger' });
     return list.slice(0, 4);
-  }, [topOrderedItems, totalRevenue, arRate, peakHour, activeItems, itemFreq, zeroView]);
+  }, [topOrderedItems, totalRevenue, arRateLifetime, totalARViewsLifetime, peakHour, activeItems, itemFreq, zeroView]);
 
   const healthScore = useMemo(() => {
     let score = 50;
@@ -419,7 +435,7 @@ export default function AdminAnalytics() {
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <div style={{ display: 'inline-flex', background: '#FFFFFF', border: A.border, borderRadius: 10, padding: 3 }}>
-                  {[7, 30, 90].map(d => (
+                  {[7, 14, 30, 90].map(d => (
                     <button key={d} onClick={() => setRange(d)} style={{
                       padding: '6px 14px', borderRadius: 7,
                       border: 'none',
@@ -561,7 +577,7 @@ export default function AdminAnalytics() {
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                {[7, 30, 90].map(d => (
+                {[7, 14, 30, 90].map(d => (
                   <button key={d} onClick={() => setRange(d)} style={{
                     padding: '4px 12px', borderRadius: 16,
                     border: range === d ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
