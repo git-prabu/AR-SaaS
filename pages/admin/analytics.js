@@ -9,10 +9,11 @@ import {
 import { T, ADMIN_STYLES } from '../../lib/utils';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie,
+  ResponsiveContainer, BarChart, Bar, Cell,
   LineChart, Line, ReferenceLine,
 } from 'recharts';
 import CountUp from 'react-countup';
+import BentoGlow from '../../components/BentoGlow';
 
 // ═══ Aspire theme (local to analytics page — replaces Cinematic Forest per user request) ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -31,36 +32,24 @@ const A = {
   mutedText: 'rgba(0,0,0,0.55)',
   faintText: 'rgba(0,0,0,0.38)',
   subtleBg: 'rgba(0,0,0,0.04)',
-  // Deep Forest tokens for signature dark cards
-  forest: '#263431',
-  forestDarker: '#1A2420',
-  forestText: '#EAE7E3',             // cream on forest
+  // Matte black tokens for signature dark cards (LIVE TODAY, Restaurant Health)
+  forest: '#1A1A1A',                 // Matte Black — signature dark card bg
+  forestDarker: '#2A2A2A',           // slightly lighter for inner tiles
+  forestText: '#EAE7E3',             // soft cream text on black (high contrast, not harsh white)
   forestTextMuted: 'rgba(234,231,227,0.55)',
   forestTextFaint: 'rgba(234,231,227,0.35)',
-  forestSubtleBg: 'rgba(234,231,227,0.06)',
-  forestBorder: '1px solid rgba(234,231,227,0.08)',
+  forestSubtleBg: 'rgba(255,255,255,0.04)',
+  forestBorder: '1px solid rgba(255,255,255,0.06)',
 };
 
 const tip = { backgroundColor: A.ink, border: 'none', borderRadius: 10, color: A.cream, fontSize: 12, fontFamily: A.font, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' };
 const tipLabel = { color: A.cream, fontWeight: 600 };
 const tipItem = { color: 'rgba(234,231,227,0.8)' };
-const CAT_COLORS = ['#9B5B53', '#C4A86D', '#8A7A6A', '#5A8A6E', '#5A8A9A', '#7AAA8E', '#F4D070', '#A08060'];
-
-const PieTip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: A.ink, borderRadius: 10, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
-      <div style={{ color: A.cream, fontWeight: 700, fontSize: 13 }}>{payload[0].name}</div>
-      <div style={{ color: 'rgba(234,231,227,0.65)', fontSize: 12, marginTop: 2 }}>{payload[0].value} views</div>
-    </div>
-  );
-};
-
 function Trend({ val }) {
   if (!val) return null;
   const up = val > 0;
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: up ? 'rgba(90,138,110,0.18)' : 'rgba(155,91,83,0.12)', color: up ? '#5A8A6E' : '#9B5B53' }}>
+    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: up ? 'rgba(63,158,90,0.10)' : 'rgba(217,83,79,0.10)', color: up ? '#3F9E5A' : '#D9534F' }}>
       {up ? '▲' : '▼'} {Math.abs(val)}%
     </span>
   );
@@ -144,6 +133,17 @@ export default function AdminAnalytics() {
   const [ordBarHover, setOrdBarHover] = useState(null);
   const [peakBarHover, setPeakBarHover] = useState(null);
   const [dayBarHover, setDayBarHover] = useState(null);
+  // Tracks which Restaurant Health alert cards are expanded to show all item chips (keyed by `${type}::${title}`).
+  const [expandedAlerts, setExpandedAlerts] = useState(new Set());
+  // Item Performance table sort mode — 'revenue' | 'orders' | 'views'. Click pills to re-sort.
+  const [menuSort, setMenuSort] = useState('revenue');
+  const toggleAlertExpand = useCallback((key) => {
+    setExpandedAlerts(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
   const rid = userData?.restaurantId;
   const initialLoadDone = useRef(false);
 
@@ -238,6 +238,21 @@ export default function AdminAnalytics() {
     });
   });
   const topOrderedItems = Object.values(itemFreq).sort((a, b) => b.qty - a.qty).slice(0, 8);
+  // Top 3 performers by revenue in the selected range — fuels the "Top Performers" panel in Restaurant Health.
+  // Rating is looked up by name against menuItems (lifetime rating — ratings are slow-moving).
+  const topPerformers = Object.values(itemFreq)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 3)
+    .map(f => {
+      const item = menuItems.find(i => i.name === f.name);
+      return {
+        name: f.name,
+        qty: f.qty,
+        revenue: f.revenue,
+        rating: item?.ratingAvg || 0,
+        ratingCount: item?.ratingCount || 0,
+      };
+    });
 
   const hourlyOrders = Array(24).fill(0);
   ordersInRange.forEach(o => {
@@ -264,14 +279,24 @@ export default function AdminAnalytics() {
   const maxScore = heatmapData[0]?.score || 1;
   const heatColor = score => {
     const p = score / maxScore;
-    if (p >= 0.7) return A.warning;
-    if (p >= 0.3) return '#5A8A6E';
-    return 'rgba(38,52,49,0.18)';
+    if (p >= 0.7) return A.warning;       // gold for hot
+    if (p >= 0.3) return '#A08656';       // darker gold for active
+    return 'rgba(38,52,49,0.18)';         // grey for cold
   };
 
   const topRated = [...activeItems].filter(i => (i.ratingCount || 0) > 0).sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0)).slice(0, 5);
-  const lowRated = [...activeItems].filter(i => (i.ratingAvg || 0) < 3.5 && (i.ratingCount || 0) > 0).sort((a, b) => (a.ratingAvg || 0) - (b.ratingAvg || 0)).slice(0, 3);
-  const zeroView = heatmapData.filter(i => (i.views || 0) === 0);
+  // Require at least 3 ratings before flagging an item as low-rated — single bad reviews shouldn't trigger an alert.
+  const lowRated = [...activeItems].filter(i => (i.ratingAvg || 0) < 3.5 && (i.ratingCount || 0) >= 3).sort((a, b) => (a.ratingAvg || 0) - (b.ratingAvg || 0)).slice(0, 3);
+  // Zero-view items, split by age: items < 7 days old are "new" (informational), older are "stale" (real problem).
+  // createdAt is set via serverTimestamp() in lib/db.js item creation flows; if missing, treat as old.
+  const NEW_ITEM_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+  const __itemAgeMs = (i) => {
+    const ms = i.createdAt?.toDate ? i.createdAt.toDate().getTime() : (i.createdAt?.seconds ? i.createdAt.seconds * 1000 : null);
+    return ms == null ? Infinity : (Date.now() - ms);
+  };
+  const __zeroViewAll = heatmapData.filter(i => (i.views || 0) === 0);
+  const zeroView = __zeroViewAll.filter(i => __itemAgeMs(i) > NEW_ITEM_GRACE_MS);   // stale: older than 7 days, still no views
+  const newUnviewed = __zeroViewAll.filter(i => __itemAgeMs(i) <= NEW_ITEM_GRACE_MS); // brand-new: in grace period
   const topItems = [...activeItems].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
 
   const catMap = {};
@@ -284,8 +309,8 @@ export default function AdminAnalytics() {
   const catData = Object.values(catMap).sort((a, b) => b.views - a.views);
 
   const funnelData = [
-    { label: 'Menu Visits', value: totalVisits, pct: 100, color: '#5A8A9A' },
-    { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.min(100, Math.round((totalViews / totalVisits) * 100)) : 0, color: '#8A7A6A' },
+    { label: 'Menu Visits', value: totalVisits, pct: 100, color: '#1A1A1A' },
+    { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.min(100, Math.round((totalViews / totalVisits) * 100)) : 0, color: '#A08656' },
     { label: 'AR Views', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: A.warning },
   ];
 
@@ -424,6 +449,45 @@ export default function AdminAnalytics() {
       });
     }
 
+    // Avg order value — tells the owner whether to push upsells or features
+    if (totalOrders >= 10) {
+      if (avgOrderValue >= 600) {
+        list.push({
+          priority: 40, type: 'success',
+          text: `Avg order ₹${Math.round(avgOrderValue)} — customers buy multiple items per order. Your upsells are working.`,
+        });
+      } else if (avgOrderValue < 250) {
+        list.push({
+          priority: 60, type: 'warning',
+          text: `Avg order ₹${Math.round(avgOrderValue)} is low. Offer combos or sides to push basket size up.`,
+        });
+      }
+    }
+
+    // Customer loyalty signal — returning customer rate
+    if (totalOrders >= 10) {
+      const phoneCounts = {};
+      ordersInRange.forEach(o => {
+        if (o.customerPhone) phoneCounts[o.customerPhone] = (phoneCounts[o.customerPhone] || 0) + 1;
+      });
+      const uniqueCustomers = Object.keys(phoneCounts).length;
+      if (uniqueCustomers >= 5) {
+        const returningCount = Object.values(phoneCounts).filter(c => c > 1).length;
+        const returningPct = Math.round((returningCount / uniqueCustomers) * 100);
+        if (returningPct >= 40) {
+          list.push({
+            priority: 40, type: 'success',
+            text: `${returningPct}% of customers came back — strong loyalty. Consider a referral offer to amplify it.`,
+          });
+        } else if (returningPct < 15) {
+          list.push({
+            priority: 60, type: 'warning',
+            text: `Only ${returningPct}% of customers return. A small loyalty reward could lift repeat visits.`,
+          });
+        }
+      }
+    }
+
     // ── INFORMATIONAL (priority 20) ──
 
     // Dead items — 0 views ever, but specific
@@ -444,8 +508,8 @@ export default function AdminAnalytics() {
       .sort((a, b) => (b.priority - a.priority) || (severityRank[b.type] - severityRank[a.type]))
       .slice(0, 4);
   }, [
-    topOrderedItems, totalRevenue, totalOrders, arRateLifetime, totalARViewsLifetime, totalViewsLifetime,
-    activeItems, itemFreq, lowRated, busiestDay, dayData, range,
+    topOrderedItems, totalRevenue, totalOrders, avgOrderValue, arRateLifetime, totalARViewsLifetime, totalViewsLifetime,
+    activeItems, itemFreq, ordersInRange, lowRated, busiestDay, dayData, range,
   ]);
 
   const healthScore = useMemo(() => {
@@ -456,7 +520,7 @@ export default function AdminAnalytics() {
     if (totalVisits > 100) score += 5; else if (totalVisits > 20) score += 3;
     return Math.min(100, Math.round(score));
   }, [totalOrders, avgRating, arRate, totalVisits]);
-  const scoreColor = healthScore >= 80 ? '#5A8A6E' : healthScore >= 60 ? A.warning : '#9B5B53';
+  const scoreColor = healthScore >= 80 ? '#3F9E5A' : healthScore >= 60 ? A.warning : '#D9534F';
 
   const viewToOrderRate = totalVisits > 0 && totalOrders > 0 ? ((totalOrders / totalVisits) * 100).toFixed(1) : '0.0';
   const itemsWithAR = activeItems.filter(i => (i.arViews || 0) > 0);
@@ -476,22 +540,45 @@ export default function AdminAnalytics() {
   const todayVisits = todayStat?.totalVisits || 0;
   const todayWaiterCalls = todayStat?.waiterCalls || 0;
 
+  // Item Performance dataset — signal only fires when it matters; most rows have no flag.
+  // signalType: 'top' (top performer), 'high-conv' (rare high conversion), 'low-conv' (views but no orders), null (quiet)
   const itemIntelligence = useMemo(() => {
-    return activeItems.map(item => {
+    const withMetrics = activeItems.map(item => {
       const freq = itemFreq[item.name];
-      const views = item.views || 0, arViews = item.arViews || 0, ordered = freq?.qty || 0, revenue = freq?.revenue || 0;
-      const rating = item.ratingAvg || 0, ratingCount = item.ratingCount || 0;
-      let suggestion = '', sColor = 'rgba(38,52,49,0.5)';
-      if (views > 20 && ordered === 0) { suggestion = 'High views, no orders'; sColor = '#9B5B53'; }
-      else if (views === 0) { suggestion = 'No views — update photo'; sColor = '#9B5B53'; }
-      else if (rating > 0 && rating < 3) { suggestion = 'Low rating — improve'; sColor = '#9B5B53'; }
-      else if (ordered > 5 && rating >= 4) { suggestion = 'Star performer'; sColor = '#5A8A6E'; }
-      else if (arViews > 0 && arViews / Math.max(views, 1) > 0.3) { suggestion = 'High AR interest'; sColor = A.warning; }
-      else if (ordered > 0) { suggestion = 'Performing well'; sColor = 'rgba(38,52,49,0.35)'; }
-      else { suggestion = 'Needs attention'; sColor = 'rgba(38,52,49,0.4)'; }
-      return { ...item, ordered, revenue, suggestion, sColor, views, arViews, rating, ratingCount };
-    }).sort((a, b) => b.revenue - a.revenue || b.views - a.views).slice(0, 12);
-  }, [activeItems, itemFreq]);
+      const views = item.views || 0;
+      const arViews = item.arViews || 0;
+      const ordered = freq?.qty || 0;
+      const revenue = freq?.revenue || 0;
+      const rating = item.ratingAvg || 0;
+      const ratingCount = item.ratingCount || 0;
+      const convRate = views > 0 ? (ordered / views) : 0; // orders per view
+      return { ...item, ordered, revenue, views, arViews, rating, ratingCount, convRate };
+    });
+
+    // Compute per-restaurant thresholds so signal flags scale with the menu.
+    // Top performer: top 3 by revenue with rating >= 4 (or any rating if rating data is thin).
+    // High conversion: conversion rate >= 2x the menu median (only items with >=10 views qualify, so small samples don't game it).
+    // Low conversion: views >= top-quartile by views AND ordered === 0 this range.
+    const ratingVolume = withMetrics.filter(x => x.ratingCount >= 3).length;
+    const topByRev = [...withMetrics].sort((a, b) => b.revenue - a.revenue).filter(x => x.revenue > 0).slice(0, 3);
+    const topByRevSet = new Set(topByRev.filter(x => ratingVolume < 3 || x.rating >= 4).map(x => x.id));
+    const convCandidates = withMetrics.filter(x => x.views >= 10 && x.convRate > 0).map(x => x.convRate).sort((a, b) => a - b);
+    const medianConv = convCandidates.length ? convCandidates[Math.floor(convCandidates.length / 2)] : 0;
+    const viewSorted = [...withMetrics].map(x => x.views).filter(v => v > 0).sort((a, b) => b - a);
+    const topQuartileViewsThresh = viewSorted.length >= 4 ? viewSorted[Math.max(0, Math.ceil(viewSorted.length * 0.25) - 1)] : Infinity;
+
+    const withFlags = withMetrics.map(x => {
+      let signalType = null;
+      if (topByRevSet.has(x.id)) signalType = 'top';
+      else if (x.views >= 10 && medianConv > 0 && x.convRate >= medianConv * 2) signalType = 'high-conv';
+      else if (x.views >= topQuartileViewsThresh && x.ordered === 0) signalType = 'low-conv';
+      return { ...x, signalType };
+    });
+
+    const keyFor = { revenue: x => x.revenue, orders: x => x.ordered, views: x => x.views };
+    const picker = keyFor[menuSort] || keyFor.revenue;
+    return withFlags.sort((a, b) => picker(b) - picker(a) || b.views - a.views).slice(0, 12);
+  }, [activeItems, itemFreq, menuSort]);
 
   const exportCSV = () => {
     if (tab === 'overview') downloadCSV(chartData.map(d => ({ date: d.date, visits: d.visits, unique_visitors: d.unique })), `analytics-${range}d.csv`);
@@ -533,7 +620,7 @@ export default function AdminAnalytics() {
     const isLine = mode === 'line';
     return (
       <button onClick={() => toggleChart(chartKey, fallback)} title={`Switch to ${isLine ? 'bar' : 'line'} chart`}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 14, border: '1px solid rgba(196,168,109,0.5)', background: 'rgba(196,168,109,0.08)', cursor: 'pointer', fontFamily: A.font, fontSize: 10, fontWeight: 600, color: '#A08050', transition: 'all 0.15s', verticalAlign: 'middle', lineHeight: 1 }}>
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 14, border: '1px solid rgba(196,168,109,0.5)', background: 'rgba(196,168,109,0.08)', cursor: 'pointer', fontFamily: A.font, fontSize: 10, fontWeight: 600, color: '#A08656', transition: 'all 0.15s', verticalAlign: 'middle', lineHeight: 1 }}>
         {isLine ? (
           <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><rect x="2" y="7" width="2.5" height="5" rx="0.8" fill="currentColor" /><rect x="5.75" y="4" width="2.5" height="8" rx="0.8" fill="currentColor" /><rect x="9.5" y="5.5" width="2.5" height="6.5" rx="0.8" fill="currentColor" /></svg>
         ) : (
@@ -563,10 +650,17 @@ export default function AdminAnalytics() {
             {/* Title row */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
               <div>
-                <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px' }}>
+                <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>Dashboard</span>
+                  <span style={{ opacity: 0.5 }}>›</span>
+                  <span style={{ color: A.mutedText }}>Analytics</span>
+                </div>
+                <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
                   {restaurantName} <span style={{ color: A.mutedText, fontWeight: 500 }}>Analytics</span>
                 </div>
-                <div style={{ fontFamily: A.font, fontSize: 13, color: A.mutedText, marginTop: 3 }}>Performance dashboard — last {range} days</div>
+                <div style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText, marginTop: 4 }}>
+                  Live data · Updated {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <div style={{ display: 'inline-flex', background: '#FFFFFF', border: A.border, borderRadius: 10, padding: 3 }}>
@@ -595,14 +689,14 @@ export default function AdminAnalytics() {
                 { label: 'REVENUE', value: totalRevenue, prefix: '₹', highlight: true },
                 { label: 'AVG ORDER', value: Math.round(avgOrderValue), prefix: '₹' },
               ].map(s => (
-                <div key={s.label} style={{
+                <BentoGlow key={s.label} style={{
                   padding: '18px 20px', background: '#FFFFFF', borderRadius: 14,
                   border: A.border, boxShadow: A.cardShadow, minHeight: 86,
                 }}>
                   <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>{s.label}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 28 }}>
                     <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
-                      <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue redraw />
+                      <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue key={committedRange} />
                     </span>
                     {s.d !== undefined && s.d !== 0 && (
                       <span style={{
@@ -614,7 +708,7 @@ export default function AdminAnalytics() {
                       }}>{s.d > 0 ? '↗' : '↘'} {Math.abs(s.d)}%</span>
                     )}
                   </div>
-                </div>
+                </BentoGlow>
               ))}
             </div>
           </div>
@@ -631,7 +725,7 @@ export default function AdminAnalytics() {
             boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#7AAA8E', animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(122,170,142,0.6)' }} />
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#C4A86D', animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
               <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>LIVE TODAY</span>
               <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
               <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>{todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -650,7 +744,7 @@ export default function AdminAnalytics() {
                 }}>
                   <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>{s.label}</div>
                   <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 28, color: s.accent ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
-                    <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue redraw />
+                    <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue />
                   </div>
                 </div>
               ))}
@@ -659,7 +753,7 @@ export default function AdminAnalytics() {
 
           {/* ── Smart Insights (Aspire light) ── */}
           {insights.length > 0 && (
-            <div style={{
+            <BentoGlow style={{
               background: '#FFFFFF',
               borderRadius: 14, padding: '18px 22px', marginBottom: 14,
               border: A.border, boxShadow: A.cardShadow,
@@ -670,10 +764,10 @@ export default function AdminAnalytics() {
                 <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.06)' }} />
                 <span style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, fontWeight: 500 }}>Auto-analysed</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(insights.length, 4)}, 1fr)`, gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(4, 1fr)`, gap: 12 }}>
                 {insights.map((ins, i) => {
                   const icons = { success: '▲', warning: '◆', danger: '!', info: '→' };
-                  const colors = { success: '#3F9E5A', warning: A.warning, danger: '#D9534F', info: '#4B8FB9' };
+                  const colors = { success: '#3F9E5A', warning: A.warning, danger: '#D9534F', info: '#1A1A1A' };
                   return (
                     <div key={i} style={{
                       padding: '14px 16px', borderRadius: 10,
@@ -693,7 +787,7 @@ export default function AdminAnalytics() {
                   );
                 })}
               </div>
-            </div>
+            </BentoGlow>
           )}
 
           {/* ── Sticky tabs + range selector bar ── */}
@@ -781,13 +875,13 @@ export default function AdminAnalytics() {
                       <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>₹{v.toLocaleString('en-IN')}</span>
-                        {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#4A9A5E' : '#9B5B53' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
+                        {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#3F9E5A' : '#D9534F' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
                       </div>
                     </div>
                   );
                 };
                 return (
-                  <div style={{ ...card, padding: '22px 22px 18px', marginBottom: 14, fontFamily: aspireFont }}>
+                  <BentoGlow style={{ ...card, padding: '22px 22px 18px', marginBottom: 14, fontFamily: aspireFont }}>
                     <Head>
                       <link rel="preconnect" href="https://fonts.googleapis.com" />
                       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -840,12 +934,12 @@ export default function AdminAnalytics() {
                       const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
                       return (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix="₹" preserveValue redraw /></span>
+                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix="₹" preserveValue key={committedRange} /></span>
                           {up !== null && (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: 3,
                               fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
-                              color: up ? '#4A9A5E' : '#9B5B53',
+                              color: up ? '#3F9E5A' : '#D9534F',
                               background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
                               padding: '3px 9px', borderRadius: 999, lineHeight: 1,
                             }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
@@ -875,7 +969,7 @@ export default function AdminAnalytics() {
                         ) : (
                           <BarChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setRevBarHover(s.activeTooltipIndex); else setRevBarHover(null); }} onMouseLeave={() => setRevBarHover(null)}>
                             <defs>
-                              <filter id="revBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#263431" floodOpacity="0.22" /></filter>
+                              <filter id="revBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
                             </defs>
                             <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
                             <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
@@ -883,8 +977,9 @@ export default function AdminAnalytics() {
                             <Tooltip content={<RevTip />} cursor={false} wrapperStyle={{ outline: 'none' }} />
                             <Bar dataKey="revenue" name="Revenue" fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} shape={(props) => {
                               const { x, y, width, height, index, fill } = props;
+                              if (height < 1) return null;
                               const active = revBarHover === index;
-                              const r = 6;
+                              const r = Math.min(6, height / 2);
                               const path = `M${x},${y + r} Q${x},${y} ${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height} L${x},${y + height} Z`;
                               return (<g><path d={path} fill={fill} filter={active ? 'url(#revBarShadow)' : undefined} style={{ transition: 'opacity 0.18s', opacity: revBarHover == null || active ? 1 : 0.55 }} /></g>);
                             }} />
@@ -892,164 +987,142 @@ export default function AdminAnalytics() {
                         )}
                       </ResponsiveContainer>
                     ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No order data in this period</div>}
-                  </div>
+                  </BentoGlow>
                 );
               })()}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-                {/* Orders Per Day — Aspire (compact) */}
-                {(() => {
-                  const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-                  const ordMode = getMode('orders', 'bar');
-                  let trendUp = true;
-                  if (revenueChartData.length >= 2) {
-                    const half = Math.max(1, Math.floor(revenueChartData.length / 2));
-                    const first = revenueChartData.slice(0, half).map(d => d.orders || 0);
-                    const last = revenueChartData.slice(-half).map(d => d.orders || 0);
-                    const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
-                    trendUp = avg(last) >= avg(first);
+              <div style={{ marginBottom: 14 }}>
+              {/* Orders Per Day — Aspire (compact) */}
+              {(() => {
+                const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+                const ordMode = getMode('orders', 'bar');
+                let trendUp = true;
+                if (revenueChartData.length >= 2) {
+                  const half = Math.max(1, Math.floor(revenueChartData.length / 2));
+                  const first = revenueChartData.slice(0, half).map(d => d.orders || 0);
+                  const last = revenueChartData.slice(-half).map(d => d.orders || 0);
+                  const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
+                  trendUp = avg(last) >= avg(first);
+                }
+                const gStart = trendUp ? '#E89143' : '#4A9A5E';
+                const gEnd = trendUp ? '#4A9A5E' : '#E89143';
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const parseKey = v => {
+                  if (!v) return null;
+                  const p = String(v).split('-').map(Number);
+                  let yy, mm, dd;
+                  if (p.length === 2) { mm = p[0]; dd = p[1]; yy = new Date().getFullYear(); }
+                  else if (p.length === 3) { yy = p[0]; mm = p[1]; dd = p[2]; } else return null;
+                  if (!mm || !dd || mm < 1 || mm > 12) return null;
+                  return { yy, mm, dd };
+                };
+                const fmtDayFirst = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]}` : ''; };
+                const fmtFullDate = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]} ${p.yy}` : ''; };
+                const OrdTip = ({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const v = Number(payload[0].value) || 0;
+                  const idx = revenueChartData.findIndex(d => d.date === label);
+                  let pct = null;
+                  if (idx > 0) {
+                    const prev = Number(revenueChartData[idx - 1].orders) || 0;
+                    if (prev > 0) pct = ((v - prev) / prev) * 100;
+                    else if (v > 0) pct = 'new';
                   }
-                  const gStart = trendUp ? '#E89143' : '#4A9A5E';
-                  const gEnd = trendUp ? '#4A9A5E' : '#E89143';
-                  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                  const parseKey = v => {
-                    if (!v) return null;
-                    const p = String(v).split('-').map(Number);
-                    let yy, mm, dd;
-                    if (p.length === 2) { mm = p[0]; dd = p[1]; yy = new Date().getFullYear(); }
-                    else if (p.length === 3) { yy = p[0]; mm = p[1]; dd = p[2]; } else return null;
-                    if (!mm || !dd || mm < 1 || mm > 12) return null;
-                    return { yy, mm, dd };
-                  };
-                  const fmtDayFirst = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]}` : ''; };
-                  const fmtFullDate = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]} ${p.yy}` : ''; };
-                  const OrdTip = ({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    const v = Number(payload[0].value) || 0;
-                    const idx = revenueChartData.findIndex(d => d.date === label);
-                    let pct = null;
-                    if (idx > 0) {
-                      const prev = Number(revenueChartData[idx - 1].orders) || 0;
-                      if (prev > 0) pct = ((v - prev) / prev) * 100;
-                      else if (v > 0) pct = 'new';
-                    }
-                    const isNew = pct === 'new';
-                    const up = isNew ? true : (pct == null ? null : pct >= 0);
-                    return (
-                      <div style={{ background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(38,52,49,0.10)', fontFamily: aspireFont, minWidth: 100 }}>
-                        <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
-                          {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#4A9A5E' : '#9B5B53' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
-                        </div>
-                      </div>
-                    );
-                  };
+                  const isNew = pct === 'new';
+                  const up = isNew ? true : (pct == null ? null : pct >= 0);
                   return (
-                    <div style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Orders Per Day</div>
-                        <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
-                          {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
-                            const active = ordMode === opt.k;
-                            return (
-                              <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, orders: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-                                <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
+                    <div style={{ background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(38,52,49,0.10)', fontFamily: aspireFont, minWidth: 100 }}>
+                      <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
+                        {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#3F9E5A' : '#D9534F' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
                       </div>
-                      {(() => {
-                        const pts = revenueChartData.filter(d => (d.orders || 0) > 0);
-                        if (!pts.length) return null;
-                        const i = revenueChartData.length - 1;
-                        const v = Number(revenueChartData[i]?.orders) || 0;
-                        const prev = i > 0 ? (Number(revenueChartData[i - 1]?.orders) || 0) : 0;
-                        let trendPct = null, isNew = false;
-                        if (prev > 0) trendPct = Math.max(-99, Math.min(99, ((v - prev) / prev) * 100));
-                        else if (v > 0) isNew = true;
-                        const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
-                        return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                            <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," preserveValue redraw /></span>
-                            {up !== null && (
-                              <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 3,
-                                fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
-                                color: up ? '#4A9A5E' : '#9B5B53',
-                                background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
-                                padding: '3px 9px', borderRadius: 999, lineHeight: 1,
-                              }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
-                            )}
-                            <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(38,52,49,0.5)', lineHeight: 1 }}>latest</span>
-                          </div>
-                        );
-                      })()}
-                      {revenueChartData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={220}>
-                          {ordMode === 'bar' ? (
-                            <BarChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setOrdBarHover(s.activeTooltipIndex); else setOrdBarHover(null); }} onMouseLeave={() => setOrdBarHover(null)}>
-                              <defs>
-                                <filter id="ordBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#263431" floodOpacity="0.22" /></filter>
-                              </defs>
-                              <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                              <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                              <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} tickMargin={8} />
-                              <Tooltip content={<OrdTip />} cursor={false} wrapperStyle={{ outline: 'none' }} />
-                              <Bar dataKey="orders" name="Orders" fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} shape={(props) => {
-                                const { x, y, width, height, index, fill } = props;
-                                const active = ordBarHover === index;
-                                const r = 6;
-                                const path = `M${x},${y + r} Q${x},${y} ${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height} L${x},${y + height} Z`;
-                                return (<g><path d={path} fill={fill} filter={active ? 'url(#ordBarShadow)' : undefined} style={{ transition: 'opacity 0.18s', opacity: ordBarHover == null || active ? 1 : 0.55 }} /></g>);
-                              }} />
-                            </BarChart>
-                          ) : (
-                            <AreaChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
-                              <defs>
-                                <linearGradient id="ordAspireStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor={gStart} /><stop offset="100%" stopColor={gEnd} /></linearGradient>
-                                <linearGradient id="ordAspireFill" x1="0%" y1="0%" x2="0%" y2="100%">
-                                  <stop offset="0%" stopColor={gEnd} stopOpacity={0.28} />
-                                  <stop offset="50%" stopColor={gStart} stopOpacity={0.12} />
-                                  <stop offset="100%" stopColor={gStart} stopOpacity={0} />
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                              <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                              <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} tickMargin={8} />
-                              <Tooltip content={<OrdTip />} cursor={{ stroke: 'rgba(38,52,49,0.20)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
-                              <Area type="monotone" dataKey="orders" stroke="url(#ordAspireStroke)" strokeWidth={2.5} fill="url(#ordAspireFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name="Orders" animationDuration={1500} />
-                            </AreaChart>
-                          )}
-                        </ResponsiveContainer>
-                      ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data</div>}
                     </div>
                   );
-                })()}
-                <div style={{ ...card, padding: '20px 24px' }}>
-                  <div style={secTitle}>Most Ordered</div>
-                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {topOrderedItems.length > 0 ? topOrderedItems.map((item, i) => {
-                      const maxQ = topOrderedItems[0]?.qty || 1;
+                };
+                return (
+                  <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Orders Per Day</div>
+                      <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
+                        {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
+                          const active = ordMode === opt.k;
+                          return (
+                            <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, orders: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                              <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {(() => {
+                      const pts = revenueChartData.filter(d => (d.orders || 0) > 0);
+                      if (!pts.length) return null;
+                      const i = revenueChartData.length - 1;
+                      const v = Number(revenueChartData[i]?.orders) || 0;
+                      const prev = i > 0 ? (Number(revenueChartData[i - 1]?.orders) || 0) : 0;
+                      let trendPct = null, isNew = false;
+                      if (prev > 0) trendPct = Math.max(-99, Math.min(99, ((v - prev) / prev) * 100));
+                      else if (v > 0) isNew = true;
+                      const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
                       return (
-                        <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(38,52,49,0.25)', width: 14, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: A.ink, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: '#9B5B53', flexShrink: 0 }}>{item.qty}x</span>
-                            </div>
-                            <div style={{ height: 3, borderRadius: 2, background: 'rgba(38,52,49,0.06)', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', borderRadius: 2, background: '#9B5B53', width: `${(item.qty / maxQ) * 100}%` }} />
-                            </div>
-                          </div>
-                          <span style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', flexShrink: 0 }}>₹{item.revenue.toFixed(0)}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," preserveValue key={committedRange} /></span>
+                          {up !== null && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 3,
+                              fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
+                              color: up ? '#3F9E5A' : '#D9534F',
+                              background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
+                              padding: '3px 9px', borderRadius: 999, lineHeight: 1,
+                            }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
+                          )}
+                          <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(38,52,49,0.5)', lineHeight: 1 }}>latest</span>
                         </div>
                       );
-                    }) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No orders yet</div>}
-                  </div>
-                </div>
+                    })()}
+                    {revenueChartData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={260}>
+                        {ordMode === 'bar' ? (
+                          <BarChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setOrdBarHover(s.activeTooltipIndex); else setOrdBarHover(null); }} onMouseLeave={() => setOrdBarHover(null)}>
+                            <defs>
+                              <filter id="ordBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
+                            </defs>
+                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
+                            <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} tickMargin={8} />
+                            <Tooltip content={<OrdTip />} cursor={false} wrapperStyle={{ outline: 'none' }} />
+                            <Bar dataKey="orders" name="Orders" fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} shape={(props) => {
+                              const { x, y, width, height, index, fill } = props;
+                              if (height < 1) return null;
+                              const active = ordBarHover === index;
+                              const r = Math.min(6, height / 2);
+                              const path = `M${x},${y + r} Q${x},${y} ${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height} L${x},${y + height} Z`;
+                              return (<g><path d={path} fill={fill} filter={active ? 'url(#ordBarShadow)' : undefined} style={{ transition: 'opacity 0.18s', opacity: ordBarHover == null || active ? 1 : 0.55 }} /></g>);
+                            }} />
+                          </BarChart>
+                        ) : (
+                          <AreaChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
+                            <defs>
+                              <linearGradient id="ordAspireStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor={gStart} /><stop offset="100%" stopColor={gEnd} /></linearGradient>
+                              <linearGradient id="ordAspireFill" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stopColor={gEnd} stopOpacity={0.28} />
+                                <stop offset="50%" stopColor={gStart} stopOpacity={0.12} />
+                                <stop offset="100%" stopColor={gStart} stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
+                            <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} tickMargin={8} />
+                            <Tooltip content={<OrdTip />} cursor={{ stroke: 'rgba(38,52,49,0.20)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
+                            <Area type="monotone" dataKey="orders" stroke="url(#ordAspireStroke)" strokeWidth={2.5} fill="url(#ordAspireFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name="Orders" animationDuration={1500} />
+                          </AreaChart>
+                        )}
+                      </ResponsiveContainer>
+                    ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data</div>}
+                  </BentoGlow>
+                );
+              })()}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -1058,12 +1131,12 @@ export default function AdminAnalytics() {
                   const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
                   const maxO = Math.max(...peakHourData.map(x => x.orders), 0);
                   return (
-                    <div style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
+                    <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
                          onMouseLeave={() => setPeakBarHover(null)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Peak Hours</div>
                         {peakHour && (
-                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#9B5B53', background: 'rgba(155,91,83,0.10)', padding: '5px 11px', borderRadius: 999 }}>Busiest: {peakHour.label}</span>
+                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#A08656', background: 'rgba(196,168,109,0.12)', padding: '5px 11px', borderRadius: 999 }}>Busiest: {peakHour.label}</span>
                         )}
                       </div>
                       {peakHourData.length === 0 ? (
@@ -1081,10 +1154,10 @@ export default function AdminAnalytics() {
                                 onMouseEnter={() => setPeakBarHover(i)}
                                 style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'default' }}
                               >
-                                <span style={{ fontFamily: aspireFont, fontSize: 10, fontWeight: 700, color: isPeak ? '#9B5B53' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1 }}>{h.orders}</span>
+                                <span style={{ fontFamily: aspireFont, fontSize: 10, fontWeight: 700, color: isPeak ? '#1A1A1A' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1 }}>{h.orders}</span>
                                 <div style={{
                                   width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 3,
-                                  background: isPeak ? '#9B5B53' : A.warning,
+                                  background: isPeak ? '#A08656' : A.warning,
                                   opacity: dim ? 0.25 : (isPeak ? 1 : 0.55),
                                   boxShadow: isHover ? '0 4px 10px rgba(38,52,49,0.22)' : 'none',
                                   transition: 'opacity 0.15s, box-shadow 0.15s, transform 0.15s',
@@ -1096,7 +1169,7 @@ export default function AdminAnalytics() {
                           })}
                         </div>
                       )}
-                    </div>
+                    </BentoGlow>
                   );
                 })()}
 
@@ -1105,12 +1178,12 @@ export default function AdminAnalytics() {
                   const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
                   const maxD = Math.max(...dayData.map(x => x.orders), 0);
                   return (
-                    <div style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
+                    <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
                          onMouseLeave={() => setDayBarHover(null)}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Busiest Days</div>
                         {busiestDay && busiestDay.orders > 0 && (
-                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#5A8A6E', background: 'rgba(90,138,110,0.10)', padding: '5px 11px', borderRadius: 999 }}>Top: {busiestDay.day}</span>
+                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#A08656', background: 'rgba(196,168,109,0.12)', padding: '5px 11px', borderRadius: 999 }}>Top: {busiestDay.day}</span>
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 130 }}>
@@ -1125,10 +1198,10 @@ export default function AdminAnalytics() {
                               onMouseEnter={() => setDayBarHover(i)}
                               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'default' }}
                             >
-                              <span style={{ fontFamily: aspireFont, fontSize: 11, fontWeight: 700, color: isB ? '#5A8A6E' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1 }}>{d.orders}</span>
+                              <span style={{ fontFamily: aspireFont, fontSize: 11, fontWeight: 700, color: isB ? '#1A1A1A' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1 }}>{d.orders}</span>
                               <div style={{
                                 width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 4,
-                                background: '#5A8A6E',
+                                background: '#C4A86D',
                                 opacity: dim ? 0.2 : (isB ? 1 : 0.45),
                                 boxShadow: isHover ? '0 4px 10px rgba(38,52,49,0.22)' : 'none',
                                 transition: 'opacity 0.15s, box-shadow 0.15s, transform 0.15s',
@@ -1139,7 +1212,7 @@ export default function AdminAnalytics() {
                           );
                         })}
                       </div>
-                    </div>
+                    </BentoGlow>
                   );
                 })()}
               </div>
@@ -1150,7 +1223,7 @@ export default function AdminAnalytics() {
               {/* Journey + Dish Performance — grid default stretch so both cards equal height */}
               <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginBottom: 14 }}>
                 {/* Journey — vertical funnel (Aspire light) — grid default stretches to Dish Performance height */}
-                <div style={{
+                <BentoGlow style={{
                   background: '#FFFFFF',
                   borderRadius: 14, padding: '20px 22px',
                   border: A.border, boxShadow: A.cardShadow,
@@ -1209,10 +1282,10 @@ export default function AdminAnalytics() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </BentoGlow>
 
                 {/* Dish Performance — cinematic bento */}
-                <div style={{ ...card, padding: '20px 24px' }}>
+                <BentoGlow style={{ ...card, padding: '20px 24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                     <div style={secTitle}>Dish Performance</div>
                     {topDishes.length > 0 && <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)', fontWeight: 500 }}>{range}d data</span>}
@@ -1269,11 +1342,11 @@ export default function AdminAnalytics() {
                               <div style={{ flex: 1, overflow: 'hidden' }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{dish.name}</div>
                                 <div style={{ height: 3, borderRadius: 2, background: 'rgba(38,52,49,0.05)', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${A.warning}, #D4A85A)`, width: `${barPct}%`, transition: 'width 0.3s ease' }} />
+                                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${A.warning}, #A08656)`, width: `${barPct}%`, transition: 'width 0.3s ease' }} />
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                                   <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.4)', fontWeight: 600 }}>{dish.qty}x</span>
-                                  <span style={{ fontSize: 10, color: '#5A8A6E', fontWeight: 700 }}>₹{dish.revenue.toFixed(0)}</span>
+                                  <span style={{ fontSize: 10, color: '#1A1A1A', fontWeight: 700 }}>₹{dish.revenue.toFixed(0)}</span>
                                 </div>
                               </div>
                             </div>
@@ -1282,7 +1355,7 @@ export default function AdminAnalytics() {
                       </div>
                     );
                   })() : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No order data yet</div>}
-                </div>
+                </BentoGlow>
               </div>
 
               {/* Visits Over Time — Aspire-exact (scoped Inter font, conditional gradient) */}
@@ -1366,7 +1439,7 @@ export default function AdminAnalytics() {
                         {up !== null && (
                           <span style={{
                             fontSize: 11, fontWeight: 700,
-                            color: up ? '#4A9A5E' : '#9B5B53',
+                            color: up ? '#3F9E5A' : '#D9534F',
                           }}>
                             {isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}
                           </span>
@@ -1377,7 +1450,7 @@ export default function AdminAnalytics() {
                 };
 
                 return (
-                  <div style={{ ...card, padding: '22px 22px 18px', marginBottom: 14, fontFamily: aspireFont }}>
+                  <BentoGlow style={{ ...card, padding: '22px 22px 18px', marginBottom: 14, fontFamily: aspireFont }}>
                     <Head>
                       <link rel="preconnect" href="https://fonts.googleapis.com" />
                       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -1517,13 +1590,13 @@ export default function AdminAnalytics() {
                       return (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingLeft: 8 }}>
                           <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}>
-                            <CountUp end={v} duration={1.5} separator="," preserveValue redraw />
+                            <CountUp end={v} duration={1.5} separator="," preserveValue key={committedRange} />
                           </span>
                           {up !== null && (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: 3,
                               fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
-                              color: up ? '#4A9A5E' : '#9B5B53',
+                              color: up ? '#3F9E5A' : '#D9534F',
                               background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
                               padding: '3px 9px', borderRadius: 999, lineHeight: 1,
                             }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
@@ -1594,7 +1667,7 @@ export default function AdminAnalytics() {
                           >
                             <defs>
                               <filter id="visitsBarShadow" x="-50%" y="-50%" width="200%" height="200%">
-                                <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#263431" floodOpacity="0.22" />
+                                <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" />
                               </filter>
                             </defs>
                             <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
@@ -1627,8 +1700,9 @@ export default function AdminAnalytics() {
                               maxBarSize={32}
                               shape={(props) => {
                                 const { x, y, width, height, index, fill } = props;
+                                if (height < 1) return null;
                                 const active = visitsBarHover === index;
-                                const r = 6;
+                                const r = Math.min(6, height / 2);
                                 // Build a path with rounded top corners for clean radius rendering
                                 const path = `M${x},${y + r}
                                               Q${x},${y} ${x + r},${y}
@@ -1659,14 +1733,14 @@ export default function AdminAnalytics() {
                         No visit data yet
                       </div>
                     )}
-                  </div>
+                  </BentoGlow>
                 );
               })()}
 
               {/* Waiter + Top Menu Items — grid default stretch so both columns equal height */}
               <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14 }}>
                 {/* Left column: Waiter Summary + Busiest Day + Customer Mix */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
                   {/* Customer Mix — top card */}
                   {(() => {
                     const allPhones = new Set();
@@ -1683,7 +1757,7 @@ export default function AdminAnalytics() {
                     const newCount = uniqueCount - returning;
                     const newPct = 100 - returningPct;
                     return (
-                      <div style={{
+                      <BentoGlow style={{
                         background: '#FFFFFF', borderRadius: 14, padding: '18px 22px',
                         border: A.border, boxShadow: A.cardShadow,
                       }}>
@@ -1704,7 +1778,7 @@ export default function AdminAnalytics() {
                             </div>
                           </>
                         )}
-                      </div>
+                      </BentoGlow>
                     );
                   })()}
 
@@ -1715,7 +1789,7 @@ export default function AdminAnalytics() {
                     const vsAvg = avgPerDay > 0 ? Math.max(-99, Math.min(99, Math.round(((busiestDay.orders - avgPerDay) / avgPerDay) * 100))) : 0;
                     const fullDayName = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' }[busiestDay.day];
                     return (
-                      <div style={{
+                      <BentoGlow style={{
                         background: '#FFFFFF', borderRadius: 14, padding: '18px 22px',
                         border: A.border, boxShadow: A.cardShadow,
                       }}>
@@ -1736,17 +1810,21 @@ export default function AdminAnalytics() {
                             }}>{vsAvg > 0 ? '↗' : '↘'} {Math.abs(vsAvg)}% vs avg</span>
                           )}
                         </div>
-                      </div>
+                      </BentoGlow>
                     );
                   })()}
 
-                  {/* Waiter Summary — bottom card, flex:1 fills remaining column height */}
-                  <div style={{
-                    background: '#FFFFFF',
-                    borderRadius: 14, padding: '20px 22px',
-                    border: A.border, boxShadow: A.cardShadow,
-                    flex: 1, display: 'flex', flexDirection: 'column',
-                  }}>
+                  {/* Waiter Summary — bottom card, wrapperStyle.flex:1 fills remaining column height */}
+                  <BentoGlow
+                    wrapperStyle={{ flex: 1, display: 'flex' }}
+                    style={{
+                      background: '#FFFFFF',
+                      borderRadius: 14, padding: '20px 22px',
+                      border: A.border, boxShadow: A.cardShadow,
+                      display: 'flex', flexDirection: 'column',
+                      width: '100%',
+                    }}
+                  >
                   <div style={{ fontFamily: A.font, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px', marginBottom: 16 }}>Waiter Summary</div>
                   {waiterStat ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1769,252 +1847,697 @@ export default function AdminAnalytics() {
                       ))}
                     </div>
                   ) : <div style={{ textAlign: 'center', padding: '30px 0', color: A.faintText, fontSize: 14, fontFamily: A.font }}>No data</div>}
-                  </div>
+                  </BentoGlow>
                 </div>
-                {topItems.length > 0 && (
-                  <div style={{ ...card, padding: '20px 24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                {topItems.length > 0 && (() => {
+                  // Option C — Spotify/App Store leaderboard: podium for top 3, dense list for 4-10
+                  const maxV = topItems[0]?.views || 1;
+                  const podium = topItems.slice(0, 3);
+                  const rest = topItems.slice(3, 10);
+                  // Podium tier styles — gold for #1, neutral grey for #2 (silver), bronze for #3
+                  const tierStyle = (rank) => {
+                    if (rank === 0) return { bg: 'rgba(196,168,109,0.10)', border: 'rgba(196,168,109,0.30)', badgeBg: '#C4A86D', badgeText: '#FFFFFF', valueColor: A.warning, label: 'BEST SELLER' };
+                    if (rank === 1) return { bg: 'rgba(0,0,0,0.03)',         border: 'rgba(0,0,0,0.10)',         badgeBg: '#7A7A7A', badgeText: '#FFFFFF', valueColor: A.ink,    label: null };
+                    return                  { bg: 'rgba(160,134,86,0.08)',  border: 'rgba(160,134,86,0.25)',   badgeBg: '#A08656', badgeText: '#FFFFFF', valueColor: '#A08656', label: null };
+                  };
+                  // Shared label style — used for both visible (#1) and invisible placeholder (#2/#3) so values align on the same baseline
+                  const labelStyle = { fontFamily: A.font, fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', color: A.warning, marginBottom: 6, lineHeight: 1.2 };
+                  return (
+                  <BentoGlow style={{ ...card, padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                       <div style={secTitle}>Top Menu Items</div>
                       <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'rgba(38,52,49,0.4)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: A.warning }} />Views</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#5A8A6E' }} />AR</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#A08656' }} />AR</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                      {topItems.slice(0, 10).map((item, i) => {
-                        const maxV = topItems[0]?.views || 1;
-                        const vPct = Math.max(6, Math.round(((item.views || 0) / maxV) * 100));
+                    {/* Podium — top 3 mini cards side by side */}
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${podium.length}, 1fr)`, gap: 10, marginBottom: rest.length > 0 ? 18 : 0 }}>
+                      {podium.map((item, i) => {
+                        const t = tierStyle(i);
+                        const vPct = Math.max(8, Math.round(((item.views || 0) / maxV) * 100));
                         const arViews = item.arViews || 0;
                         return (
                           <div key={item.name || i} style={{
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '8px 10px', borderRadius: 8,
-                            background: i === 0 ? 'rgba(196,168,109,0.06)' : 'transparent',
-                            border: i === 0 ? '1px solid rgba(196,168,109,0.12)' : '1px solid transparent',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+                            padding: '16px 14px 14px', borderRadius: 12,
+                            background: t.bg, border: `1px solid ${t.border}`,
+                            position: 'relative', overflow: 'hidden',
                           }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? A.warning : 'rgba(38,52,49,0.25)', width: 16, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: A.ink }}>{item.views || 0}</span>
-                                  {arViews > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: '#5A8A6E' }}>{arViews}</span>}
-                                </div>
+                            {/* Rank badge */}
+                            <div style={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              background: t.badgeBg, color: t.badgeText,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontFamily: A.font, fontWeight: 700, fontSize: 14, lineHeight: 1,
+                              boxShadow: i === 0 ? '0 2px 8px rgba(196,168,109,0.35)' : '0 1px 4px rgba(0,0,0,0.08)',
+                              marginBottom: 10,
+                            }}>{i + 1}</div>
+                            {/* BEST SELLER label OR invisible placeholder — Fix 1: ensures values align on same baseline across all 3 cards */}
+                            {t.label ? (
+                              <div style={labelStyle}>{t.label}</div>
+                            ) : (
+                              <div style={{ ...labelStyle, visibility: 'hidden' }} aria-hidden="true">PLACEHOLDER</div>
+                            )}
+                            {/* Item name — wrap up to 2 lines, truncate beyond */}
+                            <div style={{
+                              fontFamily: A.font, fontSize: 13, fontWeight: 600, color: A.ink, lineHeight: 1.25,
+                              minHeight: 32, marginBottom: 12,
+                              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                              wordBreak: 'break-word',
+                            }}>{item.name}</div>
+                            {/* Big value */}
+                            <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 28, color: t.valueColor, letterSpacing: '-0.5px', lineHeight: 1 }}>
+                              <CountUp key={committedRange} end={item.views || 0} duration={1.5} separator="," />
+                            </div>
+                            <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 500, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 3 }}>views</div>
+                            {/* AR badge if relevant */}
+                            {arViews > 0 && (
+                              <div style={{ marginTop: 8, fontFamily: A.font, fontSize: 11, fontWeight: 600, color: '#A08656', background: 'rgba(160,134,86,0.10)', padding: '3px 9px', borderRadius: 999, border: '1px solid rgba(160,134,86,0.20)' }}>
+                                {arViews} AR
                               </div>
-                              <div style={{ height: 5, borderRadius: 3, background: 'rgba(38,52,49,0.05)', overflow: 'hidden', display: 'flex', gap: 1 }}>
-                                <div style={{ height: '100%', borderRadius: 3, background: A.warning, width: `${vPct}%`, transition: 'width 0.3s' }} />
-                                {arViews > 0 && <div style={{ height: '100%', borderRadius: 3, background: '#5A8A6E', width: `${Math.max(3, Math.round((arViews / maxV) * 100))}%` }} />}
+                            )}
+                            {/* Bar at the bottom — pushed down via marginTop:auto so all cards have bar at same Y position */}
+                            <div style={{ width: '100%', marginTop: 'auto', paddingTop: 12, height: 6 + 12, borderRadius: 3, background: 'transparent', overflow: 'visible' }}>
+                              <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                                <div style={{
+                                  height: '100%', borderRadius: 3,
+                                  background: i === 0 ? `linear-gradient(90deg, ${A.warning}, #A08656)` : t.badgeBg,
+                                  width: `${vPct}%`, transition: 'width 0.4s ease',
+                                }} />
                               </div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                    {/* Divider with HONORABLE MENTIONS label — only if rest tier exists */}
+                    {rest.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                        <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.08)' }} />
+                        <span style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: A.faintText, textTransform: 'uppercase' }}>Honorable Mentions</span>
+                        <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.08)' }} />
+                      </div>
+                    )}
+                    {/* Rest tier — compact rows for ranks 4-10 */}
+                    {rest.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {rest.map((item, idx) => {
+                          const i = idx + 3;
+                          const vPct = Math.max(6, Math.round(((item.views || 0) / maxV) * 100));
+                          const arViews = item.arViews || 0;
+                          return (
+                            <div key={item.name || i} style={{
+                              display: 'grid', gridTemplateColumns: '24px 1fr 110px 60px',
+                              alignItems: 'center', gap: 12,
+                              padding: '8px 4px', borderRadius: 6,
+                            }}>
+                              <span style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, color: A.faintText, textAlign: 'right' }}>{i + 1}</span>
+                              <span style={{ fontSize: 13, fontWeight: 500, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                              <div style={{ height: 5, borderRadius: 3, background: 'rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex', gap: 1 }}>
+                                <div style={{ height: '100%', borderRadius: 3, background: A.warning, width: `${vPct}%`, transition: 'width 0.3s' }} />
+                                {arViews > 0 && <div style={{ height: '100%', borderRadius: 3, background: '#A08656', width: `${Math.max(3, Math.round((arViews / maxV) * 100))}%` }} />}
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, fontSize: 12, fontWeight: 700 }}>
+                                <span style={{ color: A.ink }}>{item.views || 0}</span>
+                                {arViews > 0 && <span style={{ color: '#A08656' }}>{arViews}</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </BentoGlow>
+                  );
+                })()}
               </div>
             </div>
 
           ) : (
             /* ═══ MENU PERFORMANCE ═══ */
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
-              <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
-                <div style={secTitle}>Item Intelligence</div>
-                <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 2, marginBottom: 14 }}>Performance breakdown with actionable suggestions</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '28px 36px 1fr 55px 55px 55px 60px 70px 150px', gap: 5, padding: '0 6px 8px', borderBottom: '1px solid rgba(38,52,49,0.06)' }}>
-                  {['', '', 'Dish', 'Views', 'AR', 'Orders', 'Rev', 'Rating', 'Suggestion'].map((h, i) => (
-                    <div key={i} style={{ ...labelSm, textAlign: i >= 3 && i <= 6 ? 'center' : 'left', fontSize: 9 }}>{h}</div>
-                  ))}
-                </div>
-                {itemIntelligence.length === 0 ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div> : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {itemIntelligence.map((item, i) => (
-                      <div key={item.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '28px 36px 1fr 55px 55px 55px 60px 70px 150px', gap: 5, alignItems: 'center', padding: '7px 6px', borderRadius: 8, transition: 'background 0.12s' }}>
-                        <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', textAlign: 'right' }}>#{i + 1}</span>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: A.cream }}>
-                          {item.imageURL ? <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(38,52,49,0.2)' }}>—</div>}
-                        </div>
-                        <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                          <div style={{ fontSize: 10, color: 'rgba(38,52,49,0.3)' }}>{item.category || ''}</div>
-                        </div>
-                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(38,52,49,0.6)' }}>{item.views}</div>
-                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: A.warning }}>{item.arViews}</div>
-                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#9B5B53' }}>{item.ordered}</div>
-                        <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#5A8A6E' }}>₹{item.revenue.toFixed(0)}</div>
-                        <div style={{ textAlign: 'center' }}>{item.ratingCount > 0 ? <Stars avg={item.rating} /> : <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)' }}>—</span>}</div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: item.sColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.suggestion}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              <div style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              {/* ── Card A: Item Performance — revenue-first table with sortable pill ── */}
+              <BentoGlow style={{ ...card, padding: '22px 24px', marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                   <div>
-                    <div style={secTitle}>Engagement Heatmap</div>
-                    <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 2 }}>Score = views + (AR x2) + (rating x10)</div>
+                    <div style={secTitle}>Item Performance</div>
+                    <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 3 }}>Top 12 items, this range</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'rgba(38,52,49,0.4)' }}>
-                    {[[A.warning, 'Hot'], ['#5A8A6E', 'Active'], ['rgba(38,52,49,0.2)', 'Cold']].map(([c, l]) => (
-                      <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: c }} />{l}</span>
-                    ))}
+                  {/* Sort pill — click to re-sort by revenue / orders / views */}
+                  <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
+                    {[
+                      { k: 'revenue', label: 'Revenue' },
+                      { k: 'orders', label: 'Orders' },
+                      { k: 'views', label: 'Views' },
+                    ].map(opt => {
+                      const active = menuSort === opt.k;
+                      return (
+                        <button key={opt.k} onClick={() => setMenuSort(opt.k)} style={{
+                          padding: '5px 12px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                          color: active ? '#FFFFFF' : 'rgba(38,52,49,0.55)',
+                          background: active ? '#1A1A1A' : 'transparent',
+                          border: 'none', borderRadius: 6, cursor: 'pointer',
+                          letterSpacing: '0.02em',
+                        }}>{opt.label}</button>
+                      );
+                    })}
                   </div>
                 </div>
-                {heatmapData.length === 0 ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div> : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {heatmapData.slice(0, 10).map((item, i) => {
-                      const c = heatColor(item.score); const pct = Math.max(2, Math.round((item.score / maxScore) * 100));
+
+                {itemIntelligence.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>
+                ) : (<>
+                  <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 80px 70px 80px 120px', gap: 12, padding: '10px 6px 8px', borderBottom: '1px solid rgba(38,52,49,0.06)' }}>
+                    <div />
+                    <div style={{ ...labelSm, fontSize: 9 }}>Dish</div>
+                    <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Revenue</div>
+                    <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Orders</div>
+                    <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Views</div>
+                    <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Signal</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {itemIntelligence.map((item, i) => {
+                      const flagStyle = {
+                        'top':       { bg: 'rgba(63,158,90,0.10)',   color: '#3F9E5A', label: '★ Top performer' },
+                        'high-conv': { bg: 'rgba(196,168,109,0.14)', color: '#A08656', label: '↑ High conversion' },
+                        'low-conv':  { bg: 'rgba(217,83,79,0.08)',   color: '#D9534F', label: '↓ Low conversion' },
+                      }[item.signalType];
                       return (
-                        <div key={item.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '28px 34px 1fr 55px 55px 55px 70px', gap: 5, alignItems: 'center', padding: '6px 6px', borderRadius: 8 }}>
-                          <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', textAlign: 'right' }}>#{i + 1}</span>
+                        <div key={item.id} className="row-hover" style={{
+                          display: 'grid', gridTemplateColumns: '44px 1fr 80px 70px 80px 120px', gap: 12,
+                          alignItems: 'center', padding: '10px 6px', borderRadius: 8,
+                          transition: 'background 0.12s',
+                        }}>
                           <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: A.cream }}>
-                            {item.imageURL ? <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(38,52,49,0.2)' }}>—</div>}
+                            {item.imageURL
+                              ? <img src={item.imageURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'rgba(38,52,49,0.25)' }}>—</div>}
                           </div>
-                          <div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: A.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                            <div style={{ height: 4, background: 'rgba(38,52,49,0.05)', borderRadius: 99, overflow: 'hidden' }}><div style={{ height: '100%', width: `${pct}%`, background: c, borderRadius: 99 }} /></div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                            <div style={{ fontFamily: A.font, fontSize: 10.5, color: 'rgba(38,52,49,0.4)', marginTop: 2 }}>{item.category || ''}</div>
                           </div>
-                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(38,52,49,0.6)' }}>{(item.views || 0).toLocaleString()}</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>views</div></div>
-                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: A.warning }}>{(item.arViews || 0).toLocaleString()}</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>AR</div></div>
-                          <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, color: item.arRate >= 30 ? '#5A8A6E' : 'rgba(38,52,49,0.45)' }}>{item.arRate}%</div><div style={{ fontSize: 9, color: 'rgba(38,52,49,0.3)' }}>rate</div></div>
-                          <div style={{ textAlign: 'center' }}>{(item.ratingCount || 0) > 0 ? <Stars avg={item.ratingAvg} count={item.ratingCount} /> : <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)' }}>—</span>}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 700, color: item.revenue > 0 ? '#C4A86D' : 'rgba(38,52,49,0.3)', letterSpacing: '-0.2px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.revenue > 0 ? formatRupee(Math.round(item.revenue)) : '—'}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: item.ordered > 0 ? A.ink : 'rgba(38,52,49,0.3)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.ordered}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: 'rgba(38,52,49,0.55)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.views}</div>
+                          <div style={{ textAlign: 'right' }}>
+                            {flagStyle ? (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center',
+                                padding: '3px 9px', borderRadius: 999,
+                                fontFamily: A.font, fontSize: 10.5, fontWeight: 600,
+                                background: flagStyle.bg, color: flagStyle.color,
+                                whiteSpace: 'nowrap',
+                              }}>{flagStyle.label}</span>
+                            ) : (
+                              <span style={{ fontSize: 11, color: 'rgba(38,52,49,0.25)' }}>—</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
+                </>)}
+              </BentoGlow>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div style={{ ...card, padding: '20px 24px' }}>
-                  <div style={secTitle}>Category Breakdown</div>
-                  {catData.length > 0 ? (<>
-                    <div style={{ marginTop: 10 }}><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={catData} dataKey="views" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={32} paddingAngle={3}>{catData.map((_, i) => <Cell key={i} fill={CAT_COLORS[i % CAT_COLORS.length]} />)}</Pie><Tooltip content={<PieTip />} /></PieChart></ResponsiveContainer></div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {catData.slice(0, 5).map((cat, i) => (
-                        <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                          <div style={{ width: 9, height: 9, borderRadius: 2, background: CAT_COLORS[i % CAT_COLORS.length], flexShrink: 0 }} />
-                          <span style={{ flex: 1, color: A.ink, fontWeight: 600 }}>{cat.name}</span>
-                          <span style={{ color: 'rgba(38,52,49,0.4)', fontSize: 11 }}>{cat.items}</span>
-                          <span style={{ color: A.ink, fontWeight: 700 }}>{cat.views}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>) : <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>}
-                </div>
-                <div style={{ ...card, padding: '20px 24px' }}>
-                  <div style={secTitle}>Ratings Leaderboard</div>
-                  {topRated.length === 0 ? <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No ratings</div> : (<>
-                    <div style={{ ...labelSm, marginTop: 12 }}>TOP RATED</div>
-                    <div style={{ marginTop: 8, marginBottom: lowRated.length > 0 ? 12 : 0 }}>
-                      {topRated.map((item, i) => (
-                        <div key={item.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px', borderRadius: 8 }}>
-                          <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.2)', width: 14, textAlign: 'right' }}>#{i + 1}</span>
-                          <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                          <Stars avg={item.ratingAvg} count={item.ratingCount} />
-                        </div>
-                      ))}
-                    </div>
-                    {lowRated.length > 0 && (<>
-                      <div style={{ ...labelSm, color: '#9B5B53' }}>NEEDS ATTENTION</div>
-                      <div style={{ marginTop: 8 }}>
-                        {lowRated.map(item => (
-                          <div key={item.id} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px', borderRadius: 8 }}>
-                            <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: 'rgba(38,52,49,0.5)' }}>{item.name}</span>
-                            <Stars avg={item.ratingAvg} />
-                          </div>
-                        ))}
-                      </div>
-                    </>)}
-                  </>)}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── RESTAURANT HEALTH — Deep Forest signature card (bookend to LIVE TODAY) ── */}
-          {!loading && (
-            <div style={{
-              background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
-              borderRadius: 14, padding: '20px 24px', marginTop: 14,
-              border: A.forestBorder,
-              boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>RESTAURANT HEALTH</div>
-                <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <svg width="32" height="32" viewBox="0 0 32 32">
-                    <circle cx="16" cy="16" r="13" fill="none" stroke="rgba(234,231,227,0.12)" strokeWidth="3" />
-                    <circle cx="16" cy="16" r="13" fill="none" stroke={scoreColor} strokeWidth="3"
-                      strokeDasharray={`${(healthScore / 100) * 81.7} 81.7`} strokeLinecap="round" transform="rotate(-90 16 16)" />
-                  </svg>
-                  <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 22, color: scoreColor, letterSpacing: '-0.3px' }}>{healthScore}</span>
-                  <span style={{ fontFamily: A.font, fontSize: 13, color: A.forestTextMuted }}>/100</span>
-                </div>
-              </div>
-              {/* Motivation quote */}
-              {healthScore >= 70 && (
-                <div style={{ marginBottom: 14, padding: '12px 16px', background: 'rgba(122,170,142,0.10)', borderRadius: 10, border: '1px solid rgba(122,170,142,0.22)' }}>
-                  <div style={{ fontFamily: A.font, fontStyle: 'italic', fontSize: 14, color: '#9FCAA9', lineHeight: 1.6 }}>
-                    {healthScore >= 90 ? '"Your restaurant is performing exceptionally — keep this momentum going!"'
-                      : healthScore >= 80 ? '"Great progress! Your menu and service are resonating with customers."'
-                        : '"You\'re on the right track — a few tweaks and you\'ll be in the top tier!"'}
-                  </div>
-                </div>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                {[
-                  { label: 'VISITS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
-                  { label: 'AR ITEM ORDERS', value: arToOrderRate + '%', sub: 'of all orders' },
-                  { label: 'AR ENGAGEMENT', value: arRate + '%', sub: `${totalARViews} launches` },
-                  { label: 'AVG RATING', value: avgRating > 0 ? `★ ${avgRating}` : '—', sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} rated items` },
-                ].map(s => (
-                  <div key={s.label} style={{ padding: '14px 16px', background: A.forestSubtleBg, borderRadius: 10, border: A.forestBorder }}>
-                    <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 6 }}>{s.label}</div>
-                    <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.warning, lineHeight: 1, letterSpacing: '-0.3px' }}>{s.value}</div>
-                    <div style={{ fontFamily: A.font, fontSize: 12, color: A.forestTextMuted, marginTop: 4 }}>{s.sub}</div>
-                  </div>
-                ))}
-              </div>
-              {/* ── Needs Attention / Status ── */}
+              {/* ── Card B: AR Impact — 3 stat tiles + 2 insight cards ── */}
               {(() => {
-                const alerts = [];
-                if (zeroView.length > 0) alerts.push({ type: 'danger', text: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views: ${zeroView.map(i => i.name).join(', ')}` });
-                const viewedNotBought = activeItems.filter(i => (i.views || 0) > 10).filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0);
-                if (viewedNotBought.length > 0) alerts.push({ type: 'warning', text: `${viewedNotBought.length} item${viewedNotBought.length > 1 ? 's' : ''} viewed but never ordered: ${viewedNotBought.slice(0, 3).map(i => i.name).join(', ')}` });
-                if (lowRated.length > 0) alerts.push({ type: 'danger', text: `${lowRated.length} item${lowRated.length > 1 ? 's' : ''} rated below 3.5: ${lowRated.map(i => `${i.name} (${(i.ratingAvg || 0).toFixed(1)})`).join(', ')}` });
-                const noRating = activeItems.filter(i => (i.ratingCount || 0) === 0);
-                if (noRating.length > 0 && noRating.length < activeItems.length) alerts.push({ type: 'info', text: `${noRating.length} item${noRating.length > 1 ? 's' : ''} have no ratings yet` });
+                // Coverage: how many items have a 3D AR model ready.
+                const itemsWithModel = activeItems.filter(i => i.modelURL).length;
+                const totalMenuItems = activeItems.length;
+
+                // "Working best" — item with the highest AR → order conversion, min 5 AR views for signal.
+                // orderedCount comes from itemFreq (range-scoped orders).
+                const arItems = activeItems.filter(i => (i.arViews || 0) >= 5);
+                const arItemsWithConv = arItems.map(i => {
+                  const ordered = itemFreq[i.name]?.qty || 0;
+                  const convRate = i.arViews > 0 ? (ordered / i.arViews) : 0;
+                  return { ...i, ordered, convRate };
+                });
+                const workingBest = arItemsWithConv.length > 0
+                  ? [...arItemsWithConv].sort((a, b) => b.convRate - a.convRate || b.ordered - a.ordered)[0]
+                  : null;
+
+                // "Opportunity" — item with the most views that has no AR model yet.
+                const noModelSorted = activeItems
+                  .filter(i => !i.modelURL && (i.views || 0) > 0)
+                  .sort((a, b) => (b.views || 0) - (a.views || 0));
+                const opportunity = noModelSorted[0] || null;
 
                 return (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: alerts.length > 0 ? '#E8907E' : '#9FCAA9', marginBottom: 8 }}>
-                      {alerts.length > 0 ? 'NEEDS ATTENTION' : 'ALL CLEAR'}
+                  <BentoGlow style={{ ...card, padding: '22px 24px', marginBottom: 14 }}>
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={secTitle}>AR Impact</div>
+                      <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 3 }}>Is the AR feature helping customers decide?</div>
                     </div>
-                    {alerts.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {alerts.map((a, i) => {
-                          const colors = {
-                            danger:  { bg: 'rgba(232,144,126,0.10)', border: 'rgba(232,144,126,0.24)', text: '#F0A89A' },
-                            warning: { bg: 'rgba(196,168,109,0.12)', border: 'rgba(196,168,109,0.28)', text: '#D8BA80' },
-                            info:    { bg: 'rgba(122,186,200,0.10)', border: 'rgba(122,186,200,0.22)', text: '#9BCCD9' },
-                          };
-                          const c = colors[a.type] || colors.info;
+
+                    {/* Top row: 3 stat tiles */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
+                      <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
+                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.40)', marginBottom: 6 }}>AR tap-through</div>
+                        <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
+                          <CountUp end={Math.round(parseFloat(arRate))} duration={1.4} preserveValue key={committedRange} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
+                        </div>
+                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.5)', marginTop: 4 }}>of all item views</div>
+                      </div>
+                      <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
+                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.40)', marginBottom: 6 }}>AR → order</div>
+                        <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: '#C4A86D', letterSpacing: '-0.4px', lineHeight: 1 }}>
+                          <CountUp end={Math.round(parseFloat(arToOrderRate))} duration={1.4} preserveValue key={committedRange} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
+                        </div>
+                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.5)', marginTop: 4 }}>of orders saw AR first</div>
+                      </div>
+                      <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
+                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.40)', marginBottom: 6 }}>AR coverage</div>
+                        <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
+                          <CountUp end={itemsWithModel} duration={1.4} preserveValue /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 3 }}>/ {totalMenuItems}</span>
+                        </div>
+                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.5)', marginTop: 4 }}>items have a 3D model</div>
+                      </div>
+                    </div>
+
+                    {/* Bottom row: 2 insight cards — positive + actionable */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      {/* Working best */}
+                      {workingBest ? (
+                        <div style={{ padding: '14px 16px', background: 'rgba(63,158,90,0.05)', border: '1px solid rgba(63,158,90,0.18)', borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#3F9E5A' }}>Working best</div>
+                            <div style={{ fontFamily: A.font, fontSize: 10, color: 'rgba(63,158,90,0.7)', letterSpacing: '0.04em' }}>AR → ORDER</div>
+                          </div>
+                          <div style={{ fontFamily: A.font, fontSize: 14, fontWeight: 600, color: A.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{workingBest.name}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.55)', lineHeight: 1.45 }}>
+                            <span style={{ fontWeight: 600, color: '#3F9E5A' }}>{Math.round(workingBest.convRate * 100)}%</span> of AR viewers ordered it<br />
+                            <span style={{ color: 'rgba(38,52,49,0.4)' }}>{workingBest.arViews} AR views · {workingBest.ordered} order{workingBest.ordered !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
+                          <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.4)', marginBottom: 8 }}>Working best</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, color: 'rgba(38,52,49,0.5)', lineHeight: 1.5 }}>Not enough AR activity yet — items need at least 5 AR views to qualify.</div>
+                        </div>
+                      )}
+
+                      {/* Opportunity */}
+                      {opportunity ? (
+                        <div style={{ padding: '14px 16px', background: 'rgba(196,168,109,0.06)', border: '1px solid rgba(196,168,109,0.22)', borderRadius: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A08656' }}>Opportunity</div>
+                            <div style={{ fontFamily: A.font, fontSize: 10, color: 'rgba(160,134,86,0.7)', letterSpacing: '0.04em' }}>HIGH VIEWS · NO AR</div>
+                          </div>
+                          <div style={{ fontFamily: A.font, fontSize: 14, fontWeight: 600, color: A.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opportunity.name}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.55)', lineHeight: 1.45 }}>
+                            <span style={{ fontWeight: 600, color: '#A08656' }}>{opportunity.views} views</span>, no 3D model yet<br />
+                            <span style={{ color: 'rgba(38,52,49,0.4)' }}>Could boost orders if added</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
+                          <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.4)', marginBottom: 8 }}>Opportunity</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, color: 'rgba(38,52,49,0.5)', lineHeight: 1.5 }}>Every viewed item already has a 3D model — well done.</div>
+                        </div>
+                      )}
+                    </div>
+                  </BentoGlow>
+                );
+              })()}
+
+              {/* ── Card C: Category Performance — revenue-ranked horizontal bars + per-category rating ── */}
+              {(() => {
+                // Per-category rollup: revenue + orders + avg rating (weighted by ratingCount).
+                const catRollup = {};
+                activeItems.forEach(item => {
+                  const raw = item.category || 'Uncategorised';
+                  const cat = raw.charAt(0).toUpperCase() + raw.slice(1);
+                  if (!catRollup[cat]) catRollup[cat] = { name: cat, items: 0, orders: 0, revenue: 0, ratingSum: 0, ratingCount: 0 };
+                  catRollup[cat].items += 1;
+                  const freq = itemFreq[item.name];
+                  if (freq) {
+                    catRollup[cat].orders += freq.qty;
+                    catRollup[cat].revenue += freq.revenue;
+                  }
+                  if ((item.ratingCount || 0) > 0) {
+                    catRollup[cat].ratingSum += (item.ratingAvg || 0) * item.ratingCount;
+                    catRollup[cat].ratingCount += item.ratingCount;
+                  }
+                });
+                const catRows = Object.values(catRollup)
+                  .map(c => ({ ...c, rating: c.ratingCount > 0 ? c.ratingSum / c.ratingCount : 0 }))
+                  .sort((a, b) => b.revenue - a.revenue);
+                const maxRev = catRows[0]?.revenue || 1;
+                const anyRev = catRows.some(c => c.revenue > 0);
+
+                return (
+                  <BentoGlow style={{ ...card, padding: '22px 24px' }}>
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={secTitle}>Category Performance</div>
+                      <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 3 }}>Which menu categories are pulling their weight</div>
+                    </div>
+
+                    {catRows.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No categories</div>
+                    ) : !anyRev ? (
+                      <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No orders in this range yet</div>
+                    ) : (<>
+                      <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 60px 60px 70px', gap: 12, padding: '0 4px 8px', borderBottom: '1px solid rgba(38,52,49,0.06)', marginBottom: 4 }}>
+                        <div style={{ ...labelSm, fontSize: 9 }}>Category</div>
+                        <div style={{ ...labelSm, fontSize: 9 }}>Revenue share</div>
+                        <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Items</div>
+                        <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Orders</div>
+                        <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Rating</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {catRows.map((c, i) => {
+                          const pct = maxRev > 0 ? (c.revenue / maxRev) * 100 : 0;
+                          const active = c.revenue > 0 && pct >= 20;
                           return (
-                            <div key={i} style={{ padding: '10px 14px', background: c.bg, borderRadius: 8, border: `1px solid ${c.border}` }}>
-                              <span style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: c.text }}>{a.text}</span>
+                            <div key={c.name} className="row-hover" style={{
+                              display: 'grid', gridTemplateColumns: '140px 1fr 60px 60px 70px', gap: 12, alignItems: 'center',
+                              padding: '10px 4px', borderRadius: 8, transition: 'background 0.12s',
+                            }}>
+                              <div style={{
+                                fontFamily: A.font, fontSize: 13,
+                                fontWeight: active ? 600 : 500,
+                                color: active ? A.ink : 'rgba(38,52,49,0.75)',
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}>{c.name}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ flex: 1, height: 8, background: 'rgba(0,0,0,0.04)', borderRadius: 4, overflow: 'hidden' }}>
+                                  <div style={{
+                                    height: '100%', borderRadius: 4,
+                                    width: `${pct}%`,
+                                    background: active ? A.ink : 'rgba(38,52,49,0.35)',
+                                    transition: 'width 0.4s ease',
+                                  }} />
+                                </div>
+                                <span style={{
+                                  fontFamily: A.font, fontSize: 12.5, fontWeight: 700,
+                                  color: active ? '#C4A86D' : 'rgba(38,52,49,0.5)',
+                                  letterSpacing: '-0.2px',
+                                  width: 56, textAlign: 'right', fontVariantNumeric: 'tabular-nums',
+                                }}>{c.revenue > 0 ? formatRupee(Math.round(c.revenue)) : '—'}</span>
+                              </div>
+                              <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: 'rgba(38,52,49,0.55)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.items}</div>
+                              <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: active ? A.ink : 'rgba(38,52,49,0.5)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.orders}</div>
+                              <div style={{ textAlign: 'right', fontFamily: A.font, fontSize: 12, color: c.rating > 0 ? '#C4A86D' : 'rgba(38,52,49,0.3)', fontWeight: 600 }}>
+                                {c.rating > 0 ? `★ ${c.rating.toFixed(1)}` : '—'}
+                              </div>
                             </div>
                           );
                         })}
                       </div>
-                    ) : (
-                      <div style={{ padding: '10px 14px', background: 'rgba(122,170,142,0.10)', borderRadius: 8, border: '1px solid rgba(122,170,142,0.22)' }}>
-                        <span style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: '#9FCAA9' }}>All menu items are performing well — no issues detected</span>
+                    </>)}
+                  </BentoGlow>
+                );
+              })()}
+
+            </div>
+          )}
+
+          {/* ── RESTAURANT HEALTH — Matte black signature card, bookend to LIVE TODAY ── */}
+          {/*    Direction 3 split layout: diagnosis on the left, alerts feed on the right. ── */}
+          {!loading && (
+            <div style={{
+              background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+              borderRadius: 14, padding: '22px 24px', marginTop: 14,
+              border: A.forestBorder,
+              boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
+            }}>
+              {/* Top row: section label + thin rule (score ring moved into the left column below) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>RESTAURANT HEALTH</div>
+                <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
+              </div>
+
+              {(() => {
+                // ── Alert rule builders ───────────────────────────────────────────
+                // (1) Converting poorly — items in top 25% by lifetime views that have zero orders in the selected range.
+                //     Replaces the old hardcoded "views > 10" threshold. Scales with restaurant size.
+                const __viewCounts = activeItems.map(i => i.views || 0).filter(v => v > 0).sort((a, b) => b - a);
+                const __topViewThresh = __viewCounts.length >= 4
+                  ? __viewCounts[Math.max(0, Math.ceil(__viewCounts.length * 0.25) - 1)]
+                  : Infinity; // too few viewed items to compute a meaningful percentile — skip the rule
+                const convertingPoorly = __topViewThresh === Infinity ? [] : activeItems
+                  .filter(i => (i.views || 0) >= __topViewThresh)
+                  .filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0)
+                  .sort((a, b) => (b.views || 0) - (a.views || 0));
+
+                // (2) Low rated — already filtered upstream (ratingAvg < 3.5 AND ratingCount >= 3)
+                // (3) Stale zero-view — already filtered upstream (older than 7-day grace window)
+                // (4) New unviewed — already filtered upstream (within 7-day grace)
+
+                // Compose alerts with severity + UI formatters.
+                const alerts = [];
+                if (convertingPoorly.length > 0) alerts.push({
+                  type: 'warning',
+                  title: `${convertingPoorly.length} item${convertingPoorly.length > 1 ? 's' : ''} converting poorly`,
+                  subtitle: 'Top-viewed, no orders this range',
+                  items: convertingPoorly,
+                  chipFmt: (i) => i.name,
+                });
+                if (lowRated.length > 0) alerts.push({
+                  type: 'danger',
+                  title: `${lowRated.length} item${lowRated.length > 1 ? 's' : ''} rated below 3.5`,
+                  subtitle: 'Needs menu review',
+                  items: lowRated,
+                  chipFmt: (i) => `${i.name} · ${(i.ratingAvg || 0).toFixed(1)}`,
+                });
+                if (zeroView.length > 0) alerts.push({
+                  type: 'danger',
+                  title: `${zeroView.length} item${zeroView.length > 1 ? 's' : ''} with zero views`,
+                  subtitle: 'Hidden from customers',
+                  items: zeroView,
+                  chipFmt: (i) => i.name,
+                });
+                if (newUnviewed.length > 0) alerts.push({
+                  type: 'info',
+                  title: `${newUnviewed.length} new item${newUnviewed.length > 1 ? 's' : ''} not viewed yet`,
+                  subtitle: 'Added this week',
+                  items: newUnviewed,
+                  chipFmt: (i) => i.name,
+                });
+
+                // Sort: danger first, then warning, then info. Within severity, larger counts first.
+                const __sevRank = { danger: 3, warning: 2, info: 1 };
+                alerts.sort((a, b) => (__sevRank[b.type] - __sevRank[a.type]) || (b.items.length - a.items.length));
+
+                // Section header colour reflects the HIGHEST severity present (not red by default).
+                const __topSev = alerts[0]?.type;
+                const sectionColor = __topSev === 'danger' ? '#F0A89A'
+                  : __topSev === 'warning' ? '#D8BA80'
+                  : __topSev === 'info' ? 'rgba(234,231,227,0.7)'
+                  : '#C4A86D';
+                const sectionLabel = alerts.length > 0 ? 'NEEDS ATTENTION' : 'ALL CLEAR';
+
+                // Per-severity tile styling — matte-black-friendly tints.
+                const sevStyle = {
+                  danger:  { bg: 'rgba(217,83,79,0.10)',   border: '#D9534F',              title: '#F0A89A', sub: 'rgba(240,168,154,0.65)', chipBg: 'rgba(217,83,79,0.12)',   chipBorder: 'rgba(217,83,79,0.28)',   chipText: '#F0A89A' },
+                  warning: { bg: 'rgba(196,168,109,0.09)', border: '#C4A86D',              title: '#D8BA80', sub: 'rgba(216,186,128,0.70)', chipBg: 'rgba(196,168,109,0.14)', chipBorder: 'rgba(196,168,109,0.28)', chipText: '#D8BA80' },
+                  info:    { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.18)', title: '#EAE7E3', sub: 'rgba(234,231,227,0.50)', chipBg: 'rgba(255,255,255,0.06)', chipBorder: 'rgba(255,255,255,0.12)', chipText: 'rgba(234,231,227,0.80)' },
+                };
+
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 0.9fr) minmax(280px, 1.1fr)', gap: 18 }}>
+                    {/* ══ LEFT: diagnosis — score ring, motivational quote, 2x2 stat grid ══ */}
+                    <div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 14px' }}>
+                        <svg width="92" height="92" viewBox="0 0 32 32">
+                          <circle cx="16" cy="16" r="13" fill="none" stroke="rgba(234,231,227,0.12)" strokeWidth="2.4" />
+                          <circle cx="16" cy="16" r="13" fill="none" stroke={scoreColor} strokeWidth="2.4"
+                            strokeDasharray={`${(healthScore / 100) * 81.7} 81.7`} strokeLinecap="round" transform="rotate(-90 16 16)" />
+                        </svg>
+                        <div style={{ marginTop: 10 }}>
+                          <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 30, color: scoreColor, letterSpacing: '-0.5px' }}>
+                            <CountUp end={healthScore} duration={1.2} key={committedRange} preserveValue />
+                          </span>
+                          <span style={{ fontFamily: A.font, fontSize: 14, color: A.forestTextMuted, marginLeft: 5 }}>/100</span>
+                        </div>
+                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, color: A.forestTextFaint, marginTop: 6, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Health Score</div>
                       </div>
-                    )}
+
+                      {healthScore >= 70 && (
+                        <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(196,168,109,0.08)', borderRadius: 10, border: '1px solid rgba(196,168,109,0.18)' }}>
+                          <div style={{ fontFamily: A.font, fontStyle: 'italic', fontSize: 12.5, color: '#EAE7E3', lineHeight: 1.5 }}>
+                            {healthScore >= 90 ? '"Your restaurant is performing exceptionally — keep this momentum going!"'
+                              : healthScore >= 80 ? '"Great progress! Your menu and service are resonating with customers."'
+                                : '"You\'re on the right track — a few tweaks and you\'ll be in the top tier!"'}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {[
+                          { label: 'VISITS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
+                          { label: 'AR ITEM ORDERS', value: arToOrderRate + '%', sub: 'of all orders' },
+                          { label: 'AR ENGAGEMENT', value: arRate + '%', sub: `${totalARViews} launches` },
+                          { label: 'AVG RATING', value: avgRating > 0 ? `★ ${avgRating}` : '—', sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} rated` },
+                        ].map(s => (
+                          <div key={s.label} style={{ padding: '11px 13px', background: A.forestSubtleBg, borderRadius: 10, border: A.forestBorder }}>
+                            <div style={{ fontFamily: A.font, fontSize: 9, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 5 }}>{s.label}</div>
+                            <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 17, color: A.warning, lineHeight: 1.1, letterSpacing: '-0.3px' }}>{s.value}</div>
+                            <div style={{ fontFamily: A.font, fontSize: 10.5, color: A.forestTextMuted, marginTop: 3 }}>{s.sub}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ══ RIGHT: alerts feed — flex column so affirmation can anchor to bottom ══ */}
+                    <div style={{ borderLeft: '1px solid rgba(234,231,227,0.08)', paddingLeft: 18, display: 'flex', flexDirection: 'column' }}>
+                      {alerts.length > 0 ? (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: sectionColor }}>{sectionLabel}</div>
+                            <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', color: A.forestTextFaint }}>
+                              {alerts.length} ALERT{alerts.length > 1 ? 'S' : ''}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {alerts.map((a, ai) => {
+                              const st = sevStyle[a.type];
+                              const alertKey = `${a.type}::${a.title}`;
+                              const isExpanded = expandedAlerts.has(alertKey);
+                              const visible = isExpanded ? a.items : a.items.slice(0, 3);
+                              const hiddenCount = isExpanded ? 0 : (a.items.length - visible.length);
+                              const hasOverflow = a.items.length > 3;
+                              return (
+                                <div key={ai} style={{
+                                  padding: '11px 13px',
+                                  background: st.bg,
+                                  borderLeft: `2px solid ${st.border}`,
+                                  borderRadius: '0 10px 10px 0',
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 7 }}>
+                                    <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: st.title }}>{a.title}</div>
+                                    {a.subtitle && <div style={{ fontFamily: A.font, fontSize: 10.5, color: st.sub, whiteSpace: 'nowrap' }}>{a.subtitle}</div>}
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                    {visible.map((it, ci) => (
+                                      <span key={it.id || it.name || ci} style={{
+                                        fontFamily: A.font, fontSize: 11, fontWeight: 500,
+                                        padding: '3px 8px', borderRadius: 6,
+                                        background: st.chipBg, border: `1px solid ${st.chipBorder}`, color: st.chipText,
+                                      }}>{a.chipFmt(it)}</span>
+                                    ))}
+                                    {hasOverflow && (
+                                      <span
+                                        onClick={() => toggleAlertExpand(alertKey)}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(234,231,227,0.42)'; e.currentTarget.style.color = 'rgba(234,231,227,0.82)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(234,231,227,0.22)'; e.currentTarget.style.color = 'rgba(234,231,227,0.55)'; }}
+                                        style={{
+                                          fontFamily: A.font, fontSize: 11, fontWeight: 500,
+                                          padding: '3px 8px', borderRadius: 6,
+                                          background: 'transparent', border: '1px dashed rgba(234,231,227,0.22)',
+                                          color: 'rgba(234,231,227,0.55)',
+                                          cursor: 'pointer', userSelect: 'none',
+                                          transition: 'border-color 0.15s, color 0.15s',
+                                        }}>
+                                        {isExpanded ? 'show less' : `+${hiddenCount} more`}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Bottom panel: Top Performers fills the empty column with the positive balance
+                              to the alerts above. Falls back to the small affirmation if no range data. */}
+                          {topPerformers.length > 0 ? (
+                            <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+                              <div style={{
+                                background: 'rgba(196,168,109,0.06)',
+                                border: '1px solid rgba(196,168,109,0.14)',
+                                borderRadius: 10,
+                                padding: '12px 14px',
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                  <svg width="13" height="13" viewBox="0 0 64 64" fill="none" style={{ flexShrink: 0 }}>
+                                    <path d="M32 16 L36 27 L48 29 L39 37 L42 49 L32 42 L22 49 L25 37 L16 29 L28 27 Z" fill="#C4A86D" />
+                                  </svg>
+                                  <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#D8BA80' }}>TOP PERFORMERS</div>
+                                  <div style={{ flex: 1, height: 1, background: 'rgba(196,168,109,0.10)' }} />
+                                  <div style={{ fontFamily: A.font, fontSize: 9.5, fontWeight: 600, color: A.forestTextFaint, letterSpacing: '0.08em' }}>BY REVENUE</div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  {topPerformers.map((p, pi) => (
+                                    <div key={p.name} style={{
+                                      display: 'flex', alignItems: 'center', gap: 10,
+                                      padding: '7px 2px',
+                                      borderTop: pi > 0 ? '1px solid rgba(234,231,227,0.05)' : 'none',
+                                    }}>
+                                      <div style={{
+                                        width: 20, height: 20, borderRadius: 5,
+                                        background: 'rgba(196,168,109,0.14)',
+                                        border: '1px solid rgba(196,168,109,0.24)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontFamily: A.font, fontSize: 10, fontWeight: 700, color: '#D8BA80',
+                                        flexShrink: 0,
+                                      }}>{pi + 1}</div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                          fontFamily: A.font, fontSize: 12.5, fontWeight: 500, color: '#EAE7E3',
+                                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                        }}>{p.name}</div>
+                                        <div style={{ fontFamily: A.font, fontSize: 10.5, color: 'rgba(234,231,227,0.50)', marginTop: 1 }}>
+                                          {p.qty} order{p.qty !== 1 ? 's' : ''}{p.ratingCount > 0 ? ` · ★${p.rating.toFixed(1)}` : ''}
+                                        </div>
+                                      </div>
+                                      <div style={{
+                                        fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                                        color: '#C4A86D', letterSpacing: '-0.3px',
+                                        flexShrink: 0,
+                                      }}>{formatRupee(p.revenue)}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Fallback: no orders in range — keep the small affirmation pill */
+                            <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', justifyContent: 'center' }}>
+                              <div style={{
+                                display: 'flex', alignItems: 'center', gap: 10,
+                                padding: '10px 14px',
+                                background: 'rgba(196,168,109,0.06)',
+                                border: '1px solid rgba(196,168,109,0.14)',
+                                borderRadius: 10,
+                              }}>
+                                <svg width="22" height="22" viewBox="0 0 64 64" fill="none" style={{ flexShrink: 0 }}>
+                                  <circle cx="11" cy="16" r="1.4" fill="rgba(196,168,109,0.55)" />
+                                  <circle cx="53" cy="15" r="1.8" fill="rgba(196,168,109,0.80)" />
+                                  <circle cx="56" cy="46" r="1.2" fill="rgba(196,168,109,0.50)" />
+                                  <circle cx="9"  cy="46" r="1.6" fill="rgba(196,168,109,0.65)" />
+                                  <path d="M32 16 L36 27 L48 29 L39 37 L42 49 L32 42 L22 49 L25 37 L16 29 L28 27 Z" fill="#C4A86D" />
+                                </svg>
+                                <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 500, color: 'rgba(234,231,227,0.75)', lineHeight: 1.4 }}>
+                                  Nothing else is flagged right now
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        /* Celebration state — centered vertically when the grid stretches the right column */
+                        <div style={{
+                          margin: 'auto', textAlign: 'center', padding: '20px 16px',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        }}>
+                          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ marginBottom: 14 }}>
+                            <circle cx="11" cy="16" r="1.6" fill="rgba(196,168,109,0.55)" />
+                            <circle cx="53" cy="15" r="2.1" fill="rgba(196,168,109,0.80)" />
+                            <circle cx="56" cy="46" r="1.4" fill="rgba(196,168,109,0.50)" />
+                            <circle cx="9"  cy="46" r="1.8" fill="rgba(196,168,109,0.65)" />
+                            <path d="M32 16 L36 27 L48 29 L39 37 L42 49 L32 42 L22 49 L25 37 L16 29 L28 27 Z" fill="#C4A86D" />
+                          </svg>
+                          <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning, marginBottom: 10 }}>All clear</div>
+                          <div style={{ fontFamily: A.font, fontSize: 14.5, fontWeight: 600, color: '#EAE7E3', marginBottom: 6, lineHeight: 1.4 }}>Nothing needs your attention right now</div>
+                          <div style={{ fontFamily: A.font, fontSize: 12.5, color: 'rgba(234,231,227,0.55)', lineHeight: 1.5, maxWidth: 280 }}>Every menu item is performing well for the selected range.</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })()}

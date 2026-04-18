@@ -8,34 +8,69 @@ import { AdminDataProvider } from '../../contexts/AdminDataContext';
 import { T } from '../../lib/utils';
 
 const navSections = [
-  { label: 'OVERVIEW', items: [
-    { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
-    { href: '/admin/reports', label: 'Revenue Reports', icon: '💰' },
-  ]},
-  { label: 'OPERATIONS', items: [
-    { href: '/admin/orders', label: 'Orders', icon: '📋' },
-    { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: '👨‍🍳' },
-    { href: '/admin/waiter', label: 'Waiter', icon: '🛎️' },
-    { href: '/admin/payments', label: 'Payments', icon: '💳' },
-  ]},
-  { label: 'MENU', items: [
-    { href: '/admin/items', label: 'Menu Items', icon: '🍽️' },
-    { href: '/admin/combos', label: 'Combo Builder', icon: '🧩' },
-    { href: '/admin/offers', label: 'Offers', icon: '🏷️' },
-    { href: '/admin/coupons', label: 'Coupons', icon: '🎟️' },
-  ]},
-  { label: 'PEOPLE', items: [
-    { href: '/admin/staff', label: 'Staff Logins', icon: '👥' },
-    { href: '/admin/feedback', label: 'Customer Feedback', icon: '⭐' },
-    { href: '/admin/notifications', label: 'Notification', icon: '🔔' },
-  ]},
-  { label: 'SETUP', items: [
-    { href: '/admin/requests', label: 'Add Items/Requests', icon: '➕' },
-    { href: '/admin/qrcode', label: 'QR Code', icon: '📱' },
-    { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
-    { href: '/admin/subscription', label: 'Subscription', icon: '👑' },
-  ]},
+  {
+    label: 'OVERVIEW', items: [
+      { href: '/admin/analytics', label: 'Analytics', icon: 'chart' },
+      { href: '/admin/reports', label: 'Revenue Reports', icon: 'dollar' },
+    ]
+  },
+  {
+    label: 'OPERATIONS', items: [
+      { href: '/admin/orders', label: 'Orders', icon: 'clipboard' },
+      { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: 'chef' },
+      { href: '/admin/waiter', label: 'Waiter', icon: 'bell' },
+      { href: '/admin/payments', label: 'Payments', icon: 'card' },
+    ]
+  },
+  {
+    label: 'MENU', items: [
+      { href: '/admin/items', label: 'Menu Items', icon: 'utensils' },
+      { href: '/admin/combos', label: 'Combo Builder', icon: 'puzzle' },
+      { href: '/admin/offers', label: 'Offers', icon: 'tag' },
+      { href: '/admin/coupons', label: 'Coupons', icon: 'ticket' },
+    ]
+  },
+  {
+    label: 'PEOPLE', items: [
+      { href: '/admin/staff', label: 'Staff Logins', icon: 'users' },
+      { href: '/admin/feedback', label: 'Customer Feedback', icon: 'star' },
+      { href: '/admin/notifications', label: 'Notification', icon: 'bell-ring' },
+    ]
+  },
+  {
+    label: 'SETUP', items: [
+      { href: '/admin/requests', label: 'Add Items/Requests', icon: 'plus' },
+      { href: '/admin/qrcode', label: 'QR Code', icon: 'qr' },
+      { href: '/admin/settings', label: 'Settings', icon: 'gear' },
+      { href: '/admin/subscription', label: 'Subscription', icon: 'crown' },
+    ]
+  },
 ];
+
+// ── Inline Lucide-style SVG icon set. stroke uses currentColor so icons inherit text color. ──
+const NavIcon = ({ name }) => {
+  const props = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  switch (name) {
+    case 'chart':     return <svg {...props}><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" /></svg>;
+    case 'dollar':    return <svg {...props}><circle cx="12" cy="12" r="10" /><path d="M12 6v12M15 9.5c0-1.38-1.34-2.5-3-2.5s-3 1.12-3 2.5 1.34 2.5 3 2.5 3 1.12 3 2.5-1.34 2.5-3 2.5-3-1.12-3-2.5" /></svg>;
+    case 'clipboard': return <svg {...props}><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M9 12h6M9 16h6" /></svg>;
+    case 'chef':      return <svg {...props}><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>;
+    case 'bell':      return <svg {...props}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>;
+    case 'card':      return <svg {...props}><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h2M11 15h2" /></svg>;
+    case 'utensils':  return <svg {...props}><path d="M3 2v7a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V2M6 2v20M16 2v20M16 14c0-3 2-6 5-6v-4c-3 0-5 3-5 7" /></svg>;
+    case 'puzzle':    return <svg {...props}><path d="M19.4 11.3a2 2 0 0 1 0-2.6 2 2 0 0 0-2.8-2.8 2 2 0 0 1-2.6 0 2 2 0 0 0-2.8 2.8 2 2 0 0 1 0 2.6v0a2 2 0 0 1-2.6 0 2 2 0 0 0-2.8 2.8 2 2 0 0 1 0 2.6 2 2 0 0 0 2.8 2.8 2 2 0 0 1 2.6 0 2 2 0 0 0 2.8-2.8 2 2 0 0 1 0-2.6 2 2 0 0 1 2.6 0 2 2 0 0 0 2.8-2.8Z" /></svg>;
+    case 'tag':       return <svg {...props}><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z" /><circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none" /></svg>;
+    case 'ticket':    return <svg {...props}><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><path d="M13 5v2M13 17v2M13 11v2" /></svg>;
+    case 'users':     return <svg {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+    case 'star':      return <svg {...props}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>;
+    case 'bell-ring': return <svg {...props}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0M4 2C2.8 3.7 2 5.7 2 8M22 8c0-2.3-.8-4.3-2-6" /></svg>;
+    case 'plus':      return <svg {...props}><circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" /></svg>;
+    case 'qr':        return <svg {...props}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v3M14 20h3v1M21 20v1" /></svg>;
+    case 'gear':      return <svg {...props}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>;
+    case 'crown':     return <svg {...props}><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" /><path d="M5 20h14" /></svg>;
+    default:          return <svg {...props}><circle cx="12" cy="12" r="3" /></svg>;
+  }
+};
 
 export default function AdminLayout({ children }) {
   const { user, userData, loading, signOut } = useAuth();
@@ -66,11 +101,11 @@ export default function AdminLayout({ children }) {
   const [callsLoaded, setCallsLoaded] = useState(false);
 
   // ─── GLOBAL SOUND + NOTIFICATION SYSTEM ──────────────────────────────────
-  const prevCallRef   = useRef(0);
-  const prevOrderRef  = useRef(0);
-  const notifGranted  = useRef(false);
+  const prevCallRef = useRef(0);
+  const prevOrderRef = useRef(0);
+  const notifGranted = useRef(false);
   const seenPaymentRequests = useRef(new Set());
-  const audioCtxRef   = useRef(null);
+  const audioCtxRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -100,16 +135,16 @@ export default function AdminLayout({ children }) {
         gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
         osc.start(start); osc.stop(start + dur);
       };
-      tone(880,  ctx.currentTime,        1.4, 0.55);
-      tone(1760, ctx.currentTime,        0.7, 0.25);
-      tone(880,  ctx.currentTime + 0.55, 1.2, 0.45);
+      tone(880, ctx.currentTime, 1.4, 0.55);
+      tone(1760, ctx.currentTime, 0.7, 0.25);
+      tone(880, ctx.currentTime + 0.55, 1.2, 0.45);
       tone(1760, ctx.currentTime + 0.55, 0.6, 0.2);
-    } catch {}
+    } catch { }
   };
 
   const playAlert = () => {
     if (!soundAllowed()) return;
-    try { new Audio('/notification.mp3').play().catch(() => {}); } catch {}
+    try { new Audio('/notification.mp3').play().catch(() => { }); } catch { }
   };
 
   const showOsNotif = (title, body) => {
@@ -118,7 +153,7 @@ export default function AdminLayout({ children }) {
       const n = new Notification(title, { body, icon: '/favicon.ico', tag: 'ar-alert' });
       setTimeout(() => n.close(), 8000);
       n.onclick = () => { window.focus(); n.close(); };
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -185,36 +220,46 @@ export default function AdminLayout({ children }) {
 
   const isActive = (href) => href === '/admin' ? router.pathname === '/admin' : router.pathname.startsWith(href);
 
+  // ── Aspire palette (scoped to the admin chrome only — doesn't affect T) ──
+  const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  const A_BG = '#FFFFFF';               // sidebar bg
+  const A_PAGE = '#EDEDED';             // page bg behind cards
+  const A_INK = '#1A1A1A';              // primary text
+  const A_MUTED = 'rgba(0,0,0,0.55)';   // nav default text
+  const A_FAINT = 'rgba(0,0,0,0.38)';   // section labels
+  const A_HOVER = 'rgba(0,0,0,0.04)';   // nav hover bg
+  const A_BORDER = 'rgba(0,0,0,0.06)';  // subtle separators
+  const A_GOLD = '#C4A86D';             // active pill + brand italic
+  const A_GOLD_DARK = '#A08656';        // darker gold for on-pill icon if needed
+
   return (
-    <div style={{ minHeight: '100vh', background: T.cream, fontFamily: T.font, color: T.ink, display: 'flex', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: A_PAGE, fontFamily: INTER, color: A_INK, display: 'flex', position: 'relative' }}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
         .nlnk{
-          display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:10px;
+          display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;
+          font-family:${INTER};
           font-size:13.5px;font-weight:500;text-decoration:none;
-          color:${T.shellMuted};transition:all 0.18s;margin-bottom:1px;
-          letter-spacing:-0.15px;
+          color:${A_MUTED};transition:background 0.15s, color 0.15s;margin-bottom:2px;
+          letter-spacing:-0.1px;
         }
-        .nlnk:hover{background:rgba(234,231,227,0.08);color:${T.shellText};}
+        .nlnk:hover{background:${A_HOVER};color:${A_INK};}
         .nlnk .nav-icon{
-          font-size:14px;flex-shrink:0;opacity:0.5;transition:all 0.2s;
-          width:20px;text-align:center;
-          filter:grayscale(1) brightness(1.8);
+          flex-shrink:0;opacity:0.75;transition:opacity 0.15s;
+          display:inline-flex;align-items:center;justify-content:center;
         }
-        .nlnk:hover .nav-icon{opacity:0.8;}
+        .nlnk:hover .nav-icon{opacity:1;}
         .nlnk.on{
-          background:rgba(196,168,109,0.18);
-          color:#C4A86D;font-weight:600;
+          background:${A_GOLD};
+          color:#FFFFFF;font-weight:600;
         }
-        .nlnk.on .nav-icon{
-          opacity:1;filter:grayscale(1) brightness(2.2);
-        }
+        .nlnk.on .nav-icon{opacity:1;}
         .admin-sidebar{
           transition:transform 0.25s cubic-bezier(.4,0,.2,1);
         }
         .admin-sidebar nav::-webkit-scrollbar{width:3px;}
         .admin-sidebar nav::-webkit-scrollbar-track{background:transparent;}
-        .admin-sidebar nav::-webkit-scrollbar-thumb{background:rgba(234,231,227,0.1);border-radius:3px;}
+        .admin-sidebar nav::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.08);border-radius:3px;}
         .admin-mobile-topbar{display:none;}
         .admin-backdrop{display:none;}
         @media(max-width:767px){
@@ -225,12 +270,12 @@ export default function AdminLayout({ children }) {
             display:flex;align-items:center;gap:12px;
             position:fixed;top:0;left:0;right:0;z-index:18;
             height:56px;padding:0 16px;
-            background:${T.shell};
-            box-shadow:0 2px 16px rgba(38,52,49,0.2);
+            background:${A_BG};
+            border-bottom:1px solid ${A_BORDER};
           }
           .admin-backdrop{
             display:block;position:fixed;inset:0;z-index:19;
-            background:rgba(38,52,49,0.35);
+            background:rgba(0,0,0,0.35);
             backdrop-filter:blur(4px);
             -webkit-tap-highlight-color:transparent;
           }
@@ -241,12 +286,12 @@ export default function AdminLayout({ children }) {
       {/* Mobile top bar */}
       <div className="admin-mobile-topbar">
         <button onClick={() => setSidebarOpen(o => !o)}
-          style={{ background: 'none', border: 'none', color: T.shellText, fontSize: 20, cursor: 'pointer', padding: '4px 6px', lineHeight: 1 }}
+          style={{ background: 'none', border: 'none', color: A_INK, fontSize: 20, cursor: 'pointer', padding: '4px 6px', lineHeight: 1 }}
           aria-label="Toggle menu">
           ☰
         </button>
-        <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 18, color: T.shellText, letterSpacing: '-0.2px' }}>
-          Advert <span style={{ color: '#C4A86D', fontStyle: 'italic' }}>Radical</span>
+        <div style={{ fontFamily: INTER, fontWeight: 600, fontSize: 17, color: A_INK, letterSpacing: '-0.3px' }}>
+          Advert <span style={{ color: A_GOLD, fontStyle: 'italic', fontWeight: 500 }}>Radical</span>
         </div>
       </div>
 
@@ -255,42 +300,38 @@ export default function AdminLayout({ children }) {
         <div className="admin-backdrop" onClick={closeSidebar} />
       )}
 
-      {/* Sidebar — dark navy */}
+      {/* Sidebar — Aspire white */}
       <aside className={`admin-sidebar${sidebarOpen ? ' open' : ''}`} style={{
-        width: 250, flexShrink: 0,
-        background: `linear-gradient(180deg, ${T.shell} 0%, ${T.shellDarker} 100%)`,
+        width: 240, flexShrink: 0,
+        background: A_BG,
         display: 'flex', flexDirection: 'column',
         position: 'fixed', inset: '0 auto 0 0', zIndex: 20,
-        boxShadow: '3px 0 24px rgba(38,52,49,0.15)',
+        borderRight: `1px solid ${A_BORDER}`,
       }}>
-        {/* Top accent — frost red to fade */}
-        <div style={{ height: 3, background: `linear-gradient(90deg, ${T.accent}, ${T.sand}, transparent)` }} />
-
         {/* Brand */}
-        <div style={{ padding: '28px 22px 24px', borderBottom: '1px solid rgba(234,231,227,0.1)' }}>
+        <div style={{ padding: '24px 22px 20px' }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 22, color: T.shellText, letterSpacing: '-0.3px' }}>
-              Advert <span style={{ color: '#C4A86D', fontStyle: 'italic' }}>Radical</span>
+            <div style={{ fontFamily: INTER, fontWeight: 600, fontSize: 20, color: A_INK, letterSpacing: '-0.4px', lineHeight: 1.1 }}>
+              Advert <span style={{ color: A_GOLD, fontStyle: 'italic', fontWeight: 500 }}>Radical</span>
             </div>
           </Link>
-          <div style={{ fontSize: 9, color: 'rgba(196,168,109,0.6)', marginTop: 6, fontWeight: 600, letterSpacing: '3px', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: INTER, fontSize: 9, color: A_FAINT, marginTop: 6, fontWeight: 600, letterSpacing: '2.5px', textTransform: 'uppercase' }}>
             Restaurant Portal
           </div>
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '10px 12px', overflowY: 'auto' }}>
-          {navSections.map((section, si) => (
-            <div key={section.label} style={{ marginBottom: 4 }}>
-              {si > 0 && <div style={{ height: 1, background: 'rgba(234,231,227,0.08)', margin: '6px 18px 8px' }} />}
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.15em', color: 'rgba(234,231,227,0.25)', padding: '6px 18px 4px', textTransform: 'uppercase' }}>
+        <nav style={{ flex: 1, padding: '4px 12px 12px', overflowY: 'auto' }}>
+          {navSections.map((section) => (
+            <div key={section.label} style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: INTER, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: A_FAINT, padding: '6px 14px 8px', textTransform: 'uppercase' }}>
                 {section.label}
               </div>
               {section.items.map(item => (
                 <Link key={item.href} href={item.href}
                   className={`nlnk${isActive(item.href) ? ' on' : ''}`}
                   onClick={isMobile ? closeSidebar : undefined}>
-                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-icon"><NavIcon name={item.icon} /></span>
                   {item.label}
                 </Link>
               ))}
@@ -299,29 +340,28 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* User card */}
-        <div style={{ padding: '12px 12px 18px', borderTop: '1px solid rgba(234,231,227,0.1)' }}>
+        <div style={{ padding: '12px 12px 18px', borderTop: `1px solid ${A_BORDER}` }}>
           <div style={{
-            padding: '14px 16px', marginBottom: 8,
-            background: 'rgba(234,231,227,0.08)',
-            borderRadius: 12,
-            border: '1px solid rgba(234,231,227,0.06)',
+            padding: '12px 14px', marginBottom: 6,
+            background: A_HOVER,
+            borderRadius: 10,
           }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: T.shellText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontFamily: INTER, fontSize: 13, fontWeight: 600, color: A_INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.1px' }}>
               {userData?.restaurantName || userData?.email || user.email}
             </div>
-            <div style={{ fontSize: 10, color: T.stone, marginTop: 4, fontWeight: 500 }}>Restaurant Admin</div>
+            <div style={{ fontFamily: INTER, fontSize: 11, color: A_MUTED, marginTop: 3, fontWeight: 500 }}>Restaurant Admin</div>
           </div>
           <button onClick={signOut}
-            style={{ width: '100%', padding: '10px 16px', borderRadius: T.radiusBtn, border: 'none', background: 'transparent', fontSize: 12, fontFamily: T.font, color: T.shellMuted, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', fontWeight: 500 }}
-            onMouseOver={e => { e.currentTarget.style.background = 'rgba(234,231,227,0.06)'; e.currentTarget.style.color = T.shellText; }}
-            onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.shellMuted; }}>
+            style={{ width: '100%', padding: '9px 14px', borderRadius: 8, border: 'none', background: 'transparent', fontSize: 12, fontFamily: INTER, color: A_MUTED, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', fontWeight: 500 }}
+            onMouseOver={e => { e.currentTarget.style.background = A_HOVER; e.currentTarget.style.color = A_INK; }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = A_MUTED; }}>
             Sign out →
           </button>
         </div>
       </aside>
 
       <AdminDataProvider value={{ orders: allOrders, waiterCalls: allWaiterCalls, ordersLoaded, callsLoaded }}>
-        <main className="admin-main" style={{ flex: 1, marginLeft: 250, minHeight: '100vh', overflowY: 'auto' }}>
+        <main className="admin-main" style={{ flex: 1, marginLeft: 240, minHeight: '100vh', overflowY: 'auto' }}>
           {children}
         </main>
       </AdminDataProvider>
