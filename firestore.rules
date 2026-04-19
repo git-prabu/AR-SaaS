@@ -95,6 +95,40 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin();
       }
 
+      // ── Order Counters ────────────────────────────────────────
+      // Per-day counter for sequential order numbering. Path: orderCounters/{YYYY-MM-DD}
+      // Schema: { nextOrder: <positive int>, updatedAt: <timestamp> }
+      //
+      // Reads + writes happen during the createOrder transaction, which runs as the
+      // unauthenticated customer session. We must allow public access, but tightly:
+      //   - The doc id must look like a YYYY-MM-DD date (prevents arbitrary doc creation)
+      //   - On write, only nextOrder + updatedAt may be present
+      //   - nextOrder must be a positive integer
+      //   - nextOrder may only increase (no resetting to 0 or going backwards by malicious clients)
+      match /orderCounters/{dayKey} {
+        // Public: read the current counter value (the transaction needs to read before incrementing)
+        allow read: if true;
+
+        // Public: create a new day's counter doc (first order of the day).
+        // Only allow if the doc id matches YYYY-MM-DD format and the body is well-formed.
+        allow create: if dayKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+          request.resource.data.keys().hasOnly(['nextOrder', 'updatedAt']) &&
+          request.resource.data.nextOrder is int &&
+          request.resource.data.nextOrder > 0;
+
+        // Public: update the counter, but only by increasing nextOrder.
+        // This prevents a malicious client from resetting the counter to 0 to cause collisions.
+        allow update: if dayKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextOrder', 'updatedAt']) &&
+          request.resource.data.nextOrder is int &&
+          request.resource.data.nextOrder > resource.data.nextOrder;
+
+        // Restaurant admin: full access (for migration / debugging)
+        allow read, write: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow read, write: if isSuperAdmin();
+      }
+
       // ── Offers ────────────────────────────────────────────────
       match /offers/{offerId} {
         // Public: read all offers (customer menu page)
