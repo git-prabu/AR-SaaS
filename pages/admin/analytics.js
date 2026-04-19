@@ -124,7 +124,8 @@ export default function AdminAnalytics() {
   const [range, setRange] = useState(7);
   const [committedRange, setCommittedRange] = useState(7);
   const [tab, setTab] = useState('overview');
-  const [chartMode, setChartMode] = useState({}); // { revenue: 'line'|'bar', orders: 'line'|'bar', visits: 'line'|'bar' }
+  const [chartMode, setChartMode] = useState({}); // { trend: 'line'|'bar' } — single shared mode for the merged trend chart
+  const [chartMetric, setChartMetric] = useState('revenue'); // merged trend chart metric: 'revenue' | 'orders' | 'visits'
   const [visitsRangeOpen, setVisitsRangeOpen] = useState(false);
   const [visitsBarHover, setVisitsBarHover] = useState(null);
   const [revRangeOpen, setRevRangeOpen] = useState(false);
@@ -137,6 +138,10 @@ export default function AdminAnalytics() {
   const [expandedAlerts, setExpandedAlerts] = useState(new Set());
   // Item Performance table sort mode — 'revenue' | 'orders' | 'views'. Click pills to re-sort.
   const [menuSort, setMenuSort] = useState('revenue');
+  // Item Performance view mode — 'top12' (default, capped) or 'all' (full menu). Search bypasses the cap.
+  const [menuView, setMenuView] = useState('top12');
+  // Item Performance search term — case-insensitive filter across item names and categories.
+  const [menuSearch, setMenuSearch] = useState('');
   const toggleAlertExpand = useCallback((key) => {
     setExpandedAlerts(prev => {
       const next = new Set(prev);
@@ -228,6 +233,20 @@ export default function AdminAnalytics() {
     if (!revByDay[k]) revByDay[k] = { date: k, revenue: 0, orders: 0 };
   }
   const revenueChartData = Object.values(revByDay).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Merged trend chart data — unions chartData (visits) with revenueChartData (revenue + orders) by date key.
+  // Used by the single Trend Over Time card on the Orders & Revenue tab. Revenue/orders charts shared the
+  // same revByDay padding so the date axis stays full-range; for visits we fall back to 0 on padded days.
+  const combinedChartData = (() => {
+    const visitsByDate = {};
+    chartData.forEach(d => { visitsByDate[d.date] = d.visits || 0; });
+    return revenueChartData.map(r => ({
+      date: r.date,
+      revenue: r.revenue || 0,
+      orders: r.orders || 0,
+      visits: visitsByDate[r.date] || 0,
+    }));
+  })();
 
   const itemFreq = {};
   ordersInRange.forEach(o => {
@@ -321,15 +340,6 @@ export default function AdminAnalytics() {
 
     // ── CRITICAL (priority 100) — risks to revenue or reputation ──
 
-    // Low-rated dish — specific item + exact rating
-    if (lowRated.length > 0) {
-      const worst = lowRated[0];
-      list.push({
-        priority: 100, type: 'danger',
-        text: `${worst.name} is rated ${(worst.ratingAvg || 0).toFixed(1)}★ across ${worst.ratingCount} rating${worst.ratingCount > 1 ? 's' : ''}. Try it yourself — something is off.`,
-      });
-    }
-
     // Revenue concentration risk — top dish is too much of the pie (only meaningful at 10+ orders)
     if (topOrderedItems.length > 0 && totalRevenue > 0 && totalOrders >= 10) {
       const top = topOrderedItems[0];
@@ -353,20 +363,8 @@ export default function AdminAnalytics() {
       }
     }
 
-    // ── ACTIONABLE (priority 80) — specific item problems/opportunities ──
-
-    // Viewed but not ordered — lifetime views, recent-range orders
-    const viewedNotOrdered = activeItems
-      .filter(i => (i.views || 0) > 10)
-      .filter(i => !itemFreq[i.name] || itemFreq[i.name].qty === 0)
-      .sort((a, b) => (b.views || 0) - (a.views || 0));
-    if (viewedNotOrdered.length > 0) {
-      const w = viewedNotOrdered[0];
-      list.push({
-        priority: 80, type: 'warning',
-        text: `${w.name}: ${w.views} lifetime views but no orders in the last ${range}d. Photo, description, or price may be the problem.`,
-      });
-    }
+    // ── OPPORTUNITIES (priority 80) — specific items that could perform better with a small nudge ──
+    // Problem reporting (low-rated, converting poorly, zero-view) lives in Restaurant Health → Needs Attention now.
 
     // Hidden gem — high rating but low orders
     const hiddenGem = activeItems
@@ -377,19 +375,6 @@ export default function AdminAnalytics() {
       list.push({
         priority: 80, type: 'info',
         text: `${hiddenGem.name} has a ${hiddenGem.ratingAvg.toFixed(1)}★ rating but few orders — hidden gem. Feature it on your homepage.`,
-      });
-    }
-
-    // Stale new item — added 14+ days ago, still 0 views
-    const staleNew = activeItems
-      .filter(i => (i.views || 0) === 0)
-      .map(i => ({ ...i, age: daysSince(i.createdAt) }))
-      .filter(i => i.age !== null && i.age >= 14)
-      .sort((a, b) => b.age - a.age)[0];
-    if (staleNew) {
-      list.push({
-        priority: 80, type: 'warning',
-        text: `${staleNew.name} was added ${staleNew.age} days ago with 0 views. Consider hiding it or replacing the photo.`,
       });
     }
 
@@ -577,12 +562,25 @@ export default function AdminAnalytics() {
 
     const keyFor = { revenue: x => x.revenue, orders: x => x.ordered, views: x => x.views };
     const picker = keyFor[menuSort] || keyFor.revenue;
-    return withFlags.sort((a, b) => picker(b) - picker(a) || b.views - a.views).slice(0, 12);
+    // Return the full sorted list — the render layer applies the Top 12/All cap and search filter.
+    return withFlags.sort((a, b) => picker(b) - picker(a) || b.views - a.views);
   }, [activeItems, itemFreq, menuSort]);
 
+  // Visible items for the Item Performance table: apply search (bypasses cap) OR Top 12 cap.
+  const visibleMenuItems = useMemo(() => {
+    const q = menuSearch.trim().toLowerCase();
+    if (q) {
+      return itemIntelligence.filter(i =>
+        (i.name || '').toLowerCase().includes(q) ||
+        (i.category || '').toLowerCase().includes(q)
+      );
+    }
+    return menuView === 'all' ? itemIntelligence : itemIntelligence.slice(0, 12);
+  }, [itemIntelligence, menuView, menuSearch]);
+
   const exportCSV = () => {
-    if (tab === 'overview') downloadCSV(chartData.map(d => ({ date: d.date, visits: d.visits, unique_visitors: d.unique })), `analytics-${range}d.csv`);
-    else if (tab === 'orders') downloadCSV(revenueChartData.map(d => ({ date: d.date, revenue: d.revenue, orders: d.orders })), `orders-revenue-${range}d.csv`);
+    // Overview now combines visits + revenue + orders (Orders & Revenue tab folded in).
+    if (tab === 'overview') downloadCSV(combinedChartData.map(d => ({ date: d.date, visits: d.visits, revenue: d.revenue, orders: d.orders })), `analytics-${range}d.csv`);
     else downloadCSV(activeItems.map(i => ({ name: i.name, category: i.category || '', views: i.views || 0, ar_views: i.arViews || 0, rating_avg: i.ratingAvg || 0 })), 'menu-performance.csv');
   };
 
@@ -681,21 +679,76 @@ export default function AdminAnalytics() {
               </div>
             </div>
 
-            {/* Hero stats — white cards on light-grey bg (Aspire style) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }}>
+            {/* ── LIVE TODAY — Deep Forest signature dark card ── */}
+            <div style={{
+              background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+              borderRadius: 14, padding: '20px 24px', marginBottom: 14,
+              border: A.forestBorder,
+              boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#C4A86D', animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
+                <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>LIVE TODAY</span>
+                <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
+                <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>{todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                {[
+                  { label: 'VISITORS', value: todayVisits, prefix: '', accent: false },
+                  { label: 'ORDERS', value: todayOrderCount, prefix: '', accent: false },
+                  { label: 'REVENUE', value: todayRevenue, prefix: '₹', accent: true },
+                  { label: 'WAITER CALLS', value: todayWaiterCalls, prefix: '', accent: false },
+                ].map(s => (
+                  <div key={s.label} style={{
+                    padding: '16px 18px', borderRadius: 10,
+                    background: A.forestSubtleBg,
+                    border: A.forestBorder,
+                  }}>
+                    <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>{s.label}</div>
+                    <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 28, color: s.accent ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                      <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ═══ MAIN CONTENT ═══ */}
+        <div style={{ margin: 0, padding: '0 28px 28px' }}>
+
+          {/* Hero stats — Light wrapper card mirroring LIVE TODAY's structure (daylight palette) */}
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: 14, padding: '20px 24px', marginBottom: 14,
+            border: A.border,
+            boxShadow: A.cardShadow,
+          }}>
+            {/* Header row — gold dot + label + thin rule + 'vs previous period' meta */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning, boxShadow: '0 0 6px rgba(196,168,109,0.35)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>LAST {range} DAYS</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(196,168,109,0.20)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, fontWeight: 500 }}>vs previous {range} days</span>
+            </div>
+            {/* Inner stat tiles — subtle cream bg to differentiate from the wrapper */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
                 { label: 'VISITORS', value: totalVisits, prefix: '', d: delta(totalVisits, prevVisits) },
                 { label: 'ORDERS', value: totalOrders, prefix: '' },
                 { label: 'REVENUE', value: totalRevenue, prefix: '₹', highlight: true },
                 { label: 'AVG ORDER', value: Math.round(avgOrderValue), prefix: '₹' },
               ].map(s => (
-                <BentoGlow key={s.label} style={{
-                  padding: '18px 20px', background: '#FFFFFF', borderRadius: 14,
-                  border: A.border, boxShadow: A.cardShadow, minHeight: 86,
+                <div key={s.label} style={{
+                  padding: '16px 18px', borderRadius: 10,
+                  background: A.subtleBg,
+                  border: '1px solid rgba(0,0,0,0.04)',
                 }}>
                   <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>{s.label}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 28 }}>
-                    <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
+                    <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: s.highlight ? A.warning : A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
                       <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue key={committedRange} />
                     </span>
                     {s.d !== undefined && s.d !== 0 && (
@@ -708,93 +761,218 @@ export default function AdminAnalytics() {
                       }}>{s.d > 0 ? '↗' : '↘'} {Math.abs(s.d)}%</span>
                     )}
                   </div>
-                </BentoGlow>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ MAIN CONTENT ═══ */}
-        <div style={{ margin: 0, padding: '14px 28px 28px' }}>
-
-          {/* ── LIVE TODAY — Deep Forest signature dark card ── */}
-          <div style={{
-            background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
-            borderRadius: 14, padding: '20px 24px', marginBottom: 14,
-            border: A.forestBorder,
-            boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#C4A86D', animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
-              <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>LIVE TODAY</span>
-              <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
-              <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>{todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-              {[
-                { label: 'VISITORS', value: todayVisits, prefix: '', accent: false },
-                { label: 'ORDERS', value: todayOrderCount, prefix: '', accent: false },
-                { label: 'REVENUE', value: todayRevenue, prefix: '₹', accent: true },
-                { label: 'WAITER CALLS', value: todayWaiterCalls, prefix: '', accent: false },
-              ].map(s => (
-                <div key={s.label} style={{
-                  padding: '16px 18px', borderRadius: 10,
-                  background: A.forestSubtleBg,
-                  border: A.forestBorder,
-                }}>
-                  <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>{s.label}</div>
-                  <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 28, color: s.accent ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
-                    <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue />
-                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ── Smart Insights (Aspire light) ── */}
-          {insights.length > 0 && (
-            <BentoGlow style={{
-              background: '#FFFFFF',
-              borderRadius: 14, padding: '18px 22px', marginBottom: 14,
-              border: A.border, boxShadow: A.cardShadow,
-              minHeight: 146,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.warning }}>SMART INSIGHTS</div>
-                <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.06)' }} />
-                <span style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, fontWeight: 500 }}>Auto-analysed</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(4, 1fr)`, gap: 12 }}>
-                {insights.map((ins, i) => {
-                  const icons = { success: '▲', warning: '◆', danger: '!', info: '→' };
-                  const colors = { success: '#3F9E5A', warning: A.warning, danger: '#D9534F', info: '#1A1A1A' };
+          {/* Trend Over Time — single chart, metric-toggleable (Visits / Revenue / Orders).
+              Replaces the old Revenue Over Time + Orders Per Day pair; Visits Over Time deleted from Overview. */}
+          {(() => {
+            const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+            const trendMode = chartMode.trend || 'line';
+
+            // Per-metric config — keeps tooltip prefix, y-axis formatter, key, label, latest-CountUp prefix in one place.
+            const METRICS = {
+              revenue: { key: 'revenue', label: 'Revenue', prefix: '₹', yWidth: 46, yFmt: formatRupee, default: 'line' },
+              orders:  { key: 'orders',  label: 'Orders',  prefix: '',  yWidth: 32, yFmt: undefined,    default: 'bar'  },
+              visits:  { key: 'visits',  label: 'Visits',  prefix: '',  yWidth: 32, yFmt: undefined,    default: 'line' },
+            };
+            const M = METRICS[chartMetric] || METRICS.revenue;
+
+            // Trend up/down for gradient color choice — compares first-half vs last-half average for the active metric.
+            let trendUp = true;
+            if (combinedChartData.length >= 2) {
+              const half = Math.max(1, Math.floor(combinedChartData.length / 2));
+              const first = combinedChartData.slice(0, half).map(d => d[M.key] || 0);
+              const last = combinedChartData.slice(-half).map(d => d[M.key] || 0);
+              const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
+              trendUp = avg(last) >= avg(first);
+            }
+            const gStart = trendUp ? '#E89143' : '#4A9A5E';
+            const gEnd = trendUp ? '#4A9A5E' : '#E89143';
+
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const parseKey = v => {
+              if (!v) return null;
+              const p = String(v).split('-').map(Number);
+              let yy, mm, dd;
+              if (p.length === 2) { mm = p[0]; dd = p[1]; yy = new Date().getFullYear(); }
+              else if (p.length === 3) { yy = p[0]; mm = p[1]; dd = p[2]; } else return null;
+              if (!mm || !dd || mm < 1 || mm > 12) return null;
+              return { yy, mm, dd };
+            };
+            const fmtDayFirst = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]}` : ''; };
+            const fmtFullDate = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]} ${p.yy}` : ''; };
+            const chipTxt = combinedChartData.length
+              ? `${fmtDayFirst(combinedChartData[0].date)} - ${fmtFullDate(combinedChartData[combinedChartData.length - 1].date)}`
+              : '';
+
+            // Tooltip — uses active metric's prefix and value formatting.
+            const TrendTip = ({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const v = Number(payload[0].value) || 0;
+              const idx = combinedChartData.findIndex(d => d.date === label);
+              let pct = null;
+              if (idx > 0) {
+                const prev = Number(combinedChartData[idx - 1][M.key]) || 0;
+                if (prev > 0) pct = ((v - prev) / prev) * 100;
+                else if (v > 0) pct = 'new';
+              }
+              const isNew = pct === 'new';
+              const up = isNew ? true : (pct == null ? null : pct >= 0);
+              const formatted = M.prefix === '₹' ? `${M.prefix}${v.toLocaleString('en-IN')}` : v.toLocaleString();
+              return (
+                <div style={{ background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(38,52,49,0.10)', fontFamily: aspireFont, minWidth: 110 }}>
+                  <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{formatted}</span>
+                    {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#3F9E5A' : '#D9534F' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <BentoGlow style={{ ...card, padding: '22px 22px 18px', marginBottom: 14, fontFamily: aspireFont }}>
+                <Head>
+                  <link rel="preconnect" href="https://fonts.googleapis.com" />
+                  <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+                </Head>
+
+                {/* Header: title + metric pill on left, line/bar + range chip + range dropdown on right */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>{M.label} Over Time</div>
+                    <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
+                      {[
+                        { k: 'revenue', label: 'Revenue' },
+                        { k: 'orders',  label: 'Orders'  },
+                        { k: 'visits',  label: 'Visits'  },
+                      ].map(opt => {
+                        const active = chartMetric === opt.k;
+                        return (
+                          <button key={opt.k} onClick={() => setChartMetric(opt.k)} style={{
+                            padding: '5px 12px', fontFamily: aspireFont, fontSize: 12, fontWeight: 600,
+                            color: active ? '#FFFFFF' : 'rgba(38,52,49,0.55)',
+                            background: active ? '#1A1A1A' : 'transparent',
+                            border: 'none', borderRadius: 6, cursor: 'pointer', letterSpacing: '0.02em',
+                          }}>{opt.label}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
+                      {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
+                        const active = trendMode === opt.k;
+                        return (
+                          <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, trend: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                            <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink }}>
+                      <span style={{ fontSize: 13, opacity: 0.55 }}>📅</span>{chipTxt}
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                      <button type="button" onClick={() => setRevRangeOpen(o => !o)} onBlur={() => setTimeout(() => setRevRangeOpen(false), 150)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, cursor: 'pointer', outline: 'none', boxShadow: revRangeOpen ? '0 0 0 3px rgba(38,52,49,0.06)' : 'none' }}>
+                        Last {range} days
+                        <span style={{ fontSize: 9, color: 'rgba(38,52,49,0.5)', transition: 'transform 0.18s', transform: revRangeOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+                      </button>
+                      {revRangeOpen && (
+                        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 140, background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.10)', borderRadius: 10, boxShadow: '0 12px 32px rgba(38,52,49,0.12)', padding: 4, zIndex: 50 }}>
+                          {[7, 14, 30, 90].map(d => {
+                            const active = range === d;
+                            return (
+                              <button key={d} type="button" onMouseDown={(e) => { e.preventDefault(); setRange(d); setRevRangeOpen(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontFamily: aspireFont, fontSize: 13, fontWeight: active ? 600 : 500, color: active ? A.ink : 'rgba(38,52,49,0.75)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Last {d} days</button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* "Latest" annotation — value + day-over-day pct + 'latest' label */}
+                {(() => {
+                  const pts = combinedChartData.filter(d => (d[M.key] || 0) > 0);
+                  if (!pts.length) return null;
+                  const i = combinedChartData.length - 1;
+                  const v = Number(combinedChartData[i]?.[M.key]) || 0;
+                  const prev = i > 0 ? (Number(combinedChartData[i - 1]?.[M.key]) || 0) : 0;
+                  let trendPct = null, isNew = false;
+                  if (prev > 0) trendPct = Math.max(-99, Math.min(99, ((v - prev) / prev) * 100));
+                  else if (v > 0) isNew = true;
+                  const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
                   return (
-                    <div key={i} style={{
-                      padding: '14px 16px', borderRadius: 10,
-                      background: A.subtleBg,
-                      border: '1px solid rgba(0,0,0,0.04)',
-                      borderLeft: `3px solid ${colors[ins.type]}`,
-                      minHeight: 78,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                        <span style={{ fontSize: 9, fontWeight: 800, color: colors[ins.type], width: 16, height: 16, borderRadius: '50%', background: `${colors[ins.type]}22`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{icons[ins.type]}</span>
-                        <span style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: colors[ins.type] }}>
-                          {ins.type === 'success' ? 'WIN' : ins.type === 'warning' ? 'OPPORTUNITY' : ins.type === 'danger' ? 'ACTION NEEDED' : 'INSIGHT'}
-                        </span>
-                      </div>
-                      <div style={{ fontFamily: A.font, fontSize: 13, color: A.ink, fontWeight: 500, lineHeight: 1.5 }}>{ins.text}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                      <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix={M.prefix} preserveValue key={`${committedRange}-${chartMetric}`} /></span>
+                      {up !== null && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
+                          color: up ? '#3F9E5A' : '#D9534F',
+                          background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
+                          padding: '3px 9px', borderRadius: 999, lineHeight: 1,
+                        }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
+                      )}
+                      <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(38,52,49,0.5)', lineHeight: 1 }}>latest</span>
                     </div>
                   );
-                })}
-              </div>
-            </BentoGlow>
-          )}
+                })()}
+
+                {/* Chart — Line (AreaChart) or Bar */}
+                {combinedChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    {trendMode === 'line' ? (
+                      <AreaChart data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
+                        <defs>
+                          <linearGradient id="trendStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor={gStart} /><stop offset="100%" stopColor={gEnd} /></linearGradient>
+                          <linearGradient id="trendFill" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor={gEnd} stopOpacity={0.28} />
+                            <stop offset="50%" stopColor={gStart} stopOpacity={0.12} />
+                            <stop offset="100%" stopColor={gStart} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
+                        <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={M.yWidth} allowDecimals={false} tickFormatter={M.yFmt} tickMargin={8} />
+                        <Tooltip content={<TrendTip />} cursor={{ stroke: 'rgba(38,52,49,0.20)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
+                        <Area type="monotone" dataKey={M.key} stroke="url(#trendStroke)" strokeWidth={2.5} fill="url(#trendFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name={M.label} animationDuration={1500} />
+                      </AreaChart>
+                    ) : (
+                      <BarChart data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setRevBarHover(s.activeTooltipIndex); else setRevBarHover(null); }} onMouseLeave={() => setRevBarHover(null)}>
+                        <defs>
+                          <filter id="trendBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
+                        </defs>
+                        <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
+                        <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={M.yWidth} allowDecimals={false} tickFormatter={M.yFmt} tickMargin={8} />
+                        <Tooltip content={<TrendTip />} cursor={false} wrapperStyle={{ outline: 'none' }} />
+                        <Bar dataKey={M.key} name={M.label} fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} shape={(props) => {
+                          const { x, y, width, height, index, fill } = props;
+                          if (height < 1) return null;
+                          const active = revBarHover === index;
+                          const r = Math.min(6, height / 2);
+                          const path = `M${x},${y + r} Q${x},${y} ${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height} L${x},${y + height} Z`;
+                          return (<g><path d={path} fill={fill} filter={active ? 'url(#trendBarShadow)' : undefined} style={{ transition: 'opacity 0.18s', opacity: revBarHover == null || active ? 1 : 0.55 }} /></g>);
+                        }} />
+                      </BarChart>
+                    )}
+                  </ResponsiveContainer>
+                ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data in this period</div>}
+              </BentoGlow>
+            );
+          })()}
 
           {/* ── Sticky tabs + range selector bar ── */}
           <div style={{ position: 'sticky', top: 0, zIndex: 10, background: A.cream, marginLeft: -28, marginRight: -28, padding: '0 28px', borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: 0 }}>
-                {[['overview', 'Overview'], ['orders', 'Orders & Revenue'], ['menu', 'Menu Performance']].map(([id, label]) => (
+                {[['overview', 'Overview'], ['menu', 'Menu Performance']].map(([id, label]) => (
                   <button key={id} onClick={() => setTab(id)} style={{
                     padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: A.font,
                     fontSize: 13, fontWeight: tab === id ? 700 : 500,
@@ -824,398 +1002,6 @@ export default function AdminAnalytics() {
           {loading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
               <div style={{ width: 28, height: 28, border: `3px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            </div>
-
-          ) : tab === 'orders' ? (
-            /* ═══ ORDERS & REVENUE ═══ */
-            <div style={{ animation: 'fadeUp 0.2s ease' }}>
-              {/* Revenue Over Time — Aspire treatment (mirrors Visits pattern) */}
-              {(() => {
-                const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-                const revMode = getMode('revenue', 'line');
-                let trendUp = true;
-                if (revenueChartData.length >= 2) {
-                  const half = Math.max(1, Math.floor(revenueChartData.length / 2));
-                  const first = revenueChartData.slice(0, half).map(d => d.revenue || 0);
-                  const last = revenueChartData.slice(-half).map(d => d.revenue || 0);
-                  const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
-                  trendUp = avg(last) >= avg(first);
-                }
-                const gStart = trendUp ? '#E89143' : '#4A9A5E';
-                const gEnd = trendUp ? '#4A9A5E' : '#E89143';
-                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                const parseKey = v => {
-                  if (!v) return null;
-                  const p = String(v).split('-').map(Number);
-                  let yy, mm, dd;
-                  if (p.length === 2) { mm = p[0]; dd = p[1]; yy = new Date().getFullYear(); }
-                  else if (p.length === 3) { yy = p[0]; mm = p[1]; dd = p[2]; } else return null;
-                  if (!mm || !dd || mm < 1 || mm > 12) return null;
-                  return { yy, mm, dd };
-                };
-                const fmtDayFirst = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]}` : ''; };
-                const fmtFullDate = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]} ${p.yy}` : ''; };
-                const chipTxt = revenueChartData.length
-                  ? `${fmtDayFirst(revenueChartData[0].date)} - ${fmtFullDate(revenueChartData[revenueChartData.length - 1].date)}`
-                  : '';
-                const RevTip = ({ active, payload, label }) => {
-                  if (!active || !payload?.length) return null;
-                  const v = Number(payload[0].value) || 0;
-                  const idx = revenueChartData.findIndex(d => d.date === label);
-                  let pct = null;
-                  if (idx > 0) {
-                    const prev = Number(revenueChartData[idx - 1].revenue) || 0;
-                    if (prev > 0) pct = ((v - prev) / prev) * 100;
-                    else if (v > 0) pct = 'new';
-                  }
-                  const isNew = pct === 'new';
-                  const up = isNew ? true : (pct == null ? null : pct >= 0);
-                  return (
-                    <div style={{ background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(38,52,49,0.10)', fontFamily: aspireFont, minWidth: 110 }}>
-                      <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>₹{v.toLocaleString('en-IN')}</span>
-                        {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#3F9E5A' : '#D9534F' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
-                      </div>
-                    </div>
-                  );
-                };
-                return (
-                  <BentoGlow style={{ ...card, padding: '22px 22px 18px', marginBottom: 14, fontFamily: aspireFont }}>
-                    <Head>
-                      <link rel="preconnect" href="https://fonts.googleapis.com" />
-                      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-                    </Head>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Revenue Over Time</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
-                          {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
-                            const active = revMode === opt.k;
-                            return (
-                              <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, revenue: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-                                <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink }}>
-                          <span style={{ fontSize: 13, opacity: 0.55 }}>📅</span>{chipTxt}
-                        </div>
-                        <div style={{ position: 'relative' }}>
-                          <button type="button" onClick={() => setRevRangeOpen(o => !o)} onBlur={() => setTimeout(() => setRevRangeOpen(false), 150)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, cursor: 'pointer', outline: 'none', boxShadow: revRangeOpen ? '0 0 0 3px rgba(38,52,49,0.06)' : 'none' }}>
-                            Last {range} days
-                            <span style={{ fontSize: 9, color: 'rgba(38,52,49,0.5)', transition: 'transform 0.18s', transform: revRangeOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-                          </button>
-                          {revRangeOpen && (
-                            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 140, background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.10)', borderRadius: 10, boxShadow: '0 12px 32px rgba(38,52,49,0.12)', padding: 4, zIndex: 50 }}>
-                              {[7, 14, 30, 90].map(d => {
-                                const active = range === d;
-                                return (
-                                  <button key={d} type="button" onMouseDown={(e) => { e.preventDefault(); setRange(d); setRevRangeOpen(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontFamily: aspireFont, fontSize: 13, fontWeight: active ? 600 : 500, color: active ? A.ink : 'rgba(38,52,49,0.75)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Last {d} days</button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {(() => {
-                      // Sane trend: day-over-day, cap ±99%, show 'new' when prev=0.
-                      const pts = revenueChartData.filter(d => (d.revenue || 0) > 0);
-                      if (!pts.length) return null;
-                      const i = revenueChartData.length - 1;
-                      const v = Number(revenueChartData[i]?.revenue) || 0;
-                      const prev = i > 0 ? (Number(revenueChartData[i - 1]?.revenue) || 0) : 0;
-                      let trendPct = null, isNew = false;
-                      if (prev > 0) trendPct = Math.max(-99, Math.min(99, ((v - prev) / prev) * 100));
-                      else if (v > 0) isNew = true;
-                      const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
-                      return (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix="₹" preserveValue key={committedRange} /></span>
-                          {up !== null && (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 3,
-                              fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
-                              color: up ? '#3F9E5A' : '#D9534F',
-                              background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
-                              padding: '3px 9px', borderRadius: 999, lineHeight: 1,
-                            }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
-                          )}
-                          <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(38,52,49,0.5)', lineHeight: 1 }}>latest</span>
-                        </div>
-                      );
-                    })()}
-                    {revenueChartData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={260}>
-                        {revMode === 'line' ? (
-                          <AreaChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
-                            <defs>
-                              <linearGradient id="revAspireStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor={gStart} /><stop offset="100%" stopColor={gEnd} /></linearGradient>
-                              <linearGradient id="revAspireFill" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor={gEnd} stopOpacity={0.28} />
-                                <stop offset="50%" stopColor={gStart} stopOpacity={0.12} />
-                                <stop offset="100%" stopColor={gStart} stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                            <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={46} tickFormatter={formatRupee} tickMargin={8} />
-                            <Tooltip content={<RevTip />} cursor={{ stroke: 'rgba(38,52,49,0.20)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
-                            <Area type="monotone" dataKey="revenue" stroke="url(#revAspireStroke)" strokeWidth={2.5} fill="url(#revAspireFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name="Revenue" animationDuration={1500} />
-                          </AreaChart>
-                        ) : (
-                          <BarChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setRevBarHover(s.activeTooltipIndex); else setRevBarHover(null); }} onMouseLeave={() => setRevBarHover(null)}>
-                            <defs>
-                              <filter id="revBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
-                            </defs>
-                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                            <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={46} tickFormatter={formatRupee} tickMargin={8} />
-                            <Tooltip content={<RevTip />} cursor={false} wrapperStyle={{ outline: 'none' }} />
-                            <Bar dataKey="revenue" name="Revenue" fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} shape={(props) => {
-                              const { x, y, width, height, index, fill } = props;
-                              if (height < 1) return null;
-                              const active = revBarHover === index;
-                              const r = Math.min(6, height / 2);
-                              const path = `M${x},${y + r} Q${x},${y} ${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height} L${x},${y + height} Z`;
-                              return (<g><path d={path} fill={fill} filter={active ? 'url(#revBarShadow)' : undefined} style={{ transition: 'opacity 0.18s', opacity: revBarHover == null || active ? 1 : 0.55 }} /></g>);
-                            }} />
-                          </BarChart>
-                        )}
-                      </ResponsiveContainer>
-                    ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No order data in this period</div>}
-                  </BentoGlow>
-                );
-              })()}
-
-              <div style={{ marginBottom: 14 }}>
-              {/* Orders Per Day — Aspire (compact) */}
-              {(() => {
-                const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-                const ordMode = getMode('orders', 'bar');
-                let trendUp = true;
-                if (revenueChartData.length >= 2) {
-                  const half = Math.max(1, Math.floor(revenueChartData.length / 2));
-                  const first = revenueChartData.slice(0, half).map(d => d.orders || 0);
-                  const last = revenueChartData.slice(-half).map(d => d.orders || 0);
-                  const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
-                  trendUp = avg(last) >= avg(first);
-                }
-                const gStart = trendUp ? '#E89143' : '#4A9A5E';
-                const gEnd = trendUp ? '#4A9A5E' : '#E89143';
-                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                const parseKey = v => {
-                  if (!v) return null;
-                  const p = String(v).split('-').map(Number);
-                  let yy, mm, dd;
-                  if (p.length === 2) { mm = p[0]; dd = p[1]; yy = new Date().getFullYear(); }
-                  else if (p.length === 3) { yy = p[0]; mm = p[1]; dd = p[2]; } else return null;
-                  if (!mm || !dd || mm < 1 || mm > 12) return null;
-                  return { yy, mm, dd };
-                };
-                const fmtDayFirst = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]}` : ''; };
-                const fmtFullDate = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]} ${p.yy}` : ''; };
-                const OrdTip = ({ active, payload, label }) => {
-                  if (!active || !payload?.length) return null;
-                  const v = Number(payload[0].value) || 0;
-                  const idx = revenueChartData.findIndex(d => d.date === label);
-                  let pct = null;
-                  if (idx > 0) {
-                    const prev = Number(revenueChartData[idx - 1].orders) || 0;
-                    if (prev > 0) pct = ((v - prev) / prev) * 100;
-                    else if (v > 0) pct = 'new';
-                  }
-                  const isNew = pct === 'new';
-                  const up = isNew ? true : (pct == null ? null : pct >= 0);
-                  return (
-                    <div style={{ background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(38,52,49,0.10)', fontFamily: aspireFont, minWidth: 100 }}>
-                      <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
-                        {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#3F9E5A' : '#D9534F' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
-                      </div>
-                    </div>
-                  );
-                };
-                return (
-                  <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Orders Per Day</div>
-                      <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
-                        {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
-                          const active = ordMode === opt.k;
-                          return (
-                            <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, orders: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(38,52,49,0.55)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-                              <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {(() => {
-                      const pts = revenueChartData.filter(d => (d.orders || 0) > 0);
-                      if (!pts.length) return null;
-                      const i = revenueChartData.length - 1;
-                      const v = Number(revenueChartData[i]?.orders) || 0;
-                      const prev = i > 0 ? (Number(revenueChartData[i - 1]?.orders) || 0) : 0;
-                      let trendPct = null, isNew = false;
-                      if (prev > 0) trendPct = Math.max(-99, Math.min(99, ((v - prev) / prev) * 100));
-                      else if (v > 0) isNew = true;
-                      const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
-                      return (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," preserveValue key={committedRange} /></span>
-                          {up !== null && (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 3,
-                              fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
-                              color: up ? '#3F9E5A' : '#D9534F',
-                              background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
-                              padding: '3px 9px', borderRadius: 999, lineHeight: 1,
-                            }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
-                          )}
-                          <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(38,52,49,0.5)', lineHeight: 1 }}>latest</span>
-                        </div>
-                      );
-                    })()}
-                    {revenueChartData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={260}>
-                        {ordMode === 'bar' ? (
-                          <BarChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setOrdBarHover(s.activeTooltipIndex); else setOrdBarHover(null); }} onMouseLeave={() => setOrdBarHover(null)}>
-                            <defs>
-                              <filter id="ordBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
-                            </defs>
-                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                            <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} tickMargin={8} />
-                            <Tooltip content={<OrdTip />} cursor={false} wrapperStyle={{ outline: 'none' }} />
-                            <Bar dataKey="orders" name="Orders" fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} shape={(props) => {
-                              const { x, y, width, height, index, fill } = props;
-                              if (height < 1) return null;
-                              const active = ordBarHover === index;
-                              const r = Math.min(6, height / 2);
-                              const path = `M${x},${y + r} Q${x},${y} ${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height} L${x},${y + height} Z`;
-                              return (<g><path d={path} fill={fill} filter={active ? 'url(#ordBarShadow)' : undefined} style={{ transition: 'opacity 0.18s', opacity: ordBarHover == null || active ? 1 : 0.55 }} /></g>);
-                            }} />
-                          </BarChart>
-                        ) : (
-                          <AreaChart data={revenueChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
-                            <defs>
-                              <linearGradient id="ordAspireStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor={gStart} /><stop offset="100%" stopColor={gEnd} /></linearGradient>
-                              <linearGradient id="ordAspireFill" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor={gEnd} stopOpacity={0.28} />
-                                <stop offset="50%" stopColor={gStart} stopOpacity={0.12} />
-                                <stop offset="100%" stopColor={gStart} stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                            <XAxis dataKey="date" tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                            <YAxis tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} tickMargin={8} />
-                            <Tooltip content={<OrdTip />} cursor={{ stroke: 'rgba(38,52,49,0.20)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
-                            <Area type="monotone" dataKey="orders" stroke="url(#ordAspireStroke)" strokeWidth={2.5} fill="url(#ordAspireFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name="Orders" animationDuration={1500} />
-                          </AreaChart>
-                        )}
-                      </ResponsiveContainer>
-                    ) : <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data</div>}
-                  </BentoGlow>
-                );
-              })()}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                {/* Peak Hours — Aspire-lite */}
-                {(() => {
-                  const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-                  const maxO = Math.max(...peakHourData.map(x => x.orders), 0);
-                  return (
-                    <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
-                         onMouseLeave={() => setPeakBarHover(null)}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Peak Hours</div>
-                        {peakHour && (
-                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#A08656', background: 'rgba(196,168,109,0.12)', padding: '5px 11px', borderRadius: 999 }}>Busiest: {peakHour.label}</span>
-                        )}
-                      </div>
-                      {peakHourData.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data</div>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 130 }}>
-                          {peakHourData.map((h, i) => {
-                            const pct = maxO > 0 ? (h.orders / maxO) * 100 : 0;
-                            const isPeak = h === peakHour;
-                            const isHover = peakBarHover === i;
-                            const dim = peakBarHover != null && !isHover;
-                            return (
-                              <div
-                                key={h.hour}
-                                onMouseEnter={() => setPeakBarHover(i)}
-                                style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'default' }}
-                              >
-                                <span style={{ fontFamily: aspireFont, fontSize: 10, fontWeight: 700, color: isPeak ? '#1A1A1A' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1 }}>{h.orders}</span>
-                                <div style={{
-                                  width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 3,
-                                  background: isPeak ? '#A08656' : A.warning,
-                                  opacity: dim ? 0.25 : (isPeak ? 1 : 0.55),
-                                  boxShadow: isHover ? '0 4px 10px rgba(38,52,49,0.22)' : 'none',
-                                  transition: 'opacity 0.15s, box-shadow 0.15s, transform 0.15s',
-                                  transform: isHover ? 'translateY(-2px)' : 'none',
-                                }} />
-                                <span style={{ fontFamily: aspireFont, fontSize: 9, color: 'rgba(38,52,49,0.45)', transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1 }}>{h.label}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </BentoGlow>
-                  );
-                })()}
-
-                {/* Busiest Days — Aspire-lite */}
-                {(() => {
-                  const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-                  const maxD = Math.max(...dayData.map(x => x.orders), 0);
-                  return (
-                    <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
-                         onMouseLeave={() => setDayBarHover(null)}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Busiest Days</div>
-                        {busiestDay && busiestDay.orders > 0 && (
-                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#A08656', background: 'rgba(196,168,109,0.12)', padding: '5px 11px', borderRadius: 999 }}>Top: {busiestDay.day}</span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 130 }}>
-                        {dayData.map((d, i) => {
-                          const pct = maxD > 0 ? (d.orders / maxD) * 100 : 0;
-                          const isB = d === busiestDay;
-                          const isHover = dayBarHover === i;
-                          const dim = dayBarHover != null && !isHover;
-                          return (
-                            <div
-                              key={d.day}
-                              onMouseEnter={() => setDayBarHover(i)}
-                              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'default' }}
-                            >
-                              <span style={{ fontFamily: aspireFont, fontSize: 11, fontWeight: 700, color: isB ? '#1A1A1A' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1 }}>{d.orders}</span>
-                              <div style={{
-                                width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 4,
-                                background: '#C4A86D',
-                                opacity: dim ? 0.2 : (isB ? 1 : 0.45),
-                                boxShadow: isHover ? '0 4px 10px rgba(38,52,49,0.22)' : 'none',
-                                transition: 'opacity 0.15s, box-shadow 0.15s, transform 0.15s',
-                                transform: isHover ? 'translateY(-2px)' : 'none',
-                              }} />
-                              <span style={{ fontFamily: aspireFont, fontSize: 11, color: 'rgba(38,52,49,0.5)', fontWeight: isB ? 600 : 500, transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1 }}>{d.day}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </BentoGlow>
-                  );
-                })()}
-              </div>
             </div>
 
           ) : tab === 'overview' ? (
@@ -1358,387 +1144,8 @@ export default function AdminAnalytics() {
                 </BentoGlow>
               </div>
 
-              {/* Visits Over Time — Aspire-exact (scoped Inter font, conditional gradient) */}
-              {(() => {
-                const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-                const visitsMode = getMode('visits', 'line');
-
-                // Trend direction: compare last 3 days avg vs first 3 days avg
-                let trendUp = true;
-                if (chartData.length >= 2) {
-                  const half = Math.max(1, Math.floor(chartData.length / 2));
-                  const firstHalf = chartData.slice(0, half).map(d => d.visits || 0);
-                  const lastHalf = chartData.slice(-half).map(d => d.visits || 0);
-                  const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
-                  trendUp = avg(lastHalf) >= avg(firstHalf);
-                }
-                const gradStart = trendUp ? '#E89143' : '#4A9A5E';
-                const gradEnd = trendUp ? '#4A9A5E' : '#E89143';
-
-                // chartData.date is "MM-DD" (e.g. "04-15"). Parse robustly.
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const parseKey = (val) => {
-                  if (!val) return null;
-                  const parts = String(val).split('-').map(Number);
-                  // Either ["MM","DD"] or ["YYYY","MM","DD"]
-                  let yy, mm, dd;
-                  if (parts.length === 2) { mm = parts[0]; dd = parts[1]; yy = new Date().getFullYear(); }
-                  else if (parts.length === 3) { yy = parts[0]; mm = parts[1]; dd = parts[2]; }
-                  else return null;
-                  if (!mm || !dd || mm < 1 || mm > 12) return null;
-                  return { yy, mm, dd };
-                };
-                const fmtDayFirst = (val) => {
-                  const p = parseKey(val); if (!p) return '';
-                  return `${p.dd} ${months[p.mm - 1]}`;
-                };
-                const fmtFullDate = (val) => {
-                  const p = parseKey(val); if (!p) return '';
-                  return `${p.dd} ${months[p.mm - 1]} ${p.yy}`;
-                };
-
-                // Date range chip text (day-first)
-                const aspireRangeChip = (() => {
-                  if (!chartData.length) return '';
-                  const first = chartData[0].date;
-                  const last = chartData[chartData.length - 1].date;
-                  return `${fmtDayFirst(first)} - ${fmtFullDate(last)}`;
-                })();
-
-                // Custom tooltip — Aspire-style floating card
-                // Trend = day-over-day vs previous data point (matches Aspire reference)
-                const AspireTip = ({ active, payload, label }) => {
-                  if (!active || !payload?.length) return null;
-                  const v = Number(payload[0].value) || 0;
-                  const idx = chartData.findIndex(d => d.date === label);
-                  let trendPct = null;
-                  if (idx > 0) {
-                    const prev = Number(chartData[idx - 1].visits) || 0;
-                    if (prev > 0) {
-                      trendPct = ((v - prev) / prev) * 100;
-                    } else if (v > 0) {
-                      // Previous day was zero — show "new" badge instead of infinity
-                      trendPct = 'new';
-                    }
-                  }
-                  const isNew = trendPct === 'new';
-                  const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
-                  return (
-                    <div style={{
-                      background: '#FFFFFF',
-                      border: '1px solid rgba(38,52,49,0.08)',
-                      borderRadius: 10,
-                      padding: '10px 14px',
-                      boxShadow: '0 8px 24px rgba(38,52,49,0.10)',
-                      fontFamily: aspireFont,
-                      minWidth: 110,
-                    }}>
-                      <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{v.toLocaleString()}</span>
-                        {up !== null && (
-                          <span style={{
-                            fontSize: 11, fontWeight: 700,
-                            color: up ? '#3F9E5A' : '#D9534F',
-                          }}>
-                            {isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                };
-
-                return (
-                  <BentoGlow style={{ ...card, padding: '22px 22px 18px', marginBottom: 14, fontFamily: aspireFont }}>
-                    <Head>
-                      <link rel="preconnect" href="https://fonts.googleapis.com" />
-                      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-                    </Head>
-
-                    {/* Header: title left · controls right */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                      <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px', paddingLeft: 8 }}>
-                        Visits Over Time
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {/* Bar/Line toggle — same shape as date dropdown */}
-                        <div style={{
-                          display: 'inline-flex',
-                          background: '#FFFFFF',
-                          border: '1px solid rgba(38,52,49,0.12)',
-                          borderRadius: 8,
-                          padding: 2,
-                          fontFamily: aspireFont,
-                        }}>
-                          {[
-                            { k: 'line', label: 'Line', icon: '📈' },
-                            { k: 'bar', label: 'Bar', icon: '📊' },
-                          ].map(opt => {
-                            const active = visitsMode === opt.k;
-                            return (
-                              <button
-                                key={opt.k}
-                                onClick={() => setChartMode(prev => ({ ...prev, visits: opt.k }))}
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                                  padding: '5px 10px',
-                                  fontFamily: aspireFont, fontSize: 13, fontWeight: 500,
-                                  color: active ? A.ink : 'rgba(38,52,49,0.55)',
-                                  background: active ? 'rgba(38,52,49,0.06)' : 'transparent',
-                                  border: 'none', borderRadius: 6, cursor: 'pointer',
-                                  transition: 'all 0.15s',
-                                }}
-                              >
-                                <span style={{ fontSize: 12 }}>{opt.icon}</span>
-                                {opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Date range chip — read-only badge showing actual range */}
-                        <div style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                          padding: '7px 12px',
-                          background: '#FFFFFF',
-                          border: '1px solid rgba(38,52,49,0.12)',
-                          borderRadius: 8,
-                          fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink,
-                        }}>
-                          <span style={{ fontSize: 13, opacity: 0.55 }}>📅</span>
-                          {aspireRangeChip}
-                        </div>
-
-                        {/* Days dropdown — custom Aspire-style */}
-                        <div style={{ position: 'relative' }}>
-                          <button
-                            type="button"
-                            onClick={() => setVisitsRangeOpen(o => !o)}
-                            onBlur={() => setTimeout(() => setVisitsRangeOpen(false), 150)}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 8,
-                              fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink,
-                              padding: '7px 12px',
-                              background: '#FFFFFF',
-                              border: '1px solid rgba(38,52,49,0.12)',
-                              borderRadius: 8,
-                              cursor: 'pointer', outline: 'none',
-                              transition: 'border-color 0.15s, box-shadow 0.15s',
-                              boxShadow: visitsRangeOpen ? '0 0 0 3px rgba(38,52,49,0.06)' : 'none',
-                            }}
-                          >
-                            Last {range} days
-                            <span style={{
-                              fontSize: 9, color: 'rgba(38,52,49,0.5)',
-                              transition: 'transform 0.18s',
-                              transform: visitsRangeOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                            }}>▼</span>
-                          </button>
-                          {visitsRangeOpen && (
-                            <div style={{
-                              position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-                              minWidth: 140,
-                              background: '#FFFFFF',
-                              border: '1px solid rgba(38,52,49,0.10)',
-                              borderRadius: 10,
-                              boxShadow: '0 12px 32px rgba(38,52,49,0.12)',
-                              padding: 4,
-                              zIndex: 50,
-                              fontFamily: aspireFont,
-                            }}>
-                              {[7, 14, 30, 90].map(d => {
-                                const active = range === d;
-                                return (
-                                  <button
-                                    key={d}
-                                    type="button"
-                                    onMouseDown={(e) => { e.preventDefault(); setRange(d); setVisitsRangeOpen(false); }}
-                                    style={{
-                                      display: 'block', width: '100%', textAlign: 'left',
-                                      padding: '8px 12px',
-                                      fontFamily: aspireFont, fontSize: 13, fontWeight: active ? 600 : 500,
-                                      color: active ? A.ink : 'rgba(38,52,49,0.75)',
-                                      background: active ? 'rgba(38,52,49,0.06)' : 'transparent',
-                                      border: 'none', borderRadius: 6, cursor: 'pointer',
-                                      transition: 'background 0.12s',
-                                    }}
-                                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(38,52,49,0.04)'; }}
-                                    onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-                                  >
-                                    Last {d} days
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* "Latest" annotation — same pattern as Revenue/Orders */}
-                    {(() => {
-                      if (!chartData.length) return null;
-                      const i = chartData.length - 1;
-                      const v = Number(chartData[i]?.visits) || 0;
-                      const prev = i > 0 ? (Number(chartData[i - 1]?.visits) || 0) : 0;
-                      let trendPct = null, isNew = false;
-                      if (prev > 0) trendPct = Math.max(-99, Math.min(99, ((v - prev) / prev) * 100));
-                      else if (v > 0) isNew = true;
-                      const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
-                      return (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingLeft: 8 }}>
-                          <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}>
-                            <CountUp end={v} duration={1.5} separator="," preserveValue key={committedRange} />
-                          </span>
-                          {up !== null && (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 3,
-                              fontFamily: aspireFont, fontSize: 12, fontWeight: 700,
-                              color: up ? '#3F9E5A' : '#D9534F',
-                              background: up ? 'rgba(74,154,94,0.12)' : 'rgba(155,91,83,0.12)',
-                              padding: '3px 9px', borderRadius: 999, lineHeight: 1,
-                            }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
-                          )}
-                          <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(38,52,49,0.5)', lineHeight: 1 }}>latest</span>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Chart */}
-                    {chartData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={260}>
-                        {visitsMode === 'line' ? (
-                          <AreaChart data={chartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
-                            <defs>
-                              <linearGradient id="visitsAspireStroke" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor={gradStart} />
-                                <stop offset="100%" stopColor={gradEnd} />
-                              </linearGradient>
-                              <linearGradient id="visitsAspireFill" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor={gradEnd} stopOpacity={0.28} />
-                                <stop offset="50%" stopColor={gradStart} stopOpacity={0.12} />
-                                <stop offset="100%" stopColor={gradStart} stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                            <XAxis
-                              dataKey="date"
-                              tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }}
-                              axisLine={false} tickLine={false}
-                              tickFormatter={fmtDayFirst}
-                              tickMargin={10}
-                              minTickGap={20}
-                              padding={{ left: 18, right: 18 }}
-                            />
-                            <YAxis
-                              tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }}
-                              axisLine={false} tickLine={false}
-                              width={32}
-                              allowDecimals={false}
-                              tickMargin={8}
-                            />
-                            <Tooltip
-                              content={<AspireTip />}
-                              cursor={{ stroke: 'rgba(38,52,49,0.20)', strokeDasharray: '3 3' }}
-                              wrapperStyle={{ outline: 'none' }}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="visits"
-                              stroke="url(#visitsAspireStroke)"
-                              strokeWidth={2.5}
-                              fill="url(#visitsAspireFill)"
-                              dot={false}
-                              activeDot={{ r: 5, fill: '#FFFFFF', stroke: gradEnd, strokeWidth: 2.5 }}
-                              name="Visits" animationDuration={1500}
-                            />
-                          </AreaChart>
-                        ) : (
-                          <BarChart
-                            data={chartData}
-                            margin={{ top: 12, right: 22, left: 4, bottom: 8 }}
-                            onMouseMove={(s) => {
-                              if (s && typeof s.activeTooltipIndex === 'number') setVisitsBarHover(s.activeTooltipIndex);
-                              else setVisitsBarHover(null);
-                            }}
-                            onMouseLeave={() => setVisitsBarHover(null)}
-                          >
-                            <defs>
-                              <filter id="visitsBarShadow" x="-50%" y="-50%" width="200%" height="200%">
-                                <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" />
-                              </filter>
-                            </defs>
-                            <CartesianGrid stroke="rgba(38,52,49,0.06)" strokeDasharray="0" vertical={false} />
-                            <XAxis
-                              dataKey="date"
-                              tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }}
-                              axisLine={false} tickLine={false}
-                              tickFormatter={fmtDayFirst}
-                              tickMargin={10}
-                              minTickGap={20}
-                              padding={{ left: 18, right: 18 }}
-                            />
-                            <YAxis
-                              tick={{ fill: 'rgba(38,52,49,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }}
-                              axisLine={false} tickLine={false}
-                              width={32}
-                              allowDecimals={false}
-                              tickMargin={8}
-                            />
-                            <Tooltip
-                              content={<AspireTip />}
-                              cursor={false}
-                              wrapperStyle={{ outline: 'none' }}
-                            />
-                            <Bar
-                              dataKey="visits"
-                              name="Visits" animationDuration={1500}
-                              fill={gradEnd}
-                              radius={[6, 6, 0, 0]}
-                              maxBarSize={32}
-                              shape={(props) => {
-                                const { x, y, width, height, index, fill } = props;
-                                if (height < 1) return null;
-                                const active = visitsBarHover === index;
-                                const r = Math.min(6, height / 2);
-                                // Build a path with rounded top corners for clean radius rendering
-                                const path = `M${x},${y + r}
-                                              Q${x},${y} ${x + r},${y}
-                                              L${x + width - r},${y}
-                                              Q${x + width},${y} ${x + width},${y + r}
-                                              L${x + width},${y + height}
-                                              L${x},${y + height} Z`;
-                                return (
-                                  <g>
-                                    <path
-                                      d={path}
-                                      fill={fill}
-                                      filter={active ? 'url(#visitsBarShadow)' : undefined}
-                                      style={{
-                                        transition: 'opacity 0.18s',
-                                        opacity: visitsBarHover == null || active ? 1 : 0.55,
-                                      }}
-                                    />
-                                  </g>
-                                );
-                              }}
-                            />
-                          </BarChart>
-                        )}
-                      </ResponsiveContainer>
-                    ) : (
-                      <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(38,52,49,0.3)', fontSize: 14, fontFamily: aspireFont }}>
-                        No visit data yet
-                      </div>
-                    )}
-                  </BentoGlow>
-                );
-              })()}
-
               {/* Waiter + Top Menu Items — grid default stretch so both columns equal height */}
-              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginBottom: 14 }}>
                 {/* Left column: Waiter Summary + Busiest Day + Customer Mix */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
                   {/* Customer Mix — top card */}
@@ -1972,42 +1379,247 @@ export default function AdminAnalytics() {
                   );
                 })()}
               </div>
+              {/* ── Smart Insights (Aspire light) ── */}
+              {insights.length > 0 && (
+                <BentoGlow style={{
+                  background: '#FFFFFF',
+                  borderRadius: 14, padding: '18px 22px', marginBottom: 14,
+                  border: A.border, boxShadow: A.cardShadow,
+                  minHeight: 146,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.warning }}>SMART INSIGHTS</div>
+                    <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.06)' }} />
+                    <span style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, fontWeight: 500 }}>Auto-analysed</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(4, 1fr)`, gap: 12 }}>
+                    {insights.map((ins, i) => {
+                      const icons = { success: '▲', warning: '◆', danger: '!', info: '→' };
+                      const colors = { success: '#3F9E5A', warning: A.warning, danger: '#D9534F', info: '#1A1A1A' };
+                      return (
+                        <div key={i} style={{
+                          padding: '14px 16px', borderRadius: 10,
+                          background: A.subtleBg,
+                          border: '1px solid rgba(0,0,0,0.04)',
+                          borderLeft: `3px solid ${colors[ins.type]}`,
+                          minHeight: 78,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: colors[ins.type], width: 16, height: 16, borderRadius: '50%', background: `${colors[ins.type]}22`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{icons[ins.type]}</span>
+                            <span style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: colors[ins.type] }}>
+                              {ins.type === 'success' ? 'WIN' : ins.type === 'warning' ? 'OPPORTUNITY' : ins.type === 'danger' ? 'ACTION NEEDED' : 'INSIGHT'}
+                            </span>
+                          </div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, color: A.ink, fontWeight: 500, lineHeight: 1.5 }}>{ins.text}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </BentoGlow>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {/* Peak Hours — Aspire-lite */}
+                {(() => {
+                  const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+                  const maxO = Math.max(...peakHourData.map(x => x.orders), 0);
+                  return (
+                    <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
+                         onMouseLeave={() => setPeakBarHover(null)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Peak Hours</div>
+                        {peakHour && (
+                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#A08656', background: 'rgba(196,168,109,0.12)', padding: '5px 11px', borderRadius: 999 }}>Busiest: {peakHour.label}</span>
+                        )}
+                      </div>
+                      {peakHourData.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data</div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 130 }}>
+                          {peakHourData.map((h, i) => {
+                            const pct = maxO > 0 ? (h.orders / maxO) * 100 : 0;
+                            const isPeak = h === peakHour;
+                            const isHover = peakBarHover === i;
+                            const dim = peakBarHover != null && !isHover;
+                            return (
+                              <div
+                                key={h.hour}
+                                onMouseEnter={() => setPeakBarHover(i)}
+                                style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'default' }}
+                              >
+                                {/* Rail: fills the column minus the label at bottom. Bar is positioned at the rail's bottom. */}
+                                <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ fontFamily: aspireFont, fontSize: 10, fontWeight: 700, color: isPeak ? '#1A1A1A' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1, lineHeight: 1 }}>{h.orders}</span>
+                                  <div style={{
+                                    width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 3,
+                                    background: isPeak ? '#A08656' : A.warning,
+                                    opacity: dim ? 0.25 : (isPeak ? 1 : 0.55),
+                                    boxShadow: isHover ? '0 4px 10px rgba(38,52,49,0.22)' : 'none',
+                                    transition: 'opacity 0.15s, box-shadow 0.15s, transform 0.15s',
+                                    transform: isHover ? 'translateY(-2px)' : 'none',
+                                    flexShrink: 0,
+                                  }} />
+                                </div>
+                                <span style={{ fontFamily: aspireFont, fontSize: 9, color: 'rgba(38,52,49,0.45)', transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1, marginTop: 6 }}>{h.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </BentoGlow>
+                  );
+                })()}
+
+                {/* Busiest Days — Aspire-lite */}
+                {(() => {
+                  const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+                  const maxD = Math.max(...dayData.map(x => x.orders), 0);
+                  return (
+                    <BentoGlow style={{ ...card, padding: '22px 22px 18px', fontFamily: aspireFont }}
+                         onMouseLeave={() => setDayBarHover(null)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ fontFamily: aspireFont, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' }}>Busiest Days</div>
+                        {busiestDay && busiestDay.orders > 0 && (
+                          <span style={{ fontFamily: aspireFont, fontSize: 12, fontWeight: 600, color: '#A08656', background: 'rgba(196,168,109,0.12)', padding: '5px 11px', borderRadius: 999 }}>Top: {busiestDay.day}</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 130 }}>
+                        {dayData.map((d, i) => {
+                          const pct = maxD > 0 ? (d.orders / maxD) * 100 : 0;
+                          const isB = d === busiestDay;
+                          const isHover = dayBarHover === i;
+                          const dim = dayBarHover != null && !isHover;
+                          return (
+                            <div
+                              key={d.day}
+                              onMouseEnter={() => setDayBarHover(i)}
+                              style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'default' }}
+                            >
+                              {/* Rail: fills the column minus the day label. Bar anchored to the rail's bottom. */}
+                              <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontFamily: aspireFont, fontSize: 11, fontWeight: 700, color: isB ? '#1A1A1A' : 'rgba(38,52,49,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1, lineHeight: 1 }}>{d.orders}</span>
+                                <div style={{
+                                  width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 4,
+                                  background: '#C4A86D',
+                                  opacity: dim ? 0.2 : (isB ? 1 : 0.45),
+                                  boxShadow: isHover ? '0 4px 10px rgba(38,52,49,0.22)' : 'none',
+                                  transition: 'opacity 0.15s, box-shadow 0.15s, transform 0.15s',
+                                  transform: isHover ? 'translateY(-2px)' : 'none',
+                                  flexShrink: 0,
+                                }} />
+                              </div>
+                              <span style={{ fontFamily: aspireFont, fontSize: 11, color: 'rgba(38,52,49,0.5)', fontWeight: isB ? 600 : 500, transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1, marginTop: 6 }}>{d.day}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </BentoGlow>
+                  );
+                })()}
+              </div>
+
             </div>
 
           ) : (
             /* ═══ MENU PERFORMANCE ═══ */
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
 
-              {/* ── Card A: Item Performance — revenue-first table with sortable pill ── */}
+              {/* ── Card A: Item Performance — sort pill + Top 12/All toggle + search ── */}
               <BentoGlow style={{ ...card, padding: '22px 24px', marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                {/* Header row: title + controls */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
                   <div>
                     <div style={secTitle}>Item Performance</div>
-                    <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 3 }}>Top 12 items, this range</div>
+                    <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.4)', marginTop: 3 }}>
+                      {(() => {
+                        const q = menuSearch.trim();
+                        const total = itemIntelligence.length;
+                        if (q) return `${visibleMenuItems.length} result${visibleMenuItems.length === 1 ? '' : 's'} for "${q}"`;
+                        if (menuView === 'all') return `Showing all ${total} items, this range`;
+                        return `Top ${Math.min(12, total)} of ${total} items, this range`;
+                      })()}
+                    </div>
                   </div>
-                  {/* Sort pill — click to re-sort by revenue / orders / views */}
-                  <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
-                    {[
-                      { k: 'revenue', label: 'Revenue' },
-                      { k: 'orders', label: 'Orders' },
-                      { k: 'views', label: 'Views' },
-                    ].map(opt => {
-                      const active = menuSort === opt.k;
-                      return (
-                        <button key={opt.k} onClick={() => setMenuSort(opt.k)} style={{
-                          padding: '5px 12px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
-                          color: active ? '#FFFFFF' : 'rgba(38,52,49,0.55)',
-                          background: active ? '#1A1A1A' : 'transparent',
-                          border: 'none', borderRadius: 6, cursor: 'pointer',
-                          letterSpacing: '0.02em',
-                        }}>{opt.label}</button>
-                      );
-                    })}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {/* Sort pill — Revenue / Orders / Views */}
+                    <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
+                      {[
+                        { k: 'revenue', label: 'Revenue' },
+                        { k: 'orders', label: 'Orders' },
+                        { k: 'views', label: 'Views' },
+                      ].map(opt => {
+                        const active = menuSort === opt.k;
+                        return (
+                          <button key={opt.k} onClick={() => setMenuSort(opt.k)} style={{
+                            padding: '5px 12px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                            color: active ? '#FFFFFF' : 'rgba(38,52,49,0.55)',
+                            background: active ? '#1A1A1A' : 'transparent',
+                            border: 'none', borderRadius: 6, cursor: 'pointer',
+                            letterSpacing: '0.02em',
+                          }}>{opt.label}</button>
+                        );
+                      })}
+                    </div>
+                    {/* View pill — Top 12 / All */}
+                    <div style={{ display: 'inline-flex', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, padding: 2 }}>
+                      {[
+                        { k: 'top12', label: 'Top 12' },
+                        { k: 'all', label: 'All' },
+                      ].map(opt => {
+                        const active = menuView === opt.k;
+                        return (
+                          <button key={opt.k} onClick={() => setMenuView(opt.k)} style={{
+                            padding: '5px 12px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                            color: active ? '#FFFFFF' : 'rgba(38,52,49,0.55)',
+                            background: active ? '#1A1A1A' : 'transparent',
+                            border: 'none', borderRadius: 6, cursor: 'pointer',
+                            letterSpacing: '0.02em',
+                          }}>{opt.label}</button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
-                {itemIntelligence.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>No data</div>
+                {/* Search bar — always visible, case-insensitive across name + category. Typing bypasses Top 12 cap. */}
+                <div style={{ position: 'relative', marginBottom: 14 }}>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(38,52,49,0.35)', pointerEvents: 'none' }}>🔍</span>
+                  <input
+                    type="text"
+                    value={menuSearch}
+                    onChange={(e) => setMenuSearch(e.target.value)}
+                    placeholder="Search dishes or categories…"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '8px 34px 8px 34px',
+                      fontFamily: A.font, fontSize: 13, color: A.ink,
+                      background: '#FFFFFF',
+                      border: '1px solid rgba(38,52,49,0.12)',
+                      borderRadius: 8,
+                      outline: 'none',
+                    }}
+                  />
+                  {menuSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setMenuSearch('')}
+                      style={{
+                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                        width: 20, height: 20, borderRadius: '50%',
+                        background: 'rgba(38,52,49,0.08)',
+                        border: 'none', cursor: 'pointer',
+                        fontSize: 11, color: 'rgba(38,52,49,0.6)', fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                      }}
+                      aria-label="Clear search"
+                    >×</button>
+                  )}
+                </div>
+
+                {visibleMenuItems.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13 }}>
+                    {menuSearch.trim() ? `No items match "${menuSearch.trim()}"` : 'No data'}
+                  </div>
                 ) : (<>
                   <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 80px 70px 80px 120px', gap: 12, padding: '10px 6px 8px', borderBottom: '1px solid rgba(38,52,49,0.06)' }}>
                     <div />
@@ -2018,7 +1630,7 @@ export default function AdminAnalytics() {
                     <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Signal</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {itemIntelligence.map((item, i) => {
+                    {visibleMenuItems.map((item, i) => {
                       const flagStyle = {
                         'top':       { bg: 'rgba(63,158,90,0.10)',   color: '#3F9E5A', label: '★ Top performer' },
                         'high-conv': { bg: 'rgba(196,168,109,0.14)', color: '#A08656', label: '↑ High conversion' },
