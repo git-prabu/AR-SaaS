@@ -911,14 +911,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     setCouponDiscount(newDiscount);
   }, [cartPrice, appliedCoupon]);
 
-  // Live order status subscription
+  // Live order status subscription — also picks up the server-assigned orderNumber.
+  // When createOrder completes its transaction, orderNumber is stamped on the doc.
+  // This listener fires, and we merge orderNumber into placedOrder so the receipt can show "#5"
+  // instead of the Firestore doc id fragment.
   useEffect(() => {
     if (!placedOrder?.orderId || !restaurant?.id) return;
     const unsub = onSnapshot(doc(db, 'restaurants', restaurant.id, 'orders', placedOrder.orderId), snap => {
-      if (snap.exists()) setLiveOrderStatus(snap.data().status);
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setLiveOrderStatus(data.status);
+      if (typeof data.orderNumber === 'number' && placedOrder.orderNumber !== data.orderNumber) {
+        setPlacedOrder(prev => prev ? { ...prev, orderNumber: data.orderNumber } : prev);
+      }
     });
     return unsub;
-  }, [placedOrder?.orderId, restaurant?.id]);
+  }, [placedOrder?.orderId, restaurant?.id, placedOrder?.orderNumber]);
 
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
@@ -3657,7 +3665,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <div class="line"></div>
                       ${tbl ? `<div class="center" style="font-size:11px;margin-bottom:2px">Table: ${tbl}</div>` : ''}
                       <div class="center" style="font-size:10px">${dateStr} ${timeStr}</div>
-                      ${placedOrder.orderId ? `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>` : ''}
+                      ${(() => {
+                        // Prefer the sequential orderNumber (e.g. "Order #5"); fall back to id slice for legacy orders.
+                        if (typeof placedOrder.orderNumber === 'number' && placedOrder.orderNumber > 0) {
+                          return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderNumber}</div>`;
+                        }
+                        if (placedOrder.orderId) {
+                          return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>`;
+                        }
+                        return '';
+                      })()}
                       <div class="line"></div>
                       <table>${itemsHtml}</table>
                       <div class="line"></div>
