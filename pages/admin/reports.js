@@ -460,6 +460,8 @@ export default function AdminReports() {
                   );
                 })}
               </div>
+              {/* Thin vertical divider separates filter pills from action buttons */}
+              <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)', margin: '0 4px' }} />
               <button onClick={exportCSV} style={{
                 padding: '7px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.ink,
                 background: '#FFFFFF', border: A.borderStrong, borderRadius: 8, cursor: 'pointer',
