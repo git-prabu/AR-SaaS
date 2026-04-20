@@ -1,32 +1,49 @@
 // pages/admin/items.js
 import Head from 'next/head';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem } from '../../lib/db';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
-import { T, ADMIN_STYLES } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
-const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Very Spicy'];
-const SPICE_COLORS = { None: '#8FC4A8', Mild: '#F4D070', Medium: '#F4A060', Spicy: '#8A4A42', 'Very Spicy': '#B02020' };
-const OFFER_BADGES = [
-  { label: 'Chef\'s Special', color: '#8A70B0' },
-  { label: 'Best Seller', color: '#8A4A42' },
-  { label: 'Must Try', color: '#4A7A5E' },
-  { label: 'New', color: '#4A80C0' },
-  { label: 'Limited', color: '#8A4A42' },
-  { label: 'Custom…', color: '#263431' },
-];
-
-const S = {
-  card: { ...ADMIN_STYLES.card },
-  h1: { ...ADMIN_STYLES.h1 },
-  sub: { ...ADMIN_STYLES.sub },
-  label: { display: 'block', fontSize: 11, fontWeight: 600, color: T.stone, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6, fontFamily: T.font },
-  input: { width: '100%', padding: '10px 13px', background: '#F7F5F2', border: `1.5px solid ${T.sand}`, borderRadius: T.radiusBtn, fontSize: 13, color: T.ink, fontFamily: T.font, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' },
+// ═══ Aspire palette ═══
+const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const A = {
+  font: INTER, mono: "'JetBrains Mono', monospace",
+  cream: '#EDEDED', ink: '#1A1A1A',
+  shell: '#FFFFFF', shellDarker: '#FAFAF8',
+  warning: '#C4A86D', warningDim: '#A08656',
+  success: '#3F9E5A', danger: '#D9534F',
+  mutedText: 'rgba(0,0,0,0.55)', faintText: 'rgba(0,0,0,0.38)',
+  subtleBg: 'rgba(0,0,0,0.04)',
+  border: '1px solid rgba(0,0,0,0.06)',
+  borderStrong: '1px solid rgba(0,0,0,0.10)',
+  shadowCard: '0 2px 10px rgba(38,52,49,0.03)',
+  forest: '#1A1A1A', forestDarker: '#2A2A2A',
+  forestText: '#EAE7E3', forestTextMuted: 'rgba(234,231,227,0.55)', forestTextFaint: 'rgba(234,231,227,0.35)',
+  forestBorder: '1px solid rgba(255,255,255,0.06)',
 };
 
+// ═══ Constants — preserved from original ═══
+const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Very Spicy'];
+const SPICE_COLORS = {
+  None: '#8FC4A8',
+  Mild: '#D4B878',
+  Medium: '#C4A86D',
+  Spicy: '#C07050',
+  'Very Spicy': '#B04040',
+};
+const OFFER_BADGES = [
+  { label: "Chef's Special",  color: '#7A5EA0' },
+  { label: 'Best Seller',     color: '#C4A86D' },
+  { label: 'Must Try',        color: '#3F9E5A' },
+  { label: 'New',             color: '#5E8AC0' },
+  { label: 'Limited',         color: '#C07050' },
+  { label: 'Custom…',         color: '#1A1A1A' },
+];
+
+// ═══ Auto-translation via MyMemory ═══
 async function autoTranslate(text, targetLang) {
   if (!text?.trim()) return '';
   try {
@@ -41,61 +58,126 @@ async function autoTranslate(text, targetLang) {
   } catch { return ''; }
 }
 
+// ═══ Drag handle icon (replaces ⠿) ═══
+const DragHandleIcon = ({ color = 'rgba(0,0,0,0.35)' }) => (
+  <svg width="12" height="16" viewBox="0 0 12 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="3" cy="3" r="1.2" fill={color} />
+    <circle cx="9" cy="3" r="1.2" fill={color} />
+    <circle cx="3" cy="8" r="1.2" fill={color} />
+    <circle cx="9" cy="8" r="1.2" fill={color} />
+    <circle cx="3" cy="13" r="1.2" fill={color} />
+    <circle cx="9" cy="13" r="1.2" fill={color} />
+  </svg>
+);
+
 export default function AdminItems() {
   const { userData } = useAuth();
+  const rid = userData?.restaurantId;
+
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [combos, setCombos] = useState([]);
+  const [offers, setOffers] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  // Filter UI
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
-  const [editId, setEditId] = useState(null);
-  const [editData, setEditData] = useState({});
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'active' | 'hidden' | 'oos' | 'sold-out-today'
+
+  // Drawer form state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(null);
   const [customBadge, setCustomBadge] = useState('');
   const [translatingEdit, setTranslatingEdit] = useState(false);
-  const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { progress, uploading } }
+
+  const [deleting, setDeleting] = useState(null);
+  const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { uploading, progress } }
   const imgInputRef = useRef({});
+
+  // Drag and drop
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const [dragging, setDragging] = useState(null);
-  const rid = userData?.restaurantId;
-
-  const load = async () => {
-    if (!rid) return;
-    const data = await getAllMenuItems(rid);
-    // Sort by sortOrder first, then createdAt
-    const sorted = data.sort((a, b) => {
-      const ao = a.sortOrder ?? 9999, bo = b.sortOrder ?? 9999;
-      if (ao !== bo) return ao - bo;
-      return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
-    });
-    setItems(sorted);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, [rid]);
 
   const today = new Date().toISOString().split('T')[0];
   const isSoldOutToday = (item) => item.availableUntil === today;
 
-  const categories = ['all', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))];
+  const load = async () => {
+    if (!rid) return;
+    try {
+      const [m, c, o] = await Promise.all([
+        getAllMenuItems(rid),
+        getCombos(rid).catch(() => []),
+        getAllOffers(rid).catch(() => []),
+      ]);
+      const sorted = m.sort((a, b) => {
+        const ao = a.sortOrder ?? 9999, bo = b.sortOrder ?? 9999;
+        if (ao !== bo) return ao - bo;
+        return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+      });
+      setItems(sorted);
+      setCombos(c);
+      setOffers(o);
+    } catch (e) { console.error('Items load failed:', e); }
+    finally { setLoaded(true); }
+  };
+  useEffect(() => { load(); }, [rid]);
 
-  const filtered = items
-    .filter(item => {
-      const matchCat = catFilter === 'all' || item.category === catFilter;
-      const matchSearch = !search || item.name?.toLowerCase().includes(search.toLowerCase());
-      return matchCat && matchSearch;
-    })
-    .sort((a, b) => {
-      // Sold-out items always sink to the bottom; within each group keep original sortOrder
-      const aSold = isSoldOutToday(a) ? 1 : 0;
-      const bSold = isSoldOutToday(b) ? 1 : 0;
-      return aSold - bSold;
+  // ═══ Cross-reference map: itemId → { combos: [name], offers: [title] } ═══
+  const itemRefs = useMemo(() => {
+    const refs = {};
+    combos.forEach(c => {
+      (c.itemIds || []).forEach(id => {
+        if (!refs[id]) refs[id] = { combos: [], offers: [] };
+        refs[id].combos.push(c.name);
+      });
     });
+    offers.forEach(o => {
+      if (o.linkedItemId) {
+        if (!refs[o.linkedItemId]) refs[o.linkedItemId] = { combos: [], offers: [] };
+        refs[o.linkedItemId].offers.push(o.title);
+      }
+    });
+    return refs;
+  }, [combos, offers]);
 
-  const startEdit = (item) => {
-    setEditId(item.id);
-    setEditData({
+  // ═══ Categories ═══
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(items.map(i => i.category).filter(Boolean))).sort();
+    return ['all', ...cats];
+  }, [items]);
+
+  // ═══ Stats for dark strip ═══
+  const stats = useMemo(() => {
+    const active = items.filter(i => i.isActive !== false).length;
+    const hidden = items.filter(i => i.isActive === false).length;
+    const oos = items.filter(i => i.isOutOfStock).length;
+    const soldOut = items.filter(i => isSoldOutToday(i)).length;
+    return { total: items.length, active, hidden, oos, soldOut };
+  }, [items]);
+
+  // ═══ Filtered display ═══
+  const displayed = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = items.filter(item => {
+      if (catFilter !== 'all' && item.category !== catFilter) return false;
+      if (statusFilter === 'active' && item.isActive === false) return false;
+      if (statusFilter === 'hidden' && item.isActive !== false) return false;
+      if (statusFilter === 'oos' && !item.isOutOfStock) return false;
+      if (statusFilter === 'sold-out-today' && !isSoldOutToday(item)) return false;
+      if (q && !(item.name || '').toLowerCase().includes(q) && !(item.description || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+    // Sold-out-today items sink to the bottom
+    return list.sort((a, b) => (isSoldOutToday(a) ? 1 : 0) - (isSoldOutToday(b) ? 1 : 0));
+  }, [items, search, catFilter, statusFilter, today]);
+
+  // ═══ Drawer open/close ═══
+  const openEdit = (item) => {
+    setEditingId(item.id);
+    setForm({
       name: item.name || '',
       nameTA: item.nameTA || '',
       nameHI: item.nameHI || '',
@@ -103,25 +185,58 @@ export default function AdminItems() {
       descriptionTA: item.descriptionTA || '',
       descriptionHI: item.descriptionHI || '',
       category: item.category || '',
-      price: item.price || '',
-      prepTime: item.prepTime || '',
+      price: item.price != null ? String(item.price) : '',
+      prepTime: item.prepTime != null ? String(item.prepTime) : '',
       spiceLevel: item.spiceLevel || 'None',
-      isVeg: item.isVeg !== undefined ? item.isVeg : '',
-      pairsWith: item.pairsWith || [],
-      offerBadge: item.offerBadge || '',
+      isVeg: item.isVeg,
+      offerBadge: item.offerBadge ? (item.offerLabel || '') : '',
       offerLabel: item.offerLabel || '',
-      offerColor: item.offerColor || '#8A4A42',
-      isPopular: item.isPopular || false,
-      isFeatured: item.isFeatured || false,
+      offerColor: item.offerColor || '#C07050',
+      isPopular: !!item.isPopular,
+      isFeatured: !!item.isFeatured,
       isActive: item.isActive !== false,
-      isOutOfStock: item.isOutOfStock || false,
-      sortOrder: item.sortOrder ?? '',
+      isOutOfStock: !!item.isOutOfStock,
+      sortOrder: item.sortOrder != null ? String(item.sortOrder) : '',
     });
-    setCustomBadge('');
+    setCustomBadge(item.offerBadge && !OFFER_BADGES.find(b => b.label === item.offerLabel) ? (item.offerLabel || '') : '');
+    setDrawerOpen(true);
+  };
+  const closeDrawer = () => { setDrawerOpen(false); setEditingId(null); setForm({}); setCustomBadge(''); };
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') closeDrawer(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawerOpen]);
+
+  // ═══ Translate name/description helpers for form ═══
+  const handleTranslate = async () => {
+    if (!form.name?.trim() && !form.description?.trim()) {
+      toast.error('Add name or description first');
+      return;
+    }
+    setTranslatingEdit(true);
+    try {
+      const [nameTA, nameHI, descTA, descHI] = await Promise.all([
+        form.name ? autoTranslate(form.name, 'ta') : Promise.resolve(''),
+        form.name ? autoTranslate(form.name, 'hi') : Promise.resolve(''),
+        form.description ? autoTranslate(form.description, 'ta') : Promise.resolve(''),
+        form.description ? autoTranslate(form.description, 'hi') : Promise.resolve(''),
+      ]);
+      setForm(f => ({
+        ...f,
+        nameTA: nameTA || f.nameTA,
+        nameHI: nameHI || f.nameHI,
+        descriptionTA: descTA || f.descriptionTA,
+        descriptionHI: descHI || f.descriptionHI,
+      }));
+      toast.success('Translated!');
+    } catch { toast.error('Translation failed'); }
+    finally { setTranslatingEdit(false); }
   };
 
-  const cancelEdit = () => { setEditId(null); setEditData({}); };
-
+  // ═══ Image upload (row-level) ═══
   const handleImageUpload = async (item, file) => {
     if (!file) return;
     if (fileSizeMB(file) > 5) { toast.error('Image must be under 5MB'); return; }
@@ -133,38 +248,62 @@ export default function AdminItems() {
       );
       await updateMenuItem(rid, item.id, { imageURL: url });
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url } : i));
-      toast.success('Cover image updated!');
+      toast.success('Image updated');
     } catch (e) { toast.error('Upload failed: ' + e.message); }
     finally { setImgUpload(u => ({ ...u, [item.id]: { uploading: false, progress: 0 } })); }
   };
 
-  const saveEdit = async () => {
-    if (!editData.name?.trim()) { toast.error('Item name is required'); return; }
-    if (!editData.category?.trim()) { toast.error('Category is required — please select or type a category'); return; }
-    if (editData.isVeg === undefined || editData.isVeg === null || editData.isVeg === '') {
-      toast.error('Please mark item as Veg or Non-Veg'); return;
-    }
-    if (!editData.spiceLevel || editData.spiceLevel === '') { toast.error('Spice level is required'); return; }
+  // ═══ Save drawer form ═══
+  const handleSave = async () => {
+    if (!form.name?.trim()) return toast.error('Item name is required');
+    if (!form.category?.trim()) return toast.error('Category is required');
+    if (form.isVeg === undefined || form.isVeg === null || form.isVeg === '') return toast.error('Please mark item as Veg or Non-Veg');
+    if (!form.spiceLevel) return toast.error('Spice level is required');
+
     setSaving(true);
     try {
-      const finalLabel = editData.offerBadge === 'Custom…' ? customBadge : editData.offerBadge;
-      await updateMenuItem(rid, editId, {
-        ...editData,
+      const finalLabel = form.offerBadge === 'Custom…' ? customBadge : form.offerBadge;
+      await updateMenuItem(rid, editingId, {
+        name: form.name.trim(),
+        nameTA: form.nameTA || '',
+        nameHI: form.nameHI || '',
+        description: form.description || '',
+        descriptionTA: form.descriptionTA || '',
+        descriptionHI: form.descriptionHI || '',
+        category: form.category.trim(),
+        price: form.price !== '' ? Number(form.price) : null,
+        prepTime: form.prepTime !== '' ? Number(form.prepTime) : null,
+        spiceLevel: form.spiceLevel,
+        isVeg: form.isVeg,
         offerLabel: finalLabel || '',
         offerBadge: !!finalLabel,
-        sortOrder: editData.sortOrder !== '' ? Number(editData.sortOrder) : null,
-        price: editData.price !== '' ? Number(editData.price) : null,
-        pairsWith: editData.pairsWith || [],
+        offerColor: form.offerColor || '#C07050',
+        isPopular: !!form.isPopular,
+        isFeatured: !!form.isFeatured,
+        isActive: form.isActive !== false,
+        isOutOfStock: !!form.isOutOfStock,
+        sortOrder: form.sortOrder !== '' ? Number(form.sortOrder) : null,
       });
-      toast.success('Item updated!');
-      setEditId(null);
+      toast.success('Item updated');
+      closeDrawer();
       await load();
-    } catch (e) { toast.error('Failed to save: ' + e.message); }
+    } catch (e) { toast.error('Save failed: ' + e.message); }
     finally { setSaving(false); }
   };
 
+  // ═══ Delete with cross-ref warning ═══
   const handleDelete = async (item) => {
-    if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+    const refs = itemRefs[item.id];
+    let confirmMsg = `Delete "${item.name}"? This cannot be undone.`;
+    if (refs) {
+      const parts = [];
+      if (refs.combos.length) parts.push(`${refs.combos.length} combo${refs.combos.length === 1 ? '' : 's'} (${refs.combos.slice(0, 3).join(', ')}${refs.combos.length > 3 ? '…' : ''})`);
+      if (refs.offers.length) parts.push(`${refs.offers.length} offer${refs.offers.length === 1 ? '' : 's'} (${refs.offers.slice(0, 3).join(', ')}${refs.offers.length > 3 ? '…' : ''})`);
+      if (parts.length) {
+        confirmMsg = `"${item.name}" is linked in ${parts.join(' and ')}.\n\nDeleting will break those references. Continue?`;
+      }
+    }
+    if (!confirm(confirmMsg)) return;
     setDeleting(item.id);
     try {
       await deleteMenuItem(rid, item.id);
@@ -174,480 +313,817 @@ export default function AdminItems() {
     finally { setDeleting(null); }
   };
 
-  const moveItem = async (item, direction) => {
-    // Find adjacent item in filtered list and swap sort orders
-    const idx = filtered.findIndex(i => i.id === item.id);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= filtered.length) return;
-    const swapItem = filtered[swapIdx];
-    const aOrder = item.sortOrder ?? idx;
-    const bOrder = swapItem.sortOrder ?? swapIdx;
-    await Promise.all([
-      updateMenuItem(rid, item.id, { sortOrder: bOrder }),
-      updateMenuItem(rid, swapItem.id, { sortOrder: aOrder }),
-    ]);
-    await load();
-  };
-
+  // ═══ Drag reorder ═══
   const handleDragEnd = async () => {
     const fromId = dragItem.current;
     const toId = dragOverItem.current;
     setDragging(null);
     if (!fromId || !toId || fromId === toId) { dragItem.current = null; dragOverItem.current = null; return; }
 
-    const fromIdx = filtered.findIndex(i => i.id === fromId);
-    const toIdx = filtered.findIndex(i => i.id === toId);
+    const fromIdx = displayed.findIndex(i => i.id === fromId);
+    const toIdx = displayed.findIndex(i => i.id === toId);
     if (fromIdx === -1 || toIdx === -1) return;
 
-    const reordered = [...filtered];
+    const reordered = [...displayed];
     const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(toIdx, 0, moved);
 
-    // Optimistic UI update
+    // Optimistic update
     const updatedIds = reordered.map(i => i.id);
     setItems(prev => {
       const rest = prev.filter(i => !updatedIds.includes(i.id));
       return [...reordered, ...rest];
     });
 
-    // Persist sortOrder
-    await Promise.all(
-      reordered.map((item, idx) => updateMenuItem(rid, item.id, { sortOrder: idx + 1 }))
-    );
+    await Promise.all(reordered.map((item, idx) => updateMenuItem(rid, item.id, { sortOrder: idx + 1 })));
 
     dragItem.current = null;
     dragOverItem.current = null;
   };
 
+  // ═══ Row-level toggles ═══
   const toggleActive = async (item) => {
-    try {
-      await updateMenuItem(rid, item.id, { isActive: !item.isActive });
-      await load();
-    } catch {
-      toast.error('Failed to update item');
-    }
+    try { await updateMenuItem(rid, item.id, { isActive: !item.isActive }); await load(); }
+    catch { toast.error('Update failed'); }
   };
-
   const toggleSoldOut = async (item) => {
-    try {
-      const newVal = isSoldOutToday(item) ? null : today;
-      await updateMenuItem(rid, item.id, { availableUntil: newVal });
-      await load();
-    } catch {
-      toast.error('Failed to update sold out status');
-    }
+    try { await updateMenuItem(rid, item.id, { availableUntil: isSoldOutToday(item) ? null : today }); await load(); }
+    catch { toast.error('Update failed'); }
+  };
+  const toggleOutOfStock = async (item) => {
+    try { await updateMenuItem(rid, item.id, { isOutOfStock: !item.isOutOfStock }); await load(); }
+    catch { toast.error('Update failed'); }
   };
 
-  const toggleOutOfStock = async (item) => {
-    try {
-      await updateMenuItem(rid, item.id, { isOutOfStock: !item.isOutOfStock });
-      await load();
-    } catch {
-      toast.error('Failed to update out of stock status');
-    }
-  };
+  const canDrag = statusFilter === 'all' && catFilter === 'all' && !search.trim();
 
   return (
     <AdminLayout>
-      <Head><title>Menu Items — Advert Radical</title></Head>
-      <div style={{ background: T.cream, minHeight: '100vh', padding: 32, fontFamily: T.font }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <style>{`
-            @keyframes spin{to{transform:rotate(360deg)}}
-            .inp:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accentSubtle}!important}
-            .inp::placeholder{color:${T.stone}}
-            .item-row:hover{background:${T.accentLight}!important}
-            .act-btn:hover{opacity:1!important}
-            [draggable]{user-select:none}
-          `}</style>
+      <Head><title>Menu Items | Advert Radical</title></Head>
+      <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
+        <style>{`
+          @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+          @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes slideInRight { from { transform: translateX(100%); } to { transform: none; } }
+          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          .it-row { transition: all 0.15s; }
+          .it-row:hover { background: ${A.shellDarker}; }
+          .it-row.dragging { opacity: 0.4; }
+          .it-row.over { background: rgba(196,168,109,0.08); }
+          .it-tab-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
+          .it-btn:hover:not(:disabled) { filter: brightness(1.08); }
+          .it-ghost:hover { background: ${A.subtleBg}; }
+          .it-input:focus { border-color: ${A.warning} !important; background: ${A.shell} !important; }
+          .it-drag { cursor: grab; user-select: none; }
+          .it-drag:active { cursor: grabbing; }
+          .it-badge-tile:hover { border-color: rgba(196,168,109,0.45) !important; }
+        `}</style>
 
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+        {/* ═══ Header ═══ */}
+        <div style={{ padding: '24px 28px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, gap: 14, flexWrap: 'wrap' }}>
             <div>
-              <h1 style={S.h1}>Menu Items</h1>
-              <p style={S.sub}>Manage, edit, reorder and add offers to your approved AR menu items.</p>
-            </div>
-            <div style={{ padding: '10px 18px', borderRadius: T.radiusPill, background: T.accentLight, border: `1px solid ${T.sand}`, fontSize: 13, fontWeight: 600, color: T.success, fontFamily: T.font, letterSpacing: '-0.1px' }}>
-              {items.filter(i => i.isActive).length} active · {items.length} total
-            </div>
-          </div>
-
-          {/* Search + filter bar */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: T.stone, fontSize: 14, opacity: 0.6 }}>🔍</span>
-              <input className="inp" style={{ ...S.input, paddingLeft: 38, borderRadius: T.radiusPill, border: `1.5px solid ${T.sand}`, background: T.white, boxShadow: '0 1px 3px rgba(38,52,49,0.04)' }} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search items…" />
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {categories.map(c => (
-                <button key={c} onClick={() => setCatFilter(c)} style={{ padding: '8px 18px', borderRadius: T.radiusPill, border: catFilter === c ? `1.5px solid ${T.accent}` : `1.5px solid ${T.sand}`, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: T.font, textTransform: 'capitalize', background: catFilter === c ? T.accent : T.white, color: catFilter === c ? T.cream : T.stone, boxShadow: catFilter === c ? T.shadowBtn : 'none', transition: 'all 0.18s ease', letterSpacing: '-0.1px' }}>
-                  {c === 'all' ? `All (${items.length})` : c}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-            {[['⠿ drag', 'Reorder priority'], ['✦', 'Popular badge'], ['🏷', 'Offer / badge'], ['◐', 'Active toggle']].map(([icon, label]) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.stone, fontFamily: T.font }}>
-                <span style={{ fontSize: 12 }}>{icon}</span>{label}
+              <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>Menu</span>
+                <span style={{ opacity: 0.5 }}>›</span>
+                <span style={{ color: A.mutedText }}>Items</span>
               </div>
-            ))}
+              <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                Menu Items
+              </div>
+              <div style={{ fontSize: 13, color: A.mutedText, marginTop: 4 }}>
+                Edit, translate, and order every dish shown on your live menu
+              </div>
+            </div>
           </div>
 
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
-              <div style={{ width: 32, height: 32, border: `3px solid ${T.accent}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(38,52,49,0.4)' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🍽️</div>
-              <p style={{ fontSize: 14 }}>No items yet. Submit a request to get AR items approved.</p>
-            </div>
-          ) : (
-            <div style={{ ...S.card, overflow: 'hidden' }}>
-              {/* Table header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '40px 56px 1fr 90px 90px 80px 100px 110px auto', gap: 0, padding: '12px 18px', borderBottom: `1px solid ${T.sand}`, background: T.accentLight }}>
-                {['', '', 'Item', 'Category', 'Prep', 'Spice', 'Status', 'Stock', 'Actions'].map(h => (
-                  <div key={h} style={{ fontSize: 10, fontWeight: 700, color: T.stone, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: T.font }}>{h}</div>
-                ))}
+          {/* Stats strip */}
+          <div style={{
+            background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+            borderRadius: 12, padding: '12px 18px', marginTop: 12, marginBottom: 14,
+            border: A.forestBorder, boxShadow: '0 4px 16px rgba(38,52,49,0.12)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 6px rgba(196,168,109,0.6)' }} />
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: A.warning }}>DISHES</span>
               </div>
+              <div style={{ width: 1, height: 28, background: 'rgba(234,231,227,0.10)', flexShrink: 0 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, flexWrap: 'wrap' }}>
+                <StatTile label="Total" value={stats.total} big color={A.forestText} />
+                <Divider />
+                <StatTile label="Active" value={stats.active} color={stats.active > 0 ? A.success : A.forestText} />
+                <Divider />
+                <StatTile label="Hidden" value={stats.hidden} />
+                <Divider />
+                <StatTile label="Sold out today" value={stats.soldOut} color={stats.soldOut > 0 ? A.warning : A.forestText} />
+                <Divider />
+                <StatTile label="Out of stock" value={stats.oos} color={stats.oos > 0 ? A.danger : A.forestText} />
+              </div>
+            </div>
+          </div>
+        </div>
 
-              {filtered.map((item, idx) => {
-                const isEdit = editId === item.id;
-                const popularity = (item.views || 0) + (item.arViews || 0) * 2;
+        {/* ═══ Filter bar ═══ */}
+        <div style={{ padding: '0 28px', marginBottom: 14 }}>
+          <div style={{
+            background: A.shell, border: A.border, borderRadius: 14,
+            boxShadow: A.shadowCard, padding: '12px 18px',
+            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+          }}>
+            {/* Status tabs */}
+            <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
+              {[
+                ['all', 'All', items.length],
+                ['active', 'Active', stats.active],
+                ['hidden', 'Hidden', stats.hidden],
+                ['oos', 'Out of stock', stats.oos],
+                ['sold-out-today', 'Sold today', stats.soldOut],
+              ].map(([val, label, count]) => {
+                const active = statusFilter === val;
                 return (
-                  <div key={item.id}>
-                    {/* Main row */}
-                    <div
-                      className="item-row"
-                      draggable
-                      onDragStart={() => { dragItem.current = item.id; setDragging(item.id); }}
-                      onDragEnter={() => { dragOverItem.current = item.id; }}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={e => e.preventDefault()}
-                      style={{ display: 'grid', gridTemplateColumns: '40px 56px 1fr 90px 90px 80px 100px 110px auto', gap: 0, padding: '13px 18px', borderBottom: isEdit ? 'none' : `1px solid ${T.cream}`, alignItems: 'center', background: dragging === item.id ? T.warningLight : dragOverItem.current === item.id && dragging && dragging !== item.id ? T.successLight : T.white, transition: 'background 0.12s', opacity: !item.isActive ? 0.4 : isSoldOutToday(item) ? 0.65 : 1, cursor: dragging ? 'grabbing' : 'default', outline: dragOverItem.current === item.id && dragging && dragging !== item.id ? `2px dashed ${T.success}` : 'none' }}>
-
-                      {/* Drag handle */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', color: T.sand, fontSize: 16, userSelect: 'none' }} title="Drag to reorder">⠿</div>
-
-                      {/* Image */}
-                      <div style={{ width: 44, height: 44, borderRadius: 12, overflow: 'hidden', background: T.cream, flexShrink: 0 }}>
-                        {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🍽️</div>}
-                      </div>
-
-                      {/* Name + badges */}
-                      <div style={{ minWidth: 0, paddingRight: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 600, fontSize: 13, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: T.font }}>{item.name}</span>
-                          {item.isPopular && <span style={{ fontSize: 9, fontWeight: 700, color: '#C4A86D', background: 'rgba(196,168,109,0.12)', border: '1px solid rgba(196,168,109,0.25)', borderRadius: T.radiusPill, padding: '2px 9px', flexShrink: 0, letterSpacing: '0.03em', textTransform: 'uppercase' }}>Popular</span>}
-                          {item.offerBadge && item.offerLabel && <span style={{ fontSize: 9, fontWeight: 700, color: T.white, background: `linear-gradient(135deg, ${item.offerColor || T.accent}, ${item.offerColor || T.accent}dd)`, borderRadius: T.radiusPill, padding: '3px 10px', flexShrink: 0, letterSpacing: '0.03em', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>{item.offerLabel}</span>}
-                          {isSoldOutToday(item) && <span style={{ fontSize: 9, fontWeight: 700, color: T.white, background: T.danger, borderRadius: T.radiusPill, padding: '3px 10px', flexShrink: 0, letterSpacing: '0.04em' }}>SOLD OUT</span>}
-                          {item.isOutOfStock && <span style={{ fontSize: 9, fontWeight: 700, color: T.white, background: '#6B2020', borderRadius: T.radiusPill, padding: '3px 10px', flexShrink: 0, letterSpacing: '0.04em' }}>OUT OF STOCK</span>}
-                        </div>
-                        {item.description && <div style={{ fontSize: 11, color: T.stone, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.7 }}>{item.description}</div>}
-                        <div style={{ display: 'flex', gap: 8, marginTop: 3, alignItems: 'center' }}>
-                          {item.price && <span style={{ fontSize: 12, fontWeight: 700, color: T.ink, fontFamily: T.font }}>₹{item.price}</span>}
-                          <span style={{ fontSize: 10, color: T.stone, opacity: 0.6 }}>{(item.views || 0) + (item.arViews || 0)} views</span>
-                        </div>
-                      </div>
-
-                      {/* Category */}
-                      <div style={{ fontSize: 12, color: T.stone, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: T.font }}>{item.category || '—'}</div>
-
-                      {/* Prep time */}
-                      <div style={{ fontSize: 11, color: T.stone, fontFamily: T.font, opacity: 0.7 }}>{item.prepTime ? `${item.prepTime}` : '—'}</div>
-
-                      {/* Spice */}
-                      <div>
-                        {item.spiceLevel && item.spiceLevel !== 'None' ? (
-                          <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: T.radiusPill, background: (SPICE_COLORS[item.spiceLevel] || '#ccc') + '15', color: SPICE_COLORS[item.spiceLevel] || '#999', border: `1px solid ${(SPICE_COLORS[item.spiceLevel] || '#ccc')}30`, fontFamily: T.font }}>{item.spiceLevel}</span>
-                        ) : <span style={{ fontSize: 11, color: T.sand }}>—</span>}
-                      </div>
-
-                      {/* Active toggle */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div onClick={() => toggleActive(item)} style={{ width: 36, height: 20, borderRadius: 99, background: item.isActive ? T.success : T.sand, cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                          <div style={{ width: 14, height: 14, borderRadius: '50%', background: T.white, position: 'absolute', top: 3, left: item.isActive ? 19 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
-                        </div>
-                        <span style={{ fontSize: 11, color: item.isActive ? T.success : T.stone, fontWeight: item.isActive ? 600 : 400, fontFamily: T.font }}>{item.isActive ? 'On' : 'Off'}</span>
-                      </div>
-
-                      {/* Stock availability — dedicated column */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <button onClick={() => toggleSoldOut(item)}
-                          title={isSoldOutToday(item) ? 'Mark as available today' : 'Mark sold out today'}
-                          style={{ padding: '4px 12px', borderRadius: T.radiusPill, border: isSoldOutToday(item) ? `1px solid ${T.success}` : `1px solid ${T.sand}`, background: isSoldOutToday(item) ? T.successLight : T.white, color: isSoldOutToday(item) ? T.success : T.stone, fontSize: 10, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: T.font, transition: 'all 0.15s' }}>
-                          {isSoldOutToday(item) ? 'Today ✓' : 'Today'}
-                        </button>
-                        <button onClick={() => toggleOutOfStock(item)}
-                          title={item.isOutOfStock ? 'Mark as in stock' : 'Mark permanently out of stock'}
-                          style={{ padding: '4px 12px', borderRadius: T.radiusPill, border: item.isOutOfStock ? `1px solid ${T.danger}` : `1px solid ${T.sand}`, background: item.isOutOfStock ? T.dangerLight : T.white, color: item.isOutOfStock ? T.danger : T.stone, fontSize: 10, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: T.font, transition: 'all 0.15s' }}>
-                          {item.isOutOfStock ? 'Perm ✕' : 'Perm'}
-                        </button>
-                      </div>
-
-                      {/* Actions — Edit + Delete only */}
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => isEdit ? cancelEdit() : startEdit(item)} style={{ padding: '5px 14px', borderRadius: T.radiusBtn, border: `1.5px solid ${isEdit ? T.danger : T.sand}`, background: isEdit ? T.dangerLight : 'transparent', color: isEdit ? T.danger : T.stone, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', fontFamily: T.font }}>
-                          {isEdit ? 'Cancel' : 'Edit'}
-                        </button>
-                        <button onClick={() => handleDelete(item)} disabled={deleting === item.id} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${T.sand}`, background: 'transparent', color: T.danger, fontSize: 13, fontWeight: 500, cursor: 'pointer', opacity: deleting === item.id ? 0.4 : 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', padding: 0 }}>
-                          {deleting === item.id ? '…' : '✕'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Edit panel */}
-                    {isEdit && (
-                      <div style={{ background: T.accentLight, borderBottom: `1px solid ${T.sand}`, padding: '20px 18px 24px' }}>
-                        <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.ink, marginBottom: 18 }}>Editing: {item.name}</div>
-
-                        {/* Cover image upload */}
-                        <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 16, border: '1px solid rgba(38,52,49,0.07)' }}>
-                          <label style={{ ...S.label, marginBottom: 10 }}>📸 Cover Image</label>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <div style={{ width: 64, height: 64, borderRadius: 14, overflow: 'hidden', background: '#EAE7E3', flexShrink: 0 }}>
-                              {item.imageURL
-                                ? <img src={item.imageURL} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🍽️</div>}
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 11, color: 'rgba(38,52,49,0.45)', marginBottom: 8 }}>JPG, PNG · Max 5MB · Shown on menu card</div>
-                              <input
-                                type="file" accept="image/*" style={{ display: 'none' }}
-                                ref={el => { if (el) imgInputRef.current[item.id] = el; }}
-                                onChange={e => handleImageUpload(item, e.target.files[0])}
-                              />
-                              <button
-                                onClick={() => imgInputRef.current[item.id]?.click()}
-                                disabled={imgUpload[item.id]?.uploading}
-                                style={{ padding: '8px 16px', borderRadius: 10, border: '1.5px solid rgba(38,52,49,0.12)', background: 'transparent', fontSize: 12, fontWeight: 600, color: 'rgba(38,52,49,0.6)', cursor: 'pointer', opacity: imgUpload[item.id]?.uploading ? 0.6 : 1 }}>
-                                {imgUpload[item.id]?.uploading ? `Uploading ${imgUpload[item.id].progress}%…` : item.imageURL ? '↑ Replace Image' : '↑ Upload Image'}
-                              </button>
-                            </div>
-                          </div>
-                          {imgUpload[item.id]?.uploading && (
-                            <div style={{ height: 4, background: T.cream, borderRadius: 99, overflow: 'hidden', marginTop: 10 }}>
-                              <div style={{ height: '100%', background: T.success, borderRadius: 99, width: `${imgUpload[item.id].progress}%`, transition: 'width 0.2s' }} />
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }}>
-                          <div>
-                            <label style={S.label}>Item Name *</label>
-                            <input className="inp" style={S.input} value={editData.name} onChange={e => setEditData(d => ({ ...d, name: e.target.value }))} />
-                          </div>
-                          <div>
-                            <label style={S.label}>Category <span style={{ color: '#8A4A42' }}>*</span></label>
-                            <input className="inp" style={{ ...S.input, borderColor: !editData.category?.trim() ? 'rgba(138,74,66,0.4)' : undefined }} value={editData.category} onChange={e => setEditData(d => ({ ...d, category: e.target.value }))} placeholder="e.g. Main Course" />
-                          </div>
-                          <div>
-                            <label style={S.label}>Price (₹)</label>
-                            <input className="inp" style={S.input} type="number" min="0" value={editData.price} onChange={e => setEditData(d => ({ ...d, price: e.target.value }))} placeholder="e.g. 299" />
-                          </div>
-                        </div>
-                        <div style={{ marginBottom: 14 }}>
-                          <label style={S.label}>Description</label>
-                          <textarea className="inp" style={{ ...S.input, resize: 'none' }} rows={2} value={editData.description} onChange={e => setEditData(d => ({ ...d, description: e.target.value }))} placeholder="Short description…" />
-                        </div>
-                    {/* Translations */}
-                    <div style={{ gridColumn: '1/-1', padding: '14px 16px', borderRadius: 12, background: 'rgba(74,128,192,0.04)', border: '1px solid rgba(74,128,192,0.12)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(38,52,49,0.45)', letterSpacing: '0.04em' }}>🌐 TRANSLATIONS (Optional)</div>
-                        <button type="button" onClick={async () => {
-                          if (!editData.name?.trim()) { toast.error('Item name is empty'); return; }
-                          setTranslatingEdit(true);
-                          try {
-                            const [nTA, nHI, dTA, dHI] = await Promise.all([
-                              autoTranslate(editData.name, 'ta'),
-                              autoTranslate(editData.name, 'hi'),
-                              editData.description ? autoTranslate(editData.description, 'ta') : Promise.resolve(''),
-                              editData.description ? autoTranslate(editData.description, 'hi') : Promise.resolve(''),
-                            ]);
-                            setEditData(d => ({ ...d, nameTA: nTA || d.nameTA, nameHI: nHI || d.nameHI, descriptionTA: dTA || d.descriptionTA, descriptionHI: dHI || d.descriptionHI }));
-                            toast.success('Translations filled! Review and edit if needed.');
-                          } catch { toast.error('Translation failed'); }
-                          finally { setTranslatingEdit(false); }
-                        }} disabled={translatingEdit} style={{ padding: '4px 12px', borderRadius: 7, fontSize: 11, fontWeight: 600, border: '1.5px solid rgba(74,128,192,0.4)', background: 'rgba(74,128,192,0.06)', color: '#4A80C0', cursor: translatingEdit ? 'not-allowed' : 'pointer', opacity: translatingEdit ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                          {translatingEdit ? '⏳ Translating…' : '✦ Auto Translate'}
-                        </button>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                        <div>
-                          <label style={S.label}>Tamil Name</label>
-                          <input style={S.input} value={editData.nameTA || ''} onChange={e => setEditData(d => ({ ...d, nameTA: e.target.value }))} placeholder="தமிழ் பெயர்" />
-                        </div>
-                        <div>
-                          <label style={S.label}>Hindi Name</label>
-                          <input style={S.input} value={editData.nameHI || ''} onChange={e => setEditData(d => ({ ...d, nameHI: e.target.value }))} placeholder="हिंदी नाम" />
-                        </div>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <div>
-                          <label style={S.label}>Tamil Description</label>
-                          <input style={S.input} value={editData.descriptionTA || ''} onChange={e => setEditData(d => ({ ...d, descriptionTA: e.target.value }))} placeholder="தமிழ் விளக்கம்" />
-                        </div>
-                        <div>
-                          <label style={S.label}>Hindi Description</label>
-                          <input style={S.input} value={editData.descriptionHI || ''} onChange={e => setEditData(d => ({ ...d, descriptionHI: e.target.value }))} placeholder="हिंदी विवरण" />
-                        </div>
-                      </div>
-                    </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }}>
-                          <div>
-                            <label style={S.label}>⏱ Prep Time</label>
-                            <input className="inp" style={S.input} value={editData.prepTime} onChange={e => setEditData(d => ({ ...d, prepTime: e.target.value }))} placeholder="10–15 minutes" />
-                          </div>
-                          <div>
-                            <label style={S.label}>🌶 Spice Level <span style={{ color: '#8A4A42' }}>*</span></label>
-                            <select className="inp" style={S.input} value={editData.spiceLevel} onChange={e => setEditData(d => ({ ...d, spiceLevel: e.target.value }))}>
-                              {SPICE_LEVELS.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label style={S.label}>Priority Order</label>
-                            <input className="inp" style={S.input} type="number" min="1" value={editData.sortOrder} onChange={e => setEditData(d => ({ ...d, sortOrder: e.target.value }))} placeholder="1 = first" />
-                          </div>
-                        </div>
-
-                        {/* Veg / Non-Veg required field */}
-                        <div style={{ marginBottom: 14 }}>
-                          <label style={{ ...S.label, marginBottom: 8 }}>Veg / Non-Veg <span style={{ color: '#8A4A42' }}>*</span></label>
-                          <div style={{ display: 'flex', gap: 10 }}>
-                            {[{ val: true, label: '🟢 Veg', bg: '#4A7A5E' }, { val: false, label: '🔴 Non-Veg', bg: '#C0392B' }].map(({ val, label, bg }) => (
-                              <button key={String(val)}
-                                onClick={() => setEditData(d => ({ ...d, isVeg: val }))}
-                                style={{
-                                  padding: '9px 22px', borderRadius: 50, border: `2px solid ${editData.isVeg === val ? bg : 'rgba(38,52,49,0.12)'}`,
-                                  background: editData.isVeg === val ? bg + '18' : '#fff',
-                                  fontSize: 13, fontWeight: 700, color: editData.isVeg === val ? bg : 'rgba(38,52,49,0.45)',
-                                  cursor: 'pointer', transition: 'all 0.15s'
-                                }}>
-                                {label}
-                              </button>
-                            ))}
-                            {(editData.isVeg === undefined || editData.isVeg === null || editData.isVeg === '') && (
-                              <span style={{ fontSize: 11, color: '#8A4A42', alignSelf: 'center', marginLeft: 4 }}>Required</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Offer badge section */}
-                        <div style={{ background: '#fff', borderRadius: 14, padding: '16px', marginBottom: 14, border: '1px solid rgba(38,52,49,0.07)' }}>
-                          <label style={{ ...S.label, marginBottom: 10 }}>🏷 Offer / Badge</label>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: editData.offerBadge === 'Custom…' ? 12 : 0 }}>
-                            <button onClick={() => setEditData(d => ({ ...d, offerBadge: '', offerLabel: '' }))} style={{ padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${!editData.offerBadge ? 'rgba(38,52,49,0.4)' : 'rgba(38,52,49,0.1)'}`, background: !editData.offerBadge ? 'rgba(38,52,49,0.07)' : 'transparent', fontSize: 12, fontWeight: 600, color: 'rgba(38,52,49,0.6)', cursor: 'pointer' }}>None</button>
-                            {OFFER_BADGES.map(b => (
-                              <button key={b.label} onClick={() => setEditData(d => ({ ...d, offerBadge: b.label, offerLabel: b.label === 'Custom…' ? d.offerLabel : b.label, offerColor: b.color }))} style={{ padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${editData.offerBadge === b.label ? b.color : 'rgba(38,52,49,0.1)'}`, background: editData.offerBadge === b.label ? b.color + '22' : 'transparent', fontSize: 12, fontWeight: 700, color: editData.offerBadge === b.label ? b.color : 'rgba(38,52,49,0.5)', cursor: 'pointer' }}>
-                                {b.label}
-                              </button>
-                            ))}
-                          </div>
-                          {editData.offerBadge === 'Custom…' && (
-                            <input className="inp" style={{ ...S.input, marginTop: 8 }} value={customBadge} onChange={e => setCustomBadge(e.target.value)} placeholder="Enter custom badge text e.g. '30% Off Tonight'" />
-                          )}
-                        </div>
-
-                        {/* Flags row */}
-                        <div style={{ display: 'flex', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
-                          {[['isPopular', '✦ Mark as Popular', 'Show popular badge on menu'], ['isFeatured', '⭐ Feature this item', 'Appear at top of category'], ['isActive', '👁 Visible on menu', 'Customers can see this item']].map(([key, title, desc]) => (
-                            <div key={key} onClick={() => setEditData(d => ({ ...d, [key]: !d[key] }))} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderRadius: 12, border: `1.5px solid ${editData[key] ? T.success + '55' : T.sand}`, background: editData[key] ? T.successLight : T.white, cursor: 'pointer', transition: 'all 0.15s' }}>
-                              <div style={{ width: 32, height: 18, borderRadius: 99, background: editData[key] ? T.success : T.sand, position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                                <div style={{ width: 12, height: 12, borderRadius: '50%', background: T.white, position: 'absolute', top: 3, left: editData[key] ? 17 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, fontFamily: T.font }}>{title}</div>
-                                <div style={{ fontSize: 10, color: T.stone }}>{desc}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* ── Pairs Well With ── */}
-                        <div style={{ background: '#fff', borderRadius: 14, padding: '16px', marginBottom: 14, border: '1px solid rgba(38,52,49,0.07)' }}>
-                          <label style={{ ...S.label, marginBottom: 10 }}>✨ Pairs Well With <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 11 }}>— pick up to 3 items shown in modal</span></label>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                            {items.filter(i => i.id !== editId).map(i => {
-                              const sel = (editData.pairsWith || []).includes(i.id);
-                              const maxed = (editData.pairsWith || []).length >= 3 && !sel;
-                              return (
-                                <button key={i.id}
-                                  onClick={() => {
-                                    if (maxed) return;
-                                    setEditData(d => ({
-                                      ...d,
-                                      pairsWith: sel
-                                        ? (d.pairsWith || []).filter(x => x !== i.id)
-                                        : [...(d.pairsWith || []), i.id]
-                                    }));
-                                  }}
-                                  style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: maxed ? 'not-allowed' : 'pointer', border: `1.5px solid ${sel ? 'rgba(196,168,109,0.6)' : 'rgba(38,52,49,0.1)'}`, background: sel ? 'rgba(196,168,109,0.1)' : '#F7F5F2', color: sel ? '#A06010' : 'rgba(38,52,49,0.5)', opacity: maxed ? 0.4 : 1, transition: 'all 0.15s' }}>
-                                  {sel ? '✓ ' : ''}{i.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {(editData.pairsWith || []).length > 0 && (
-                            <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(38,52,49,0.4)' }}>
-                              Selected: {(editData.pairsWith || []).map(id => items.find(i => i.id === id)?.name).filter(Boolean).join(', ')}
-                            </div>
-                          )}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 10 }}>
-                          <button onClick={saveEdit} disabled={saving} style={{ padding: '11px 28px', borderRadius: T.radiusBtn, border: 'none', background: T.accent, color: T.cream, fontSize: 14, fontWeight: 700, fontFamily: T.font, cursor: 'pointer', opacity: saving ? 0.6 : 1, boxShadow: T.shadowBtn, transition: 'all 0.15s' }}>
-                            {saving ? 'Saving…' : 'Save Changes'}
-                          </button>
-                          <button onClick={cancelEdit} style={{ padding: '11px 20px', borderRadius: T.radiusBtn, border: `1.5px solid ${T.sand}`, background: 'transparent', fontSize: 13, fontWeight: 600, color: T.stone, cursor: 'pointer', fontFamily: T.font }}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
+                  <button key={val} className={`it-tab-pill ${active ? 'active' : ''}`}
+                    onClick={() => setStatusFilter(val)}
+                    style={{
+                      padding: '7px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                      fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 600,
+                      background: active ? A.ink : 'transparent',
+                      color: active ? A.cream : A.mutedText,
+                      display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+                      whiteSpace: 'nowrap',
+                    }}>
+                    {label}
+                    {count > 0 && (
+                      <span style={{
+                        padding: '1px 6px', borderRadius: 8,
+                        background: active ? 'rgba(237,237,237,0.18)' : 'rgba(196,168,109,0.20)',
+                        color: active ? A.cream : A.warningDim,
+                        fontSize: 10, fontWeight: 700, fontFamily: A.mono,
+                      }}>{count}</span>
                     )}
+                  </button>
+                );
+              })}
+            </div>
+            <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />
+            <input className="it-input"
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search dishes…"
+              style={{
+                flex: 1, minWidth: 200, padding: '8px 12px', borderRadius: 8,
+                border: A.border, background: A.shellDarker,
+                fontSize: 13, fontFamily: A.font, color: A.ink,
+                outline: 'none', transition: 'all 0.15s',
+              }} />
+            <span style={{ fontSize: 12, color: A.faintText, fontWeight: 500 }}>
+              {displayed.length} of {items.length}
+            </span>
+          </div>
+
+          {/* Category pills */}
+          {categories.length > 2 && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+              {categories.map(cat => {
+                const active = catFilter === cat;
+                const count = cat === 'all' ? items.length : items.filter(i => i.category === cat).length;
+                return (
+                  <button key={cat} onClick={() => setCatFilter(cat)}
+                    style={{
+                      padding: '6px 12px', borderRadius: 7, border: A.border,
+                      background: active ? A.ink : A.shell,
+                      color: active ? A.cream : A.mutedText,
+                      fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer',
+                      fontFamily: A.font, transition: 'all 0.15s',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}>
+                    {cat === 'all' ? 'All categories' : cat}
+                    <span style={{
+                      padding: '1px 5px', borderRadius: 6,
+                      background: active ? 'rgba(237,237,237,0.18)' : A.subtleBg,
+                      color: active ? A.cream : A.faintText,
+                      fontSize: 10, fontWeight: 700, fontFamily: A.mono,
+                    }}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ═══ Table ═══ */}
+        <div style={{ padding: '0 28px 80px' }}>
+          {!loaded ? (
+            <LoadingCard />
+          ) : displayed.length === 0 ? (
+            <EmptyCard
+              titleText={items.length === 0 ? 'No menu items yet' : 'No items match your filter'}
+              subtitleText={items.length === 0
+                ? 'Menu items appear here once customers request AR models for your dishes. Meanwhile, you can create placeholders via Firestore or upload directly.'
+                : 'Try clearing filters or search terms.'}
+            />
+          ) : (
+            <div style={{
+              background: A.shell, borderRadius: 14, border: A.border,
+              boxShadow: A.shadowCard, overflow: 'hidden',
+            }}>
+              {/* Table header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '36px 56px 1fr 110px 90px 90px 110px 100px',
+                gap: 10, alignItems: 'center',
+                padding: '10px 18px',
+                borderBottom: A.border,
+                background: A.shellDarker,
+                fontSize: 10, fontWeight: 700, color: A.faintText,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+              }}>
+                <div></div>
+                <div></div>
+                <div>Dish</div>
+                <div>Category</div>
+                <div>Price</div>
+                <div>Prep</div>
+                <div>Status</div>
+                <div style={{ textAlign: 'right' }}>Actions</div>
+              </div>
+
+              {/* Rows */}
+              {displayed.map((item, idx) => {
+                const soldOut = isSoldOutToday(item);
+                const oos = item.isOutOfStock;
+                const visible = item.isActive !== false;
+                const refs = itemRefs[item.id];
+                const refCount = (refs?.combos.length || 0) + (refs?.offers.length || 0);
+                const upload = imgUpload[item.id];
+
+                return (
+                  <div key={item.id} className={`it-row ${dragging === item.id ? 'dragging' : ''} ${dragOverItem.current === item.id ? 'over' : ''}`}
+                    draggable={canDrag}
+                    onDragStart={() => { dragItem.current = item.id; setDragging(item.id); }}
+                    onDragEnter={() => { dragOverItem.current = item.id; }}
+                    onDragOver={e => e.preventDefault()}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '36px 56px 1fr 110px 90px 90px 110px 100px',
+                      gap: 10, alignItems: 'center',
+                      padding: '12px 18px',
+                      borderBottom: idx === displayed.length - 1 ? 'none' : A.border,
+                      opacity: visible ? 1 : 0.55,
+                      animation: 'fadeUp 0.22s ease both',
+                      animationDelay: `${Math.min(idx * 0.02, 0.2)}s`,
+                    }}>
+
+                    {/* Drag handle */}
+                    <div className={canDrag ? 'it-drag' : ''}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        opacity: canDrag ? 1 : 0.2,
+                      }}
+                      title={canDrag ? 'Drag to reorder' : 'Clear filters to reorder'}>
+                      <DragHandleIcon color={canDrag ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.15)'} />
+                    </div>
+
+                    {/* Image */}
+                    <div style={{ position: 'relative', width: 44, height: 44 }}>
+                      {item.imageURL ? (
+                        <img src={item.imageURL} alt={item.name}
+                          style={{
+                            width: 44, height: 44, objectFit: 'cover',
+                            borderRadius: 8, border: A.borderStrong,
+                            filter: soldOut || oos ? 'grayscale(60%)' : 'none',
+                          }} />
+                      ) : (
+                        <div style={{
+                          width: 44, height: 44, borderRadius: 8,
+                          background: A.subtleBg, border: A.borderStrong,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontFamily: A.mono, fontSize: 15, fontWeight: 700, color: A.warningDim,
+                        }}>{(item.name || '?').charAt(0).toUpperCase()}</div>
+                      )}
+
+                      {/* Upload overlay */}
+                      {upload?.uploading && (
+                        <div style={{
+                          position: 'absolute', inset: 0, borderRadius: 8,
+                          background: 'rgba(26,26,26,0.75)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: A.cream, fontSize: 10, fontWeight: 700, fontFamily: A.mono,
+                        }}>{Math.round(upload.progress)}%</div>
+                      )}
+
+                      {/* Veg/NonVeg dot */}
+                      {item.isVeg !== undefined && item.isVeg !== null && (
+                        <span style={{
+                          position: 'absolute', top: -3, left: -3, width: 12, height: 12, borderRadius: 2,
+                          border: `1.5px solid ${item.isVeg ? A.success : A.danger}`,
+                          background: A.shell,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <span style={{
+                            width: 5, height: 5, borderRadius: item.isVeg ? 0 : '50%',
+                            background: item.isVeg ? A.success : A.danger,
+                          }} />
+                        </span>
+                      )}
+
+                      {/* Invisible file input */}
+                      <input type="file" accept="image/*"
+                        ref={el => { imgInputRef.current[item.id] = el; }}
+                        onChange={e => handleImageUpload(item, e.target.files[0])}
+                        style={{ display: 'none' }} />
+                    </div>
+
+                    {/* Name + badges */}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
+                        <span style={{
+                          fontWeight: 600, fontSize: 14, color: A.ink,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          textDecoration: soldOut ? 'line-through' : 'none',
+                        }}>{item.name}</span>
+                        {item.offerBadge && item.offerLabel && (
+                          <span style={{
+                            padding: '2px 7px', borderRadius: 3,
+                            background: (item.offerColor || '#C07050') + '18',
+                            color: item.offerColor || '#C07050',
+                            fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                          }}>{item.offerLabel}</span>
+                        )}
+                        {item.isPopular && <Pill color={A.warning}>Popular</Pill>}
+                        {item.isFeatured && <Pill color={A.success}>Featured</Pill>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: A.faintText }}>
+                        {item.spiceLevel && item.spiceLevel !== 'None' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: SPICE_COLORS[item.spiceLevel] || A.faintText }} />
+                            {item.spiceLevel}
+                          </span>
+                        )}
+                        {refCount > 0 && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            padding: '1px 7px', borderRadius: 4,
+                            background: 'rgba(196,168,109,0.10)',
+                            color: A.warningDim, fontSize: 10, fontWeight: 700,
+                            letterSpacing: '0.04em',
+                          }} title={[
+                            refs?.combos.length ? `In combos: ${refs.combos.join(', ')}` : '',
+                            refs?.offers.length ? `In offers: ${refs.offers.join(', ')}` : '',
+                          ].filter(Boolean).join(' · ')}>
+                            Linked · {refCount}
+                          </span>
+                        )}
+                        {item.nameTA && <span style={{ fontFamily: A.mono, opacity: 0.6 }}>TA</span>}
+                        {item.nameHI && <span style={{ fontFamily: A.mono, opacity: 0.6 }}>HI</span>}
+                      </div>
+                    </div>
+
+                    {/* Category */}
+                    <div style={{ fontSize: 12, color: A.mutedText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.category || <span style={{ color: A.faintText }}>—</span>}
+                    </div>
+
+                    {/* Price */}
+                    <div style={{ fontFamily: A.mono, fontWeight: 600, fontSize: 13, color: A.ink }}>
+                      {item.price != null ? `₹${item.price}` : <span style={{ color: A.faintText }}>—</span>}
+                    </div>
+
+                    {/* Prep */}
+                    <div style={{ fontFamily: A.mono, fontSize: 12, color: A.mutedText }}>
+                      {item.prepTime != null ? `${item.prepTime}m` : <span style={{ color: A.faintText }}>—</span>}
+                    </div>
+
+                    {/* Status */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {!visible && <StatusChip color={A.faintText} bg={A.subtleBg}>Hidden</StatusChip>}
+                      {oos && <StatusChip color={A.danger} bg="rgba(217,83,79,0.08)">No stock</StatusChip>}
+                      {soldOut && <StatusChip color={A.warningDim} bg="rgba(196,168,109,0.10)">Sold out</StatusChip>}
+                      {visible && !oos && !soldOut && <StatusChip color={A.success} bg="rgba(63,158,90,0.10)">Active</StatusChip>}
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <IconBtn title="Upload image" onClick={() => imgInputRef.current[item.id]?.click()}>
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 11L2 13C2 13.5523 2.44772 14 3 14L13 14C13.5523 14 14 13.5523 14 13L14 11M5 6L8 3M8 3L11 6M8 3L8 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </IconBtn>
+                      <IconBtn title={item.isActive === false ? 'Show on menu' : 'Hide from menu'} onClick={() => toggleActive(item)}
+                        color={item.isActive === false ? A.faintText : A.success}>
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d={item.isActive === false
+                          ? "M2 8L4 10L6 12C6 12 7.5 13 8 13C10 13 11.5 12 13 10L14 8L13 6L12 5M4 4L10 10M6 6C6 6 7 5 8 5C9 5 10 6 10 6"
+                          : "M2 8C2 8 4 3 8 3C12 3 14 8 14 8C14 8 12 13 8 13C4 13 2 8 2 8Z"}
+                          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          {item.isActive !== false && <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.5"/>}</svg>
+                      </IconBtn>
+                      <IconBtn title="Edit" onClick={() => openEdit(item)}>
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11 2L14 5L5 14L2 14L2 11L11 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </IconBtn>
+                      <IconBtn title="Delete" onClick={() => handleDelete(item)} color={A.danger} disabled={deleting === item.id}>
+                        {deleting === item.id ? (
+                          <span style={{ width: 12, height: 12, border: '1.5px solid rgba(217,83,79,0.2)', borderTopColor: A.danger, borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                        ) : (
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4L13 4M5.5 4L5.5 2C5.5 1.5 6 1 6.5 1L9.5 1C10 1 10.5 1.5 10.5 2L10.5 4M4 4L4.5 13.5C4.5 14 5 14.5 5.5 14.5L10.5 14.5C11 14.5 11.5 14 11.5 13.5L12 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        )}
+                      </IconBtn>
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Popularity insight card */}
-          {!loading && items.length > 0 && (
-            <div style={{ ...S.card, padding: 24, marginTop: 20 }}>
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 16, color: T.ink, marginBottom: 16 }}>Most Popular Items</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[...items]
-                  .sort((a, b) => ((b.views || 0) + (b.arViews || 0) * 2) - ((a.views || 0) + (a.arViews || 0) * 2))
-                  .slice(0, 5)
-                  .map((item, i) => {
-                    const score = (item.views || 0) + (item.arViews || 0) * 2;
-                    const maxScore = (items[0]?.views || 0) + (items[0]?.arViews || 0) * 2 || 1;
-                    const pct = Math.max(8, Math.round((score / Math.max(...items.map(x => (x.views || 0) + (x.arViews || 0) * 2), 1)) * 100));
-                    return (
-                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ fontSize: 11, color: T.stone, width: 16, textAlign: 'right', flexShrink: 0, fontFamily: T.font, fontWeight: 600 }}>#{i + 1}</span>
-                        <div style={{ width: 32, height: 32, borderRadius: 10, overflow: 'hidden', background: T.cream, flexShrink: 0 }}>
-                          {item.imageURL ? <img src={item.imageURL} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16, lineHeight: '32px', display: 'block', textAlign: 'center' }}>🍽️</span>}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: T.font }}>{item.name}</span>
-                            <span style={{ fontSize: 11, color: T.stone, flexShrink: 0, marginLeft: 8, opacity: 0.6 }}>{item.views || 0} views · {item.arViews || 0} AR</span>
-                          </div>
-                          <div style={{ height: 5, background: T.cream, borderRadius: 99, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', borderRadius: 99, background: i === 0 ? '#C4A86D' : i === 1 ? T.success : T.sand, width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+          {/* Quick-action legend */}
+          {displayed.length > 0 && (
+            <div style={{
+              marginTop: 14, padding: '10px 18px',
+              background: A.shell, borderRadius: 10, border: A.border,
+              display: 'flex', flexWrap: 'wrap', gap: 14,
+              fontSize: 11, color: A.faintText,
+            }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <DragHandleIcon color={A.faintText} /> Drag to reorder
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 10, height: 10, border: `1.5px solid ${A.success}`, display: 'inline-block' }} /> Veg
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 10, height: 10, border: `1.5px solid ${A.danger}`, borderRadius: '50%', display: 'inline-block' }} /> Non-Veg
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ padding: '1px 6px', borderRadius: 4, background: 'rgba(196,168,109,0.10)', color: A.warningDim, fontWeight: 700 }}>Linked · N</span> Used in a combo or offer
+              </span>
             </div>
           )}
         </div>
+
+        {/* ═══ Drawer form ═══ */}
+        {drawerOpen && (
+          <>
+            <div onClick={closeDrawer} style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
+              zIndex: 90, animation: 'fadeIn 0.2s ease both',
+            }} />
+            <div style={{
+              position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: 560,
+              background: A.shell, zIndex: 91,
+              display: 'flex', flexDirection: 'column',
+              boxShadow: '-8px 0 32px rgba(0,0,0,0.12)',
+              animation: 'slideInRight 0.28s ease both',
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '18px 22px', borderBottom: A.border,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>
+                    Edit item
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 18, color: A.ink, letterSpacing: '-0.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 380 }}>
+                    {form.name || 'Untitled'}
+                  </div>
+                </div>
+                <button onClick={closeDrawer}
+                  style={{
+                    width: 34, height: 34, borderRadius: 8, border: 'none',
+                    background: A.subtleBg, color: A.ink,
+                    fontSize: 18, cursor: 'pointer', lineHeight: 1,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  }}>×</button>
+              </div>
+
+              {/* Body */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '22px' }}>
+
+                {/* Name + translations */}
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 6, gap: 10 }}>
+                    <Label>Name <Required /></Label>
+                    <button onClick={handleTranslate} disabled={translatingEdit}
+                      style={{
+                        padding: '5px 10px', borderRadius: 6, border: 'none',
+                        background: A.ink, color: A.cream,
+                        fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        opacity: translatingEdit ? 0.5 : 1,
+                      }}>
+                      {translatingEdit ? (
+                        <><span style={{ width: 10, height: 10, border: '1.5px solid rgba(237,237,237,0.3)', borderTopColor: A.cream, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Translating…</>
+                      ) : 'Auto-translate TA + HI'}
+                    </button>
+                  </div>
+                  <input className="it-input"
+                    value={form.name || ''}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Chicken Biryani"
+                    style={inputStyle} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                    <input className="it-input"
+                      value={form.nameTA || ''}
+                      onChange={e => setForm(f => ({ ...f, nameTA: e.target.value }))}
+                      placeholder="Tamil translation"
+                      style={{ ...inputStyle, fontSize: 12 }} />
+                    <input className="it-input"
+                      value={form.nameHI || ''}
+                      onChange={e => setForm(f => ({ ...f, nameHI: e.target.value }))}
+                      placeholder="Hindi translation"
+                      style={{ ...inputStyle, fontSize: 12 }} />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div style={{ marginBottom: 18 }}>
+                  <Label>Description</Label>
+                  <textarea className="it-input"
+                    value={form.description || ''}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Short, appealing description of the dish"
+                    rows={2}
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: 56 }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                    <textarea className="it-input"
+                      value={form.descriptionTA || ''}
+                      onChange={e => setForm(f => ({ ...f, descriptionTA: e.target.value }))}
+                      placeholder="Tamil description"
+                      rows={2}
+                      style={{ ...inputStyle, fontSize: 12, resize: 'vertical', minHeight: 48 }} />
+                    <textarea className="it-input"
+                      value={form.descriptionHI || ''}
+                      onChange={e => setForm(f => ({ ...f, descriptionHI: e.target.value }))}
+                      placeholder="Hindi description"
+                      rows={2}
+                      style={{ ...inputStyle, fontSize: 12, resize: 'vertical', minHeight: 48 }} />
+                  </div>
+                </div>
+
+                {/* Category + Price + Prep */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12, marginBottom: 18 }}>
+                  <div>
+                    <Label>Category <Required /></Label>
+                    <input className="it-input"
+                      value={form.category || ''}
+                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                      placeholder="Biryani"
+                      list="cat-list"
+                      style={inputStyle} />
+                    <datalist id="cat-list">
+                      {categories.filter(c => c !== 'all').map(c => <option key={c} value={c} />)}
+                    </datalist>
+                  </div>
+                  <div>
+                    <Label>Price (₹)</Label>
+                    <input className="it-input" type="number" min="0"
+                      value={form.price || ''}
+                      onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                      placeholder="299"
+                      style={inputStyle} />
+                  </div>
+                  <div>
+                    <Label>Prep (min)</Label>
+                    <input className="it-input" type="number" min="0"
+                      value={form.prepTime || ''}
+                      onChange={e => setForm(f => ({ ...f, prepTime: e.target.value }))}
+                      placeholder="20"
+                      style={inputStyle} />
+                  </div>
+                </div>
+
+                {/* Veg / Non-veg */}
+                <div style={{ marginBottom: 18 }}>
+                  <Label>Diet <Required /></Label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[[true, 'Veg', A.success], [false, 'Non-Veg', A.danger]].map(([val, lab, col]) => (
+                      <button key={lab} onClick={() => setForm(f => ({ ...f, isVeg: val }))}
+                        style={{
+                          flex: 1, padding: '10px 12px', borderRadius: 10,
+                          border: `1.5px solid ${form.isVeg === val ? col : 'rgba(0,0,0,0.10)'}`,
+                          background: form.isVeg === val ? col + '12' : A.shell,
+                          color: form.isVeg === val ? col : A.mutedText,
+                          fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: A.font,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          transition: 'all 0.15s',
+                        }}>
+                        <span style={{
+                          width: 12, height: 12,
+                          border: `1.5px solid ${col}`,
+                          borderRadius: val ? 0 : '50%',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <span style={{
+                            width: 5, height: 5,
+                            background: col,
+                            borderRadius: val ? 0 : '50%',
+                          }} />
+                        </span>
+                        {lab}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Spice */}
+                <div style={{ marginBottom: 18 }}>
+                  <Label>Spice level <Required /></Label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {SPICE_LEVELS.map(lv => (
+                      <button key={lv} onClick={() => setForm(f => ({ ...f, spiceLevel: lv }))}
+                        style={{
+                          padding: '7px 14px', borderRadius: 8,
+                          border: `1.5px solid ${form.spiceLevel === lv ? SPICE_COLORS[lv] : 'rgba(0,0,0,0.08)'}`,
+                          background: form.spiceLevel === lv ? SPICE_COLORS[lv] + '15' : A.shell,
+                          color: form.spiceLevel === lv ? SPICE_COLORS[lv] : A.mutedText,
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                        }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: SPICE_COLORS[lv] }} />
+                        {lv}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Offer badge */}
+                <div style={{ marginBottom: 18 }}>
+                  <Label>Badge (optional)</Label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    <button onClick={() => setForm(f => ({ ...f, offerBadge: '', offerColor: '#C07050' }))}
+                      className="it-badge-tile"
+                      style={{
+                        padding: '8px 10px', borderRadius: 8,
+                        border: `1.5px solid ${!form.offerBadge ? A.ink : 'rgba(0,0,0,0.08)'}`,
+                        background: !form.offerBadge ? A.subtleBg : A.shell,
+                        color: !form.offerBadge ? A.ink : A.mutedText,
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+                      }}>None</button>
+                    {OFFER_BADGES.map(b => (
+                      <button key={b.label}
+                        onClick={() => setForm(f => ({ ...f, offerBadge: b.label, offerColor: b.color }))}
+                        className="it-badge-tile"
+                        style={{
+                          padding: '8px 10px', borderRadius: 8,
+                          border: `1.5px solid ${form.offerBadge === b.label ? b.color : 'rgba(0,0,0,0.08)'}`,
+                          background: form.offerBadge === b.label ? b.color + '15' : A.shell,
+                          color: form.offerBadge === b.label ? b.color : A.mutedText,
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+                        }}>{b.label}</button>
+                    ))}
+                  </div>
+                  {form.offerBadge === 'Custom…' && (
+                    <input className="it-input"
+                      value={customBadge}
+                      onChange={e => setCustomBadge(e.target.value)}
+                      placeholder="Custom badge text"
+                      maxLength={20}
+                      style={{ ...inputStyle, marginTop: 8 }} />
+                  )}
+                </div>
+
+                {/* Flags */}
+                <div style={{ marginBottom: 18 }}>
+                  <Label>Flags</Label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <FlagRow label="Visible on menu" hint="Customers can see and order this dish" on={form.isActive !== false} onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))} color={A.success} />
+                    <FlagRow label="Popular" hint="Adds a 'Popular' pill on the menu" on={!!form.isPopular} onClick={() => setForm(f => ({ ...f, isPopular: !f.isPopular }))} color={A.warning} />
+                    <FlagRow label="Featured" hint="Highlighted at the top of its category" on={!!form.isFeatured} onClick={() => setForm(f => ({ ...f, isFeatured: !f.isFeatured }))} color={A.success} />
+                    <FlagRow label="Out of stock" hint="Greys out on menu until you toggle off" on={!!form.isOutOfStock} onClick={() => setForm(f => ({ ...f, isOutOfStock: !f.isOutOfStock }))} color={A.danger} />
+                  </div>
+                </div>
+
+                {/* Sort order (advanced) */}
+                <div style={{ marginBottom: 12 }}>
+                  <Label>Sort order <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: A.faintText }}>(lower = shown first, usually managed by drag)</span></Label>
+                  <input className="it-input" type="number"
+                    value={form.sortOrder || ''}
+                    onChange={e => setForm(f => ({ ...f, sortOrder: e.target.value }))}
+                    placeholder="Auto"
+                    style={{ ...inputStyle, maxWidth: 140 }} />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                padding: '14px 22px', borderTop: A.border,
+                display: 'flex', gap: 10, justifyContent: 'flex-end',
+              }}>
+                <button onClick={closeDrawer}
+                  style={{
+                    padding: '10px 18px', borderRadius: 10, border: A.border,
+                    background: A.shell, color: A.mutedText,
+                    fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: A.font,
+                  }}>Cancel</button>
+                <button className="it-btn" onClick={handleSave} disabled={saving}
+                  style={{
+                    padding: '10px 22px', borderRadius: 10, border: 'none',
+                    background: A.ink, color: A.cream,
+                    fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: A.font,
+                    opacity: saving ? 0.6 : 1,
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                  }}>
+                  {saving && <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: A.cream, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </AdminLayout>
+  );
+}
+
+// ═══ Helpers ═══
+const inputStyle = {
+  width: '100%', padding: '10px 12px', borderRadius: 10,
+  border: '1px solid rgba(0,0,0,0.10)', background: '#FAFAF8',
+  fontSize: 13, color: '#1A1A1A', fontFamily: INTER,
+  outline: 'none', boxSizing: 'border-box', transition: 'all 0.15s',
+};
+function Label({ children }) { return <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'rgba(0,0,0,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6, fontFamily: INTER }}>{children}</label>; }
+function Required() { return <span style={{ color: '#D9534F', fontWeight: 700 }}>*</span>; }
+function Divider() { return <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />; }
+function StatTile({ label, value, color = '#EAE7E3', big = false }) {
+  return (
+    <div style={{ minWidth: 74 }}>
+      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(234,231,227,0.35)', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: big ? 22 : 18, color, lineHeight: 1, letterSpacing: big ? '-0.5px' : '-0.3px' }}>{value}</div>
+    </div>
+  );
+}
+function Pill({ children, color }) {
+  return <span style={{
+    padding: '2px 7px', borderRadius: 3,
+    background: color + '18', color,
+    fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+  }}>{children}</span>;
+}
+function StatusChip({ children, color, bg }) {
+  return <span style={{
+    fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+    padding: '2px 8px', borderRadius: 4, background: bg, color,
+    display: 'inline-block', width: 'fit-content',
+  }}>{children}</span>;
+}
+function IconBtn({ children, title, onClick, color = 'rgba(0,0,0,0.55)', disabled = false }) {
+  return (
+    <button onClick={onClick} title={title} disabled={disabled}
+      style={{
+        width: 28, height: 28, borderRadius: 7, border: 'none',
+        background: 'transparent', color, cursor: disabled ? 'default' : 'pointer',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.12s', opacity: disabled ? 0.6 : 1,
+      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+      {children}
+    </button>
+  );
+}
+function FlagRow({ label, hint, on, onClick, color }) {
+  return (
+    <div onClick={onClick} style={{
+      padding: '10px 14px', borderRadius: 10, background: '#FAFAF8',
+      border: `1px solid ${on ? color + '40' : 'rgba(0,0,0,0.06)'}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      cursor: 'pointer', transition: 'all 0.15s',
+    }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A', marginBottom: 1 }}>{label}</div>
+        <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.55)' }}>{hint}</div>
+      </div>
+      <div style={{
+        width: 36, height: 20, borderRadius: 99,
+        background: on ? color : 'rgba(0,0,0,0.15)',
+        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+      }}>
+        <div style={{
+          width: 14, height: 14, borderRadius: '50%', background: '#FFFFFF',
+          position: 'absolute', top: 3, left: on ? 19 : 3,
+          transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+        }} />
+      </div>
+    </div>
+  );
+}
+function LoadingCard() {
+  return (
+    <div style={{ background: '#FFFFFF', borderRadius: 14, border: '1px solid rgba(0,0,0,0.06)', padding: '64px 32px', textAlign: 'center', boxShadow: '0 2px 10px rgba(38,52,49,0.03)' }}>
+      <div style={{ display: 'inline-block', width: 24, height: 24, border: '2px solid rgba(0,0,0,0.04)', borderTopColor: '#C4A86D', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 16 }} />
+      <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.55)' }}>Loading items…</div>
+    </div>
+  );
+}
+function EmptyCard({ titleText, subtitleText }) {
+  return (
+    <div style={{ background: '#FFFFFF', borderRadius: 14, border: '1px solid rgba(0,0,0,0.06)', padding: '64px 32px', textAlign: 'center', boxShadow: '0 2px 10px rgba(38,52,49,0.03)' }}>
+      <div style={{ display: 'inline-flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#C4A86D', opacity: 0.8, animation: 'pulse 1.8s infinite' }} />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(0,0,0,0.10)' }} />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(0,0,0,0.06)' }} />
+      </div>
+      <div style={{ fontWeight: 600, fontSize: 16, color: '#1A1A1A', marginBottom: 8, letterSpacing: '-0.2px' }}>{titleText}</div>
+      <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.55)', lineHeight: 1.6, maxWidth: 440, margin: '0 auto' }}>{subtitleText}</div>
+    </div>
   );
 }
 

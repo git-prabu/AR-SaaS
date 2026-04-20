@@ -1,199 +1,790 @@
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { updatePaymentStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { timeAgo, ADMIN_STYLES as S } from '../../lib/utils';
 
-const PAYMENT_STATUS = {
-    cash_requested: { label: 'Cash Requested', icon: '💵', color: '#A06010', bg: 'rgba(196,168,109,0.12)', border: 'rgba(196,168,109,0.3)' },
-    card_requested: { label: 'Card Requested', icon: '💳', color: '#2A5FA0', bg: 'rgba(74,128,192,0.1)', border: 'rgba(74,128,192,0.25)' },
-    online_requested: { label: 'Online Payment', icon: '📱', color: '#6030A0', bg: 'rgba(96,48,160,0.1)', border: 'rgba(96,48,160,0.25)' },
-    paid_cash: { label: 'Paid — Cash', icon: '✅', color: '#4A7A5E', bg: 'rgba(74,122,94,0.08)', border: 'rgba(74,122,94,0.2)' },
-    paid_card: { label: 'Paid — Card', icon: '✅', color: '#4A7A5E', bg: 'rgba(74,122,94,0.08)', border: 'rgba(74,122,94,0.2)' },
-    paid_online: { label: 'Paid — Online', icon: '✅', color: '#4A7A5E', bg: 'rgba(74,122,94,0.08)', border: 'rgba(74,122,94,0.2)' },
-    unpaid: { label: 'Unpaid', icon: '⏳', color: 'rgba(38,52,49,0.45)', bg: 'rgba(38,52,49,0.04)', border: 'rgba(38,52,49,0.1)' },
+// ═══ Aspire palette — same tokens as analytics/orders/kitchen/waiter ═══
+const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const A = {
+  font: INTER,
+  cream: '#EDEDED',
+  ink: '#1A1A1A',
+  shell: '#FFFFFF',
+  shellDarker: '#FAFAF8',
+  warning: '#C4A86D',
+  warningDim: '#A08656',
+  success: '#3F9E5A',
+  danger: '#D9534F',
+  mutedText: 'rgba(0,0,0,0.55)',
+  faintText: 'rgba(0,0,0,0.38)',
+  subtleBg: 'rgba(0,0,0,0.04)',
+  border: '1px solid rgba(0,0,0,0.06)',
+  shadowCard: '0 2px 10px rgba(38,52,49,0.03)',
+  // Matte-black signature tokens for the LIVE PAYMENTS stats card
+  forest: '#1A1A1A',
+  forestDarker: '#2A2A2A',
+  forestText: '#EAE7E3',
+  forestTextMuted: 'rgba(234,231,227,0.55)',
+  forestTextFaint: 'rgba(234,231,227,0.35)',
+  forestSubtleBg: 'rgba(255,255,255,0.04)',
+  forestBorder: '1px solid rgba(255,255,255,0.06)',
 };
 
+// ═══ Payment status metadata — maps raw Firestore status to display label + accent color.
+//     `kind` groups statuses: 'unpaid' (customer not yet picked method), 'requested' (customer picked, admin needs to confirm), 'paid' (settled).
+//     `methodKey` is the suffix used to construct the paid_* status: 'cash' → 'paid_cash'.
+// ═══
+const PAYMENT_STATUS = {
+  unpaid:           { label: 'Unpaid',         kind: 'unpaid',    color: A.faintText,    bg: A.subtleBg },
+  cash_requested:   { label: 'Cash requested', kind: 'requested', color: A.warningDim,   bg: 'rgba(196,168,109,0.10)', methodKey: 'cash' },
+  card_requested:   { label: 'Card requested', kind: 'requested', color: '#4A7488',      bg: 'rgba(74,116,136,0.10)',  methodKey: 'card' },
+  online_requested: { label: 'UPI requested',  kind: 'requested', color: '#6B4A88',      bg: 'rgba(107,74,136,0.10)',  methodKey: 'online' },
+  paid_cash:        { label: 'Paid · Cash',    kind: 'paid',      color: A.success,      bg: 'rgba(63,158,90,0.10)',   methodKey: 'cash' },
+  paid_card:        { label: 'Paid · Card',    kind: 'paid',      color: A.success,      bg: 'rgba(63,158,90,0.10)',   methodKey: 'card' },
+  paid_online:      { label: 'Paid · UPI',     kind: 'paid',      color: A.success,      bg: 'rgba(63,158,90,0.10)',   methodKey: 'online' },
+};
+const PAID_STATUSES = new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']);
+
+// ═══ Period boundaries for stats + history filtering ═══
+function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() / 1000; }
+function startOfWeek()  { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - d.getDay()); return d.getTime() / 1000; }
+function startOfMonth() { const d = new Date(); d.setHours(0,0,0,0); d.setDate(1); return d.getTime() / 1000; }
+
+// ═══ Utils ═══
+function formatRupee(n) {
+  const v = Math.round(Number(n) || 0);
+  return '₹' + v.toLocaleString('en-IN');
+}
+// ═══ Format elapsed seconds as human-readable duration.
+//     Cascades through: seconds → minutes+seconds → hours+minutes → days+hours.
+//     Drops smaller units once we're in the larger ones (e.g., at hours we don't show seconds
+//     because they're irrelevant at that scale).
+//     Examples: 45s, 2m 30s, 3m, 1h 5m, 3h, 106h 6m stays short, 5d 2h.
+// ═══
+function formatElapsed(seconds) {
+  if (seconds == null || seconds < 0) return '—';
+  if (seconds < 60) return `${Math.floor(seconds)}s`;
+  const totalMin = Math.floor(seconds / 60);
+  if (totalMin < 60) {
+    const s = Math.floor(seconds % 60);
+    return s === 0 ? `${totalMin}m` : `${totalMin}m ${s}s`;
+  }
+  const totalHr = Math.floor(totalMin / 60);
+  if (totalHr < 24) {
+    const m = totalMin % 60;
+    return m === 0 ? `${totalHr}h` : `${totalHr}h ${m}m`;
+  }
+  const d = Math.floor(totalHr / 24);
+  const h = totalHr % 24;
+  return h === 0 ? `${d}d` : `${d}d ${h}h`;
+}
+function orderLabel(o) {
+  if (typeof o.orderNumber === 'number' && o.orderNumber > 0) return `#${o.orderNumber}`;
+  return '#' + (o.id || '').slice(-5).toUpperCase();
+}
+function fmtTime(seconds) {
+  if (!seconds) return '—';
+  return new Date(seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function AdminPayments() {
-    const { userData } = useAuth();
-    const [allOrders, setAllOrders] = useState([]);
-    const [filter, setFilter] = useState('pending'); // 'pending' | 'completed' | 'all'
-    const [updating, setUpdating] = useState(null);
-    const [tick, setTick] = useState(0);
-    const rid = userData?.restaurantId;
+  const { userData } = useAuth();
+  const rid = userData?.restaurantId;
 
-    // Direct Firestore listener — bypasses AdminDataContext timing issue
-    useEffect(() => {
-        if (!rid) return;
-        const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
-        return onSnapshot(q, snap => {
-            setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, err => {
-            console.error('Payments orders listener error:', err);
-        });
-    }, [rid]);
+  const [allOrders, setAllOrders] = useState([]);
+  const [loaded, setLoaded] = useState(false); // true after first Firestore snapshot arrives
+  const [filter, setFilter] = useState('pending'); // 'pending' | 'completed' | 'all'
+  // Default to 'today' — admins open this page to handle current-shift payments.
+  // Historical data is still accessible via Week/Month/All pills when needed (e.g. revenue review).
+  const [period, setPeriod] = useState('today');
+  const [search, setSearch] = useState('');
+  const [updating, setUpdating] = useState(null);  // order id currently being updated
+  const [expandedId, setExpandedId] = useState(null);
+  // Map<orderId, 'cash'|'card'|'online'> — which method the admin has PICKED for each unpaid
+  // order (not yet committed). Separate from the actual paymentStatus so the two-step flow works:
+  // step 1 tap Cash/Card/UPI (stored here), step 2 tap "Mark as Paid" (commits via markPaid).
+  const [selectedMethods, setSelectedMethods] = useState({});
+  const [toast, setToast] = useState(null);        // { orderId, previousStatus, expiresAt, timeoutId }
 
-    // Filter to only show orders relevant to payments
-    const orders = allOrders.filter(o =>
-        o.status === 'served' ||
-        ['cash_requested', 'card_requested', 'online_requested', 'paid_cash', 'paid_card', 'paid_online'].includes(o.paymentStatus)
-    );
-
-    useEffect(() => {
-        const t = setInterval(() => setTick(n => n + 1), 30000);
-        return () => clearInterval(t);
-    }, []);
-
-    const isPaid = (ps) => ['paid_cash', 'paid_card', 'paid_online', 'paid'].includes(ps);
-    const isPending = (o) => !isPaid(o.paymentStatus);
-
-    const displayed = orders.filter(o => {
-        if (filter === 'pending') return isPending(o);
-        if (filter === 'completed') return isPaid(o.paymentStatus);
-        return true;
+  // ── Firestore listener ──
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, snap => {
+      setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoaded(true);
+    }, err => {
+      console.error('Payments listener error:', err);
+      setLoaded(true); // mark loaded even on error so the empty state shows instead of infinite loading
     });
+  }, [rid]);
 
-    const pendingCount = orders.filter(o => isPending(o)).length;
-    const completedCount = orders.filter(o => isPaid(o.paymentStatus)).length;
-    const totalRevenue = orders.filter(o => isPaid(o.paymentStatus)).reduce((s, o) => s + (o.total || 0), 0);
+  // ── Cleanup toast timeout on unmount ──
+  useEffect(() => () => { if (toast?.timeoutId) clearTimeout(toast.timeoutId); }, [toast]);
 
-    const markPaid = async (orderId, method) => {
-        if (!rid) return;
-        setUpdating(orderId);
-        const statusMap = { cash_requested: 'paid_cash', card_requested: 'paid_card', online_requested: 'paid_online' };
-        await updatePaymentStatus(rid, orderId, statusMap[method] || 'paid_cash');
-        setUpdating(null);
-    };
+  // ═══ Payment-relevant orders ═══
+  // Only show orders that are either:
+  //   (a) served AND have any paymentStatus (including 'unpaid' — customer ate, needs to pay)
+  //   (b) have an active requested status (even if not served yet, though this is rare)
+  // Orders that are pending/preparing with no payment activity are irrelevant to this page.
+  const relevantOrders = useMemo(() => {
+    return allOrders.filter(o => {
+      const hasPaymentActivity = o.paymentStatus && o.paymentStatus !== 'inactive';
+      if (!hasPaymentActivity) return false;
+      if (o.status === 'served') return true;
+      // Also show orders with active payment requests that aren't yet served (unusual but possible)
+      if (['cash_requested', 'card_requested', 'online_requested'].includes(o.paymentStatus)) return true;
+      if (PAID_STATUSES.has(o.paymentStatus)) return true;
+      // 'unpaid' but not yet served — not shown (nothing to pay for yet)
+      return false;
+    });
+  }, [allOrders]);
 
-    return (
-        <AdminLayout>
-            <Head><title>Payments — Advert Radical</title></Head>
-            <div style={{ background: '#EAE7E3', minHeight: '100vh', padding: 32, fontFamily: 'Outfit, sans-serif' }}>
-                <div style={{ maxWidth: 960, margin: '0 auto' }}>
-                    <style>{`
-            @keyframes spin    { to{transform:rotate(360deg)} }
-            @keyframes fadeUp  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
-            @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
-            .pay-card { animation: fadeUp 0.22s ease both; }
-            .pay-btn { padding:10px 20px; border-radius:10px; border:none; font-size:12px; font-weight:600; cursor:pointer; font-family:Outfit,sans-serif; transition:all 0.18s; letter-spacing:0.02em; }
-            .pay-btn:hover { filter:brightness(0.93); transform:translateY(-1px); box-shadow:0 4px 12px rgba(38,52,49,0.12); }
-            .pay-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
-            .pf-btn { padding:9px 22px; border-radius:30px; border:none; font-size:12px; font-weight:600; cursor:pointer; font-family:Outfit,sans-serif; transition:all 0.18s; letter-spacing:0.01em; }
-          `}</style>
+  const isPaid = (o) => PAID_STATUSES.has(o.paymentStatus);
+  const isRequested = (o) => PAYMENT_STATUS[o.paymentStatus]?.kind === 'requested';
 
-                    {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-                        <div>
-                            <h1 style={S.h1}>Payments</h1>
-                            <p style={S.sub}>Track and manage table payments</p>
-                        </div>
-                    </div>
+  // ═══ Period filtering (applies to all stats + list) ═══
+  const periodStart = useMemo(() => {
+    if (period === 'today') return startOfToday();
+    if (period === 'week')  return startOfWeek();
+    if (period === 'month') return startOfMonth();
+    return 0;
+  }, [period]);
 
-                    {/* Summary cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
-                        <div style={{ ...S.card, padding: '18px 22px', background: 'rgba(196,168,109,0.10)', display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: 28, color: '#C4A86D', lineHeight: 1 }}>{pendingCount}</span>
-                            <span style={{ fontSize: 13, color: '#A06010', fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>Pending</span>
-                        </div>
-                        <div style={{ ...S.card, padding: '18px 22px', background: 'rgba(74,122,94,0.10)', display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: 28, color: '#4A7A5E', lineHeight: 1 }}>{completedCount}</span>
-                            <span style={{ fontSize: 13, color: '#1A6B38', fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>Completed</span>
-                        </div>
-                        <div style={{ ...S.card, padding: '18px 22px', background: 'rgba(38,52,49,0.08)', display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: 28, color: '#263431', lineHeight: 1 }}>₹{totalRevenue}</span>
-                            <span style={{ fontSize: 13, color: '#263431', fontWeight: 600, fontFamily: 'Outfit, sans-serif', opacity: 0.7 }}>Collected</span>
-                        </div>
-                    </div>
+  // For paid orders, filter by paymentUpdatedAt (when money arrived).
+  // For unpaid/requested, filter by createdAt (when bill was generated).
+  const inPeriod = (o) => {
+    if (periodStart === 0) return true;
+    const ts = isPaid(o)
+      ? (o.paymentUpdatedAt?.seconds || o.createdAt?.seconds || 0)
+      : (o.createdAt?.seconds || 0);
+    return ts >= periodStart;
+  };
 
-                    {/* Filter tabs */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                        {[['pending', 'Pending'], ['completed', 'Completed'], ['all', 'All']].map(([val, label]) => (
-                            <button key={val} className="pf-btn" onClick={() => setFilter(val)}
-                                style={{ background: filter === val ? '#263431' : '#fff', color: filter === val ? '#EAE7E3' : 'rgba(38,52,49,0.55)', boxShadow: filter === val ? '0 2px 8px rgba(28,40,37,0.2)' : '0 1px 4px rgba(38,52,49,0.06)' }}>
-                                {label}{val === 'pending' && pendingCount > 0 ? ` (${pendingCount})` : ''}
-                            </button>
-                        ))}
-                    </div>
+  // ═══ Stats (always based on period, not current filter) ═══
+  const stats = useMemo(() => {
+    const inRange = relevantOrders.filter(inPeriod);
+    const pending = inRange.filter(o => !isPaid(o));
+    const paid = inRange.filter(o => isPaid(o));
+    const collected = paid.reduce((s, o) => s + (o.total || 0), 0);
 
-                    {/* Payments list */}
-                    {displayed.length === 0 ? (
-                        <div style={{ ...S.card, padding: '60px 32px', textAlign: 'center' }}>
-                            <div style={{ fontSize: 40, marginBottom: 12 }}>💰</div>
-                            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 17, color: '#263431', marginBottom: 6 }}>
-                                {filter === 'pending' ? 'No pending payments' : filter === 'completed' ? 'No completed payments' : 'No payments yet'}
-                            </div>
-                            <div style={{ fontSize: 13, color: 'rgba(38,52,49,0.4)' }}>
-                                {filter === 'pending' ? 'Payment requests from customers will appear here.' : 'Payments will show up once orders are served and settled.'}
-                            </div>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {displayed.map((order, idx) => {
-                                const ps = PAYMENT_STATUS[order.paymentStatus] || PAYMENT_STATUS.unpaid;
-                                const paid = isPaid(order.paymentStatus);
-                                const secs = order.createdAt?.seconds;
-                                const total = order.total || order.items?.reduce((s, i) => s + ((i.price || 0) * (i.qty || 1)), 0) || 0;
+    // Average collection time: from bill-ready (createdAt of requested status) → paymentUpdatedAt (paid).
+    // We approximate bill-ready as createdAt since we don't track request timestamp separately.
+    const withTimes = paid.filter(o => o.createdAt?.seconds && o.paymentUpdatedAt?.seconds);
+    const avgSec = withTimes.length > 0
+      ? Math.round(withTimes.reduce((s, o) => s + (o.paymentUpdatedAt.seconds - o.createdAt.seconds), 0) / withTimes.length)
+      : null;
 
-                                return (
-                                    <div key={order.id} className="pay-card"
-                                        style={{ ...S.card, padding: '20px 24px', animationDelay: `${idx * 0.04}s`, borderLeft: `4px solid ${ps.color}`, opacity: paid ? 0.7 : 1 }}>
+    // Method breakdown
+    const methodCounts = paid.reduce((acc, o) => {
+      const key = PAYMENT_STATUS[o.paymentStatus]?.methodKey || 'other';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
 
-                                        {/* Top row */}
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 18, color: '#263431' }}>
-                                                    Table {order.tableNumber || '—'}
-                                                </div>
-                                                <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 24, background: ps.bg, color: ps.color, border: `1px solid ${ps.border}`, fontFamily: 'Outfit, sans-serif', letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
-                                                    {ps.icon} {ps.label}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                                <span style={{ fontSize: 12, color: 'rgba(38,52,49,0.4)' }}>{timeAgo(secs)}</span>
-                                                <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: 18, color: '#263431' }}>₹{total}</span>
-                                            </div>
-                                        </div>
+    return { pending: pending.length, paidCount: paid.length, collected, avgSec, methodCounts };
+  }, [relevantOrders, period]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-                                        {/* Items summary */}
-                                        <div style={{ fontSize: 13, color: 'rgba(38,52,49,0.55)', marginBottom: 14, lineHeight: 1.6 }}>
-                                            {(order.items || []).map(i => `${i.name} × ${i.qty}`).join(', ')}
-                                        </div>
+  // ═══ List of orders shown — applies filter + period + search ═══
+  const displayed = useMemo(() => {
+    let list = relevantOrders.filter(inPeriod);
+    if (filter === 'pending')   list = list.filter(o => !isPaid(o));
+    if (filter === 'completed') list = list.filter(o => isPaid(o));
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(o => {
+        if (String(o.tableNumber || '').toLowerCase().includes(q)) return true;
+        if (orderLabel(o).toLowerCase().includes(q)) return true;
+        if (String(o.total || '').includes(q)) return true;
+        return false;
+      });
+    }
+    return list;
+  }, [relevantOrders, filter, period, search]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-                                        {/* Order status */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: paid ? 0 : 14, fontSize: 11, color: 'rgba(38,52,49,0.4)' }}>
-                                            <span>Order: {order.status || 'pending'}</span>
-                                        </div>
+  // ═══ Mark as paid — called with explicit method so `unpaid` orders don't silently default to cash ═══
+  const markPaid = async (order, method /* 'cash' | 'card' | 'online' */) => {
+    if (!rid) return;
+    const previousStatus = order.paymentStatus;
+    const newStatus = `paid_${method}`;
+    setUpdating(order.id);
+    try {
+      await updatePaymentStatus(rid, order.id, newStatus);
+      // Clear any selected method for this order (row is now paid, will disappear from pending filter)
+      setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
+      // Show undo toast for 60 seconds
+      showUndoToast(order.id, previousStatus);
+    } catch (e) {
+      console.error('Payment update failed:', e);
+    }
+    setUpdating(null);
+  };
 
-                                        {/* Action buttons */}
-                                        {!paid && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                                <button className="pay-btn"
-                                                    disabled={updating === order.id}
-                                                    onClick={() => markPaid(order.id, order.paymentStatus)}
-                                                    style={{ background: '#4A7A5E', color: '#fff', padding: '10px 22px' }}>
-                                                    {updating === order.id
-                                                        ? <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                                                        : '✓ Mark as Paid'}
-                                                </button>
-                                                {order.paymentStatus === 'unpaid' && (
-                                                    <span style={{ fontSize: 12, color: 'rgba(38,52,49,0.4)', fontStyle: 'italic' }}>
-                                                        Customer hasn't selected a payment method yet
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+  // ═══ Undo — restores previous payment status ═══
+  const undoPayment = async () => {
+    if (!toast || !rid) return;
+    const { orderId, previousStatus, timeoutId } = toast;
+    if (timeoutId) clearTimeout(timeoutId);
+    setToast(null);
+    try {
+      await updatePaymentStatus(rid, orderId, previousStatus);
+    } catch (e) {
+      console.error('Undo failed:', e);
+    }
+  };
+
+  const showUndoToast = (orderId, previousStatus) => {
+    if (toast?.timeoutId) clearTimeout(toast.timeoutId);
+    const expiresAt = Date.now() + 60000;
+    const timeoutId = setTimeout(() => setToast(null), 60000);
+    setToast({ orderId, previousStatus, expiresAt, timeoutId });
+  };
+
+  // ═══ CSV export — daily reconciliation ═══
+  const exportCSV = () => {
+    const rows = [
+      ['Order #', 'Table', 'Status', 'Method', 'Total', 'Items', 'Bill time', 'Paid time'],
+      ...displayed.map(o => {
+        const meta = PAYMENT_STATUS[o.paymentStatus] || PAYMENT_STATUS.unpaid;
+        return [
+          orderLabel(o),
+          o.tableNumber || '',
+          meta.label,
+          meta.methodKey || '—',
+          o.total || 0,
+          (o.items || []).map(i => `${i.qty || 1}x ${i.name}`).join('; '),
+          fmtTime(o.createdAt?.seconds),
+          fmtTime(o.paymentUpdatedAt?.seconds),
+        ];
+      }),
+    ];
+    const csv = rows.map(r => r.map(cell => {
+      const s = String(cell);
+      return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payments-${period}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const print = () => { if (typeof window !== 'undefined') window.print(); };
+
+  // Grouped-by-day for the list display (matches orders page pattern)
+  const grouped = useMemo(() => {
+    const map = new Map();
+    displayed.forEach(o => {
+      const secs = o.createdAt?.seconds || 0;
+      const d = new Date(secs * 1000);
+      const key = d.toISOString().slice(0, 10);
+      if (!map.has(key)) map.set(key, { key, date: d, orders: [] });
+      map.get(key).orders.push(o);
+    });
+    return Array.from(map.values()).sort((a, b) => b.date - a.date);
+  }, [displayed]);
+
+  return (
+    <AdminLayout>
+      <Head><title>Payments | Advert Radical</title></Head>
+      <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
+        <style>{`
+          @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+          @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+          .pay-row { transition: all 0.15s; }
+          .pay-row:hover { box-shadow: 0 4px 20px rgba(38,52,49,0.06); }
+          .pay-tab-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
+          .pay-period-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
+          .pay-icon-btn:hover { background: ${A.shellDarker}; }
+          .pay-action-btn:hover:not(:disabled) { filter: brightness(1.08); }
+          @media print {
+            .no-print { display: none !important; }
+          }
+        `}</style>
+
+        {/* ═══ Header ═══ */}
+        <div style={{ padding: '24px 28px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, gap: 14, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>Operations</span>
+                <span style={{ opacity: 0.5 }}>›</span>
+                <span style={{ color: A.mutedText }}>Payments</span>
+              </div>
+              <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                Payments
+              </div>
             </div>
-        </AdminLayout>
-    );
+
+            <div className="no-print" style={{ display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start' }}>
+              <button className="pay-icon-btn" onClick={exportCSV} title="Export current view as CSV"
+                style={{
+                  padding: '8px 14px', borderRadius: 10, border: A.border, background: A.shell,
+                  color: A.ink, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+                }}>Export CSV</button>
+              <button className="pay-icon-btn" onClick={print} title="Print"
+                style={{
+                  padding: '8px 14px', borderRadius: 10, border: A.border, background: A.shell,
+                  color: A.ink, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+                }}>Print</button>
+            </div>
+          </div>
+
+          {/* Signature matte-black stats card — compact single-row layout matching kitchen/waiter */}
+          <div style={{
+            background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+            borderRadius: 12, padding: '12px 18px', marginTop: 12, marginBottom: 14,
+            border: A.forestBorder,
+            boxShadow: '0 4px 16px rgba(38,52,49,0.12)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 6px rgba(196,168,109,0.6)' }} />
+                <span style={{ fontFamily: A.font, fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: A.warning }}>LIVE PAYMENTS</span>
+              </div>
+              <div style={{ width: 1, height: 28, background: 'rgba(234,231,227,0.10)', flexShrink: 0 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 80 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Pending</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 22, color: stats.pending > 0 ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                    {stats.pending}
+                  </div>
+                </div>
+                <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+                <div style={{ minWidth: 120 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Collected</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 22, color: A.warning, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                    {formatRupee(stats.collected)}
+                  </div>
+                </div>
+                <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+                <div style={{ minWidth: 80 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>
+                    Paid
+                    {stats.paidCount > 0 && (
+                      <span style={{ color: A.forestTextMuted, fontWeight: 500, letterSpacing: 0, textTransform: 'none', marginLeft: 6 }}>
+                        · {stats.methodCounts.cash || 0} cash · {stats.methodCounts.card || 0} card · {stats.methodCounts.online || 0} UPI
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: A.success, lineHeight: 1, letterSpacing: '-0.3px' }}>
+                    {stats.paidCount}
+                  </div>
+                </div>
+                <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+                <div style={{ minWidth: 100 }}>
+                  <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Avg collection</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: A.forestText, lineHeight: 1, letterSpacing: '-0.3px' }}>
+                    {stats.avgSec != null ? formatElapsed(stats.avgSec) : '—'}
+                  </div>
+                </div>
+              </div>
+              <span style={{ fontFamily: A.font, fontSize: 10, color: A.forestTextMuted, fontWeight: 500, flexShrink: 0, letterSpacing: '0.02em' }}>
+                {period === 'today' ? 'Today' : period === 'week' ? 'This week' : period === 'month' ? 'This month' : 'All time'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ Filter bar ═══ */}
+        <div className="no-print" style={{ padding: '0 28px', marginBottom: 14 }}>
+          <div style={{
+            background: A.shell, border: A.border, borderRadius: 14,
+            boxShadow: A.shadowCard, padding: '12px 18px',
+            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+          }}>
+            {/* Status filter tabs */}
+            <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
+              {[
+                ['pending',   'Pending',   stats.pending],
+                ['completed', 'Completed', stats.paidCount],
+                ['all',       'All',       null],
+              ].map(([val, label, count]) => {
+                const active = filter === val;
+                return (
+                  <button key={val} className={`pay-tab-pill ${active ? 'active' : ''}`}
+                    onClick={() => setFilter(val)}
+                    style={{
+                      padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                      fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 600,
+                      background: active ? A.ink : 'transparent',
+                      color: active ? A.cream : A.mutedText,
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      transition: 'all 0.15s',
+                    }}>
+                    {label}
+                    {count != null && count > 0 && (
+                      <span style={{
+                        padding: '1px 6px', borderRadius: 8,
+                        background: active ? 'rgba(237,237,237,0.18)' : 'rgba(196,168,109,0.20)',
+                        color: active ? A.cream : A.warningDim,
+                        fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                      }}>{count}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />
+
+            {/* Period pills */}
+            <div style={{ display: 'inline-flex', gap: 4 }}>
+              {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([val, label]) => {
+                const active = period === val;
+                return (
+                  <button key={val} className={`pay-period-pill ${active ? 'active' : ''}`}
+                    onClick={() => setPeriod(val)}
+                    style={{
+                      padding: '6px 12px', fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 500,
+                      background: active ? A.ink : 'transparent',
+                      color: active ? A.cream : A.mutedText,
+                      border: 'none', borderRadius: 7, cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}>{label}</button>
+                );
+              })}
+            </div>
+
+            <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />
+
+            {/* Search */}
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search order #, table, amount…"
+              style={{
+                flex: 1, minWidth: 220,
+                padding: '8px 12px', borderRadius: 8,
+                border: A.border, background: A.shellDarker,
+                fontSize: 13, fontFamily: A.font, color: A.ink,
+                outline: 'none',
+              }}
+              onFocus={e => e.target.style.background = A.shell}
+              onBlur={e => e.target.style.background = A.shellDarker}
+            />
+            <span style={{ fontSize: 12, color: A.faintText, fontWeight: 500 }}>
+              {displayed.length} order{displayed.length === 1 ? '' : 's'}
+            </span>
+          </div>
+        </div>
+
+        {/* ═══ Orders list ═══ */}
+        <div style={{ padding: '0 28px 80px' }}>
+          {!loaded ? (
+            // Loading state — shown while Firestore fetches orders. Prevents
+            // flashing "No payments" before data arrives on first load.
+            <div style={{
+              background: A.shell, borderRadius: 14, border: A.border,
+              padding: '64px 32px', textAlign: 'center', boxShadow: A.shadowCard,
+            }}>
+              <div style={{
+                display: 'inline-block', width: 24, height: 24,
+                border: `2px solid ${A.subtleBg}`, borderTopColor: A.warning,
+                borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+                marginBottom: 16,
+              }} />
+              <div style={{ fontSize: 13, color: A.mutedText }}>Loading payments…</div>
+            </div>
+          ) : grouped.length === 0 ? (
+            <div style={{
+              background: A.shell, borderRadius: 14, border: A.border,
+              padding: '64px 32px', textAlign: 'center', boxShadow: A.shadowCard,
+            }}>
+              <div style={{ display: 'inline-flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: A.warning, opacity: 0.8, animation: 'pulse 1.8s infinite' }} />
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(0,0,0,0.10)' }} />
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(0,0,0,0.06)' }} />
+              </div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: A.ink, marginBottom: 8, letterSpacing: '-0.2px' }}>
+                {filter === 'pending' ? 'No pending payments' : filter === 'completed' ? 'No completed payments' : 'No payments yet'}
+              </div>
+              <div style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, maxWidth: 360, margin: '0 auto' }}>
+                {filter === 'pending'
+                  ? 'Payment requests from customers will appear here.'
+                  : 'Payments will show up once orders are served and settled.'}
+              </div>
+            </div>
+          ) : (
+            grouped.map(group => (
+              <div key={group.key} style={{ marginBottom: 28 }}>
+                {/* Day tag */}
+                <div style={{ display: 'inline-block', padding: '5px 14px', borderRadius: 14, background: A.ink, color: A.cream, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
+                  {group.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  <span style={{ color: 'rgba(237,237,237,0.5)', marginLeft: 10, fontWeight: 500 }}>
+                    {group.orders.length} order{group.orders.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {group.orders.map((order, idx) => {
+                    const meta = PAYMENT_STATUS[order.paymentStatus] || PAYMENT_STATUS.unpaid;
+                    const paid = isPaid(order);
+                    const requested = isRequested(order);
+                    const total = order.total || (order.items || []).reduce((s, i) => s + ((i.price || 0) * (i.qty || 1)), 0);
+                    const expanded = expandedId === order.id;
+
+                    // Collection time — for paid orders, how long from createdAt to paymentUpdatedAt
+                    const collectionTime = (paid && order.createdAt?.seconds && order.paymentUpdatedAt?.seconds)
+                      ? order.paymentUpdatedAt.seconds - order.createdAt.seconds
+                      : null;
+
+                    return (
+                      <div key={order.id} className="pay-row"
+                        onClick={(e) => {
+                          if (e.target.closest('button') || e.target.closest('input')) return;
+                          setExpandedId(expanded ? null : order.id);
+                        }}
+                        style={{
+                          background: A.shell, borderRadius: 14, border: A.border,
+                          borderLeft: paid ? `4px solid ${A.success}` : requested ? `4px solid ${A.warning}` : `4px solid rgba(0,0,0,0.15)`,
+                          boxShadow: A.shadowCard,
+                          padding: '16px 22px',
+                          animation: 'fadeUp 0.22s ease both',
+                          animationDelay: `${Math.min(idx * 0.03, 0.3)}s`,
+                          cursor: 'pointer',
+                          opacity: paid ? 0.85 : 1,
+                        }}>
+                        {/* Top row: order # · table · status · amount */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 17, color: A.ink, letterSpacing: '-0.4px' }}>
+                              {orderLabel(order)}
+                            </span>
+                            <span style={{ color: A.faintText, fontSize: 14 }}>·</span>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: A.ink }}>
+                              Table {order.tableNumber || '—'}
+                            </span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                              padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase',
+                              background: meta.bg, color: meta.color,
+                            }}>
+                              {meta.label}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <span style={{ fontSize: 11, color: A.faintText, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                              {fmtTime(order.createdAt?.seconds)}
+                            </span>
+                            <span style={{
+                              fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16,
+                              color: A.ink, letterSpacing: '-0.3px', fontVariantNumeric: 'tabular-nums',
+                            }}>
+                              {formatRupee(total)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Subtitle: item count, collection time if paid */}
+                        <div style={{ marginTop: 6, fontSize: 12, color: A.mutedText, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span>{(order.items || []).length} item{(order.items || []).length === 1 ? '' : 's'}</span>
+                          {collectionTime != null && (
+                            <>
+                              <span style={{ color: A.faintText }}>·</span>
+                              <span>Collected {formatElapsed(collectionTime)} after bill</span>
+                            </>
+                          )}
+                          {!paid && (
+                            <>
+                              <span style={{ color: A.faintText }}>·</span>
+                              <span style={{
+                                fontSize: 10, color: A.faintText, fontStyle: 'italic',
+                              }}>Click to {expanded ? 'collapse' : 'view items'}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Expanded items list */}
+                        {expanded && (order.items || []).length > 0 && (
+                          <div style={{
+                            marginTop: 12, paddingTop: 12,
+                            borderTop: '1px dashed rgba(0,0,0,0.08)',
+                          }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>
+                              Bill breakdown
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {(order.items || []).map((item, i) => {
+                                const lineTotal = (item.price || 0) * (item.qty || 1);
+                                return (
+                                  <div key={i} style={{
+                                    display: 'grid', gridTemplateColumns: '36px 1fr auto',
+                                    gap: 14, alignItems: 'center',
+                                  }}>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: A.warning }}>
+                                      {item.qty || 1}×
+                                    </span>
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: A.ink }}>
+                                      {item.name}
+                                    </span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: A.mutedText, fontVariantNumeric: 'tabular-nums' }}>
+                                      {formatRupee(lineTotal)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actions row — only for unpaid orders */}
+                        {!paid && (
+                          <div className="no-print" style={{
+                            marginTop: 14,
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            gap: 12, flexWrap: 'wrap',
+                          }}>
+                            {requested ? (
+                              // Customer picked a method — method pre-selected, admin just confirms.
+                              // Left: show the selected method as a confirmation label.
+                              // Right: Mark as Paid button.
+                              <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: A.mutedText, letterSpacing: '0.04em' }}>
+                                    Customer selected:
+                                  </span>
+                                  <span style={{
+                                    padding: '6px 14px', borderRadius: 8,
+                                    background: 'rgba(196,168,109,0.14)',
+                                    border: `1px solid rgba(196,168,109,0.35)`,
+                                    color: A.warningDim,
+                                    fontSize: 12, fontWeight: 700, letterSpacing: '0.02em',
+                                  }}>
+                                    {meta.methodKey === 'cash' ? 'Cash' : meta.methodKey === 'card' ? 'Card' : 'UPI'}
+                                  </span>
+                                </div>
+                                <button className="pay-action-btn"
+                                  disabled={updating === order.id}
+                                  onClick={() => markPaid(order, meta.methodKey)}
+                                  style={{
+                                    padding: '9px 20px', borderRadius: 8, border: 'none',
+                                    background: A.success, color: A.shell,
+                                    fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                                    cursor: 'pointer', letterSpacing: '0.01em',
+                                    opacity: updating === order.id ? 0.6 : 1,
+                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    minWidth: 130,
+                                  }}>
+                                  {updating === order.id
+                                    ? <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: A.shell, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                                    : 'Mark as Paid'}
+                                </button>
+                              </>
+                            ) : (
+                              // Unpaid — customer hasn't picked. Two-step flow:
+                              //   1. Cash is pre-selected by default (most common in India — saves a tap).
+                              //      Admin can switch to Card/UPI by tapping.
+                              //   2. Admin taps Mark as Paid → commits via markPaid().
+                              // If admin marks wrong method, the 60s undo toast catches it.
+                              (() => {
+                                const effectiveMethod = selectedMethods[order.id] || 'cash';
+                                return (
+                                  <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: 11, fontWeight: 600, color: A.mutedText, letterSpacing: '0.04em' }}>
+                                        Mark as paid by:
+                                      </span>
+                                      {[
+                                        { key: 'cash',   label: 'Cash' },
+                                        { key: 'card',   label: 'Card' },
+                                        { key: 'online', label: 'UPI' },
+                                      ].map(m => {
+                                        const selected = effectiveMethod === m.key;
+                                        return (
+                                          <button key={m.key} className="pay-action-btn"
+                                            disabled={updating === order.id}
+                                            onClick={() => setSelectedMethods(prev => ({ ...prev, [order.id]: m.key }))}
+                                            style={{
+                                              padding: '7px 16px', borderRadius: 8,
+                                              // Tinted gold bg + border + bold when selected; subtle gray when not.
+                                              background: selected ? 'rgba(196,168,109,0.16)' : A.subtleBg,
+                                              border: selected ? `1.5px solid ${A.warning}` : `1.5px solid transparent`,
+                                              color: selected ? A.warningDim : A.ink,
+                                              fontFamily: A.font, fontSize: 12,
+                                              fontWeight: selected ? 700 : 600,
+                                              cursor: 'pointer',
+                                              transition: 'all 0.12s',
+                                            }}>
+                                            {m.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <button className="pay-action-btn"
+                                      disabled={updating === order.id}
+                                      onClick={() => markPaid(order, effectiveMethod)}
+                                      style={{
+                                        padding: '9px 20px', borderRadius: 8, border: 'none',
+                                        background: A.success, color: A.shell,
+                                        fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                                        cursor: 'pointer', letterSpacing: '0.01em',
+                                        opacity: updating === order.id ? 0.6 : 1,
+                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                        minWidth: 130,
+                                        transition: 'all 0.15s',
+                                      }}>
+                                      {updating === order.id
+                                        ? <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: A.shell, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                                        : 'Mark as Paid'}
+                                    </button>
+                                  </>
+                                );
+                              })()
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ═══ Undo toast (60-second window) ═══
+            Note: AdminLayout has a 240px sidebar. `position: fixed` + `left: 50%`
+            would center on the viewport (including sidebar), making the toast appear
+            visually off-center relative to the content area. Shift right by 120px
+            (half the sidebar width) so the toast centers on the visible content. */}
+        {toast && (
+          <div className="no-print" style={{
+            position: 'fixed', bottom: 24,
+            left: 'calc(50% + 120px)', transform: 'translateX(-50%)',
+            zIndex: 100,
+            background: A.ink, color: A.cream,
+            borderRadius: 12, padding: '12px 18px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+            display: 'flex', alignItems: 'center', gap: 14,
+            fontFamily: A.font, fontSize: 13, fontWeight: 500,
+            animation: 'slideUp 0.25s ease both',
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: A.success, flexShrink: 0 }} />
+            <span>Payment marked. Undo within 60 seconds if incorrect.</span>
+            <button onClick={undoPayment} style={{
+              padding: '6px 14px', borderRadius: 6, border: 'none',
+              background: A.warning, color: A.ink,
+              fontFamily: A.font, fontSize: 12, fontWeight: 700,
+              cursor: 'pointer', letterSpacing: '0.02em',
+            }}>Undo</button>
+            <button onClick={() => { if (toast.timeoutId) clearTimeout(toast.timeoutId); setToast(null); }} style={{
+              padding: '4px 8px', borderRadius: 6, border: 'none',
+              background: 'transparent', color: 'rgba(237,237,237,0.4)',
+              fontSize: 16, cursor: 'pointer', lineHeight: 1,
+            }}>×</button>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
+  );
 }
 
 AdminPayments.getLayout = (page) => page;

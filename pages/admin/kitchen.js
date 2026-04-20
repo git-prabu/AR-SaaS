@@ -17,6 +17,14 @@ const A = {
   shellDarker: '#FAFAF8',
   warning: '#C4A86D',       // Antique Gold — brand signature
   warningDim: '#A08656',    // Darker gold for subdued text
+  // Matte black tokens for the signature LIVE card (matches analytics's LIVE TODAY card)
+  forest: '#1A1A1A',
+  forestDarker: '#2A2A2A',
+  forestText: '#EAE7E3',
+  forestTextMuted: 'rgba(234,231,227,0.55)',
+  forestTextFaint: 'rgba(234,231,227,0.35)',
+  forestSubtleBg: 'rgba(255,255,255,0.04)',
+  forestBorder: '1px solid rgba(255,255,255,0.06)',
   success: '#3F9E5A',
   danger: '#D9534F',
   mutedText: 'rgba(0,0,0,0.55)',
@@ -390,55 +398,9 @@ export default function KitchenDisplay() {
             <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
               Kitchen <span style={{ color: A.mutedText, fontWeight: 500 }}>Display</span>
             </div>
-            {/* Promoted stats strip — chips are scannable from across the kitchen */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                color: A.success, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                fontSize: 11,
-                padding: '5px 10px', borderRadius: 14,
-                background: 'rgba(63,158,90,0.08)', border: '1px solid rgba(63,158,90,0.20)',
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: A.success, animation: 'pulse 1.8s infinite' }} />
-                Live
-              </span>
-              <span style={{
-                display: 'inline-flex', alignItems: 'baseline', gap: 6,
-                fontSize: 14, fontWeight: 600, color: A.ink,
-              }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: A.warning, letterSpacing: '-0.3px' }}>
-                  {enrichedActive.length}
-                </span>
-                <span style={{ color: A.mutedText, fontSize: 13, fontWeight: 500 }}>active</span>
-              </span>
-              {oldestAge && (
-                <>
-                  <span style={{ color: A.faintText, fontSize: 12 }}>·</span>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'baseline', gap: 6,
-                    fontSize: 14, fontWeight: 600, color: A.ink,
-                  }}>
-                    <span style={{ color: A.mutedText, fontSize: 13, fontWeight: 500 }}>oldest</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: A.ink, letterSpacing: '-0.2px' }}>
-                      {oldestAge}
-                    </span>
-                  </span>
-                </>
-              )}
-              <span style={{ color: A.faintText, fontSize: 12 }}>·</span>
-              <span style={{
-                display: 'inline-flex', alignItems: 'baseline', gap: 6,
-                fontSize: 14, fontWeight: 600, color: A.ink,
-              }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: A.success, letterSpacing: '-0.2px' }}>
-                  {todayServed}
-                </span>
-                <span style={{ color: A.mutedText, fontSize: 13, fontWeight: 500 }}>served today</span>
-              </span>
-            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start' }}>
             {/* Density toggle */}
             <div style={{ display: 'inline-flex', background: A.shell, border: A.border, borderRadius: 10, padding: 3 }}>
               {[['comfortable', '☰'], ['compact', '≡']].map(([val, icon]) => {
@@ -491,6 +453,49 @@ export default function KitchenDisplay() {
                 Sign Out
               </button>
             )}
+          </div>
+        </div>
+
+        {/* ═══ LIVE KITCHEN stats card — spans full content width, compact for practical use ═══ */}
+        <div style={{
+          background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+          borderRadius: 12, padding: '12px 18px', marginTop: 14, marginBottom: 14,
+          border: A.forestBorder,
+          boxShadow: '0 4px 16px rgba(38,52,49,0.12)',
+        }}>
+          {/* Single horizontal row: label + dividing line + tiles inline + date */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 6px rgba(196,168,109,0.6)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: A.warning }}>LIVE KITCHEN</span>
+            </div>
+            <div style={{ width: 1, height: 28, background: 'rgba(234,231,227,0.10)', flexShrink: 0 }} />
+            {/* Inline stat groups — each is [LABEL / value] */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 80 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Active</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 22, color: enrichedActive.length > 0 ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                  {enrichedActive.length}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+              <div style={{ minWidth: 90 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Oldest</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: A.forestText, lineHeight: 1, letterSpacing: '-0.3px' }}>
+                  {oldestAge || '—'}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+              <div style={{ minWidth: 90 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Served today</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: A.success, lineHeight: 1, letterSpacing: '-0.3px' }}>
+                  {todayServed}
+                </div>
+              </div>
+            </div>
+            <span style={{ fontFamily: A.font, fontSize: 10, color: A.forestTextMuted, fontWeight: 500, flexShrink: 0, letterSpacing: '0.02em' }}>
+              {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </span>
           </div>
         </div>
       </div>

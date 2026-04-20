@@ -1,45 +1,62 @@
 import Head from 'next/head';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { resolveWaiterCall, updateOrderStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-// Direct Firestore listeners used instead of context for reliability
-import { timeAgo, T } from '../../lib/utils';
 
-function isToday(seconds) {
-  if (!seconds) return false;
-  const d = new Date(seconds * 1000);
-  const t = new Date();
-  return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
-}
-
-function isWaiting(seconds) {
-  if (!seconds) return false;
-  return (Date.now() / 1000 - seconds) > 180; // 3 minutes
-}
-
-const CALL_ICONS = {
-  order: '🍽', bill: '🧾', water: '💧', condiment: '🧂', issue: '⚠', other: '🔔',
+// ═══ Aspire palette — same tokens as analytics/reports/orders/kitchen ═══
+const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const A = {
+  font: INTER,
+  cream: '#EDEDED',
+  ink: '#1A1A1A',
+  shell: '#FFFFFF',
+  shellDarker: '#FAFAF8',
+  warning: '#C4A86D',      // Antique gold — used for CALL accent
+  warningDim: '#A08656',
+  // Matte black tokens for the signature LIVE card (matches analytics)
+  forest: '#1A1A1A',
+  forestDarker: '#2A2A2A',
+  forestText: '#EAE7E3',
+  forestTextMuted: 'rgba(234,231,227,0.55)',
+  forestTextFaint: 'rgba(234,231,227,0.35)',
+  forestSubtleBg: 'rgba(255,255,255,0.04)',
+  forestBorder: '1px solid rgba(255,255,255,0.06)',
+  success: '#3F9E5A',      // Green — used for READY accent
+  danger: '#D9534F',
+  mutedText: 'rgba(0,0,0,0.55)',
+  faintText: 'rgba(0,0,0,0.38)',
+  subtleBg: 'rgba(0,0,0,0.04)',
+  border: '1px solid rgba(0,0,0,0.06)',
+  shadowCard: '0 2px 10px rgba(38,52,49,0.03)',
 };
-const CALL_COLORS = {
-  order: { color: '#C4A86D', bg: 'rgba(196,168,109,0.1)', label: 'Take Order' },
-  bill:  { color: '#8A4A42', bg: 'rgba(138,74,66,0.1)',  label: 'Bill Please' },
-  water: { color: '#4A9FD4', bg: 'rgba(74,159,212,0.1)', label: 'Water Refill' },
-  condiment: { color: '#8B6F47', bg: 'rgba(139,111,71,0.1)', label: 'Condiments' },
-  issue: { color: '#DC2626', bg: 'rgba(220,38,38,0.1)', label: 'Issue at Table' },
-  other: { color: '#5A8A9A', bg: 'rgba(99,102,241,0.1)', label: 'Assistance' },
-};
 
-function getCallMeta(reason) {
-  if (!reason) return { ...CALL_COLORS.other, icon: '🔔', label: 'Assistance' };
-  const key = Object.keys(CALL_COLORS).find(k => reason.toLowerCase().includes(k));
-  if (key) return { ...CALL_COLORS[key], icon: CALL_ICONS[key] };
-  return { ...CALL_COLORS.other, icon: '🔔', label: reason };
+// ═══ Waiting-long threshold — call/serve items older than this get the red urgency band ═══
+//     Kept as a named constant so it's self-documenting and easy to adjust later.
+const WAITING_LONG_SEC = 180;  // 3 min → red band
+const WAITING_WARN_SEC = 60;   // 1 min → gold band
+
+// ═══ Call reason metadata — only the 4 reasons the customer can actually send.
+//     Old code had `condiment` and `issue` categories that were unreachable from the customer modal.
+//     Those are stripped. If you add more customer options later, add entries here.
+// ═══
+const CALL_REASON_META = {
+  water:      { label: 'Water' },
+  bill:       { label: 'Bill' },
+  assistance: { label: 'Assistance' },
+  order:      { label: 'Take Order' },
+};
+function reasonLabel(reason) {
+  if (!reason) return 'Assistance';
+  // Allow fuzzy match so legacy docs with reason strings like "Need Water" still map
+  const key = Object.keys(CALL_REASON_META).find(k => reason.toLowerCase().includes(k));
+  return key ? CALL_REASON_META[key].label : 'Assistance';
 }
 
+// ═══ Staff session (12-hour localStorage-based auth for waiter/kitchen tablets) ═══
 function getStaffSession() {
   if (typeof window === 'undefined') return null;
   try {
@@ -51,35 +68,65 @@ function getStaffSession() {
   } catch { return null; }
 }
 
+// ═══ Time formatting — "18m 4s" reads as duration, not clock time ═══
+function formatElapsed(seconds) {
+  if (seconds == null || seconds < 0) return '0s';
+  if (seconds < 60) return `${Math.floor(seconds)}s`;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return s === 0 ? `${m}m` : `${m}m ${s}s`;
+}
+
+// ═══ Helpers for filtering by period ═══
+function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() / 1000; }
+function startOfWeek()  { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - d.getDay()); return d.getTime() / 1000; }
+function startOfMonth() { const d = new Date(); d.setHours(0,0,0,0); d.setDate(1); return d.getTime() / 1000; }
+
+// ═══ Order label ═══
+function orderLabel(o) {
+  if (typeof o.orderNumber === 'number' && o.orderNumber > 0) return `#${o.orderNumber}`;
+  return '#' + (o.id || '').slice(-5).toUpperCase();
+}
+
 export default function WaiterDashboard() {
   const { user, userData, loading: adminLoading } = useAuth();
   const router = useRouter();
+
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [allCalls, setAllCalls] = useState([]);
-  const [allOrdersLocal, setAllOrdersLocal] = useState([]);
-  const [resolvingCall, setResolvingCall] = useState(null);
-  const [servingOrder, setServingOrder] = useState(null);
-  const [tab, setTab] = useState('calls');
-  const prevCallsCountRef = useRef(0);
-  const audioCtx = useRef(null);
 
-  // Auth check
+  // Data
+  const [allCalls, setAllCalls] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
+
+  // UI / action state
+  const [resolvingId, setResolvingId] = useState(null); // id of the call/order currently being acted on
+  const [tab, setTab] = useState('queue');  // 'queue' | 'history'
+  const [historyPeriod, setHistoryPeriod] = useState('today'); // 'today' | 'week' | 'month' | 'all'
+  const [historySearch, setHistorySearch] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [tick, setTick] = useState(0);
+
+  // Refs
+  const audioRef = useRef(null);
+  const prevActionCountRef = useRef(null);
+  const prevActionIdsRef = useRef(new Set());
+  const initialLoadDoneRef = useRef(false);
+  const [flashingIds, setFlashingIds] = useState(new Set());
+  const [unseenIds, setUnseenIds] = useState(new Set());
+
+  // ── Auth check ──
   useEffect(() => {
-    const session = getStaffSession();
-    setStaffSession(session);
+    setStaffSession(getStaffSession());
     setAuthChecked(true);
   }, []);
 
   useEffect(() => {
     if (!authChecked || adminLoading) return;
-    // Wait for userData to finish loading after Firebase auth resolves
     if (user && !userData) return;
     const isAdmin = !!userData?.restaurantId;
-    // Admin has full access — ignore any staff session in localStorage
     if (isAdmin) return;
-    // Not a Firebase admin — check staff session
-    if (staffSession?.role === 'waiter') return; // correct role, allow
+    if (staffSession?.role === 'waiter') return;
     if (staffSession?.role === 'kitchen') { router.replace('/admin/kitchen'); return; }
     router.replace('/staff/login');
   }, [authChecked, adminLoading, user, userData, staffSession]);
@@ -87,290 +134,701 @@ export default function WaiterDashboard() {
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
 
-  // Bell sound
-  const playBell = () => {
+  // ── Load sound pref + preload audio ──
+  useEffect(() => {
     try {
-      if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = audioCtx.current;
-      [[880, 0, 0.4], [1100, 0.22, 0.35]].forEach(([freq, start, dur]) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-        gain.gain.setValueAtTime(0, ctx.currentTime + start);
-        gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + start + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
-        osc.start(ctx.currentTime + start);
-        osc.stop(ctx.currentTime + start + dur);
-      });
+      const stored = localStorage.getItem('ar_waiter_sound');
+      if (stored !== null) setSoundEnabled(stored === 'true');
     } catch {}
-  };
+    try {
+      audioRef.current = new Audio('/notification.mp3');
+      audioRef.current.preload = 'auto';
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('ar_waiter_sound', String(soundEnabled)); } catch {}
+  }, [soundEnabled]);
 
-  // Direct Firestore listeners — always active for both admin and staff
+  // ── 1-second tick for live elapsed timers ──
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Firestore listeners ──
   useEffect(() => {
     if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const pendingCount = all.filter(c => c.status === 'pending').length;
-      if (pendingCount > prevCallsCountRef.current) playBell();
-      prevCallsCountRef.current = pendingCount;
-      setAllCalls(all);
-    }, err => {
-      console.error('Waiter calls listener error:', err);
-    });
+      setAllCalls(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, err => console.error('Waiter calls listener error:', err));
   }, [rid]);
 
   useEffect(() => {
     if (!rid) return;
     const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
-      setAllOrdersLocal(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, err => {
-      console.error('Waiter orders listener error:', err);
-    });
+      setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, err => console.error('Waiter orders listener error:', err));
   }, [rid]);
 
-  const calls = allCalls;
-  const readyOrders = allOrdersLocal.filter(o => o.status === 'ready');
+  // ═══ Unified action queue ═══
+  // Merges pending waiter calls + ready-status orders into a single list.
+  // Each item has: { id, type: 'call'|'serve', table, subtitle, seconds, raw }
+  // seconds is the timestamp the item first appeared (createdAt for calls;
+  // updatedAt-or-createdAt for orders — so a just-marked-ready order sorts by when it was marked ready).
+  const actionQueue = useMemo(() => {
+    const calls = allCalls
+      .filter(c => c.status === 'pending')
+      .map(c => ({
+        id: 'call:' + c.id,
+        rawId: c.id,
+        type: 'call',
+        table: c.tableNumber || '—',
+        subtitle: reasonLabel(c.reason),
+        seconds: c.createdAt?.seconds || 0,
+        raw: c,
+      }));
+    const serves = allOrders
+      .filter(o => o.status === 'ready')
+      .map(o => ({
+        id: 'serve:' + o.id,
+        rawId: o.id,
+        type: 'serve',
+        table: o.tableNumber || '—',
+        // For serves, subtitle is the order number + item count
+        subtitle: `${orderLabel(o)} · ${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}`,
+        seconds: o.updatedAt?.seconds || o.createdAt?.seconds || 0,
+        raw: o,
+      }));
+    // Sort oldest first — that's the action priority for both types.
+    return [...calls, ...serves].sort((a, b) => (a.seconds || 0) - (b.seconds || 0));
+  }, [allCalls, allOrders]);
 
-  const handleResolveCall = async (call) => {
-    setResolvingCall(call.id);
-    try { await resolveWaiterCall(rid, call.id); } catch {}
-    setResolvingCall(null);
+  const callsCount = actionQueue.filter(i => i.type === 'call').length;
+  const servesCount = actionQueue.filter(i => i.type === 'serve').length;
+
+  // Oldest action age — drives the stats strip. `tick` dep makes it recompute every second.
+  const oldestAge = useMemo(() => {
+    if (actionQueue.length === 0) return null;
+    const oldest = actionQueue[0].seconds || 0;
+    if (!oldest) return null;
+    return formatElapsed(Math.floor(Date.now() / 1000) - oldest);
+  }, [actionQueue, tick]);
+
+  // ── Sound alert: play when a new action appears ──
+  useEffect(() => {
+    const now = actionQueue.length;
+    const prev = prevActionCountRef.current;
+    if (prev !== null && now > prev && soundEnabled && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    }
+    prevActionCountRef.current = now;
+  }, [actionQueue, soundEnabled]);
+
+  // ── Detect newly-arrived items for flash + unseen-below tracking ──
+  useEffect(() => {
+    const currentIds = new Set(actionQueue.map(i => i.id));
+    const prevIds = prevActionIdsRef.current;
+
+    if (!initialLoadDoneRef.current) {
+      prevActionIdsRef.current = currentIds;
+      initialLoadDoneRef.current = true;
+      return;
+    }
+
+    const newlyAdded = [...currentIds].filter(id => !prevIds.has(id));
+    if (newlyAdded.length > 0) {
+      setFlashingIds(prev => { const n = new Set(prev); newlyAdded.forEach(id => n.add(id)); return n; });
+      setUnseenIds(prev => { const n = new Set(prev); newlyAdded.forEach(id => n.add(id)); return n; });
+      setTimeout(() => {
+        setFlashingIds(prev => { const n = new Set(prev); newlyAdded.forEach(id => n.delete(id)); return n; });
+      }, 4000);
+    }
+    setUnseenIds(prev => {
+      let changed = false;
+      const next = new Set();
+      prev.forEach(id => { if (currentIds.has(id)) next.add(id); else changed = true; });
+      return changed ? next : prev;
+    });
+
+    prevActionIdsRef.current = currentIds;
+  }, [actionQueue]);
+
+  // ── Scroll detection: clear unseen when near bottom ──
+  useEffect(() => {
+    if (unseenIds.size === 0) return;
+    const handleScroll = () => {
+      const scrolled = window.innerHeight + window.scrollY;
+      const bottom = document.documentElement.scrollHeight - 100;
+      if (scrolled >= bottom) setUnseenIds(new Set());
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [unseenIds.size]);
+
+  // ── Actions ──
+  const handleAction = async (item) => {
+    setResolvingId(item.id);
+    try {
+      if (item.type === 'call') {
+        await resolveWaiterCall(rid, item.rawId);
+      } else {
+        await updateOrderStatus(rid, item.rawId, 'served');
+      }
+    } catch (e) {
+      console.error('Action failed:', e);
+    }
+    setResolvingId(null);
   };
 
-  const handleMarkServed = async (order) => {
-    setServingOrder(order.id);
-    try { await updateOrderStatus(rid, order.id, 'served'); } catch {}
-    setServingOrder(null);
-  };
+  // ── History data ──
+  // History shows calls (resolved) AND orders (served). Combined so the waiter can audit their shift.
+  const historyItems = useMemo(() => {
+    const periodStart = historyPeriod === 'today' ? startOfToday()
+                      : historyPeriod === 'week'  ? startOfWeek()
+                      : historyPeriod === 'month' ? startOfMonth()
+                      : 0;
+    const callsHist = allCalls
+      .filter(c => c.status === 'resolved')
+      .filter(c => (c.resolvedAt?.seconds || c.createdAt?.seconds || 0) >= periodStart)
+      .map(c => ({
+        id: 'call:' + c.id,
+        type: 'call',
+        table: c.tableNumber || '—',
+        label: reasonLabel(c.reason),
+        createdSec: c.createdAt?.seconds || 0,
+        resolvedSec: c.resolvedAt?.seconds || null,
+      }));
+    const ordersHist = allOrders
+      .filter(o => o.status === 'served')
+      .filter(o => (o.updatedAt?.seconds || o.createdAt?.seconds || 0) >= periodStart)
+      .map(o => ({
+        id: 'serve:' + o.id,
+        type: 'serve',
+        table: o.tableNumber || '—',
+        label: `${orderLabel(o)} · ${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}`,
+        createdSec: o.createdAt?.seconds || 0,
+        resolvedSec: o.updatedAt?.seconds || null,
+      }));
+    const all = [...callsHist, ...ordersHist].sort((a, b) => (b.resolvedSec || 0) - (a.resolvedSec || 0));
+
+    // Filter by search (table number or label)
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter(h =>
+      String(h.table).toLowerCase().includes(q) ||
+      h.label.toLowerCase().includes(q)
+    );
+  }, [allCalls, allOrders, historyPeriod, historySearch]);
+
+  // Stats for header strip
+  const doneTodayCount = useMemo(() => {
+    const today = startOfToday();
+    const resolvedCalls = allCalls.filter(c => c.status === 'resolved' && (c.resolvedAt?.seconds || 0) >= today).length;
+    const servedOrders = allOrders.filter(o => o.status === 'served' && (o.updatedAt?.seconds || 0) >= today).length;
+    return resolvedCalls + servedOrders;
+  }, [allCalls, allOrders]);
+
+  const avgResolutionTodayText = useMemo(() => {
+    const today = startOfToday();
+    // Base on calls only — orders' "served" time is set by waiter but prep started much earlier,
+    // which would skew the average upward and confuse the metric.
+    const resolved = allCalls.filter(c => c.status === 'resolved'
+      && (c.resolvedAt?.seconds || 0) >= today
+      && c.createdAt?.seconds && c.resolvedAt?.seconds);
+    if (resolved.length === 0) return null;
+    const totalSec = resolved.reduce((sum, c) => sum + (c.resolvedAt.seconds - c.createdAt.seconds), 0);
+    return formatElapsed(Math.round(totalSec / resolved.length));
+  }, [allCalls]);
 
   const staffLogout = () => {
     localStorage.removeItem('ar_staff_session');
     router.replace('/staff/login');
   };
 
-  const pendingCalls = calls.filter(c => c.status === 'pending');
-  // "Resolved Today" — only calls resolved/created today
-  const resolvedToday = calls.filter(c => c.status === 'resolved' && isToday(c.createdAt?.seconds));
-  const historyItems = calls.filter(c => c.status === 'resolved');
-
   if (adminLoading || !authChecked) return null;
 
-  // ── Tab content ──
-  const TABS = [
-    { key: 'calls', label: `Calls`, badge: pendingCalls.length },
-    { key: 'serve', label: `Serve`, badge: readyOrders.length },
-    { key: 'history', label: `History`, badge: null },
-  ];
+  // ═══ Main body ═══
+  const body = (
+    <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
+      <style>{`
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes flashNew {
+          0%, 100% { box-shadow: 0 2px 10px rgba(38,52,49,0.03); border-color: rgba(0,0,0,0.06); }
+          50% { box-shadow: 0 0 0 3px rgba(196,168,109,0.35), 0 4px 20px rgba(196,168,109,0.25); border-color: rgba(196,168,109,0.60); }
+        }
+        @keyframes bannerPulse {
+          0%, 100% { background: rgba(196,168,109,0.95); }
+          50% { background: rgba(196,168,109,0.75); }
+        }
+        .waiter-action.flash-new { animation: flashNew 1.3s ease-in-out infinite, fadeUp 0.25s ease both; }
+        .waiter-tab-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
+        .waiter-period-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
+        .waiter-icon-btn:hover { background: ${A.shellDarker}; }
+        .waiter-action-btn:hover:not(:disabled) { filter: brightness(1.08); }
+        .waiter-action:hover { box-shadow: 0 4px 20px rgba(38,52,49,0.06); }
+      `}</style>
 
-  const MainContent = (
-    <div style={{ fontFamily: T.font }}>
-      {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
-        {[
-          { label: 'Pending Calls',   value: pendingCalls.length,   color: '#8A4A42', bg: 'rgba(138,74,66,0.07)',   icon: '🔔' },
-          { label: 'Ready to Serve',  value: readyOrders.length,    color: '#4A7A5E', bg: 'rgba(74,122,94,0.07)',   icon: '🍽' },
-          { label: 'Resolved Today',  value: resolvedToday.length,  color: '#5A8A9A', bg: 'rgba(99,102,241,0.07)', icon: '✅' },
-        ].map(c => (
-          <div key={c.label} style={{ background: c.bg, border: `1.5px solid ${c.color}30`, borderRadius: 16, padding: '20px 22px' }}>
-            <div style={{ fontSize: 22, marginBottom: 8 }}>{c.icon}</div>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 32, color: c.color, lineHeight: 1 }}>{c.value}</div>
-            <div style={{ fontSize: 12, color: T.stone, fontWeight: 600, marginTop: 6 }}>{c.label}</div>
+      {/* ═══ Header ═══ */}
+      <div style={{ padding: '24px 28px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 14, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>Operations</span>
+              <span style={{ opacity: 0.5 }}>›</span>
+              <span style={{ color: A.mutedText }}>Waiter</span>
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+              Waiter <span style={{ color: A.mutedText, fontWeight: 500 }}>Dashboard</span>
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', background: 'rgba(38,52,49,0.05)', borderRadius: 10, padding: 3, gap: 3, marginBottom: 18, width: 'fit-content' }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            fontWeight: 600, fontSize: 13, position: 'relative', fontFamily: T.font,
-            background: tab === t.key ? '#fff' : 'transparent',
-            color: tab === t.key ? T.ink : T.stone,
-            boxShadow: tab === t.key ? '0 1px 6px rgba(38,52,49,0.1)' : 'none',
-          }}>
-            {t.label}
-            {t.badge > 0 && (
-              <span style={{ marginLeft: 6, background: '#8A4A42', color: '#fff', borderRadius: 20, padding: '1px 6px', fontSize: 11, fontWeight: 800 }}>
-                {t.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab: Calls */}
-      {tab === 'calls' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {pendingCalls.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(38,52,49,0.03)', borderRadius: 14, border: `1px dashed rgba(38,52,49,0.1)` }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
-              <div style={{ fontWeight: 700, color: T.stone }}>No pending calls</div>
-            </div>
-          ) : pendingCalls.map(call => {
-            const meta = getCallMeta(call.reason);
-            const waiting = isWaiting(call.createdAt?.seconds);
-            return (
-              <div key={call.id} style={{
-                background: '#fff', borderRadius: 14, padding: '16px 18px',
-                border: `1.5px solid ${waiting ? '#8A4A42' : meta.color}33`,
-                borderLeft: `4px solid ${waiting ? '#8A4A42' : meta.color}`,
-                boxShadow: waiting ? '0 2px 16px rgba(138,74,66,0.1)' : '0 2px 8px rgba(38,52,49,0.05)',
-                display: 'flex', alignItems: 'center', gap: 14,
-                animation: waiting ? 'callPulse 2s infinite' : 'none',
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start' }}>
+            {/* Sound toggle */}
+            <button className="waiter-icon-btn"
+              onClick={() => setSoundEnabled(v => !v)}
+              title={soundEnabled ? 'Mute new-action sound' : 'Enable new-action sound'}
+              style={{
+                padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
+                color: soundEnabled ? A.ink : A.faintText,
+                fontSize: 14, cursor: 'pointer', fontFamily: A.font, minWidth: 38,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <div style={{ fontSize: 30, flexShrink: 0 }}>{meta.icon}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                    <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 16, color: T.ink }}>
-                      Table {call.tableNumber || '—'}
-                    </div>
-                    <div style={{ padding: '2px 10px', borderRadius: 20, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700 }}>
-                      {meta.label}
-                    </div>
-                    {waiting && <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(138,74,66,0.1)', color: '#8A4A42', fontSize: 11, fontWeight: 700 }}>Waiting long</div>}
-                  </div>
-                  {call.reason && <div style={{ fontSize: 13, color: T.stone, marginBottom: 2 }}>"{call.reason}"</div>}
-                  <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.35)' }}>{timeAgo(call.createdAt?.seconds)}</div>
-                </div>
-                <button onClick={() => handleResolveCall(call)} disabled={resolvingCall === call.id} style={{
-                  padding: '10px 18px', borderRadius: 10, border: 'none',
-                  background: 'linear-gradient(135deg,#4A7A5E,#3A6A4E)',
-                  color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: T.font,
-                  opacity: resolvingCall === call.id ? 0.6 : 1, flexShrink: 0,
-                }}>
-                  {resolvingCall === call.id ? '…' : 'Resolve'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              {soundEnabled ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+              )}
+            </button>
 
-      {/* Tab: Serve */}
-      {tab === 'serve' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {readyOrders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '44px 20px', background: 'rgba(38,52,49,0.03)', borderRadius: 14, border: `1px dashed rgba(38,52,49,0.1)` }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>👨‍🍳</div>
-              <div style={{ fontWeight: 700, color: T.stone }}>No orders ready yet</div>
-            </div>
-          ) : readyOrders.map(order => (
-            <div key={order.id} style={{
-              background: '#fff', borderRadius: 14, padding: '16px 18px',
-              border: '1.5px solid rgba(74,122,94,0.3)', borderLeft: '4px solid #4A7A5E',
-              boxShadow: '0 2px 14px rgba(74,122,94,0.1)',
-              display: 'flex', alignItems: 'center', gap: 14,
-            }}>
-              <div style={{ fontSize: 30, flexShrink: 0 }}>🍽</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 16, color: T.ink, marginBottom: 6 }}>
-                  {order.tableNumber ? `Table ${order.tableNumber}` : 'No Table'}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 4 }}>
-                  {(order.items || []).map((item, i) => (
-                    <div key={i} style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(74,122,94,0.08)', color: '#4A7A5E', fontSize: 12, fontWeight: 600 }}>
-                      {item.qty}x {item.name}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.35)' }}>
-                  Ready {timeAgo(order.updatedAt?.seconds || order.createdAt?.seconds)}
-                </div>
-              </div>
-              <button onClick={() => handleMarkServed(order)} disabled={servingOrder === order.id} style={{
-                padding: '10px 18px', borderRadius: 10, border: 'none',
-                background: 'linear-gradient(135deg,#4A7A5E,#3A6A4E)',
-                color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: T.font,
-                opacity: servingOrder === order.id ? 0.6 : 1, flexShrink: 0,
+            {!isAdmin && (
+              <button onClick={staffLogout} style={{
+                padding: '8px 14px', borderRadius: 10, border: A.border, background: A.shell,
+                color: A.mutedText, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
               }}>
-                {servingOrder === order.id ? '…' : 'Mark Served'}
+                Sign Out
               </button>
-            </div>
-          ))}
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Tab: History */}
-      {tab === 'history' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: T.stone, marginBottom: 6 }}>Resolved calls — all time ({historyItems.length})</div>
-          {historyItems.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'rgba(38,52,49,0.3)' }}>No history yet</div>}
-          {historyItems.map(call => {
-            const meta = getCallMeta(call.reason);
-            const waitSec = call.resolvedAt?.seconds && call.createdAt?.seconds
-              ? call.resolvedAt.seconds - call.createdAt.seconds : null;
-            const waitMin = waitSec !== null ? Math.round(waitSec / 60) : null;
-            return (
-              <div key={call.id} style={{ background: 'rgba(38,52,49,0.02)', border: '1px solid rgba(38,52,49,0.07)', borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontSize: 18 }}>{meta.icon}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: T.ink }}>
-                    Table {call.tableNumber || '—'} — {meta.label}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'rgba(38,52,49,0.4)', marginTop: 2 }}>
-                    {timeAgo(call.createdAt?.seconds)}
-                    {waitMin !== null && ` · Resolved in ${waitMin < 1 ? '<1' : waitMin}m`}
-                  </div>
+        {/* ═══ LIVE SERVICE stats card — full width, compact ═══ */}
+        <div style={{
+          background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+          borderRadius: 12, padding: '12px 18px', marginTop: 14, marginBottom: 14,
+          border: A.forestBorder,
+          boxShadow: '0 4px 16px rgba(38,52,49,0.12)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 6px rgba(196,168,109,0.6)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: A.warning }}>LIVE SERVICE</span>
+            </div>
+            <div style={{ width: 1, height: 28, background: 'rgba(234,231,227,0.10)', flexShrink: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 80 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>
+                  Actions {(callsCount > 0 || servesCount > 0) && <span style={{ color: A.forestTextMuted, fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>· {callsCount}c · {servesCount}s</span>}
                 </div>
-                <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(74,122,94,0.08)', color: '#4A7A5E', fontSize: 11, fontWeight: 700 }}>Resolved</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 22, color: actionQueue.length > 0 ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                  {actionQueue.length}
+                </div>
               </div>
+              <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+              <div style={{ minWidth: 80 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Oldest</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: A.forestText, lineHeight: 1, letterSpacing: '-0.3px' }}>
+                  {oldestAge || '—'}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+              <div style={{ minWidth: 80 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Done today</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: A.success, lineHeight: 1, letterSpacing: '-0.3px' }}>
+                  {doneTodayCount}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />
+              <div style={{ minWidth: 80 }}>
+                <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>Avg response</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: A.forestText, lineHeight: 1, letterSpacing: '-0.3px' }}>
+                  {avgResolutionTodayText || '—'}
+                </div>
+              </div>
+            </div>
+            <span style={{ fontFamily: A.font, fontSize: 10, color: A.forestTextMuted, fontWeight: 500, flexShrink: 0, letterSpacing: '0.02em' }}>
+              {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ Tabs ═══ */}
+      <div style={{ padding: '0 28px', marginBottom: 16 }}>
+        <div style={{ display: 'inline-flex', background: A.shell, border: A.border, borderRadius: 10, padding: 3, boxShadow: A.shadowCard }}>
+          {[
+            { key: 'queue',   label: 'Action Queue', badge: actionQueue.length },
+            { key: 'history', label: 'History',      badge: null },
+          ].map(t => {
+            const active = tab === t.key;
+            return (
+              <button key={t.key} className={`waiter-tab-pill ${active ? 'active' : ''}`}
+                onClick={() => setTab(t.key)}
+                style={{
+                  padding: '8px 16px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                  fontFamily: A.font, fontSize: 13, fontWeight: active ? 700 : 600,
+                  background: active ? A.ink : 'transparent',
+                  color: active ? A.cream : A.mutedText,
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  transition: 'all 0.15s',
+                }}>
+                {t.label}
+                {t.badge > 0 && (
+                  <span style={{
+                    padding: '1px 7px', borderRadius: 10,
+                    background: active ? 'rgba(237,237,237,0.18)' : 'rgba(196,168,109,0.20)',
+                    color: active ? A.cream : A.warningDim,
+                    fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                    letterSpacing: '-0.2px',
+                  }}>
+                    {t.badge}
+                  </span>
+                )}
+              </button>
             );
           })}
         </div>
-      )}
+      </div>
+
+      {/* ═══ Tab content ═══ */}
+      <div style={{ padding: '0 28px 60px' }}>
+
+        {/* ─── Action Queue ─── */}
+        {tab === 'queue' && (
+          actionQueue.length === 0 ? (
+            <div style={{
+              background: A.shell, borderRadius: 14, border: A.border,
+              padding: '64px 32px', textAlign: 'center', boxShadow: A.shadowCard,
+            }}>
+              <div style={{ display: 'inline-flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: A.success, opacity: 0.8, animation: 'pulse 1.8s infinite' }} />
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(0,0,0,0.10)' }} />
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(0,0,0,0.06)' }} />
+              </div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: A.ink, marginBottom: 8, letterSpacing: '-0.2px' }}>
+                No actions pending
+              </div>
+              <div style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, maxWidth: 360, margin: '0 auto' }}>
+                New calls and ready-to-serve orders will appear here in real time.
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {actionQueue.map((item, idx) => {
+                const elapsed = Math.max(0, Math.floor(Date.now() / 1000) - (item.seconds || 0));
+                const isFlashing = flashingIds.has(item.id);
+                const isCall = item.type === 'call';
+
+                // Age urgency band
+                let urgency = 'fresh';
+                if (elapsed >= WAITING_LONG_SEC) urgency = 'over';
+                else if (elapsed >= WAITING_WARN_SEC) urgency = 'warn';
+                const edgeColor = urgency === 'over' ? A.danger
+                                : urgency === 'warn' ? A.warning
+                                : 'rgba(0,0,0,0.06)';
+                const timerColor = urgency === 'over' ? A.danger
+                                 : urgency === 'warn' ? A.warning
+                                 : A.ink;
+
+                // Type-specific accent (card left-edge stripe + type pill color)
+                const accentColor = isCall ? A.warning : A.success;
+                const typeBg = isCall ? 'rgba(196,168,109,0.14)' : 'rgba(63,158,90,0.10)';
+                const typeColor = isCall ? A.warningDim : A.success;
+                const typeLabel = isCall ? 'CALL' : 'READY';
+                const btnBg = isCall ? A.warning : A.success;
+                const btnColor = isCall ? A.ink : A.shell;
+                const btnLabel = isCall ? 'Resolve' : 'Mark Served';
+
+                return (
+                  <div key={item.id}
+                    className={`waiter-action${isFlashing ? ' flash-new' : ''}`}
+                    style={{
+                      position: 'relative',
+                      background: A.shell, borderRadius: 14, border: A.border,
+                      borderLeft: `4px solid ${accentColor}`,
+                      boxShadow: A.shadowCard, overflow: 'hidden',
+                      animation: isFlashing ? undefined : 'fadeUp 0.25s ease both',
+                      animationDelay: isFlashing ? undefined : `${Math.min(idx * 0.03, 0.4)}s`,
+                      transition: 'all 0.15s',
+                    }}>
+                    {/* Age urgency top edge bar */}
+                    <div style={{
+                      position: 'absolute', left: 0, right: 0, top: 0, height: 3,
+                      background: edgeColor,
+                    }} />
+
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto auto',
+                      gap: 18, alignItems: 'center',
+                      padding: '18px 24px',
+                    }}>
+                      {/* Left: type pill + table + subtitle */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                            padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
+                            background: typeBg, color: typeColor,
+                          }}>{typeLabel}</span>
+                          <span style={{
+                            fontWeight: 700, fontSize: 16, color: A.ink, letterSpacing: '-0.3px',
+                          }}>Table {item.table}</span>
+                          {urgency === 'over' && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                              padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
+                              background: 'rgba(217,83,79,0.12)', color: A.danger,
+                            }}>Waiting long</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 500 }}>
+                          {item.subtitle}
+                        </div>
+                        {/* For serves, also show the item list underneath — waiter needs to grab the right plates */}
+                        {!isCall && item.raw?.items && item.raw.items.length > 0 && (
+                          <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {item.raw.items.slice(0, 4).map((it, i) => (
+                              <span key={i} style={{
+                                padding: '2px 8px', borderRadius: 10,
+                                background: A.subtleBg, color: A.ink,
+                                fontSize: 11, fontWeight: 500,
+                              }}>
+                                <span style={{ color: A.warning, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{it.qty || 1}×</span>
+                                {' '}{it.name}
+                              </span>
+                            ))}
+                            {item.raw.items.length > 4 && (
+                              <span style={{
+                                padding: '2px 8px', borderRadius: 10,
+                                background: A.subtleBg, color: A.mutedText,
+                                fontSize: 11, fontWeight: 500,
+                              }}>+{item.raw.items.length - 4} more</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Middle: elapsed timer */}
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 15, fontWeight: 700, color: timerColor,
+                          letterSpacing: '-0.2px', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                        }}>{formatElapsed(elapsed)}</div>
+                        <div style={{ fontSize: 10, color: A.faintText, fontWeight: 500, marginTop: 3 }}>
+                          {isCall ? 'waiting' : 'ready'}
+                        </div>
+                      </div>
+
+                      {/* Right: action button */}
+                      <button className="waiter-action-btn"
+                        onClick={() => handleAction(item)}
+                        disabled={resolvingId === item.id}
+                        style={{
+                          padding: '10px 18px', borderRadius: 10, border: 'none',
+                          background: btnBg, color: btnColor,
+                          fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                          cursor: 'pointer', letterSpacing: '0.01em',
+                          opacity: resolvingId === item.id ? 0.6 : 1,
+                          whiteSpace: 'nowrap',
+                          minWidth: 110,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                        {resolvingId === item.id
+                          ? <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: btnColor, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                          : btnLabel}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        )}
+
+        {/* ─── History ─── */}
+        {tab === 'history' && (
+          <div>
+            {/* Period pills + search */}
+            <div style={{
+              background: A.shell, border: A.border, borderRadius: 14,
+              boxShadow: A.shadowCard, padding: '12px 18px',
+              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+              marginBottom: 14,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([val, label]) => {
+                  const active = historyPeriod === val;
+                  return (
+                    <button key={val} className={`waiter-period-pill ${active ? 'active' : ''}`}
+                      onClick={() => setHistoryPeriod(val)}
+                      style={{
+                        padding: '6px 12px', fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 500,
+                        background: active ? A.ink : 'transparent',
+                        color: active ? A.cream : A.mutedText,
+                        border: 'none', borderRadius: 7, cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />
+              <input
+                value={historySearch}
+                onChange={e => setHistorySearch(e.target.value)}
+                placeholder="Search by table or type…"
+                style={{
+                  flex: 1, minWidth: 200,
+                  padding: '8px 12px', borderRadius: 8,
+                  border: A.border, background: A.shellDarker,
+                  fontSize: 13, fontFamily: A.font, color: A.ink,
+                  outline: 'none',
+                }}
+                onFocus={e => e.target.style.background = A.shell}
+                onBlur={e => e.target.style.background = A.shellDarker}
+              />
+              <span style={{ fontSize: 12, color: A.faintText, fontWeight: 500 }}>
+                {historyItems.length} result{historyItems.length === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            {historyItems.length === 0 ? (
+              <div style={{
+                background: A.shell, borderRadius: 14, border: A.border,
+                padding: '48px 32px', textAlign: 'center', boxShadow: A.shadowCard,
+                fontSize: 13, color: A.mutedText,
+              }}>
+                No history in this period
+              </div>
+            ) : (
+              <div style={{
+                background: A.shell, borderRadius: 14, border: A.border,
+                boxShadow: A.shadowCard, overflow: 'hidden',
+              }}>
+                {historyItems.map((h, i) => {
+                  const waitSec = (h.resolvedSec && h.createdSec) ? (h.resolvedSec - h.createdSec) : null;
+                  const isCall = h.type === 'call';
+                  const typeColor = isCall ? A.warningDim : A.success;
+                  const typeBg = isCall ? 'rgba(196,168,109,0.14)' : 'rgba(63,158,90,0.10)';
+                  const typeLabel = isCall ? 'CALL' : 'SERVED';
+                  return (
+                    <div key={h.id} style={{
+                      padding: '14px 18px',
+                      borderTop: i > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                      display: 'grid',
+                      gridTemplateColumns: '80px 1fr auto auto',
+                      gap: 16, alignItems: 'center',
+                    }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                        padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase',
+                        background: typeBg, color: typeColor,
+                        justifySelf: 'start',
+                      }}>{typeLabel}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: A.ink, lineHeight: 1.3 }}>
+                          Table {h.table}
+                        </div>
+                        <div style={{ fontSize: 12, color: A.mutedText, marginTop: 2 }}>
+                          {h.label}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: A.faintText, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        {h.resolvedSec ? new Date(h.resolvedSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </div>
+                      <span style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: 12, fontWeight: 700, color: A.mutedText,
+                        fontVariantNumeric: 'tabular-nums', minWidth: 50, textAlign: 'right',
+                      }}>
+                        {waitSec !== null ? formatElapsed(waitSec) : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ Bottom banner for unseen new items (queue tab only) ═══ */}
+        {tab === 'queue' && unseenIds.size > 0 && (
+          <div style={{
+            position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40,
+            padding: '12px 24px',
+            background: 'rgba(196,168,109,0.92)',
+            color: A.ink,
+            fontWeight: 700, fontSize: 14, letterSpacing: '0.02em',
+            textAlign: 'center',
+            boxShadow: '0 -4px 20px rgba(196,168,109,0.25)',
+            animation: 'bannerPulse 1.2s ease-in-out infinite',
+            cursor: 'pointer',
+          }}
+          onClick={() => {
+            window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+          }}
+          >
+            ↓ {unseenIds.size} new item{unseenIds.size === 1 ? '' : 's'} below — scroll down to view
+          </div>
+        )}
+      </div>
     </div>
   );
 
+  // Admin wrap: inside AdminLayout (sidebar visible).
+  // Staff wrap: bare page with branding header (dedicated tablet view).
   if (isAdmin) {
     return (
       <AdminLayout>
         <Head><title>Waiter Dashboard | Advert Radical</title></Head>
-        <div style={{ padding: '28px 32px', maxWidth: 1000, margin: '0 auto', paddingBottom: 60 }}>
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 22, color: T.ink }}>Waiter Dashboard</div>
-            <div style={{ fontSize: 13, color: T.stone, marginTop: 4, fontFamily: T.font }}>Live calls and ready-to-serve orders</div>
-          </div>
-          {MainContent}
-        </div>
-        <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(38,52,49,0.05)} 50%{box-shadow:0 2px 20px rgba(138,74,66,0.2)} }`}</style>
+        {body}
       </AdminLayout>
     );
   }
 
-  // Staff view — no sidebar
   return (
     <>
       <Head><title>Waiter Dashboard | Advert Radical</title></Head>
-      <div style={{ minHeight: '100vh', background: T.cream, fontFamily: T.font }}>
-        {/* Staff header */}
-        <div style={{ background: '#fff', borderBottom: `1px solid rgba(38,52,49,0.08)`, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 16 }}>
-              <span style={{ color: T.ink }}>Advert </span><span style={{ color: '#C4A86D' }}>Radical</span>
-            </div>
-            <div style={{ width: 1, height: 18, background: 'rgba(38,52,49,0.15)' }} />
-            <div style={{ fontSize: 13, color: T.stone, fontWeight: 600 }}>{staffSession?.restaurantName}</div>
+      <div style={{
+        background: A.shell, borderBottom: A.border,
+        padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontFamily: A.font,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontFamily: A.font, fontWeight: 800, fontSize: 15 }}>
+            <span style={{ color: A.ink }}>Advert </span>
+            <span style={{ color: A.warning }}>Radical</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 12, color: T.stone }}>
-              <span style={{ color: '#C4A86D', fontWeight: 700 }}>{staffSession?.name}</span>
-            </div>
-            <button onClick={staffLogout} style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid rgba(38,52,49,0.15)`, background: '#fff', color: T.stone, cursor: 'pointer', fontSize: 12, fontFamily: T.font }}>
-              Sign Out
-            </button>
-          </div>
+          <div style={{ width: 1, height: 18, background: 'rgba(0,0,0,0.10)' }} />
+          <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 500 }}>{staffSession?.restaurantName}</div>
         </div>
-        <div style={{ padding: '20px 16px', maxWidth: 640, margin: '0 auto' }}>
-          <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 20, color: T.ink, marginBottom: 16 }}>Waiter Dashboard</div>
-          {MainContent}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 12, color: A.faintText }}>
+            Logged in as <span style={{ color: A.warning, fontWeight: 600 }}>{staffSession?.name}</span>
+          </div>
         </div>
       </div>
-      <style jsx>{`@keyframes callPulse { 0%,100%{box-shadow:0 2px 8px rgba(38,52,49,0.05)} 50%{box-shadow:0 2px 20px rgba(138,74,66,0.2)} }`}</style>
+      {body}
     </>
   );
 }
+
+WaiterDashboard.getLayout = (page) => page;
