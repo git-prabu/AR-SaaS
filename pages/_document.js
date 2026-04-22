@@ -18,9 +18,16 @@ export default function Document() {
           href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
-        {/* Favicon placeholder */}
-        <link rel="icon" href="/favicon.ico" />
-        <meta name="theme-color" content="#09090B" />
+        {/* Favicon + icons */}
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        {/* PWA — manifest + iOS home-screen support */}
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Advert Radical" />
+        <meta name="theme-color" content="#1A1A1A" />
       </Head>
       <body className="bg-bg-base antialiased">
         <Main />

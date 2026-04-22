@@ -561,6 +561,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [orderTableInput, setOrderTableInput] = useState(''); // what customer types in the form
   const [orderPhone, setOrderPhone] = useState(() => getSavedPhone());
   const [specialNote, setSpecialNote] = useState('');
+  // Order type — dine-in (at a table) or takeaway (pickup). Default dine-in
+  // because most customers here scan a QR at a table. If they reach the
+  // menu without a QR they can toggle to takeaway and skip the table field.
+  const [customerOrderType, setCustomerOrderType] = useState('dinein');
+  const [customerName, setCustomerName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrder, setPlacedOrder] = useState(() => {
     if (typeof window === 'undefined') return null;
@@ -1034,8 +1039,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       const phone = orderPhone.replace(/[^0-9+]/g, '');
       if (phone) savePhone(phone);
 
+      // Resolve order type. A QR scan (tableNumber from URL) always means
+      // dine-in regardless of the toggle. Otherwise we honour the customer's
+      // pick. Takeaway orders don't send a table number.
+      const finalOrderType = tableNumber ? 'dinein' : customerOrderType;
+      const finalTable = finalOrderType === 'takeaway'
+        ? ''
+        : (orderTableInput.trim() || tableNumber || 'Not specified');
+
       const orderId = await createOrder(restaurant.id, {
-        tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
+        tableNumber: finalTable,
+        orderType: finalOrderType,
+        customerName: finalOrderType === 'takeaway' ? (customerName.trim() || '') : '',
         customerPhone: phone || null,
         items: freshCart.map(c => ({
           id: c.id, name: c.name || '',
@@ -3314,15 +3329,62 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   ))}
 
                 </div>
-                {/* Table number */}
-                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.tableNumber}</label>
-                <input
-                  type="text" inputMode="numeric" placeholder={t.tablePlaceholder}
-                  value={orderTableInput} onChange={e => !tableNumber && setOrderTableInput(e.target.value)}
-                  readOnly={!!tableNumber}
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${tableNumber ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: tableNumber ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box', cursor: tableNumber ? 'default' : 'text' }}
-                />
-                {tableNumber && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginBottom: 10 }}>✓ Auto-filled from your table QR</div>}
+                {/* Order type — only shown when the customer didn't arrive via
+                    a table QR (if tableNumber is set from URL, they're dine-in
+                    by definition and we skip the toggle to keep UX tight). */}
+                {!tableNumber && (
+                  <>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>How are you ordering?</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                      {[
+                        { k: 'dinein',   label: '🍽️ Dine-in' },
+                        { k: 'takeaway', label: '🥡 Takeaway' },
+                      ].map(opt => {
+                        const selected = customerOrderType === opt.k;
+                        return (
+                          <button key={opt.k} type="button"
+                            onClick={() => setCustomerOrderType(opt.k)}
+                            style={{
+                              padding: '12px 14px', borderRadius: 12,
+                              border: selected ? '2px solid #F79B3D' : `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`,
+                              background: selected ? 'rgba(247,155,61,0.10)' : darkMode ? 'rgba(255,255,255,0.03)' : '#fff',
+                              color: darkMode ? '#FFF5E8' : '#1E1B18',
+                              fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                              cursor: 'pointer',
+                            }}>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Table number — shown for dine-in (including QR scans). Hidden for takeaway. */}
+                {(tableNumber || customerOrderType === 'dinein') && (
+                  <>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.tableNumber}</label>
+                    <input
+                      type="text" inputMode="numeric" placeholder={t.tablePlaceholder}
+                      value={orderTableInput} onChange={e => !tableNumber && setOrderTableInput(e.target.value)}
+                      readOnly={!!tableNumber}
+                      style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${tableNumber ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: tableNumber ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box', cursor: tableNumber ? 'default' : 'text' }}
+                    />
+                    {tableNumber && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginBottom: 10 }}>✓ Auto-filled from your table QR</div>}
+                  </>
+                )}
+
+                {/* Customer name — takeaway only */}
+                {!tableNumber && customerOrderType === 'takeaway' && (
+                  <>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Your name <span style={{ fontWeight: 400, textTransform: 'none' }}>(for pickup)</span></label>
+                    <input
+                      type="text" placeholder="e.g. Priya"
+                      value={customerName} onChange={e => setCustomerName(e.target.value)}
+                      style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${customerName ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: customerName ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 10, boxSizing: 'border-box' }}
+                    />
+                  </>
+                )}
                 {/* Phone number */}
                 <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>MOBILE NUMBER <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
                 <input

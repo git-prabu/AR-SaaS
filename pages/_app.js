@@ -1,9 +1,10 @@
 // pages/_app.js
 import '../styles/globals.css';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AdminAuthProvider, SuperAdminAuthProvider } from '../hooks/useAuth';
 import { StaffAuthProvider } from '../hooks/useStaffAuth';
 import { Toaster } from 'react-hot-toast';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -34,6 +35,25 @@ class ErrorBoundary extends React.Component {
 export default function App({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
 
+  // Register the service worker once the app has mounted. Only runs in the
+  // browser and only once per page load. Next.js hot-reload in dev sometimes
+  // re-runs this effect; navigator.serviceWorker.register is idempotent so
+  // that's fine. Gracefully no-ops if the browser lacks SW support.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator)) return;
+    // Register after the window load event so SW registration doesn't compete
+    // with initial page render.
+    const register = () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        // Non-fatal — app works without SW, just no offline shell cold-start.
+        console.warn('Service worker registration failed:', err);
+      });
+    };
+    if (document.readyState === 'complete') register();
+    else window.addEventListener('load', register, { once: true });
+  }, []);
+
   return (
     // All three providers are completely independent — different Firebase
     // app instances, different localStorage keys, no shared state.
@@ -41,6 +61,7 @@ export default function App({ Component, pageProps }) {
     <AdminAuthProvider>
       <SuperAdminAuthProvider>
         <StaffAuthProvider>
+          <OfflineIndicator />
           {getLayout(<Component {...pageProps} />)}
           <Toaster
             position="top-right"

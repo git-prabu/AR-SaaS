@@ -1,0 +1,32 @@
+{
+  "name": "Advert Radical",
+  "short_name": "Advert Radical",
+  "description": "AR-enabled restaurant menu + admin + POS.",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#EDEDED",
+  "theme_color": "#1A1A1A",
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Kitchen",  "url": "/admin/kitchen",  "description": "Kitchen display" },
+    { "name": "Waiter",   "url": "/admin/waiter",   "description": "Waiter dashboard" },
+    { "name": "Orders",   "url": "/admin/orders",   "description": "Live orders" },
+    { "name": "New Order","url": "/admin/new-order","description": "Walk-in order entry" }
+  ]
+}
