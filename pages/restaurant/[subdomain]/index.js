@@ -3624,6 +3624,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     const rPhone = restaurant?.phone || '';
                     const rGstin = restaurant?.gstNumber || '';
                     const rFssai = restaurant?.fssaiNo || '';
+                    const rHsn = restaurant?.hsnCode || '';                                                  // NEW: HSN/SAC code (default: 9963 for restaurants)
+                    const rFooter = (restaurant?.billFooter && restaurant.billFooter.trim()) || 'Thank you! Visit again';  // NEW: custom footer line
                     const tbl = placedOrder.tableNumber && placedOrder.tableNumber !== 'Not specified' ? placedOrder.tableNumber : '';
                     const now = new Date();
                     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -3678,6 +3680,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <div class="line"></div>
                       <table>${itemsHtml}</table>
                       <div class="line"></div>
+                      ${rHsn ? `<div class="center" style="font-size:9px;color:#555;margin-bottom:4px">HSN/SAC: ${rHsn}</div>` : ''}
                       <table>
                         <tr><td>Subtotal</td><td style="text-align:right">Rs.${sub.toFixed(2)}</td></tr>
                         ${scRow}${cgstRow}${sgstRow}${discRow}${roRow}
@@ -3687,7 +3690,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <div class="line"></div>
                       ${pmLabel ? `<div class="center" style="margin-top:4px;font-size:11px">Payment: ${pmLabel}</div>` : ''}
                       ${rFssai ? `<div class="center" style="margin-top:6px;font-size:10px">FSSAI Lic. No. ${rFssai}</div>` : ''}
-                      <div class="center" style="margin-top:8px;font-size:10px">Thank you! Visit again</div>
+                      <div class="center" style="margin-top:8px;font-size:10px">${rFooter}</div>
                       <div class="center" style="margin-top:4px;font-size:9px">Powered by Advert Radical</div>
                     </body></html>`);
                     w.document.close();

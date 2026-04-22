@@ -1,280 +1,842 @@
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getStaffMembers, createStaffMember, updateStaffMember, deleteStaffMember } from '../../lib/db';
-import { T, ADMIN_STYLES } from '../../lib/utils';
+import {
+  getStaffMembers, createStaffMember, updateStaffMember,
+  deleteStaffMember,
+} from '../../lib/db';
 
-const ROLES = [
-  { value: 'kitchen', label: 'Kitchen Staff', icon: 'KDS', color: T.danger, desc: 'Access to Kitchen Display' },
-  { value: 'waiter',  label: 'Waiter',         icon: 'WTR', color: '#5A8A9A', desc: 'Access to Waiter Dashboard' },
-];
+// ═══ Aspire palette — same tokens as analytics/kitchen/waiter ═══
+const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const A = {
+  font: INTER,
+  cream: '#EDEDED',
+  ink: '#1A1A1A',
+  shell: '#FFFFFF',
+  shellDarker: '#F8F8F8',
+  warning: '#C4A86D',              // Antique gold — brand signature
+  warningDim: '#A08656',
+  // Matte black signature dark-card tokens
+  forest: '#1A1A1A',
+  forestDarker: '#2A2A2A',
+  forestText: '#EAE7E3',
+  forestTextMuted: 'rgba(234,231,227,0.55)',
+  forestTextFaint: 'rgba(234,231,227,0.35)',
+  forestSubtleBg: 'rgba(255,255,255,0.04)',
+  forestBorder: '1px solid rgba(255,255,255,0.06)',
+  success: '#3F9E5A',
+  danger: '#D9534F',
+  mutedText: 'rgba(0,0,0,0.55)',
+  faintText: 'rgba(0,0,0,0.38)',
+  subtleBg: 'rgba(0,0,0,0.04)',
+  border: '1px solid rgba(0,0,0,0.06)',
+  cardShadow: '0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)',
+};
 
+// ═══ Role metadata ═══
+// Both roles use the matte-black/gold Aspire signature. Differentiation comes from the icon glyph
+// (knife+fork for kitchen, bell for waiter) rather than color. Keeps the whole row calm and premium.
+// Icons are rendered inline via SVG (see roleIcon helper below).
+const ROLES = {
+  kitchen: { label: 'Kitchen Staff', desc: 'Access to Kitchen Display' },
+  waiter:  { label: 'Waiter',        desc: 'Access to Waiter Dashboard' },
+};
+
+// ═══ Role icon — matte black avatar with gold SVG glyph ═══
+function RoleIcon({ role, size = 44 }) {
+  const isKitchen = role === 'kitchen';
+  const iconSize = Math.round(size * 0.5);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 10,
+      background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+      border: A.forestBorder,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+    }}>
+      {isKitchen ? (
+        // Knife + fork
+        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={A.warning} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 2v7a2 2 0 0 0 2 2v11" />
+          <path d="M10 2v7" />
+          <path d="M6 2v7" />
+          <path d="M18 2c-1.5 0-3 1-3 3v6c0 1 .5 2 2 2v9" />
+        </svg>
+      ) : (
+        // Bell (hospitality call bell)
+        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={A.warning} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+// ═══ Random 4-digit PIN generator ═══
 function randomPin() {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-const empty = { name: '', username: '', pin: '', role: 'kitchen', isActive: true };
+// ═══ Time helpers ═══
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const seconds = ts.seconds || ts._seconds;
+  if (!seconds) return '—';
+  const diff = Math.floor(Date.now() / 1000) - seconds;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  const d = new Date(seconds * 1000);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+// ═══ Empty form state ═══
+const emptyForm = { name: '', username: '', pin: '', role: 'kitchen' };
 
 export default function StaffManagement() {
   const { userData } = useAuth();
   const rid = userData?.restaurantId;
+  const restaurantName = userData?.restaurantName || 'Your Restaurant';
 
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [saveError, setSaveError] = useState('');
-  const [modal, setModal] = useState(null); // null | 'add' | staffObj
-  const [form, setForm] = useState(empty);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [showPins, setShowPins] = useState({});
 
+  // Modal state — add/edit form
+  const [modal, setModal] = useState(null); // null | 'add' | staffObj
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  // After a successful create / rotate, we show the PIN ONCE here
+  const [pinDisplay, setPinDisplay] = useState(null); // { name, username, pin } | null
+
+  // QR modal
+  const [qrOpen, setQrOpen] = useState(false);
+
+  // Filter + search
+  const [filter, setFilter] = useState('all'); // 'all' | 'kitchen' | 'waiter' | 'inactive'
+  const [search, setSearch] = useState('');
+
+  // Per-row action state
+  const [actionId, setActionId] = useState(null);
+  const [banner, setBanner] = useState(null); // { kind: 'success'|'error', text: '…' }
+
+  // Copy link feedback
+  const [copied, setCopied] = useState(false);
+
+  // ═══ Login URL ═══
+  // Staff use this URL on their tablets — we append ?rid= so the login page can pre-select the restaurant.
   const loginLink = typeof window !== 'undefined' && rid
     ? `${window.location.origin}/staff/login?rid=${rid}`
     : '';
 
-  useEffect(() => {
+  // ═══ QR code (via free public api.qrserver.com — no key, no signup) ═══
+  const qrSrc = loginLink
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=${encodeURIComponent(loginLink)}`
+    : '';
+
+  // ═══ Load staff ═══
+  const reload = async () => {
     if (!rid) return;
     setLoading(true);
     setLoadError('');
-    getStaffMembers(rid)
-      .then(s => { setStaff(s); setLoading(false); })
-      .catch(e => { console.error('getStaffMembers error:', e); setLoadError('Failed to load staff. Check Firestore rules for the staff collection.'); setLoading(false); });
-  }, [rid]);
+    try {
+      const list = await getStaffMembers(rid);
+      setStaff(list);
+    } catch (e) {
+      console.error('getStaffMembers error:', e);
+      setLoadError('Failed to load staff. Check your Firestore rules.');
+    }
+    setLoading(false);
+  };
+  useEffect(() => { reload(); }, [rid]);
 
-  const openAdd = () => { setForm({ ...empty, pin: randomPin() }); setModal('add'); };
-  const openEdit = (s) => { setForm({ name: s.name, username: s.username, pin: s.pin, role: s.role, isActive: s.isActive ?? true }); setModal(s); };
+  // Auto-clear banner after 3s
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 3000);
+    return () => clearTimeout(t);
+  }, [banner]);
 
+  // ═══ Stats ═══
+  // Computed once per staff change. Active = isActive !== false (so missing field defaults to active).
+  const stats = useMemo(() => {
+    const total = staff.length;
+    const kitchen = staff.filter(s => s.role === 'kitchen' && s.isActive !== false).length;
+    const waiters = staff.filter(s => s.role === 'waiter' && s.isActive !== false).length;
+    const inactive = staff.filter(s => s.isActive === false).length;
+    return { total, kitchen, waiters, inactive };
+  }, [staff]);
+
+  // ═══ Filtered list ═══
+  const filtered = useMemo(() => {
+    let result = staff;
+    if (filter === 'kitchen')       result = result.filter(s => s.role === 'kitchen' && s.isActive !== false);
+    else if (filter === 'waiter')   result = result.filter(s => s.role === 'waiter' && s.isActive !== false);
+    else if (filter === 'inactive') result = result.filter(s => s.isActive === false);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.username || '').toLowerCase().includes(q)
+      );
+    }
+    // Sort: active first, then oldest created first (stable order)
+    return [...result].sort((a, b) => {
+      const aActive = a.isActive !== false ? 0 : 1;
+      const bActive = b.isActive !== false ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+    });
+  }, [staff, filter, search]);
+
+  // ═══ Modal handlers ═══
+  const openAdd = () => {
+    setForm({ ...emptyForm, pin: randomPin() });
+    setSaveError('');
+    setModal('add');
+  };
+  const openEdit = (s) => {
+    setForm({ name: s.name || '', username: s.username || '', pin: '', role: s.role || 'kitchen' });
+    setSaveError('');
+    setModal(s);
+  };
+  const closeModal = () => {
+    setModal(null);
+    setSaveError('');
+    setForm(emptyForm);
+  };
+
+  // ═══ Save (create or rename/role-change) ═══
   const handleSave = async () => {
-    if (!form.name.trim() || !form.username.trim() || !form.pin.trim()) return;
+    if (!form.name.trim() || !form.username.trim()) return;
+    if (modal === 'add' && (!form.pin || form.pin.length < 4)) {
+      setSaveError('PIN must be 4-6 digits');
+      return;
+    }
+
+    // Username uniqueness check (case-insensitive, trimmed).
+    // When editing, we allow the current staff member's own username to remain.
+    const usernameNorm = form.username.trim().toLowerCase();
+    const clash = staff.some(s =>
+      (s.username || '').toLowerCase() === usernameNorm &&
+      (modal === 'add' ? true : s.id !== modal.id)
+    );
+    if (clash) {
+      setSaveError('Username already in use. Pick a different one.');
+      return;
+    }
+
     setSaving(true);
     setSaveError('');
     try {
       if (modal === 'add') {
-        await createStaffMember(rid, { ...form, username: form.username.trim().toLowerCase() });
-        const updated = await getStaffMembers(rid);
-        setStaff(updated);
+        await createStaffMember(rid, {
+          name: form.name.trim(),
+          username: usernameNorm,
+          pin: form.pin,
+          role: form.role,
+        });
+        await reload();
+        closeModal();
+        // Show PIN once — admin copies it / shares it with staff before closing
+        setPinDisplay({ name: form.name.trim(), username: usernameNorm, pin: form.pin });
       } else {
-        await updateStaffMember(rid, modal.id, { ...form, username: form.username.trim().toLowerCase() });
-        setStaff(s => s.map(x => x.id === modal.id ? { ...x, ...form } : x));
+        // Edit = name + username + role only. PIN cannot be changed from this page —
+        // if staff forgets their PIN, admin deletes their account and creates a new one.
+        await updateStaffMember(rid, modal.id, {
+          name: form.name.trim(),
+          username: usernameNorm,
+          role: form.role,
+        });
+        await reload();
+        closeModal();
+        setBanner({ kind: 'success', text: 'Saved' });
       }
-      setModal(null);
     } catch (e) {
-      console.error('handleSave error:', e);
-      setSaveError('Failed to save. ' + (e?.message || 'Check your connection and try again.'));
+      console.error('save failed:', e);
+      setSaveError(e.message || 'Failed to save.');
     }
     setSaving(false);
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this staff member?')) return;
-    setDeleting(id);
+  // ═══ Toggle active (enable / disable) ═══
+  const handleToggleActive = async (s) => {
+    setActionId(s.id);
     try {
-      await deleteStaffMember(rid, id);
-      setStaff(s => s.filter(x => x.id !== id));
-    } catch {}
-    setDeleting(null);
+      await updateStaffMember(rid, s.id, { isActive: s.isActive === false });
+      await reload();
+      setBanner({ kind: 'success', text: `${s.name} ${s.isActive === false ? 'enabled' : 'disabled'}` });
+    } catch (e) {
+      console.error('toggle failed:', e);
+      setBanner({ kind: 'error', text: e.message || 'Failed to update' });
+    }
+    setActionId(null);
   };
 
+  // ═══ Delete staff member ═══
+  const handleDelete = async (s) => {
+    if (!confirm(`Permanently delete ${s.name}? They will no longer be able to log in. This cannot be undone.`)) return;
+    setActionId(s.id);
+    try {
+      await deleteStaffMember(rid, s.id);
+      await reload();
+      setBanner({ kind: 'success', text: 'Staff member deleted' });
+    } catch (e) {
+      console.error('delete failed:', e);
+      setBanner({ kind: 'error', text: e.message || 'Failed to delete' });
+    }
+    setActionId(null);
+  };
+
+  // ═══ Copy login URL ═══
   const copyLink = () => {
-    navigator.clipboard.writeText(loginLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+    if (!loginLink) return;
+    navigator.clipboard.writeText(loginLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
-
-  const togglePin = (id) => setShowPins(p => ({ ...p, [id]: !p[id] }));
 
   return (
     <AdminLayout>
-      <Head><title>Staff Management | Advert Radical</title></Head>
+      <Head><title>Staff Management — Advert Radical</title></Head>
+      <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+          @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+          @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+          .staff-card { transition: box-shadow 0.12s ease, transform 0.12s ease; }
+          .staff-card:hover { box-shadow: 0 4px 18px rgba(38,52,49,0.06); transform: translateY(-1px); }
+          .staff-icon-btn:hover { background: ${A.subtleBg}; }
+          .staff-filter-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
+          .staff-add-btn:hover { filter: brightness(1.08); }
+        `}</style>
 
-      <div style={{ padding: '28px 32px', maxWidth: 960, margin: '0 auto', paddingBottom: 60 }}>
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 22, color: T.ink }}>Staff Management</div>
-          <div style={{ fontFamily: T.font, fontSize: 13, color: 'rgba(38,52,49,0.45)', marginTop: 4 }}>Create login credentials for kitchen staff and waiters</div>
-        </div>
-
-        {/* Login Link Card */}
-        <div style={{ background: 'linear-gradient(135deg,rgba(196,168,109,0.08),rgba(196,168,109,0.04))', border: '1.5px solid rgba(196,168,109,0.25)', borderRadius: T.radiusCard, padding: '20px 22px', marginBottom: 28 }}>
-          <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 14, color: T.ink, marginBottom: 6 }}>
-            Staff Login Link
-          </div>
-          <div style={{ fontFamily: T.font, fontSize: 13, color: 'rgba(38,52,49,0.55)', marginBottom: 14, lineHeight: 1.6 }}>
-            Share this link with your staff. They open it on their device (kitchen tablet, waiter phone) and log in with their username and PIN.
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{
-              flex: 1, minWidth: 0, padding: '10px 14px', borderRadius: T.radiusBtn,
-              background: 'rgba(38,52,49,0.05)', border: `1px solid rgba(38,52,49,0.1)`,
-              fontSize: 13, color: T.ink, fontFamily: 'monospace',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {loginLink}
+        {/* ═══ ASPIRE HEADER ═══ */}
+        <div style={{ padding: '24px 28px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, gap: 14, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>People</span>
+                <span style={{ opacity: 0.5 }}>›</span>
+                <span style={{ color: A.mutedText }}>Staff Logins</span>
+              </div>
+              <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                {restaurantName} <span style={{ color: A.mutedText, fontWeight: 500 }}>Staff</span>
+              </div>
+              <div style={{ fontSize: 12, color: A.mutedText, marginTop: 4 }}>
+                Manage kitchen and waiter login credentials. PINs are shown once after creation.
+              </div>
             </div>
-            <button onClick={copyLink} style={{
-              padding: '10px 18px', borderRadius: T.radiusBtn, border: 'none', cursor: 'pointer',
-              background: copied ? T.success : T.accent, color: T.shellText,
-              fontFamily: T.font, fontWeight: 700, fontSize: 13, flexShrink: 0, transition: 'background 0.2s',
-            }}>
-              {copied ? '✓ Copied' : 'Copy Link'}
-            </button>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button onClick={openAdd} className="staff-add-btn" style={{
+                padding: '8px 18px', borderRadius: 10, border: 'none',
+                background: A.ink, color: A.cream, fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: A.font,
+              }}>
+                + Add Staff
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Staff List */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 16, color: T.ink }}>
-            Staff Members ({staff.length})
-          </div>
-          <button onClick={openAdd} style={{
-            padding: '9px 20px', borderRadius: T.radiusBtn, border: 'none', cursor: 'pointer',
-            background: T.accent, color: T.shellText, fontFamily: T.font, fontWeight: 700, fontSize: 13,
+          {/* ═══ TEAM — matte-black signature stats card (LIVE TODAY pattern) ═══ */}
+          <div style={{
+            background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+            borderRadius: 14, padding: '20px 24px', marginBottom: 14,
+            border: A.forestBorder,
+            boxShadow: '0 4px 16px rgba(38,52,49,0.15)',
           }}>
-            + Add Staff
-          </button>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, fontFamily: T.font, color: 'rgba(38,52,49,0.4)' }}>Loading staff…</div>
-        ) : loadError ? (
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: 'rgba(138,74,66,0.08)', border: '1px solid rgba(138,74,66,0.2)', color: T.danger, fontFamily: T.font, fontSize: 13 }}>
-            {loadError}
-          </div>
-        ) : staff.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 20px', background: 'rgba(38,52,49,0.03)', borderRadius: T.radiusCard, border: '1px dashed rgba(38,52,49,0.12)' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
-            <div style={{ fontFamily: T.font, fontWeight: 700, color: 'rgba(38,52,49,0.5)' }}>No staff added yet</div>
-            <div style={{ fontFamily: T.font, fontSize: 13, color: 'rgba(38,52,49,0.35)', marginTop: 4 }}>Add kitchen staff and waiters to give them login access.</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {staff.map(s => {
-              const roleMeta = ROLES.find(r => r.value === s.role) || ROLES[0];
-              return (
-                <div key={s.id} style={{
-                  background: T.white, border: `1px solid ${T.sand}`, borderRadius: T.radiusCard,
-                  padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14,
-                  boxShadow: T.shadowCard,
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>TEAM</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>
+                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[
+                { label: 'TOTAL',    value: stats.total,    accent: false },
+                { label: 'KITCHEN',  value: stats.kitchen,  accent: true  },
+                { label: 'WAITERS',  value: stats.waiters,  accent: true  },
+                { label: 'INACTIVE', value: stats.inactive, accent: false, danger: stats.inactive > 0 },
+              ].map(s => (
+                <div key={s.label} style={{
+                  padding: '16px 18px', borderRadius: 10,
+                  background: A.forestSubtleBg,
+                  border: A.forestBorder,
                 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 12, background: roleMeta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: '#fff', flexShrink: 0, letterSpacing: '0.02em' }}>{roleMeta.icon}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 15, color: T.ink }}>{s.name}</div>
-                      <div style={{ padding: '2px 10px', borderRadius: 20, background: s.role === 'kitchen' ? 'rgba(138,74,66,0.08)' : 'rgba(90,138,154,0.08)', color: s.role === 'kitchen' ? T.danger : '#5A8A9A', fontFamily: T.font, fontSize: 11, fontWeight: 700 }}>
-                        {roleMeta.label}
-                      </div>
-                      {!s.isActive && (
-                        <div style={{ padding: '2px 10px', borderRadius: 20, background: 'rgba(38,52,49,0.06)', color: 'rgba(38,52,49,0.4)', fontFamily: T.font, fontSize: 11, fontWeight: 700 }}>
-                          Inactive
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ fontFamily: T.font, fontSize: 13, color: 'rgba(38,52,49,0.5)' }}>
-                      Username: <span style={{ fontWeight: 600, color: T.ink }}>{s.username}</span>
-                      <span style={{ margin: '0 8px', color: 'rgba(38,52,49,0.2)' }}>·</span>
-                      PIN: <span style={{ fontWeight: 600, color: T.ink, fontFamily: 'monospace', fontSize: 14 }}>
-                        {showPins[s.id] ? s.pin : '••••'}
-                      </span>
-                      <button onClick={() => togglePin(s.id)} style={{ marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.font, fontSize: 12, color: 'rgba(38,52,49,0.4)', padding: 0 }}>
-                        {showPins[s.id] ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <button onClick={() => openEdit(s)} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.sand}`, background: T.white, color: T.ink, fontFamily: T.font, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
-                      Edit
-                    </button>
-                    <button onClick={() => handleDelete(s.id)} disabled={deleting === s.id} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: 'rgba(138,74,66,0.08)', color: T.danger, fontFamily: T.font, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
-                      {deleting === s.id ? '…' : 'Delete'}
-                    </button>
+                  <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>{s.label}</div>
+                  <div style={{ fontWeight: 700, fontSize: 28, lineHeight: 1, letterSpacing: '-0.5px',
+                    color: s.accent ? A.warning : (s.danger ? A.danger : A.forestText),
+                  }}>
+                    {s.value}
                   </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        )}
+
+          {/* ═══ Login URL card — plain white card per design choice ═══ */}
+          <div style={{
+            background: A.shell, borderRadius: 14, padding: '16px 20px', marginBottom: 14,
+            border: A.border, boxShadow: A.cardShadow,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning, boxShadow: '0 0 6px rgba(196,168,109,0.35)' }} />
+              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>STAFF LOGIN URL</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(196,168,109,0.20)' }} />
+              <span style={{ fontSize: 11, color: A.mutedText, fontWeight: 500 }}>
+                Open this on staff tablets
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{
+                flex: 1, minWidth: 260, padding: '10px 14px', borderRadius: 10,
+                background: A.shellDarker, border: A.border,
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: A.ink,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {loginLink || 'Loading…'}
+              </div>
+              <button onClick={copyLink} className="staff-icon-btn" style={{
+                padding: '8px 16px', borderRadius: 10, border: A.border,
+                background: A.shell, color: copied ? A.success : A.ink,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
+              }}>
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
+              <button onClick={() => setQrOpen(true)} className="staff-icon-btn" style={{
+                padding: '8px 16px', borderRadius: 10, border: A.border,
+                background: A.shell, color: A.ink,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
+              }}>
+                Show QR
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ Main content ═══ */}
+        <div style={{ padding: '0 28px 40px' }}>
+          {/* Banner */}
+          {banner && (
+            <div style={{
+              padding: '10px 14px', marginBottom: 12, borderRadius: 10,
+              background: banner.kind === 'success' ? 'rgba(63,158,90,0.10)' : 'rgba(217,83,79,0.10)',
+              border: `1px solid ${banner.kind === 'success' ? 'rgba(63,158,90,0.30)' : 'rgba(217,83,79,0.30)'}`,
+              color: banner.kind === 'success' ? A.success : A.danger,
+              fontSize: 13, fontWeight: 600,
+              animation: 'slideDown 0.2s ease',
+            }}>
+              {banner.kind === 'success' ? '✓ ' : '⚠ '}{banner.text}
+            </div>
+          )}
+
+          {/* ═══ Filter + search bar (plain card) ═══ */}
+          <div style={{
+            background: A.shell, border: A.border, borderRadius: 12,
+            padding: '10px 14px', marginBottom: 14,
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            boxShadow: A.cardShadow,
+          }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {[
+                { key: 'all',      label: 'All',      count: staff.length },
+                { key: 'kitchen',  label: 'Kitchen',  count: stats.kitchen },
+                { key: 'waiter',   label: 'Waiters',  count: stats.waiters },
+                { key: 'inactive', label: 'Inactive', count: stats.inactive },
+              ].map(f => {
+                const active = filter === f.key;
+                return (
+                  <button key={f.key} className={`staff-filter-pill ${active ? 'active' : ''}`}
+                    onClick={() => setFilter(f.key)}
+                    style={{
+                      padding: '6px 12px', fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 500,
+                      background: active ? A.ink : 'transparent', color: active ? A.cream : A.mutedText,
+                      border: 'none', borderRadius: 7, cursor: 'pointer', transition: 'all 0.15s',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}>
+                    {f.label}
+                    <span style={{
+                      padding: '1px 6px', borderRadius: 10,
+                      background: active ? 'rgba(237,237,237,0.18)' : A.subtleBg,
+                      color: active ? A.cream : A.faintText,
+                      fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                    }}>{f.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name or username…"
+              style={{
+                flex: 1, minWidth: 180,
+                padding: '7px 12px', borderRadius: 8,
+                border: A.border, background: A.shellDarker,
+                fontSize: 13, fontFamily: A.font, color: A.ink, outline: 'none',
+              }}
+              onFocus={e => e.target.style.background = A.shell}
+              onBlur={e => e.target.style.background = A.shellDarker}
+            />
+            <span style={{ fontSize: 11, color: A.faintText, fontWeight: 500 }}>
+              {filtered.length} of {staff.length}
+            </span>
+          </div>
+
+          {/* ═══ Staff list ═══ */}
+          {loading ? (
+            <div style={{
+              background: A.shell, borderRadius: 14, border: A.border, padding: '48px',
+              textAlign: 'center', boxShadow: A.cardShadow,
+            }}>
+              <div style={{ width: 30, height: 30, border: `3px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+              <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 600 }}>Loading staff…</div>
+            </div>
+          ) : loadError ? (
+            <div style={{
+              background: 'rgba(217,83,79,0.06)', border: `1px solid rgba(217,83,79,0.30)`,
+              borderRadius: 12, padding: '16px 18px',
+              color: A.danger, fontSize: 13, fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+            }}>
+              ⚠ {loadError}
+              <button onClick={reload} style={{
+                padding: '7px 14px', borderRadius: 8, border: 'none', background: A.danger, color: A.shell,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
+              }}>Retry</button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{
+              background: A.shell, borderRadius: 14, border: A.border, padding: '56px 32px',
+              textAlign: 'center', boxShadow: A.cardShadow,
+            }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: A.ink, marginBottom: 6 }}>
+                {staff.length === 0 ? 'No staff added yet' : 'No matches for this filter'}
+              </div>
+              <div style={{ fontSize: 13, color: A.mutedText, maxWidth: 380, margin: '0 auto', lineHeight: 1.5 }}>
+                {staff.length === 0
+                  ? 'Add kitchen staff and waiters to give them login access on their tablets.'
+                  : 'Try clearing search or picking a different category.'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {filtered.map(s => {
+                const role = ROLES[s.role] || ROLES.kitchen;
+                const isInactive = s.isActive === false;
+                const busy = actionId === s.id;
+                return (
+                  <div key={s.id} className="staff-card" style={{
+                    background: A.shell, border: A.border, borderRadius: 12,
+                    padding: '16px 18px',
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    boxShadow: A.cardShadow,
+                    opacity: isInactive ? 0.65 : 1,
+                  }}>
+                    {/* Role avatar — matte-black square with gold icon glyph */}
+                    <RoleIcon role={s.role} />
+
+                    {/* Name + role + username */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: 15, color: A.ink, letterSpacing: '-0.2px' }}>
+                          {s.name}
+                        </span>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 4,
+                          background: A.subtleBg, color: A.mutedText,
+                          fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                        }}>{role.label}</span>
+                        {isInactive && (
+                          <span style={{
+                            padding: '2px 8px', borderRadius: 4,
+                            background: A.subtleBg, color: A.faintText,
+                            fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                          }}>Inactive</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: A.mutedText, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        <span>Username: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: A.ink, fontWeight: 600 }}>{s.username}</span></span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <button onClick={() => handleToggleActive(s)} disabled={busy} className="staff-icon-btn" style={{
+                        padding: '7px 12px', borderRadius: 8, border: A.border, background: A.shell,
+                        color: isInactive ? A.success : A.ink, fontSize: 12, fontWeight: 600,
+                        cursor: busy ? 'not-allowed' : 'pointer', fontFamily: A.font, opacity: busy ? 0.6 : 1,
+                      }}>{isInactive ? 'Enable' : 'Disable'}</button>
+                      <button onClick={() => openEdit(s)} disabled={busy} className="staff-icon-btn" style={{
+                        padding: '7px 12px', borderRadius: 8, border: A.border, background: A.shell,
+                        color: A.ink, fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
+                        fontFamily: A.font, opacity: busy ? 0.6 : 1,
+                      }}>Edit</button>
+                      <button onClick={() => handleDelete(s)} disabled={busy} style={{
+                        padding: '7px 12px', borderRadius: 8, border: 'none',
+                        background: 'rgba(217,83,79,0.08)', color: A.danger,
+                        fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
+                        fontFamily: A.font, opacity: busy ? 0.6 : 1,
+                      }}>Delete</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Modal */}
+      {/* ═══ Add / Edit Modal ═══ */}
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)', padding: 16 }}
-          onClick={e => { if (e.target === e.currentTarget) setModal(null); }}>
-          <div style={{ background: T.white, borderRadius: 20, padding: '28px 26px', width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 18, color: T.ink, marginBottom: 20 }}>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100, padding: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
+        }} onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+          <div style={{
+            background: A.shell, borderRadius: 14, padding: '24px',
+            width: '100%', maxWidth: 440,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            fontFamily: A.font,
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, marginBottom: 4, letterSpacing: '-0.2px' }}>
               {modal === 'add' ? 'Add Staff Member' : 'Edit Staff Member'}
             </div>
+            <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 18 }}>
+              {modal === 'add'
+                ? 'PIN is shown once after creation — make sure to share it with the staff member before closing.'
+                : 'PIN cannot be changed. To reset a staff member\u2019s PIN, delete this account and create a new one.'}
+            </div>
 
-            {/* Role picker */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: 'rgba(38,52,49,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Role</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {ROLES.map(r => (
-                  <button key={r.value} onClick={() => setForm(f => ({ ...f, role: r.value }))} style={{
-                    padding: '14px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                    border: `2px solid ${form.role === r.value ? r.color : 'rgba(38,52,49,0.1)'}`,
-                    background: form.role === r.value ? `${r.color}10` : 'transparent',
-                  }}>
-                    <div style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 8, background: r.color, color: '#fff', fontWeight: 800, fontSize: 11, marginBottom: 8, letterSpacing: '0.04em' }}>{r.icon}</div>
-                    <div style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.ink }}>{r.label}</div>
-                    <div style={{ fontFamily: T.font, fontSize: 11, color: 'rgba(38,52,49,0.45)', marginTop: 2 }}>{r.desc}</div>
-                  </button>
-                ))}
+            {/* Role picker — card-style selector with matte-black icon, gold accent on active */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: A.warningDim, letterSpacing: '0.10em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Role</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {Object.entries(ROLES).map(([val, r]) => {
+                  const active = form.role === val;
+                  return (
+                    <button key={val} type="button" onClick={() => setForm(f => ({ ...f, role: val }))} style={{
+                      padding: '14px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                      border: `2px solid ${active ? A.warning : 'rgba(0,0,0,0.08)'}`,
+                      background: active ? 'rgba(196,168,109,0.06)' : A.shell,
+                      fontFamily: A.font, transition: 'all 0.15s',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                    }}>
+                      <RoleIcon role={val} size={36} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: A.ink }}>{r.label}</div>
+                        <div style={{ fontSize: 11, color: A.mutedText, marginTop: 2 }}>{r.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Name */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: 'rgba(38,52,49,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Name</label>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Ravi Kumar"
-                style={{ width: '100%', padding: '11px 14px', borderRadius: T.radiusBtn, border: `1px solid ${T.sand}`, background: T.cream, fontSize: 14, fontFamily: T.font, color: T.ink, outline: 'none', boxSizing: 'border-box' }} />
-            </div>
+            <FormField label="Name">
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Ravi Kumar"
+                style={inputStyle} />
+            </FormField>
 
             {/* Username */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: 'rgba(38,52,49,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Username</label>
-              <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value.replace(/\s/g, '') }))} placeholder="e.g. kitchen1"
-                style={{ width: '100%', padding: '11px 14px', borderRadius: T.radiusBtn, border: `1px solid ${T.sand}`, background: T.cream, fontSize: 14, fontFamily: 'monospace', color: T.ink, outline: 'none', boxSizing: 'border-box' }} />
-            </div>
-
-            {/* PIN */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <label style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: 'rgba(38,52,49,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>PIN</label>
-                <button onClick={() => setForm(f => ({ ...f, pin: randomPin() }))} style={{ fontFamily: T.font, fontSize: 11, color: T.warning, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  Generate Random
-                </button>
+            <FormField label="Username">
+              <input value={form.username}
+                onChange={e => setForm(f => ({ ...f, username: e.target.value.replace(/[^a-z0-9_]/gi, '').toLowerCase() }))}
+                placeholder="e.g. kitchen1"
+                style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }} />
+              <div style={{ fontSize: 11, color: A.faintText, marginTop: 4 }}>
+                Lowercase letters, numbers, and underscores only.
               </div>
-              <input value={form.pin} onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))} placeholder="4-6 digits" inputMode="numeric"
-                style={{ width: '100%', padding: '11px 14px', borderRadius: T.radiusBtn, border: `1px solid ${T.sand}`, background: T.cream, fontSize: 20, color: T.ink, outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace', letterSpacing: '0.3em' }} />
-            </div>
+            </FormField>
 
-            {/* Active toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, padding: '12px 14px', borderRadius: T.radiusBtn, background: 'rgba(38,52,49,0.03)', border: '1px solid rgba(38,52,49,0.08)' }}>
-              <input type="checkbox" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} id="activeToggle" style={{ width: 16, height: 16, cursor: 'pointer' }} />
-              <label htmlFor="activeToggle" style={{ fontFamily: T.font, fontSize: 14, fontWeight: 600, color: T.ink, cursor: 'pointer' }}>Active (can log in)</label>
-            </div>
-
-            {saveError && (
-              <div style={{ padding: '10px 14px', borderRadius: T.radiusBtn, background: 'rgba(138,74,66,0.08)', border: '1px solid rgba(138,74,66,0.2)', color: T.danger, fontFamily: T.font, fontSize: 13, marginBottom: 14 }}>
-                {saveError}
+            {/* PIN (only on add — not on edit, since rotate is a separate action) */}
+            {modal === 'add' && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: A.warningDim, letterSpacing: '0.10em', textTransform: 'uppercase' }}>PIN</label>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, pin: randomPin() }))} style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                    fontSize: 11, fontWeight: 700, color: A.warning, fontFamily: A.font,
+                  }}>Generate random</button>
+                </div>
+                <input value={form.pin}
+                  onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                  placeholder="4-6 digits" inputMode="numeric"
+                  style={{
+                    ...inputStyle, fontSize: 20, letterSpacing: '0.3em',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }} />
               </div>
             )}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setModal(null); setSaveError(''); }} style={{ flex: 1, padding: '12px', borderRadius: T.radiusBtn, border: `1px solid ${T.sand}`, background: T.white, color: T.ink, fontFamily: T.font, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={handleSave} disabled={saving || !form.name || !form.username || !form.pin} style={{
-                flex: 2, padding: '12px', borderRadius: T.radiusBtn, border: 'none', cursor: 'pointer',
-                background: T.accent, color: T.shellText, fontFamily: T.font, fontWeight: 700, fontSize: 14,
-                opacity: (!form.name || !form.username || !form.pin) ? 0.5 : 1,
+
+            {saveError && (
+              <div style={{
+                padding: '10px 14px', borderRadius: 8, marginBottom: 14,
+                background: 'rgba(217,83,79,0.10)', border: '1px solid rgba(217,83,79,0.30)',
+                color: A.danger, fontSize: 13, fontWeight: 600,
               }}>
-                {saving ? 'Saving…' : modal === 'add' ? 'Add Staff Member' : 'Save Changes'}
+                ⚠ {saveError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={closeModal} style={{
+                flex: 1, padding: '11px', borderRadius: 10, border: A.border, background: A.shell,
+                color: A.mutedText, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: A.font,
+              }}>Cancel</button>
+              <button onClick={handleSave} disabled={saving || !form.name || !form.username || (modal === 'add' && !form.pin)} style={{
+                flex: 2, padding: '11px', borderRadius: 10, border: 'none',
+                background: A.ink, color: A.cream, fontWeight: 700, fontSize: 13,
+                cursor: saving ? 'not-allowed' : 'pointer', fontFamily: A.font,
+                opacity: (saving || !form.name || !form.username || (modal === 'add' && !form.pin)) ? 0.5 : 1,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                {saving && <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
+                {saving ? 'Saving…' : modal === 'add' ? 'Create Staff Member' : 'Save Changes'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Show-PIN-once modal (fancy) ═══ */}
+      {pinDisplay && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 101, padding: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+        }}>
+          <div style={{
+            background: A.shell, borderRadius: 14, padding: '28px 24px',
+            width: '100%', maxWidth: 400,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            fontFamily: A.font, textAlign: 'center',
+            border: `2px solid ${A.warning}`,
+            animation: 'fadeUp 0.25s ease',
+          }}>
+            <div style={{
+              display: 'inline-block', padding: '3px 10px', borderRadius: 4,
+              background: A.warning, color: A.shell,
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase',
+              marginBottom: 14,
+            }}>
+              SHOWN ONLY ONCE
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, marginBottom: 4 }}>
+              PIN for {pinDisplay.name}
+            </div>
+            <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 18 }}>
+              Username: <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: A.ink }}>{pinDisplay.username}</span>
+            </div>
+
+            <div style={{
+              padding: '22px 18px', borderRadius: 12,
+              background: `linear-gradient(135deg, ${A.forest}, ${A.forestDarker})`,
+              border: A.forestBorder,
+              marginBottom: 16,
+            }}>
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 40, fontWeight: 800,
+                color: A.warning, letterSpacing: '0.5em', paddingLeft: '0.5em',
+              }}>
+                {pinDisplay.pin}
+              </div>
+            </div>
+
+            <div style={{
+              padding: '10px 14px', borderRadius: 8,
+              background: 'rgba(196,168,109,0.10)', border: '1px solid rgba(196,168,109,0.30)',
+              fontSize: 12, color: A.warningDim, lineHeight: 1.5, marginBottom: 16, textAlign: 'left',
+            }}>
+              <b>Important:</b> This PIN will not be shown again. Copy it or share it with {pinDisplay.name} now. Losing it means rotating the PIN.
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { navigator.clipboard.writeText(pinDisplay.pin); }} style={{
+                flex: 1, padding: '11px', borderRadius: 10, border: A.border, background: A.shell,
+                color: A.ink, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: A.font,
+              }}>Copy PIN</button>
+              <button onClick={() => setPinDisplay(null)} style={{
+                flex: 1, padding: '11px', borderRadius: 10, border: 'none',
+                background: A.ink, color: A.cream, fontWeight: 700, fontSize: 13,
+                cursor: 'pointer', fontFamily: A.font,
+              }}>I've saved it</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ QR code modal ═══ */}
+      {qrOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100, padding: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+        }} onClick={e => { if (e.target === e.currentTarget) setQrOpen(false); }}>
+          <div style={{
+            background: A.shell, borderRadius: 14, padding: '28px 24px',
+            width: '100%', maxWidth: 360,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            fontFamily: A.font, textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, marginBottom: 4 }}>
+              Scan to open staff login
+            </div>
+            <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 20 }}>
+              Aim the staff tablet camera at this code.
+            </div>
+            <div style={{
+              padding: 10, borderRadius: 10, border: A.border, background: A.shellDarker,
+              display: 'inline-block', marginBottom: 16,
+            }}>
+              {qrSrc ? <img src={qrSrc} alt="Staff login QR" style={{ display: 'block', width: 280, height: 280 }} /> : null}
+            </div>
+            <div style={{
+              padding: '8px 12px', borderRadius: 6, background: A.shellDarker,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: A.ink,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              marginBottom: 14,
+            }}>{loginLink}</div>
+            <button onClick={() => setQrOpen(false)} style={{
+              width: '100%', padding: '11px', borderRadius: 10, border: 'none',
+              background: A.ink, color: A.cream, fontWeight: 700, fontSize: 13,
+              cursor: 'pointer', fontFamily: A.font,
+            }}>Close</button>
           </div>
         </div>
       )}
     </AdminLayout>
   );
 }
+
+// ═══ Reusable atom: form field label + input wrapper ═══
+function FormField({ label, children }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#A08656', display: 'block', marginBottom: 6 }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ═══ Shared input style ═══
+const inputStyle = {
+  width: '100%', padding: '11px 14px', borderRadius: 10,
+  border: '1px solid rgba(0,0,0,0.08)', background: '#F8F8F8',
+  fontSize: 14, color: '#1A1A1A', outline: 'none', boxSizing: 'border-box',
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+};

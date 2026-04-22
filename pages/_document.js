@@ -3,7 +3,12 @@ import { Html, Head, Main, NextScript } from 'next/document';
 
 export default function Document() {
   return (
-    <Html lang="en">
+    // data-scroll-behavior="smooth" tells Next.js's router that the global
+    // `scroll-behavior: smooth` on <html> is intentional and should NOT trigger
+    // scroll-restoration side-effects on page transitions. This fixes the
+    // sidebar nav scroll-position-resetting-on-link-click bug. See:
+    // https://nextjs.org/docs/messages/missing-data-scroll-behavior
+    <Html lang="en" data-scroll-behavior="smooth">
       <Head>
         {/* model-viewer loaded inside AR iframe only */}
         {/* Google Fonts */}

@@ -94,6 +94,31 @@ export default function AdminLayout({ children }) {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
+  // ─── NAV SCROLL POSITION PRESERVATION ────────────────────────────────────
+  // Each admin page wraps itself with <AdminLayout>, so the entire layout
+  // (including this <nav>) unmounts and remounts on every route change.
+  // That means the nav's internal scrollTop is reset to 0 each time the
+  // user clicks a link. To preserve the user's scroll position across
+  // navigations, we save it to sessionStorage on every scroll, and restore
+  // it via a ref callback when the new <nav> element mounts.
+  // sessionStorage is used (instead of a useRef/useState) precisely because
+  // it survives the unmount/remount cycle that destroys all React state.
+  const NAV_SCROLL_KEY = 'ar_admin_nav_scroll';
+  const navRef = useCallback((el) => {
+    if (!el) return;
+    // Restore scroll position synchronously the moment the element mounts.
+    // Using direct .scrollTop= (not scrollTo with smooth) so it snaps
+    // instantly with no visible animation.
+    try {
+      const saved = sessionStorage.getItem(NAV_SCROLL_KEY);
+      if (saved !== null) el.scrollTop = parseInt(saved, 10) || 0;
+    } catch {}
+    // Track future scrolls and persist them to sessionStorage.
+    el.addEventListener('scroll', () => {
+      try { sessionStorage.setItem(NAV_SCROLL_KEY, String(el.scrollTop)); } catch {}
+    }, { passive: true });
+  }, []);
+
   // ─── SHARED REAL-TIME DATA ────────────────────────────────────────────────
   const [allOrders, setAllOrders] = useState([]);
   const [allWaiterCalls, setAllWaiterCalls] = useState([]);
@@ -321,7 +346,7 @@ export default function AdminLayout({ children }) {
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '4px 12px 12px', overflowY: 'auto' }}>
+        <nav ref={navRef} style={{ flex: 1, padding: '4px 12px 12px', overflowY: 'auto' }}>
           {navSections.map((section) => (
             <div key={section.label} style={{ marginBottom: 14 }}>
               <div style={{ fontFamily: INTER, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: A_FAINT, padding: '6px 14px 8px', textTransform: 'uppercase' }}>

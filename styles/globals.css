@@ -48,7 +48,6 @@ html {
   background: var(--page-bg);
   color: var(--text-dark);
   font-family: 'Inter', sans-serif;
-  scroll-behavior: smooth;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────── */
