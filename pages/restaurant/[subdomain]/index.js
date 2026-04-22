@@ -15,6 +15,19 @@ function getSessionId() {
   return sid;
 }
 
+// Returning-customer recognition. Sets a per-restaurant localStorage flag on
+// first visit; returns true on subsequent visits. No phone number required —
+// just uses the browser's device identity. Safe on SSR (no window → false).
+function isReturningVisitor(restaurantId) {
+  if (typeof window === 'undefined' || !restaurantId) return false;
+  const key = `ar_visited_${restaurantId}`;
+  const was = !!localStorage.getItem(key);
+  if (!was) {
+    try { localStorage.setItem(key, Date.now().toString()); } catch {}
+  }
+  return was;
+}
+
 function getSavedPhone() {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem('ar_phone') || '';
@@ -512,6 +525,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [restaurantGone, setRestaurantGone] = useState(initialRestaurant?.isActive === false);
   const [activeCat, setActiveCat] = useState('All');
   const [selectedItem, setSelectedItem] = useState(null);
+  // Modifier selection for the currently-open item modal. Resets whenever
+  // selectedItem changes. { variant: {name, priceDelta} | null, addOns: [...] }
+  const [modifierChoice, setModifierChoice] = useState({ variant: null, addOns: [] });
   const [selectedCombo, setSelectedCombo] = useState(null);
   const [showAR, setShowAR] = useState(false);
   const [imgErr, setImgErr] = useState({});
@@ -618,8 +634,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const iD = (item) => (lang === 'ta' && item?.descriptionTA) || (lang === 'hi' && item?.descriptionHI) || item?.description || '';
 
   useEffect(() => {
-    if (restaurant?.id) trackVisit(restaurant.id, getSessionId()).catch(() => { });
+    if (!restaurant?.id) return;
+    trackVisit(restaurant.id, getSessionId()).catch(() => { });
+    // Set returning flag ON MOUNT (don't re-run on restaurant state updates
+    // — the localStorage write happens once per device per restaurant).
+    const returning = isReturningVisitor(restaurant.id);
+    if (returning) {
+      try { sessionStorage.setItem('ar_was_returning', '1'); } catch {}
+    }
   }, [restaurant?.id]);
+
+  // Reset modifier selection whenever a new item modal opens. Prevents the
+  // previous item's variant/addOns from leaking into the next picker.
+  useEffect(() => {
+    setModifierChoice({ variant: null, addOns: [] });
+  }, [selectedItem?.id]);
 
   // ── Real-time Firestore listeners — INSTANT updates from admin ──
   useEffect(() => {
@@ -842,23 +871,40 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
   /* ─── Smart Rule-Based Upsell ─── */
   // ── Cart helpers ─────────────────────────────────────────
-  const addToCart = useCallback((item) => {
+  // Cart entries carry a `cartKey`:
+  //   - items without modifiers: cartKey === id (matches legacy behavior)
+  //   - items with modifiers: cartKey = id::variant-name::addon-names-sorted
+  //     so two lines of the same dish with different toppings stay separate.
+  // Each entry also stores `price` (final unit price with deltas folded in),
+  // `basePrice`, `variant`, `addOns`, `modNote` for display.
+  const addToCart = useCallback((item, modifiers = null) => {
     if (item.soldOut || item.isOutOfStock) return;
+    const variant = modifiers?.variant || null;
+    const addOns  = modifiers?.addOns || [];
+    const deltaSum = (variant?.priceDelta || 0) + addOns.reduce((s, a) => s + (a.priceDelta || 0), 0);
+    const modNote = [variant?.name, ...addOns.map(a => a.name)].filter(Boolean).join(' • ');
+    const cartKey = modNote ? `${item.id}::${modNote}` : item.id;
+    const unitPrice = (item.price || 0) + deltaSum;
     setCart(prev => {
-      const existing = prev.find(c => c.id === item.id);
-      if (existing) return prev.map(c => c.id === item.id ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { id: item.id, name: item.name, price: item.price || 0, qty: 1, imageURL: item.imageURL || null, note: '' }];
+      const existing = prev.find(c => (c.cartKey || c.id) === cartKey);
+      if (existing) return prev.map(c => (c.cartKey || c.id) === cartKey ? { ...c, qty: c.qty + 1 } : c);
+      return [...prev, {
+        cartKey, id: item.id, name: item.name,
+        price: unitPrice, basePrice: item.price || 0,
+        variant, addOns, modNote,
+        qty: 1, imageURL: item.imageURL || null, note: '',
+      }];
     });
   }, []);
 
-  const updateCartNote = useCallback((itemId, note) => {
-    setCart(prev => prev.map(c => c.id === itemId ? { ...c, note } : c));
+  const updateCartNote = useCallback((key, note) => {
+    setCart(prev => prev.map(c => (c.cartKey || c.id) === key ? { ...c, note } : c));
   }, []);
-  const removeFromCart = useCallback((id) => {
+  const removeFromCart = useCallback((key) => {
     setCart(prev => {
-      const existing = prev.find(c => c.id === id);
-      if (existing?.qty > 1) return prev.map(c => c.id === id ? { ...c, qty: c.qty - 1 } : c);
-      return prev.filter(c => c.id !== id);
+      const existing = prev.find(c => (c.cartKey || c.id) === key);
+      if (existing?.qty > 1) return prev.map(c => (c.cartKey || c.id) === key ? { ...c, qty: c.qty - 1 } : c);
+      return prev.filter(c => (c.cartKey || c.id) !== key);
     });
   }, []);
   const clearCart = useCallback(() => {
@@ -962,12 +1008,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     }
     setIsSubmitting(true);
     try {
-      // Re-validate prices from live menu data
+      // Re-validate prices from live menu data. Modifier deltas stack on
+      // whatever the live base price is (so offer prices apply, but the
+      // "+₹50 for Full size" still adds on top).
       const freshCart = cart.map(c => {
         const live = enrichedItems.find(i => i.id === c.id);
         if (!live) return c;
-        const price = live.offerPrice ?? live.price ?? 0;
-        return { ...c, price };
+        const basePriceLive = live.offerPrice ?? live.price ?? 0;
+        const deltaSum = (c.variant?.priceDelta || 0)
+          + (c.addOns || []).reduce((s, a) => s + (a.priceDelta || 0), 0);
+        return { ...c, price: basePriceLive + deltaSum, basePrice: basePriceLive };
       });
       const gstPct = restaurant?.gstPercent || 0;
       const scPct = restaurant?.serviceChargePercent || 0;
@@ -987,7 +1037,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       const orderId = await createOrder(restaurant.id, {
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
         customerPhone: phone || null,
-        items: freshCart.map(c => ({ id: c.id, name: c.name || '', price: c.price ?? 0, qty: c.qty || 1, note: c.note || '' })),
+        items: freshCart.map(c => ({
+          id: c.id, name: c.name || '',
+          price: c.price ?? 0, qty: c.qty || 1, note: c.note || '',
+          // Modifier info — kitchen/waiter/orders can render these if they
+          // choose to; passing them through preserves the option.
+          variant: c.variant || null,
+          addOns: c.addOns || [],
+          modNote: c.modNote || '',
+        })),
         subtotal,
         gstPercent: gstPct,
         serviceChargePercent: scPct,
@@ -2959,12 +3017,93 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </>)}
                 {showAR && <ARViewerEmbed modelURL={selectedItem.modelURL} itemName={selectedItem.name} onARLaunch={handleARLaunch} />}
 
-                {/* ── Add to Order List ── */}
+                {/* ── Modifiers: variants (required pick-one) + addOns (optional multi) ──
+                    Shown only if the item defines them. Each click computes an
+                    effective price; Add-to-cart creates a distinct line per combo. */}
+                {((selectedItem.variants?.length || 0) > 0 || (selectedItem.addOns?.length || 0) > 0) && (
+                  <div style={{ margin: '14px 0 4px', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,245,232,0.08)' : 'rgba(42,31,16,0.08)'}` }}>
+                    {(selectedItem.variants?.length || 0) > 0 && (
+                      <div style={{ marginBottom: (selectedItem.addOns?.length || 0) > 0 ? 12 : 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: darkMode ? 'rgba(247,155,61,0.85)' : '#A05000', marginBottom: 8 }}>
+                          Choose size · required
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {selectedItem.variants.map(v => {
+                            const selected = modifierChoice.variant?.name === v.name;
+                            return (
+                              <button key={v.name}
+                                onClick={() => setModifierChoice(m => ({ ...m, variant: selected ? null : v }))}
+                                style={{
+                                  padding: '8px 14px', borderRadius: 20,
+                                  border: selected ? '2px solid #F79B3D' : `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.15)'}`,
+                                  background: selected ? 'rgba(247,155,61,0.12)' : 'transparent',
+                                  color: darkMode ? '#FFF5E8' : '#1E1B18',
+                                  fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif',
+                                }}>
+                                {v.name}{v.priceDelta ? ` (${v.priceDelta > 0 ? '+' : ''}₹${v.priceDelta})` : ''}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {(selectedItem.addOns?.length || 0) > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: darkMode ? 'rgba(247,155,61,0.85)' : '#A05000', marginBottom: 8 }}>
+                          Add-ons · optional
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {selectedItem.addOns.map(a => {
+                            const selected = !!modifierChoice.addOns.find(x => x.name === a.name);
+                            return (
+                              <button key={a.name}
+                                onClick={() => setModifierChoice(m => ({
+                                  ...m,
+                                  addOns: selected
+                                    ? m.addOns.filter(x => x.name !== a.name)
+                                    : [...m.addOns, a],
+                                }))}
+                                style={{
+                                  padding: '8px 14px', borderRadius: 20,
+                                  border: selected ? '2px solid #5A9A78' : `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.15)'}`,
+                                  background: selected ? 'rgba(90,154,120,0.12)' : 'transparent',
+                                  color: darkMode ? '#FFF5E8' : '#1E1B18',
+                                  fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif',
+                                }}>
+                                {selected ? '✓ ' : '+ '}{a.name}{a.priceDelta ? ` (+₹${a.priceDelta})` : ''}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Add to Order List ──
+                    When the item has variants, variant is required. Effective
+                    price updates live as the user picks modifiers. Add-to-cart
+                    resets the modifier state so the next open starts clean. */}
                 {(() => {
-                  const inCart = cart.find(c => c.id === selectedItem.id);
+                  const hasMods = (selectedItem.variants?.length || 0) > 0 || (selectedItem.addOns?.length || 0) > 0;
+                  const variantRequired = (selectedItem.variants?.length || 0) > 0;
+                  const effectivePrice = (selectedItem.price || 0)
+                    + (modifierChoice.variant?.priceDelta || 0)
+                    + modifierChoice.addOns.reduce((s, a) => s + (a.priceDelta || 0), 0);
+                  const canAdd = !variantRequired || !!modifierChoice.variant;
+                  const inCart = !hasMods ? cart.find(c => c.id === selectedItem.id) : null;
+                  const handleAdd = () => {
+                    if (hasMods) {
+                      if (!canAdd) return;
+                      addToCart(selectedItem, { variant: modifierChoice.variant, addOns: modifierChoice.addOns });
+                      setModifierChoice({ variant: null, addOns: [] });
+                    } else {
+                      addToCart(selectedItem);
+                    }
+                  };
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 8px', flexWrap: 'wrap' }}>
-                      {inCart ? (
+                      {!hasMods && inCart ? (
                         <>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.05)', borderRadius: 50 }}>
                             <button className="qty-btn" onClick={() => removeFromCart(selectedItem.id)}>−</button>
@@ -2974,12 +3113,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           <span style={{ fontSize: 13, color: 'var(--text-muted,rgba(42,31,16,0.5))', fontWeight: 600 }}>in your order list</span>
                         </>
                       ) : (
-                        <button onClick={() => addToCart(selectedItem)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 50, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#ffffff' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer', boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)' }}>
-                          🛒 Add to Order List
+                        <button onClick={handleAdd}
+                          disabled={!canAdd}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 50, border: 'none',
+                            background: darkMode ? '#F79B3D' : '#1E1B18',
+                            color: darkMode ? '#ffffff' : '#FFF5E8',
+                            fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                            cursor: canAdd ? 'pointer' : 'not-allowed',
+                            opacity: canAdd ? 1 : 0.5,
+                            boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)',
+                          }}>
+                          🛒 {hasMods ? (variantRequired && !modifierChoice.variant ? 'Pick a size' : `Add to Order · ₹${effectivePrice}`) : 'Add to Order List'}
                         </button>
                       )}
-                      {(selectedItem.price > 0) && (
-                        <span style={{ fontSize: 18, fontWeight: 800, color: '#E05A3A', fontFamily: 'Poppins,sans-serif', marginLeft: 'auto' }}>₹{selectedItem.price}</span>
+                      {(effectivePrice > 0 && !hasMods) && (
+                        <span style={{ fontSize: 18, fontWeight: 800, color: '#E05A3A', fontFamily: 'Poppins,sans-serif', marginLeft: 'auto' }}>₹{effectivePrice}</span>
                       )}
                     </div>
                   );
@@ -3076,8 +3225,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <button onClick={() => { setCartOpen(false); setOrderStep('cart'); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', marginBottom: 16 }}>
-                  {cart.map(c => (
-                    <div key={c.id} className="cart-item-row">
+                  {cart.map(c => {
+                    const key = c.cartKey || c.id;
+                    return (
+                    <div key={key} className="cart-item-row">
                       {c.imageURL && (
                         <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
                           <img src={c.imageURL} alt={c.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -3085,28 +3236,34 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                        {c.modNote && (
+                          <div style={{ fontSize: 11, color: darkMode ? 'rgba(247,155,61,0.85)' : '#A05000', marginTop: 2, fontWeight: 500 }}>
+                            {c.modNote}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                           <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)' }}>Qty: {c.qty}</div>
-                          <button onClick={() => setNoteOpen(n => ({ ...n, [c.id]: !n[c.id] }))}
+                          <button onClick={() => setNoteOpen(n => ({ ...n, [key]: !n[key] }))}
                             style={{ fontSize: 11, color: '#F79B3D', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
                             {c.note ? '✏ Edit note' : '+ Note'}
                           </button>
                         </div>
-                        {c.note && !noteOpen[c.id] && <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', marginTop: 2, fontStyle: 'italic' }}>"{c.note}"</div>}
-                        {noteOpen[c.id] && (
-                          <input autoFocus value={c.note || ''} onChange={e => updateCartNote(c.id, e.target.value)}
-                            onBlur={() => setNoteOpen(n => ({ ...n, [c.id]: false }))}
+                        {c.note && !noteOpen[key] && <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', marginTop: 2, fontStyle: 'italic' }}>"{c.note}"</div>}
+                        {noteOpen[key] && (
+                          <input autoFocus value={c.note || ''} onChange={e => updateCartNote(key, e.target.value)}
+                            onBlur={() => setNoteOpen(n => ({ ...n, [key]: false }))}
                             placeholder="e.g. No onion, extra spicy…"
                             style={{ width: '100%', marginTop: 4, padding: '5px 9px', borderRadius: 8, border: `1px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.15)'}`, background: darkMode ? 'rgba(255,255,255,0.07)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 12, fontFamily: 'Inter,sans-serif', outline: 'none', boxSizing: 'border-box' }} />
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <button className="qty-btn" onClick={() => removeFromCart(c.id)}>−</button>
+                        <button className="qty-btn" onClick={() => removeFromCart(key)}>−</button>
                         <span style={{ fontWeight: 800, fontSize: 15, color: darkMode ? '#FFF5E8' : '#1E1B18', minWidth: 18, textAlign: 'center' }}>{c.qty}</span>
-                        <button className="qty-btn" onClick={() => addToCart({ id: c.id, name: c.name, price: c.price, imageURL: c.imageURL })}>+</button>
+                        <button className="qty-btn" onClick={() => addToCart({ id: c.id, name: c.name, price: c.basePrice ?? c.price, imageURL: c.imageURL }, (c.variant || c.addOns?.length) ? { variant: c.variant, addOns: c.addOns || [] } : null)}>+</button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Coupon code */}
@@ -3151,8 +3308,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 {/* Order summary */}
                 <div style={{ padding: '12px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 16 }}>
                   {cart.map(c => (
-                    <div key={c.id} style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)', marginBottom: 4 }}>
-                      {c.name} × {c.qty}
+                    <div key={c.cartKey || c.id} style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)', marginBottom: 4 }}>
+                      {c.name}{c.modNote ? ` — ${c.modNote}` : ''} × {c.qty}
                     </div>
                   ))}
 

@@ -2,7 +2,8 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getFeedback } from '../../lib/db';
+import { getFeedback, markFeedbackRead, markAllFeedbackRead, updateFeedbackNote, deleteFeedback } from '../../lib/db';
+import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as analytics/kitchen/waiter/staff/notifications ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -88,6 +89,12 @@ export default function AdminFeedback() {
   const [filter, setFilter] = useState('all');           // 'all' | '5' | '4' | '3' | '2' | '1'
   const [withCommentsOnly, setWithCommentsOnly] = useState(false);
   const [search, setSearch] = useState('');
+  const [unreadOnly, setUnreadOnly] = useState(false);
+
+  // Mutation state — `acting` is the feedback id currently being acted on
+  // (so we can disable its buttons during the request).
+  const [acting, setActing] = useState(null);
+  const [bulkActing, setBulkActing] = useState(false);
 
   const load = () => {
     if (!rid) return;
@@ -102,6 +109,67 @@ export default function AdminFeedback() {
       });
   };
   useEffect(() => { load(); }, [rid]);
+
+  // ─── Mutation handlers ───────────────────────────────────────────
+  const handleMarkRead = async (id) => {
+    setActing(id);
+    try {
+      await markFeedbackRead(rid, id);
+      setFeedback(prev => prev.map(f => f.id === id ? { ...f, isRead: true } : f));
+    } catch (e) {
+      console.error('markFeedbackRead failed:', e);
+      toast.error('Could not mark as read. Try again.');
+    }
+    setActing(null);
+  };
+
+  const handleMarkAllRead = async () => {
+    const unreadCount = feedback.filter(f => !f.isRead).length;
+    if (unreadCount === 0) return;
+    if (!confirm(`Mark ${unreadCount} unread review${unreadCount === 1 ? '' : 's'} as read?`)) return;
+    setBulkActing(true);
+    try {
+      const n = await markAllFeedbackRead(rid);
+      setFeedback(prev => prev.map(f => ({ ...f, isRead: true })));
+      toast.success(`Marked ${n} review${n === 1 ? '' : 's'} as read.`);
+    } catch (e) {
+      console.error('markAllFeedbackRead failed:', e);
+      toast.error('Could not mark all as read. Try again.');
+    }
+    setBulkActing(false);
+  };
+
+  const handleEditNote = async (id, existingNote) => {
+    // Using window.prompt for v1 — admin can add a free-text note against any
+    // review. Deliberately simple; a richer editor can replace this later.
+    const next = window.prompt('Admin note (private — visible only to staff):', existingNote || '');
+    if (next === null) return;  // Cancel
+    const trimmed = next.trim();
+    setActing(id);
+    try {
+      await updateFeedbackNote(rid, id, trimmed);
+      setFeedback(prev => prev.map(f => f.id === id ? { ...f, adminNote: trimmed } : f));
+      toast.success(trimmed ? 'Note saved.' : 'Note cleared.');
+    } catch (e) {
+      console.error('updateFeedbackNote failed:', e);
+      toast.error('Could not save note. Try again.');
+    }
+    setActing(null);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this review? This cannot be undone.')) return;
+    setActing(id);
+    try {
+      await deleteFeedback(rid, id);
+      setFeedback(prev => prev.filter(f => f.id !== id));
+      toast.success('Review deleted.');
+    } catch (e) {
+      console.error('deleteFeedback failed:', e);
+      toast.error('Could not delete. Try again.');
+    }
+    setActing(null);
+  };
 
   // ══ Stats ══════════════════════════════════════════════════════════════
   const stats = useMemo(() => {
@@ -155,6 +223,7 @@ export default function AdminFeedback() {
     let result = feedback;
     if (filter !== 'all') result = result.filter(f => f.rating === Number(filter));
     if (withCommentsOnly) result = result.filter(f => f.comment && f.comment.trim());
+    if (unreadOnly) result = result.filter(f => !f.isRead);
     const q = search.trim().toLowerCase();
     if (q) {
       result = result.filter(f => {
@@ -414,6 +483,31 @@ export default function AdminFeedback() {
                 With comments
               </span>
             </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={unreadOnly}
+                onChange={e => setUnreadOnly(e.target.checked)}
+                style={{ width: 14, height: 14, accentColor: A.warning, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 12, fontWeight: 600, color: unreadOnly ? A.ink : A.mutedText }}>
+                Unread only
+              </span>
+            </label>
+            <button
+              onClick={handleMarkAllRead}
+              disabled={bulkActing || feedback.every(f => f.isRead)}
+              style={{
+                padding: '7px 12px', borderRadius: 8,
+                border: A.border, background: A.shell,
+                color: feedback.every(f => f.isRead) ? A.faintText : A.ink,
+                fontSize: 12, fontWeight: 600, fontFamily: A.font,
+                cursor: bulkActing || feedback.every(f => f.isRead) ? 'not-allowed' : 'pointer',
+                opacity: bulkActing ? 0.6 : 1,
+                flexShrink: 0,
+              }}>
+              {bulkActing ? 'Marking…' : 'Mark all read'}
+            </button>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -564,6 +658,73 @@ export default function AdminFeedback() {
                         )}
                       </div>
                     )}
+
+                    {/* Admin note (if saved) */}
+                    {f.adminNote && (
+                      <div style={{
+                        marginTop: 10, padding: '10px 14px', borderRadius: 10,
+                        background: 'rgba(196,168,109,0.08)',
+                        border: '1px solid rgba(196,168,109,0.22)',
+                        fontSize: 13, color: A.ink, lineHeight: 1.5,
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warningDim, marginRight: 6 }}>Staff note</span>
+                        {f.adminNote}
+                      </div>
+                    )}
+
+                    {/* Action row */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      marginTop: 12, paddingTop: 10, borderTop: A.border,
+                      flexWrap: 'wrap',
+                    }}>
+                      {f.isRead ? (
+                        <span style={{
+                          padding: '3px 8px', borderRadius: 4,
+                          background: 'rgba(63,158,90,0.10)', color: A.success,
+                          fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                        }}>✓ Read</span>
+                      ) : (
+                        <button
+                          onClick={() => handleMarkRead(f.id)}
+                          disabled={acting === f.id}
+                          style={{
+                            padding: '6px 12px', borderRadius: 7,
+                            border: A.border, background: A.shell,
+                            color: A.mutedText, fontSize: 11, fontWeight: 600,
+                            cursor: acting === f.id ? 'not-allowed' : 'pointer',
+                            fontFamily: A.font, opacity: acting === f.id ? 0.5 : 1,
+                          }}>
+                          Mark as read
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleEditNote(f.id, f.adminNote)}
+                        disabled={acting === f.id}
+                        style={{
+                          padding: '6px 12px', borderRadius: 7,
+                          border: A.border, background: A.shell,
+                          color: A.mutedText, fontSize: 11, fontWeight: 600,
+                          cursor: acting === f.id ? 'not-allowed' : 'pointer',
+                          fontFamily: A.font, opacity: acting === f.id ? 0.5 : 1,
+                        }}>
+                        {f.adminNote ? 'Edit note' : 'Add note'}
+                      </button>
+                      <div style={{ flex: 1 }} />
+                      <button
+                        onClick={() => handleDelete(f.id)}
+                        disabled={acting === f.id}
+                        style={{
+                          padding: '6px 12px', borderRadius: 7,
+                          border: '1px solid rgba(217,83,79,0.20)',
+                          background: 'rgba(217,83,79,0.06)',
+                          color: A.danger, fontSize: 11, fontWeight: 600,
+                          cursor: acting === f.id ? 'not-allowed' : 'pointer',
+                          fontFamily: A.font, opacity: acting === f.id ? 0.5 : 1,
+                        }}>
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 );
               })}

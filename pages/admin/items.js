@@ -197,6 +197,10 @@ export default function AdminItems() {
       isActive: item.isActive !== false,
       isOutOfStock: !!item.isOutOfStock,
       sortOrder: item.sortOrder != null ? String(item.sortOrder) : '',
+      // Modifiers — variants (required pick-one, e.g. Half/Full) + addOns
+      // (optional multi-select, e.g. Extra cheese). Stored as {name, priceDelta}.
+      variants: (item.variants || []).map(v => ({ name: v.name || '', priceDelta: v.priceDelta != null ? String(v.priceDelta) : '' })),
+      addOns:   (item.addOns   || []).map(a => ({ name: a.name || '', priceDelta: a.priceDelta != null ? String(a.priceDelta) : '' })),
     });
     setCustomBadge(item.offerBadge && !OFFER_BADGES.find(b => b.label === item.offerLabel) ? (item.offerLabel || '') : '');
     setDrawerOpen(true);
@@ -263,6 +267,14 @@ export default function AdminItems() {
     setSaving(true);
     try {
       const finalLabel = form.offerBadge === 'Custom…' ? customBadge : form.offerBadge;
+      // Sanitize modifier arrays — drop blank names, coerce priceDelta → number.
+      const cleanVariants = (form.variants || [])
+        .filter(v => v.name && v.name.trim())
+        .map(v => ({ name: v.name.trim(), priceDelta: Number(v.priceDelta) || 0 }));
+      const cleanAddOns = (form.addOns || [])
+        .filter(a => a.name && a.name.trim())
+        .map(a => ({ name: a.name.trim(), priceDelta: Number(a.priceDelta) || 0 }));
+
       await updateMenuItem(rid, editingId, {
         name: form.name.trim(),
         nameTA: form.nameTA || '',
@@ -283,6 +295,8 @@ export default function AdminItems() {
         isActive: form.isActive !== false,
         isOutOfStock: !!form.isOutOfStock,
         sortOrder: form.sortOrder !== '' ? Number(form.sortOrder) : null,
+        variants: cleanVariants,
+        addOns:   cleanAddOns,
       });
       toast.success('Item updated');
       closeDrawer();
@@ -987,6 +1001,84 @@ export default function AdminItems() {
                     <FlagRow label="Popular" hint="Adds a 'Popular' pill on the menu" on={!!form.isPopular} onClick={() => setForm(f => ({ ...f, isPopular: !f.isPopular }))} color={A.warning} />
                     <FlagRow label="Featured" hint="Highlighted at the top of its category" on={!!form.isFeatured} onClick={() => setForm(f => ({ ...f, isFeatured: !f.isFeatured }))} color={A.success} />
                     <FlagRow label="Out of stock" hint="Greys out on menu until you toggle off" on={!!form.isOutOfStock} onClick={() => setForm(f => ({ ...f, isOutOfStock: !f.isOutOfStock }))} color={A.danger} />
+                  </div>
+                </div>
+
+                {/* ═══ Modifiers ═══
+                    Variants = required pick-one (Half/Full, Small/Medium/Large).
+                    Add-ons  = optional multi-select (Extra cheese, No onion).
+                    Price delta stacks on base price at order time. */}
+                <div style={{ marginBottom: 16, padding: '14px 16px', borderRadius: 12, background: A.shellDarker, border: A.border }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warningDim, marginBottom: 10 }}>Variants &amp; Add-ons</div>
+
+                  {/* Variants */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Label>Variants <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: A.faintText }}>(customer picks one · e.g. Half / Full)</span></Label>
+                      <button type="button"
+                        onClick={() => setForm(f => ({ ...f, variants: [...(f.variants || []), { name: '', priceDelta: '' }] }))}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: A.border, background: A.shell, color: A.mutedText, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
+                        + Add variant
+                      </button>
+                    </div>
+                    {(form.variants || []).length === 0 && (
+                      <div style={{ fontSize: 12, color: A.faintText, fontStyle: 'italic' }}>No variants — customers order the item as-is.</div>
+                    )}
+                    {(form.variants || []).map((v, i) => (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 36px', gap: 8, marginBottom: 6 }}>
+                        <input className="it-input" value={v.name}
+                          onChange={e => setForm(f => {
+                            const list = [...(f.variants || [])]; list[i] = { ...list[i], name: e.target.value };
+                            return { ...f, variants: list };
+                          })}
+                          placeholder="Variant name (e.g. Full)" style={inputStyle} />
+                        <input className="it-input" type="number" value={v.priceDelta}
+                          onChange={e => setForm(f => {
+                            const list = [...(f.variants || [])]; list[i] = { ...list[i], priceDelta: e.target.value };
+                            return { ...f, variants: list };
+                          })}
+                          placeholder="₹ delta (0, +50)" style={inputStyle} />
+                        <button type="button"
+                          onClick={() => setForm(f => ({ ...f, variants: (f.variants || []).filter((_, j) => j !== i) }))}
+                          style={{ padding: 0, width: 36, height: 36, borderRadius: 6, border: A.border, background: A.shell, color: A.danger, fontSize: 16, cursor: 'pointer', fontFamily: A.font }}
+                          title="Remove variant">✕</button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add-ons */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Label>Add-ons <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: A.faintText }}>(optional, multi-select · e.g. Extra cheese)</span></Label>
+                      <button type="button"
+                        onClick={() => setForm(f => ({ ...f, addOns: [...(f.addOns || []), { name: '', priceDelta: '' }] }))}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: A.border, background: A.shell, color: A.mutedText, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: A.font }}>
+                        + Add-on
+                      </button>
+                    </div>
+                    {(form.addOns || []).length === 0 && (
+                      <div style={{ fontSize: 12, color: A.faintText, fontStyle: 'italic' }}>No add-ons configured.</div>
+                    )}
+                    {(form.addOns || []).map((a, i) => (
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 36px', gap: 8, marginBottom: 6 }}>
+                        <input className="it-input" value={a.name}
+                          onChange={e => setForm(f => {
+                            const list = [...(f.addOns || [])]; list[i] = { ...list[i], name: e.target.value };
+                            return { ...f, addOns: list };
+                          })}
+                          placeholder="Add-on name (e.g. Extra cheese)" style={inputStyle} />
+                        <input className="it-input" type="number" value={a.priceDelta}
+                          onChange={e => setForm(f => {
+                            const list = [...(f.addOns || [])]; list[i] = { ...list[i], priceDelta: e.target.value };
+                            return { ...f, addOns: list };
+                          })}
+                          placeholder="₹ delta" style={inputStyle} />
+                        <button type="button"
+                          onClick={() => setForm(f => ({ ...f, addOns: (f.addOns || []).filter((_, j) => j !== i) }))}
+                          style={{ padding: 0, width: 36, height: 36, borderRadius: 6, border: A.border, background: A.shell, color: A.danger, fontSize: 16, cursor: 'pointer', fontFamily: A.font }}
+                          title="Remove add-on">✕</button>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

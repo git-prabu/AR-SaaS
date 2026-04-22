@@ -9,38 +9,40 @@ import { AdminDataProvider } from '../../contexts/AdminDataContext';
 const navSections = [
   {
     label: 'OVERVIEW', items: [
-      { href: '/admin/analytics', label: 'Analytics', icon: 'chart' },
-      { href: '/admin/reports', label: 'Revenue Reports', icon: 'dollar' },
+      { href: '/admin/analytics',     label: 'Analytics', icon: 'chart' },
+      { href: '/admin/reports',       label: 'Reports',   icon: 'dollar' },
+      { href: '/admin/day-close',     label: 'Day Close', icon: 'crown' },
+      { href: '/admin/notifications', label: 'Activity',  icon: 'bell-ring' },
     ]
   },
   {
     label: 'OPERATIONS', items: [
-      { href: '/admin/orders', label: 'Orders', icon: 'clipboard' },
-      { href: '/admin/kitchen', label: 'Kitchen (KDS)', icon: 'chef' },
-      { href: '/admin/waiter', label: 'Waiter', icon: 'bell' },
-      { href: '/admin/payments', label: 'Payments', icon: 'card' },
+      { href: '/admin/new-order', label: 'New Order', icon: 'plus' },
+      { href: '/admin/orders',    label: 'Orders',    icon: 'clipboard' },
+      { href: '/admin/kitchen',   label: 'Kitchen',   icon: 'chef' },
+      { href: '/admin/waiter',    label: 'Waiter',    icon: 'bell' },
+      { href: '/admin/payments',  label: 'Payments',  icon: 'card' },
     ]
   },
   {
-    label: 'MENU', items: [
-      { href: '/admin/items', label: 'Menu Items', icon: 'utensils' },
-      { href: '/admin/combos', label: 'Combo Builder', icon: 'puzzle' },
-      { href: '/admin/offers', label: 'Offers', icon: 'tag' },
-      { href: '/admin/coupons', label: 'Coupons', icon: 'ticket' },
+    label: 'CATALOG', items: [
+      { href: '/admin/items',    label: 'Menu Items', icon: 'utensils' },
+      { href: '/admin/requests', label: 'Add Items',  icon: 'plus' },
+      { href: '/admin/combos',   label: 'Combos',     icon: 'puzzle' },
+      { href: '/admin/offers',   label: 'Offers',     icon: 'tag' },
+      { href: '/admin/coupons',  label: 'Coupons',    icon: 'ticket' },
     ]
   },
   {
     label: 'PEOPLE', items: [
-      { href: '/admin/staff', label: 'Staff Logins', icon: 'users' },
-      { href: '/admin/feedback', label: 'Customer Feedback', icon: 'star' },
-      { href: '/admin/notifications', label: 'Notification', icon: 'bell-ring' },
+      { href: '/admin/staff',    label: 'Staff',    icon: 'users' },
+      { href: '/admin/feedback', label: 'Feedback', icon: 'star' },
     ]
   },
   {
     label: 'SETUP', items: [
-      { href: '/admin/requests', label: 'Add Items/Requests', icon: 'plus' },
-      { href: '/admin/qrcode', label: 'QR Code', icon: 'qr' },
-      { href: '/admin/settings', label: 'Settings', icon: 'gear' },
+      { href: '/admin/qrcode',       label: 'QR & Tables',  icon: 'qr' },
+      { href: '/admin/settings',     label: 'Settings',     icon: 'gear' },
       { href: '/admin/subscription', label: 'Subscription', icon: 'crown' },
     ]
   },

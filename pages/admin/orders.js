@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { updateOrderStatus, updatePaymentStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { timeAgo } from '../../lib/utils';
 
@@ -210,6 +210,30 @@ export default function AdminOrders() {
     setUpdating(order.id + '_pay');
     try { await updatePaymentStatus(rid, order.id, 'paid_cash'); }
     catch { toast.error('Failed to update'); }
+    setUpdating(null);
+  };
+
+  // Refund a paid order. Prompts for a reason (stored on the order doc),
+  // sets paymentStatus to 'refunded', and records refundedAt. Revenue
+  // summaries exclude refunded orders because PAID_STATUSES doesn't contain
+  // 'refunded' — the order still exists for audit, just counts as ₹0.
+  const refundOrder = async (order) => {
+    const reason = window.prompt('Refund reason (required — shown in reports):');
+    if (reason === null) return;            // Cancel
+    if (!reason.trim()) { toast.error('Refund reason is required.'); return; }
+    if (!confirm(`Refund ₹${order.total || 0} for order ${orderLabel(order)}? This is reversible only by editing the order directly.`)) return;
+    setUpdating(order.id + '_pay');
+    try {
+      await updateDoc(doc(db, 'restaurants', rid, 'orders', order.id), {
+        paymentStatus: 'refunded',
+        refundedAt: serverTimestamp(),
+        refundReason: reason.trim(),
+      });
+      toast.success('Order refunded.');
+    } catch (e) {
+      console.error('Refund failed:', e);
+      toast.error('Could not refund. Retry.');
+    }
     setUpdating(null);
   };
 
@@ -775,6 +799,54 @@ export default function AdminOrders() {
                                 }}>
                                 Resolve — Mark Paid
                               </button>
+                            </div>
+                          )}
+
+                          {/* Refund — visible on PAID + SERVED orders only */}
+                          {PAID_STATUSES.has(order.paymentStatus) && order.status === 'served' && (
+                            <div style={{
+                              marginTop: 12, paddingTop: 12,
+                              borderTop: '1px dashed rgba(0,0,0,0.06)',
+                              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                            }}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', color: A.faintText,
+                              }}>Need to refund?</span>
+                              <button onClick={() => refundOrder(order)}
+                                disabled={updating === order.id + '_pay'}
+                                style={{
+                                  background: 'rgba(217,83,79,0.08)', color: A.danger,
+                                  border: `1px solid rgba(217,83,79,0.20)`,
+                                  padding: '6px 14px', borderRadius: 8,
+                                  fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                                  fontFamily: A.font,
+                                }}>
+                                Refund this order
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Refunded label */}
+                          {order.paymentStatus === 'refunded' && (
+                            <div style={{
+                              marginTop: 12, paddingTop: 12,
+                              borderTop: '1px dashed rgba(0,0,0,0.06)',
+                              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                            }}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', padding: '5px 12px', borderRadius: 10,
+                                background: 'rgba(217,83,79,0.08)', color: A.danger,
+                                border: `1px solid rgba(217,83,79,0.20)`,
+                              }}>
+                                REFUNDED
+                              </span>
+                              {order.refundReason && (
+                                <span style={{ fontSize: 11, color: A.mutedText, fontStyle: 'italic' }}>
+                                  Reason: {order.refundReason}
+                                </span>
+                              )}
                             </div>
                           )}
 
