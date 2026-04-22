@@ -1,17 +1,16 @@
 // pages/api/payments/create-order.js
+// Creates a Razorpay order for a subscription upgrade. Reads the canonical
+// plan catalog from lib/plans.js — keep this file in sync by importing only.
 import Razorpay from 'razorpay';
-
-const PLAN_AMOUNTS = {
-  starter: 99900,   // ₹999 in paise
-  growth:  249900,  // ₹2499
-  pro:     499900,  // ₹4999
-};
+import { getPlan, normalizePlanId, PLANS } from '../../../lib/plans';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { planId, restaurantId } = req.body;
-  if (!planId || !PLAN_AMOUNTS[planId]) {
+  const normalizedId = normalizePlanId(planId);
+  const plan = PLANS.find(p => p.id === normalizedId);
+  if (!plan) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
 
@@ -22,10 +21,10 @@ export default async function handler(req, res) {
     });
 
     const order = await razorpay.orders.create({
-      amount:   PLAN_AMOUNTS[planId],
+      amount:   plan.priceInPaise,
       currency: 'INR',
       receipt:  `rcpt_${restaurantId}_${Date.now()}`,
-      notes:    { planId, restaurantId },
+      notes:    { planId: plan.id, restaurantId },
     });
 
     return res.status(200).json({ orderId: order.id });

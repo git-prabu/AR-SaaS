@@ -1,29 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-
-
-const plans = [
-  {
-    name: 'Starter', price: '₹999', per: '/month',
-    desc: 'Perfect for small restaurants just getting started.',
-    features: ['20 menu items', '1 GB storage', 'QR code menu', 'Smart Menu Assistant', 'Basic analytics'],
-    cta: 'Get started',
-  },
-  {
-    name: 'Growth', price: '₹2,499', per: '/month',
-    desc: 'The complete AR experience for growing restaurants.',
-    tag: 'Most popular',
-    features: ['60 menu items', '3 GB storage', 'AR food visualization', 'AI upselling', 'Dish ratings', 'Waiter call system'],
-    cta: 'Get started',
-  },
-  {
-    name: 'Pro', price: '₹4,999', per: '/month',
-    desc: 'Full power for high-volume multi-location operations.',
-    features: ['150 menu items', '10 GB storage', 'CSV menu import', 'Advanced analytics', 'Priority support', 'Custom branding'],
-    cta: 'Get started',
-  },
-];
+import { PLANS } from '../lib/plans';
 
 const MARQUEE_ITEMS = [
   '🍛 Biryani House','🌶️ Spice Garden','🍢 The Curry Co.',
@@ -1715,21 +1693,21 @@ export default function HomePage() {
               </div>
             </div>
             <div ref={addReveal} className="plan-grid ar-reveal">
-              {plans.map(p => {
-                const f = !!p.tag;
+              {PLANS.map(p => {
+                const f = !!p.popular;
                 return (
-                  <div key={p.name} className={`plan-card ${f?'pc-dark':'pc-light'}`}>
-                    {p.tag && (
+                  <div key={p.id} className={`plan-card ${f?'pc-dark':'pc-light'}`}>
+                    {p.popular && (
                       <div style={{position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', padding:'5px 18px', background:'linear-gradient(135deg,#E05A3A,#F79B3D)', color:'#fff', fontSize:11, fontWeight:700, borderRadius:30, whiteSpace:'nowrap', boxShadow:'0 4px 14px rgba(224,90,58,0.4)'}}>
-                        ✦ {p.tag}
+                        ✦ Most popular
                       </div>
                     )}
                     <div style={{width:36, height:4, borderRadius:2, background:f?'linear-gradient(90deg,#F79B3D,#E05A3A)':'var(--chk-bg)', marginBottom:22, boxShadow:f?'0 2px 10px rgba(247,155,61,0.4)':'none'}}/>
                     <div style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:17, color:f?'#FFF5E8':'var(--pc-tx)', marginBottom:6}}>{p.name}</div>
-                    <p style={{fontSize:13, color:f?'rgba(255,245,220,0.45)':'var(--pc-muted)', lineHeight:1.65, marginBottom:20}}>{p.desc}</p>
+                    <p style={{fontSize:13, color:f?'rgba(255,245,220,0.45)':'var(--pc-muted)', lineHeight:1.65, marginBottom:20}}>{p.tagline}</p>
                     <div style={{display:'flex', alignItems:'baseline', gap:4, marginBottom:24, paddingBottom:20, borderBottom:`1px solid ${f?'rgba(255,245,220,0.1)':'var(--pc-sep)'}`}}>
-                      <span style={{fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:38, color:f?'#FFF5E8':'var(--pc-tx)', letterSpacing:'-0.03em', lineHeight:1}}>{p.price}</span>
-                      <span style={{fontSize:13, color:f?'rgba(255,245,220,0.4)':'var(--pc-muted)', fontWeight:500}}>/month</span>
+                      <span style={{fontFamily:'Poppins,sans-serif', fontWeight:900, fontSize:38, color:f?'#FFF5E8':'var(--pc-tx)', letterSpacing:'-0.03em', lineHeight:1}}>{p.priceDisplay}</span>
+                      <span style={{fontSize:13, color:f?'rgba(255,245,220,0.4)':'var(--pc-muted)', fontWeight:500}}>{p.period}</span>
                     </div>
                     <div style={{display:'flex', flexDirection:'column', gap:10, marginBottom:28, flex:1}}>
                       {p.features.map(feat=>(
@@ -1739,9 +1717,9 @@ export default function HomePage() {
                         </div>
                       ))}
                     </div>
-                    <Link href={`/signup?plan=${p.name.toLowerCase()}`}>
+                    <Link href={`/signup?plan=${p.id}`}>
                       <button style={{width:'100%', padding:'14px', borderRadius:12, border:f?'none':`1.5px solid var(--pc-btn-bd)`, background:f?'linear-gradient(135deg,#E05A3A,#F79B3D)':'var(--pc-btn-bg)', color:f?'#fff':'var(--pc-btn-tx)', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', boxShadow:f?'0 8px 24px rgba(224,90,58,0.4)':'none'}}>
-                        {p.cta}
+                        Get started
                       </button>
                     </Link>
                   </div>

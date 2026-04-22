@@ -21,6 +21,17 @@ service cloud.firestore {
         getUserData().restaurantId == restaurantId;
     }
 
+    // Kitchen / waiter staff. Their Firebase Auth token carries custom claims
+    // set by /api/staff/login (see lib/staffAuth.js ensureStaffAuthUser):
+    //   { role: 'kitchen' | 'waiter', rid: <restaurantId>, staffId, kind: 'staff' }
+    // We verify rid matches the path restaurantId so a staff of restaurant A
+    // can never touch restaurant B's data.
+    function isStaff(restaurantId) {
+      return isAuth() &&
+        request.auth.token.kind == 'staff' &&
+        request.auth.token.rid == restaurantId;
+    }
+
     // ── Restaurants ──────────────────────────────────────────────
     match /restaurants/{restaurantId} {
       // Public: read any restaurant (for subdomain routing + real-time status detection)
@@ -68,6 +79,9 @@ service cloud.firestore {
         allow create: if true;
         // Restaurant admin: read + update (mark resolved)
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
+        // Staff (kitchen or waiter): read + update so waiter dashboards work
+        // when staff are signed in via the staff Firebase app.
+        allow read, update, delete: if isStaff(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
       }
@@ -91,6 +105,9 @@ service cloud.firestore {
           .hasOnly(['paymentStatus', 'paymentUpdatedAt']);
         // Restaurant admin: read + update status (pending→preparing→ready→served)
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
+        // Staff (kitchen or waiter): read + update so kitchen.js and waiter.js
+        // can advance the status pipeline when staff are signed in.
+        allow read, update, delete: if isStaff(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
       }
@@ -168,17 +185,20 @@ service cloud.firestore {
       }
 
       // ── Coupons ───────────────────────────────────────────────
+      // Coupons are NOT publicly readable — customers validate through the
+      // server-side /api/coupons/validate endpoint (which uses the Admin SDK
+      // and bypasses these rules). This prevents coupon-scraping bots that
+      // abuse the whole coupon list.
       match /coupons/{couponId} {
-        // Public read: customers validate coupon codes client-side
-        // TODO: migrate coupon validation to server-side API to avoid exposing all coupon data
-        allow read: if true;
-        // Only admins can create, update, or delete coupons
+        allow read: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
         allow create, update, delete: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
       // ── Staff Logins ──────────────────────────────────────────
-      // Staff login now uses server-side API (/api/staff/verify)
-      // so PINs no longer need to be publicly readable
+      // Staff accounts are managed by the restaurant owner. PIN verification
+      // happens server-side via /api/staff/login (bcrypt + rate limit), so
+      // the staff collection is NEVER publicly readable — only the admin
+      // and super-admin can read/write.
       match /staff/{staffId} {
         allow read: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();

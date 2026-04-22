@@ -3,9 +3,10 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { resolveWaiterCall, updateOrderStatus } from '../../lib/db';
-import { db } from '../../lib/firebase';
+import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs } from '../../lib/db';
+import { db, staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as analytics/reports/orders/kitchen ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -156,21 +157,24 @@ export default function WaiterDashboard() {
   }, []);
 
   // ── Firestore listeners ──
+  // Staff read via staffDb so their custom claims (role/rid) are in scope.
   useEffect(() => {
     if (!rid) return;
-    const q = query(collection(db, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
+    const firestore = staffSession ? staffDb : db;
+    const q = query(collection(firestore, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setAllCalls(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, err => console.error('Waiter calls listener error:', err));
-  }, [rid]);
+  }, [rid, staffSession]);
 
   useEffect(() => {
     if (!rid) return;
-    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    const firestore = staffSession ? staffDb : db;
+    const q = query(collection(firestore, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, err => console.error('Waiter orders listener error:', err));
-  }, [rid]);
+  }, [rid, staffSession]);
 
   // ═══ Unified action queue ═══
   // Merges pending waiter calls + ready-status orders into a single list.
@@ -270,16 +274,27 @@ export default function WaiterDashboard() {
   }, [unseenIds.size]);
 
   // ── Actions ──
+  // Staff writes route through staffDb (Firestore rules gate on claims);
+  // admin writes use the existing helpers (which use the admin db).
   const handleAction = async (item) => {
     setResolvingId(item.id);
     try {
       if (item.type === 'call') {
-        await resolveWaiterCall(rid, item.rawId);
+        if (staffSession) {
+          await resolveWaiterCallAs(staffDb, rid, item.rawId);
+        } else {
+          await resolveWaiterCall(rid, item.rawId);
+        }
       } else {
-        await updateOrderStatus(rid, item.rawId, 'served');
+        if (staffSession) {
+          await updateOrderStatusAs(staffDb, rid, item.rawId, 'served');
+        } else {
+          await updateOrderStatus(rid, item.rawId, 'served');
+        }
       }
     } catch (e) {
       console.error('Action failed:', e);
+      toast.error(item.type === 'call' ? 'Could not resolve call. Retry in a moment.' : 'Could not mark order as served. Retry in a moment.');
     }
     setResolvingId(null);
   };

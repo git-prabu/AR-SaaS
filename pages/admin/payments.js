@@ -5,6 +5,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import { updatePaymentStatus } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as analytics/orders/kitchen/waiter ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -107,7 +108,9 @@ export default function AdminPayments() {
   // order (not yet committed). Separate from the actual paymentStatus so the two-step flow works:
   // step 1 tap Cash/Card/UPI (stored here), step 2 tap "Mark as Paid" (commits via markPaid).
   const [selectedMethods, setSelectedMethods] = useState({});
-  const [toast, setToast] = useState(null);        // { orderId, previousStatus, expiresAt, timeoutId }
+  // Undo banner state (fixed-position bottom toast with "Undo" action). Named
+  // undoBanner to avoid shadowing the react-hot-toast import.
+  const [undoBanner, setUndoBanner] = useState(null);  // { orderId, previousStatus, expiresAt, timeoutId }
 
   // ── Firestore listener ──
   useEffect(() => {
@@ -122,8 +125,8 @@ export default function AdminPayments() {
     });
   }, [rid]);
 
-  // ── Cleanup toast timeout on unmount ──
-  useEffect(() => () => { if (toast?.timeoutId) clearTimeout(toast.timeoutId); }, [toast]);
+  // ── Cleanup undo banner timeout on unmount ──
+  useEffect(() => () => { if (undoBanner?.timeoutId) clearTimeout(undoBanner.timeoutId); }, [undoBanner]);
 
   // ═══ Payment-relevant orders ═══
   // Only show orders that are either:
@@ -215,32 +218,35 @@ export default function AdminPayments() {
       await updatePaymentStatus(rid, order.id, newStatus);
       // Clear any selected method for this order (row is now paid, will disappear from pending filter)
       setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
-      // Show undo toast for 60 seconds
-      showUndoToast(order.id, previousStatus);
+      // Show undo banner for 60 seconds
+      showUndoBanner(order.id, previousStatus);
     } catch (e) {
       console.error('Payment update failed:', e);
+      toast.error('Could not mark as paid. Check connection and retry.');
     }
     setUpdating(null);
   };
 
   // ═══ Undo — restores previous payment status ═══
   const undoPayment = async () => {
-    if (!toast || !rid) return;
-    const { orderId, previousStatus, timeoutId } = toast;
+    if (!undoBanner || !rid) return;
+    const { orderId, previousStatus, timeoutId } = undoBanner;
     if (timeoutId) clearTimeout(timeoutId);
-    setToast(null);
+    setUndoBanner(null);
     try {
       await updatePaymentStatus(rid, orderId, previousStatus);
+      toast.success('Payment undone.');
     } catch (e) {
       console.error('Undo failed:', e);
+      toast.error('Undo failed. The payment is still marked — try marking it back manually.');
     }
   };
 
-  const showUndoToast = (orderId, previousStatus) => {
-    if (toast?.timeoutId) clearTimeout(toast.timeoutId);
+  const showUndoBanner = (orderId, previousStatus) => {
+    if (undoBanner?.timeoutId) clearTimeout(undoBanner.timeoutId);
     const expiresAt = Date.now() + 60000;
-    const timeoutId = setTimeout(() => setToast(null), 60000);
-    setToast({ orderId, previousStatus, expiresAt, timeoutId });
+    const timeoutId = setTimeout(() => setUndoBanner(null), 60000);
+    setUndoBanner({ orderId, previousStatus, expiresAt, timeoutId });
   };
 
   // ═══ CSV export — daily reconciliation ═══
@@ -750,12 +756,12 @@ export default function AdminPayments() {
           )}
         </div>
 
-        {/* ═══ Undo toast (60-second window) ═══
+        {/* ═══ Undo banner (60-second window) ═══
             Note: AdminLayout has a 240px sidebar. `position: fixed` + `left: 50%`
-            would center on the viewport (including sidebar), making the toast appear
+            would center on the viewport (including sidebar), making the banner appear
             visually off-center relative to the content area. Shift right by 120px
-            (half the sidebar width) so the toast centers on the visible content. */}
-        {toast && (
+            (half the sidebar width) so the banner centers on the visible content. */}
+        {undoBanner && (
           <div className="no-print" style={{
             position: 'fixed', bottom: 24,
             left: 'calc(50% + 120px)', transform: 'translateX(-50%)',
@@ -775,7 +781,7 @@ export default function AdminPayments() {
               fontFamily: A.font, fontSize: 12, fontWeight: 700,
               cursor: 'pointer', letterSpacing: '0.02em',
             }}>Undo</button>
-            <button onClick={() => { if (toast.timeoutId) clearTimeout(toast.timeoutId); setToast(null); }} style={{
+            <button onClick={() => { if (undoBanner.timeoutId) clearTimeout(undoBanner.timeoutId); setUndoBanner(null); }} style={{
               padding: '4px 8px', borderRadius: 6, border: 'none',
               background: 'transparent', color: 'rgba(237,237,237,0.4)',
               fontSize: 16, cursor: 'pointer', lineHeight: 1,

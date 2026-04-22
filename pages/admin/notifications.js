@@ -12,6 +12,13 @@ import {
   getRestaurantById, updateRestaurant, getFeedback,
 } from '../../lib/db';
 
+// ═══ Payment status sets — kept in sync with payments.js + reports.js.
+// Firestore order docs use suffixed statuses like `cash_requested`, `paid_cash`.
+// We never see a raw `requested` or `paid` alone — always with the method suffix.
+// These sets make all paymentStatus membership checks correct. ═══
+const REQUESTED_STATUSES = new Set(['cash_requested', 'card_requested', 'online_requested']);
+const PAID_STATUSES = new Set(['paid', 'paid_cash', 'paid_card', 'paid_online']);
+
 // ═══ Aspire palette — same tokens as analytics/kitchen/waiter/staff ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
@@ -188,20 +195,22 @@ export default function NotificationsPage() {
       setOrdersLoaded(true);
 
       // Detect newly-requested payments by watching docChanges where paymentStatus
-      // transitioned to 'requested'. Also catches brand-new orders that arrive
-      // already-requested (rare, but possible). The Set tracks IDs we've already
-      // pinged for so we don't double-beep if the doc is modified again.
+      // transitioned to one of the *_requested states (cash_requested, card_requested,
+      // online_requested). Also catches brand-new orders that arrive already-requested
+      // (rare, but possible). The Set tracks IDs we've already pinged for so we don't
+      // double-beep if the doc is modified again.
       snap.docChanges().forEach(change => {
         if (change.type === 'added' || change.type === 'modified') {
           const data = change.doc.data();
-          if (data.paymentStatus === 'requested' && !prevPaymentOrderIdsRef.current.has(change.doc.id)) {
+          const isRequested = REQUESTED_STATUSES.has(data.paymentStatus);
+          if (isRequested && !prevPaymentOrderIdsRef.current.has(change.doc.id)) {
             prevPaymentOrderIdsRef.current.add(change.doc.id);
             if (ordersLoaded) {
               playSound();
               pushBrowserNotif('Payment requested', `Table ${data.tableNumber || '—'} wants to pay`);
             }
           }
-          if (data.paymentStatus !== 'requested') {
+          if (!isRequested) {
             prevPaymentOrderIdsRef.current.delete(change.doc.id);
           }
         }
@@ -335,11 +344,14 @@ export default function NotificationsPage() {
       });
     });
 
-    // Orders — split into three flavors: "new order" (pending), "payment requested", "paid"
+    // Orders — split into three flavors: "new order" (pending), "payment requested", "paid".
+    // paymentStatus is never the bare string 'requested' or 'paid' — it's always one of
+    // the method-suffixed variants (cash_requested / paid_cash / etc). We use the sets
+    // declared at the top of this file to match correctly.
     orders.forEach(o => {
       const isNewOrder = o.status === 'pending';
-      const isPaymentRequested = o.paymentStatus === 'requested';
-      const isPaid = o.paymentStatus === 'paid';
+      const isPaymentRequested = REQUESTED_STATUSES.has(o.paymentStatus);
+      const isPaid = PAID_STATUSES.has(o.paymentStatus);
 
       if (isNewOrder) {
         evs.push({

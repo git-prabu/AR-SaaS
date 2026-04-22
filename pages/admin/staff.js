@@ -2,10 +2,8 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import {
-  getStaffMembers, createStaffMember, updateStaffMember,
-  deleteStaffMember,
-} from '../../lib/db';
+import { getStaffMembers } from '../../lib/db';
+import { auth } from '../../lib/firebase';
 
 // ═══ Aspire palette — same tokens as analytics/kitchen/waiter ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -95,6 +93,42 @@ function timeAgo(ts) {
 
 // ═══ Empty form state ═══
 const emptyForm = { name: '', username: '', pin: '', role: 'kitchen' };
+
+// ═══ Helper: get admin ID token for API calls ═══
+// All mutation endpoints (/api/staff/create, /api/staff/update) require
+// the restaurant owner's Firebase ID token as a Bearer header. The server
+// verifies the token and looks up users/{uid} to confirm they're a
+// restaurant admin — that gate (in lib/staffAuth.js requireAdminAuth)
+// is what stops a non-owner from hitting these endpoints.
+async function authHeaders() {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error('Not signed in');
+  const token = await currentUser.getIdToken();
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+}
+
+// ═══ API call wrapper ═══
+// Handles auth header, JSON body, graceful error parsing (some 5xx responses
+// come back as HTML so we handle that too), and surfaces the error text so
+// the UI can show a useful banner.
+async function apiCall(endpoint, body) {
+  const headers = await authHeaders();
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const text = await resp.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch {
+    throw new Error(`Server error (${resp.status})`);
+  }
+  if (!resp.ok) {
+    throw new Error(data.error || `Request failed (${resp.status})`);
+  }
+  return data;
+}
 
 export default function StaffManagement() {
   const { userData } = useAuth();
@@ -234,7 +268,12 @@ export default function StaffManagement() {
     setSaveError('');
     try {
       if (modal === 'add') {
-        await createStaffMember(rid, {
+        // /api/staff/create hashes the PIN via bcrypt before writing to Firestore.
+        // Response includes the plain PIN once (server echoes what we sent, or
+        // a server-generated one if we sent nothing). We show that PIN ONCE in
+        // the PIN-display modal so the admin can copy/share it — it's never
+        // stored in plaintext and never readable again.
+        const res = await apiCall('/api/staff/create', {
           name: form.name.trim(),
           username: usernameNorm,
           pin: form.pin,
@@ -243,14 +282,31 @@ export default function StaffManagement() {
         await reload();
         closeModal();
         // Show PIN once — admin copies it / shares it with staff before closing
-        setPinDisplay({ name: form.name.trim(), username: usernameNorm, pin: form.pin });
-      } else {
-        // Edit = name + username + role only. PIN cannot be changed from this page —
-        // if staff forgets their PIN, admin deletes their account and creates a new one.
-        await updateStaffMember(rid, modal.id, {
+        setPinDisplay({
           name: form.name.trim(),
           username: usernameNorm,
-          role: form.role,
+          pin: res.pin || form.pin,
+        });
+      } else {
+        // Edit = rename only via the 'rename' action on /api/staff/update.
+        // Username changes require delete+recreate because it's the primary
+        // identifier and changing it mid-flight would orphan staff sessions.
+        // Role changes also need re-creation (custom claims change).
+        // For this pass, we only support renaming.
+        if (form.username.trim().toLowerCase() !== (modal.username || '').toLowerCase()) {
+          setSaveError('Username cannot be changed. Delete and re-create with a new username.');
+          setSaving(false);
+          return;
+        }
+        if (form.role !== modal.role) {
+          setSaveError('Role cannot be changed. Delete and re-create with the new role.');
+          setSaving(false);
+          return;
+        }
+        await apiCall('/api/staff/update', {
+          action: 'rename',
+          staffId: modal.id,
+          name: form.name.trim(),
         });
         await reload();
         closeModal();
@@ -264,10 +320,16 @@ export default function StaffManagement() {
   };
 
   // ═══ Toggle active (enable / disable) ═══
+  // /api/staff/update action:toggleActive also revokes Firebase Auth refresh
+  // tokens when disabling — so a deactivated staff member's active tablet
+  // loses access immediately, not just on next login.
   const handleToggleActive = async (s) => {
     setActionId(s.id);
     try {
-      await updateStaffMember(rid, s.id, { isActive: s.isActive === false });
+      await apiCall('/api/staff/update', {
+        action: 'toggleActive',
+        staffId: s.id,
+      });
       await reload();
       setBanner({ kind: 'success', text: `${s.name} ${s.isActive === false ? 'enabled' : 'disabled'}` });
     } catch (e) {
@@ -278,11 +340,16 @@ export default function StaffManagement() {
   };
 
   // ═══ Delete staff member ═══
+  // /api/staff/update action:delete removes the Firestore doc AND the Firebase
+  // Auth user — so the staff's saved session stops working immediately.
   const handleDelete = async (s) => {
     if (!confirm(`Permanently delete ${s.name}? They will no longer be able to log in. This cannot be undone.`)) return;
     setActionId(s.id);
     try {
-      await deleteStaffMember(rid, s.id);
+      await apiCall('/api/staff/update', {
+        action: 'delete',
+        staffId: s.id,
+      });
       await reload();
       setBanner({ kind: 'success', text: 'Staff member deleted' });
     } catch (e) {
@@ -618,20 +685,31 @@ export default function StaffManagement() {
                 : 'PIN cannot be changed. To reset a staff member\u2019s PIN, delete this account and create a new one.'}
             </div>
 
-            {/* Role picker — card-style selector with matte-black icon, gold accent on active */}
+            {/* Role picker — card-style selector with matte-black icon, gold accent on active.
+                Disabled when editing because role changes need new Firebase custom claims —
+                we route users to delete+recreate for a clean state. */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, color: A.warningDim, letterSpacing: '0.10em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Role</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {Object.entries(ROLES).map(([val, r]) => {
                   const active = form.role === val;
+                  const editing = modal !== 'add';
                   return (
-                    <button key={val} type="button" onClick={() => setForm(f => ({ ...f, role: val }))} style={{
-                      padding: '14px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                      border: `2px solid ${active ? A.warning : 'rgba(0,0,0,0.08)'}`,
-                      background: active ? 'rgba(196,168,109,0.06)' : A.shell,
-                      fontFamily: A.font, transition: 'all 0.15s',
-                      display: 'flex', alignItems: 'center', gap: 12,
-                    }}>
+                    <button key={val} type="button"
+                      onClick={() => { if (!editing) setForm(f => ({ ...f, role: val })); }}
+                      disabled={editing && !active}
+                      style={{
+                        padding: '14px 12px', borderRadius: 10,
+                        cursor: editing ? (active ? 'default' : 'not-allowed') : 'pointer',
+                        textAlign: 'left',
+                        border: `2px solid ${active ? A.warning : 'rgba(0,0,0,0.08)'}`,
+                        background: active
+                          ? 'rgba(196,168,109,0.06)'
+                          : (editing ? A.subtleBg : A.shell),
+                        opacity: editing && !active ? 0.5 : 1,
+                        fontFamily: A.font, transition: 'all 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 12,
+                      }}>
                       <RoleIcon role={val} size={36} />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 13, color: A.ink }}>{r.label}</div>
@@ -641,6 +719,11 @@ export default function StaffManagement() {
                   );
                 })}
               </div>
+              {modal !== 'add' && (
+                <div style={{ fontSize: 11, color: A.faintText, marginTop: 6 }}>
+                  Role cannot be changed. Delete and re-create to assign a different role.
+                </div>
+              )}
             </div>
 
             {/* Name */}
@@ -650,14 +733,21 @@ export default function StaffManagement() {
                 style={inputStyle} />
             </FormField>
 
-            {/* Username */}
+            {/* Username — read-only when editing because changing it would orphan the staff's Firebase Auth session */}
             <FormField label="Username">
               <input value={form.username}
                 onChange={e => setForm(f => ({ ...f, username: e.target.value.replace(/[^a-z0-9_]/gi, '').toLowerCase() }))}
                 placeholder="e.g. kitchen1"
-                style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }} />
+                readOnly={modal !== 'add'}
+                style={{
+                  ...inputStyle,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  ...(modal !== 'add' ? { background: A.subtleBg, cursor: 'not-allowed', color: A.mutedText } : {}),
+                }} />
               <div style={{ fontSize: 11, color: A.faintText, marginTop: 4 }}>
-                Lowercase letters, numbers, and underscores only.
+                {modal === 'add'
+                  ? 'Lowercase letters, numbers, and underscores only.'
+                  : 'Username cannot be changed. Delete and re-create to assign a new one.'}
               </div>
             </FormField>
 

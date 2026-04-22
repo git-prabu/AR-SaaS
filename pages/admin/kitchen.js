@@ -3,9 +3,10 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updateOrderStatus } from '../../lib/db';
-import { db } from '../../lib/firebase';
+import { updateOrderStatus, updateOrderStatusAs } from '../../lib/db';
+import { db, staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as analytics/reports/orders ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -172,9 +173,12 @@ export default function KitchenDisplay() {
   }, []);
 
   // ══ Firestore listener on orders ══
+  // Staff read via staffDb so their custom claims (role/rid) are in scope.
+  // Admin reads via db (adminApp). Either way, the same orders collection.
   useEffect(() => {
     if (!rid) return;
-    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    const firestore = staffSession ? staffDb : db;
+    const q = query(collection(firestore, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setOrders(all);
@@ -187,7 +191,7 @@ export default function KitchenDisplay() {
       console.error('Kitchen listener error:', err);
     });
     return unsub;
-  }, [rid]);
+  }, [rid, staffSession]);
 
   // ══ Sound alert: play when pending count goes up ══
   useEffect(() => {
@@ -202,18 +206,36 @@ export default function KitchenDisplay() {
 
 
   // ══ Advance status (or recall to New) ══
+  // Staff writes route through staffDb (so Firestore rules see their claims);
+  // admin writes use the existing updateOrderStatus helper which uses db.
   const advance = async (order) => {
     const meta = STATUS_META[order.status];
     if (!meta?.next) return;
     setUpdating(order.id);
-    try { await updateOrderStatus(rid, order.id, meta.next); }
-    catch (e) { console.error('Advance failed:', e); }
+    try {
+      if (staffSession) {
+        await updateOrderStatusAs(staffDb, rid, order.id, meta.next);
+      } else {
+        await updateOrderStatus(rid, order.id, meta.next);
+      }
+    } catch (e) {
+      console.error('Advance failed:', e);
+      toast.error('Could not update order status. Retry in a moment.');
+    }
     setUpdating(null);
   };
   const recallToNew = async (order) => {
     setUpdating(order.id);
-    try { await updateOrderStatus(rid, order.id, 'pending'); }
-    catch (e) { console.error('Recall failed:', e); }
+    try {
+      if (staffSession) {
+        await updateOrderStatusAs(staffDb, rid, order.id, 'pending');
+      } else {
+        await updateOrderStatus(rid, order.id, 'pending');
+      }
+    } catch (e) {
+      console.error('Recall failed:', e);
+      toast.error('Could not recall to New. Retry in a moment.');
+    }
     setUpdating(null);
   };
 

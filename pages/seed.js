@@ -1,7 +1,20 @@
-// pages/seed.js — DELETE THIS FILE after seeding!
+// pages/seed.js — dev-only data seeder. 404s in production builds.
+// The comment used to say "DELETE THIS FILE after seeding" but keeping the
+// seeding logic around is cheap; the real fix is to make it unreachable from
+// the public URL once deployed. getServerSideProps below does that.
 import { useState } from 'react';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+
+// Production gate — any non-dev build returns 404 instead of rendering the
+// page. In dev (NODE_ENV !== 'production') the page works as before so a new
+// restaurant can still be seeded during local setup.
+export async function getServerSideProps() {
+  if (process.env.NODE_ENV === 'production') {
+    return { notFound: true };
+  }
+  return { props: {} };
+}
 
 const RESTAURANT_ID = 'lW13UEilaJ9vEsOURYyq';
 

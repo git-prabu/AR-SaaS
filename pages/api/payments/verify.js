@@ -1,13 +1,10 @@
 // pages/api/payments/verify.js
+// Verifies Razorpay signature, then writes plan + limits + expiry to the
+// restaurant doc. Expiry is BILLING_PERIOD_DAYS from now (monthly by default).
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { adminDb } from '../../../lib/firebaseAdmin';
-
-const PLAN_LIMITS = {
-  starter: { maxItems: 20,  maxStorageMB: 1024  },
-  growth:  { maxItems: 60,  maxStorageMB: 3072  },
-  pro:     { maxItems: 150, maxStorageMB: 10240 },
-};
+import { getPlan, BILLING_PERIOD_DAYS } from '../../../lib/plans';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -42,17 +39,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const limits = PLAN_LIMITS[planId] || PLAN_LIMITS.starter;
-    const now    = new Date();
-    const sixMonthsLater = new Date(now);
-    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+    const plan = getPlan(planId);   // falls back to Starter if id unknown
+    const now = new Date();
+    const expiry = new Date(now.getTime() + BILLING_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
     await adminDb.collection('restaurants').doc(restaurantId).update({
-      plan:              planId,
-      maxItems:          limits.maxItems,
-      maxStorageMB:      limits.maxStorageMB,
+      plan:              plan.id,
+      maxItems:          plan.maxItems,
+      maxStorageMB:      plan.maxStorageMB,
       subscriptionStart: now.toISOString().split('T')[0],
-      subscriptionEnd:   sixMonthsLater.toISOString().split('T')[0],
+      subscriptionEnd:   expiry.toISOString().split('T')[0],
+      planExpiresAt:     expiry.toISOString(),  // authoritative expiry timestamp
       paymentStatus:     'active',
       lastPaymentId:     razorpay_payment_id,
     });

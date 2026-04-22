@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
-import { T } from '../../lib/utils';
 
 const navSections = [
   {
@@ -237,8 +236,11 @@ export default function AdminLayout({ children }) {
   }, [user, loading, router]);
 
   if (loading || !user) return (
-    <div style={{ minHeight: '100vh', background: T.cream, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 36, height: 36, border: `3px solid ${T.accent}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    // Bootstrap loading state — colors inlined to match Aspire palette, so the
+    // spinner doesn't flash in the old Forest colors before the page renders.
+    // (T.cream/T.accent from lib/utils were the old Cinematic Forest tokens.)
+    <div style={{ minHeight: '100vh', background: '#EDEDED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 36, height: 36, border: `3px solid #C4A86D`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );

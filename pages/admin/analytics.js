@@ -6,7 +6,6 @@ import {
   getAnalytics, getTodayAnalytics, getAllMenuItems,
   getWaiterCallsCount, getOrders,
 } from '../../lib/db';
-import { T, ADMIN_STYLES } from '../../lib/utils';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
@@ -18,7 +17,10 @@ import BentoGlow from '../../components/BentoGlow';
 // ═══ Aspire theme (local to analytics page — replaces Cinematic Forest per user request) ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
-  ...T,
+  // Previously this spread `...T` from lib/utils.js to inherit the old Forest
+  // palette. The Aspire redesign overrides every meaningful token below, so the
+  // spread is removed. The one T key still referenced in this file (A.white)
+  // is inlined here.
   font: INTER,
   fontDisplay: INTER,
   cream: '#EDEDED',
@@ -26,6 +28,7 @@ const A = {
   shell: '#FFFFFF',
   shellDarker: '#F8F8F8',
   shellText: '#1A1A1A',
+  white: '#FFFFFF',                 // plain white — used for a couple of card backgrounds
   warning: '#C4A86D',               // Antique Gold — the brand signature (back from orange)
   cardShadow: '0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)',
   border: '1px solid rgba(0,0,0,0.06)',

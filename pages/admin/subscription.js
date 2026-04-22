@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById } from '../../lib/db';
+import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS } from '../../lib/plans';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as the rest of the admin chrome ═══
@@ -33,12 +34,8 @@ const A = {
   cardShadow: '0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)',
 };
 
-// ═══ Plan catalog — kept exactly as before. Edit prices/items/storage here. ═══
-const PLANS = [
-  { id: 'basic',   name: 'Basic',   price: 999,  items: 10,  storage: 500,  period: '6 months' },
-  { id: 'pro',     name: 'Pro',     price: 2499, items: 40,  storage: 2048, period: '6 months', popular: true },
-  { id: 'premium', name: 'Premium', price: 4999, items: 100, storage: 5120, period: '6 months' },
-];
+// Plan catalog comes from lib/plans.js (single source of truth). Edit prices
+// and limits there, not here.
 
 // ═══ Date formatter — accepts ISO string, Firestore timestamp, or Date ═══
 function formatDate(input) {
@@ -104,10 +101,10 @@ export default function AdminSubscription() {
       if (!data.orderId) throw new Error('Could not create order');
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: plan.price * 100,
+        amount: plan.priceInPaise,
         currency: 'INR',
         name: 'Advert Radical',
-        description: `${plan.name} Plan — 6 months`,
+        description: `${plan.name} Plan — monthly`,
         order_id: data.orderId,
         handler: async (response) => {
           await fetch('/api/payments/verify', {
@@ -143,15 +140,16 @@ export default function AdminSubscription() {
     const isActive = restaurant.paymentStatus === 'active';
     const daysRemaining = subEnd ? Math.max(0, Math.ceil((subEnd - Date.now()) / (1000 * 60 * 60 * 24))) : null;
 
-    // Total subscription length (from start→end, defaults to 180 if no start)
+    // Total subscription length (from start→end, defaults to BILLING_PERIOD_DAYS if no start)
     const totalDays = (subStart && subEnd)
       ? Math.max(1, Math.ceil((subEnd - subStart) / (1000 * 60 * 60 * 24)))
-      : 180;
+      : BILLING_PERIOD_DAYS;
     const usedDays = totalDays - (daysRemaining || 0);
     const timePct = Math.min(100, Math.max(0, Math.round((usedDays / totalDays) * 100)));
 
-    // Current plan record — fall back to Basic if the stored plan id isn't in PLANS
-    const currentPlan = PLANS.find(p => p.id === restaurant.plan) || PLANS[0];
+    // Current plan record — normalize legacy ids (basic/premium → starter/pro),
+    // fall back to the first plan if unknown.
+    const currentPlan = PLANS.find(p => p.id === normalizePlanId(restaurant.plan)) || PLANS[0];
 
     // Status pill: Trial > Active > Expired > Inactive
     let statusLabel, statusColor, statusBg, statusBorder;
@@ -244,7 +242,7 @@ export default function AdminSubscription() {
                 <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>SUBSCRIPTION</span>
                 <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
                 <span style={{ fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>
-                  {computed.isTrial ? 'Free trial' : computed.isActive ? 'Live · billed every 6 months' : 'Inactive'}
+                  {computed.isTrial ? 'Free trial' : computed.isActive ? 'Live · billed monthly' : 'Inactive'}
                 </span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
@@ -260,7 +258,7 @@ export default function AdminSubscription() {
                       : A.success,
                     suffix: computed.effectiveDaysLeft !== null ? 'd' : '',
                   },
-                  { label: 'AR ITEMS', value: `${restaurant?.itemsUsed || 0}/${restaurant?.maxItems || computed.currentPlan.items}`, color: A.forestText },
+                  { label: 'AR ITEMS', value: `${restaurant?.itemsUsed || 0}/${restaurant?.maxItems || computed.currentPlan.maxItems}`, color: A.forestText },
                 ].map(s => (
                   <div key={s.label} style={{
                     padding: '16px 18px', borderRadius: 10,
@@ -437,12 +435,12 @@ export default function AdminSubscription() {
                   <UsageBar
                     label="AR Items"
                     used={restaurant.itemsUsed || 0}
-                    max={restaurant.maxItems || computed.currentPlan.items}
+                    max={restaurant.maxItems || computed.currentPlan.maxItems}
                   />
                   <UsageBar
                     label="Storage"
                     used={restaurant.storageUsedMB || 0}
-                    max={restaurant.maxStorageMB || computed.currentPlan.storage}
+                    max={restaurant.maxStorageMB || computed.currentPlan.maxStorageMB}
                     unit="MB"
                   />
                 </div>
@@ -462,7 +460,7 @@ export default function AdminSubscription() {
                   <div style={{ flex: 1, height: 1, background: 'rgba(196,168,109,0.20)' }} />
                 </div>
                 <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 18, lineHeight: 1.5 }}>
-                  All plans run for 6 months. Pay securely via Razorpay (UPI, cards, netbanking). Your menu stays live the whole time.
+                  All plans are billed monthly. Pay securely via Razorpay (UPI, cards, netbanking). Your menu stays live the whole time.
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -531,8 +529,8 @@ export default function AdminSubscription() {
                         {/* Features */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
                           {[
-                            `${plan.items} AR menu items`,
-                            `${plan.storage >= 1024 ? plan.storage / 1024 + 'GB' : plan.storage + 'MB'} storage for 3D models`,
+                            `${plan.maxItems} AR menu items`,
+                            `${plan.maxStorageMB >= 1024 ? (plan.maxStorageMB / 1024) + ' GB' : plan.maxStorageMB + ' MB'} storage for 3D models`,
                             'Real-time analytics',
                             'QR code generator + custom subdomain',
                             'Kitchen display + waiter calls',

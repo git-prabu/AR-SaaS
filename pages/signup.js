@@ -5,13 +5,8 @@ import { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { adminAuth } from '../lib/firebase';
 import { createRestaurant, createUserDoc, getRestaurantBySubdomain } from '../lib/db';
+import { getPlan, normalizePlanId, TRIAL_DAYS } from '../lib/plans';
 import toast from 'react-hot-toast';
-
-const PLAN_MAP = {
-  starter: { label: 'Starter', price: '₹999/mo', maxItems: 20, maxStorageMB: 1000 },
-  growth:  { label: 'Growth',  price: '₹2,499/mo', maxItems: 60, maxStorageMB: 3000 },
-  pro:     { label: 'Pro',     price: '₹4,999/mo', maxItems: 150, maxStorageMB: 10000 },
-};
 
 function slugify(text) {
   return text
@@ -26,8 +21,10 @@ function slugify(text) {
 export default function Signup() {
   const router = useRouter();
   const { plan: planKey } = router.query;
-  const plan = PLAN_MAP[planKey] || PLAN_MAP.starter;
-  const activePlanKey = PLAN_MAP[planKey] ? planKey : 'starter';
+  const activePlanKey = normalizePlanId(planKey);
+  const plan = getPlan(activePlanKey);
+  // Display-friendly price like "₹999/month" for the badge under the logo.
+  const planPriceLabel = `${plan.priceDisplay}${plan.period}`;
 
   // Form fields
   const [ownerName, setOwnerName] = useState('');
@@ -86,7 +83,7 @@ export default function Signup() {
       const uid = cred.user.uid;
 
       // 2. Create restaurant document
-      const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      const trialEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
       const ref = await createRestaurant({
         name: restaurantName.trim(),
         subdomain: subdomain.trim().toLowerCase(),
@@ -95,7 +92,7 @@ export default function Signup() {
         phone: phone.trim(),
         city: city.trim(),
         ownerUid: uid,
-        plan: activePlanKey,
+        plan: plan.id,
         maxItems: plan.maxItems,
         maxStorageMB: plan.maxStorageMB,
         isActive: true,
@@ -169,7 +166,7 @@ export default function Signup() {
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '8px 20px', borderRadius: 99, background: 'rgba(247,155,61,0.1)', border: '1px solid rgba(247,155,61,0.25)' }}>
               <span style={{ fontSize: 13, color: 'rgba(255,245,232,0.5)' }}>Selected plan:</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#F79B3D' }}>{plan.label} — {plan.price}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#F79B3D' }}>{plan.name} — {planPriceLabel}</span>
             </div>
           </div>
 
@@ -187,7 +184,7 @@ export default function Signup() {
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
               <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#FFF5E8', marginBottom: 8 }}>You're all set!</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,245,232,0.5)', marginBottom: 8 }}>Your 14-day free trial has started.</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,245,232,0.5)', marginBottom: 8 }}>Your {TRIAL_DAYS}-day free trial has started.</div>
               <div style={{ fontSize: 13, color: 'rgba(255,245,232,0.35)' }}>Redirecting to your dashboard...</div>
             </div>
           )}
@@ -198,7 +195,7 @@ export default function Signup() {
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,245,232,0.07)', borderRadius: 20, padding: '28px 24px' }}>
 
                 <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: '#FFF5E8', marginBottom: 4, textAlign: 'center' }}>Start your free trial</div>
-                <div style={{ fontSize: 13, color: 'rgba(255,245,232,0.4)', textAlign: 'center', marginBottom: 24 }}>14 days free. No credit card required.</div>
+                <div style={{ fontSize: 13, color: 'rgba(255,245,232,0.4)', textAlign: 'center', marginBottom: 24 }}>{TRIAL_DAYS} days free. No credit card required.</div>
 
                 {error && (
                   <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(224,90,58,0.12)', border: '1px solid rgba(224,90,58,0.3)', color: '#E05A3A', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
@@ -278,7 +275,7 @@ export default function Signup() {
                     opacity: (subdomainStatus === 'taken' || subdomainStatus === 'checking') ? 0.5 : 1,
                     transition: 'opacity 0.2s',
                   }}>
-                  Start 14-Day Free Trial →
+                  Start {TRIAL_DAYS}-Day Free Trial →
                 </button>
               </div>
 

@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, validateCoupon, incrementCouponUse, submitFeedback, sortMenuItems } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -874,12 +874,23 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     setCouponLoading(true);
     setCouponError('');
     try {
-      const result = await validateCoupon(restaurant.id, couponCode, cartPrice);
+      // Server-side validation — customers don't have read access to the
+      // coupons collection anymore (see firestore.rules).
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          code: couponCode,
+          subtotal: cartPrice,
+        }),
+      });
+      const result = await res.json();
       if (result.valid) {
         setAppliedCoupon(result.coupon);
         setCouponDiscount(result.discount);
       } else {
-        setCouponError(result.error);
+        setCouponError(result.error || 'Invalid coupon');
         setAppliedCoupon(null);
         setCouponDiscount(0);
       }
