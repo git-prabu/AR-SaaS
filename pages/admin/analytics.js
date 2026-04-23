@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import {
   getAnalytics, getTodayAnalytics, getAllMenuItems,
-  getWaiterCallsCount, getOrders,
+  getWaiterCallsCount, getOrders, todayKey,
 } from '../../lib/db';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -126,6 +126,13 @@ export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(7);
   const [committedRange, setCommittedRange] = useState(7);
+  // Custom date-range state. When customActive is true, the range pills are
+  // bypassed and analytics is filtered by [customStart, customEnd] inclusive.
+  // Dates are YYYY-MM-DD strings (local timezone via <input type="date">).
+  const [customActive, setCustomActive] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd]     = useState('');
+  const [customOpen, setCustomOpen]   = useState(false);
   const [tab, setTab] = useState('overview');
   const [chartMode, setChartMode] = useState({}); // { trend: 'line'|'bar' } — single shared mode for the merged trend chart
   const [chartMetric, setChartMetric] = useState('revenue'); // merged trend chart metric: 'revenue' | 'orders' | 'visits'
@@ -158,17 +165,37 @@ export default function AdminAnalytics() {
   const load = useCallback(async () => {
     if (!rid) return;
     if (!initialLoadDone.current) setLoading(true);
+    // In custom mode, fetch by date range AND compute an equivalent prior-window
+    // of the same length for delta calcs. In days mode, keep original behavior.
+    let analPromise, prevPromise, effectiveRange;
+    if (customActive && customStart && customEnd) {
+      const start = new Date(customStart);
+      const end = new Date(customEnd);
+      const spanDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+      const priorStart = new Date(start); priorStart.setDate(priorStart.getDate() - spanDays);
+      const priorEnd   = new Date(start); priorEnd.setDate(priorEnd.getDate() - 1);
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      analPromise = getAnalytics(rid, spanDays, customStart, customEnd);
+      prevPromise = getAnalytics(rid, spanDays, fmt(priorStart), fmt(priorEnd));
+      effectiveRange = spanDays;
+    } else {
+      analPromise = getAnalytics(rid, range);
+      prevPromise = getAnalytics(rid, range * 2);
+      effectiveRange = range;
+    }
     const [anal, allAnal, items, today, waiter, allOrders] = await Promise.all([
-      getAnalytics(rid, range), getAnalytics(rid, range * 2), getAllMenuItems(rid),
-      getTodayAnalytics(rid), getWaiterCallsCount(rid, range), getOrders(rid),
+      analPromise, prevPromise, getAllMenuItems(rid),
+      getTodayAnalytics(rid), getWaiterCallsCount(rid, effectiveRange), getOrders(rid),
     ]);
     setAnalytics(anal);
-    setPrevAnal(allAnal.slice(0, Math.max(0, allAnal.length - range)));
+    // In custom mode, the "prev" query returned the prior window directly.
+    // In days mode, the old helper returned 2×range; take the first half.
+    setPrevAnal(customActive ? allAnal : allAnal.slice(0, Math.max(0, allAnal.length - range)));
     setMenuItems(items); setTodayStat(today); setWaiterStat(waiter);
     setOrders(allOrders || []); setLoading(false);
-    setCommittedRange(range);
+    setCommittedRange(customActive ? `${customStart}_${customEnd}` : range);
     initialLoadDone.current = true;
-  }, [rid, range]);
+  }, [rid, range, customActive, customStart, customEnd]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -663,18 +690,73 @@ export default function AdminAnalytics() {
                   Live data · Updated {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
                 <div style={{ display: 'inline-flex', background: '#FFFFFF', border: A.border, borderRadius: 10, padding: 3 }}>
                   {[7, 14, 30, 90].map(d => (
-                    <button key={d} onClick={() => setRange(d)} style={{
+                    <button key={d} onClick={() => { setCustomActive(false); setCustomOpen(false); setRange(d); }} style={{
                       padding: '6px 14px', borderRadius: 7,
                       border: 'none',
                       fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: A.font,
-                      background: range === d ? A.subtleBg : 'transparent',
-                      color: range === d ? A.ink : A.mutedText, transition: 'all 0.15s',
+                      background: (!customActive && range === d) ? A.subtleBg : 'transparent',
+                      color: (!customActive && range === d) ? A.ink : A.mutedText, transition: 'all 0.15s',
                     }}>{d}d</button>
                   ))}
+                  <button onClick={() => setCustomOpen(o => !o)} style={{
+                    padding: '6px 14px', borderRadius: 7,
+                    border: 'none',
+                    fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: A.font,
+                    background: customActive ? A.subtleBg : 'transparent',
+                    color: customActive ? A.ink : A.mutedText, transition: 'all 0.15s',
+                  }}>
+                    {customActive ? `${customStart} → ${customEnd}` : 'Custom'}
+                  </button>
                 </div>
+
+                {/* Custom date-range popover — click "Custom" to toggle */}
+                {customOpen && (
+                  <div style={{
+                    position: 'absolute', top: 42, right: 0, zIndex: 20,
+                    background: A.shell, border: A.border, borderRadius: 10,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                    padding: 14, width: 280,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>Custom range</div>
+                    <label style={{ display: 'block', fontSize: 11, color: A.mutedText, marginBottom: 4 }}>Start date</label>
+                    <input type="date" value={customStart} max={customEnd || undefined}
+                      onChange={e => setCustomStart(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', border: A.border, borderRadius: 8, fontSize: 13, marginBottom: 10, boxSizing: 'border-box', fontFamily: A.font, color: A.ink, background: A.shell }} />
+                    <label style={{ display: 'block', fontSize: 11, color: A.mutedText, marginBottom: 4 }}>End date</label>
+                    <input type="date" value={customEnd} min={customStart || undefined} max={todayKey()}
+                      onChange={e => setCustomEnd(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', border: A.border, borderRadius: 8, fontSize: 13, marginBottom: 12, boxSizing: 'border-box', fontFamily: A.font, color: A.ink, background: A.shell }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => {
+                          if (!customStart || !customEnd) return;
+                          if (customStart > customEnd) return;
+                          setCustomActive(true); setCustomOpen(false);
+                        }}
+                        disabled={!customStart || !customEnd || customStart > customEnd}
+                        style={{
+                          flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+                          background: A.ink, color: A.cream,
+                          fontSize: 12, fontWeight: 600, fontFamily: A.font,
+                          cursor: (!customStart || !customEnd || customStart > customEnd) ? 'not-allowed' : 'pointer',
+                          opacity: (!customStart || !customEnd || customStart > customEnd) ? 0.5 : 1,
+                        }}>Apply</button>
+                      {customActive && (
+                        <button
+                          onClick={() => { setCustomActive(false); setCustomOpen(false); }}
+                          style={{
+                            padding: '8px 12px', borderRadius: 8, border: A.border,
+                            background: A.shell, color: A.mutedText,
+                            fontSize: 12, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                          }}>Clear</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <button onClick={exportCSV} style={{
                   padding: '8px 14px', borderRadius: 10, border: A.border,
                   background: '#FFFFFF', color: A.ink, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: A.font,

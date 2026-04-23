@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers } from '../../lib/db';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, todayKey } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
@@ -101,7 +101,7 @@ export default function AdminItems() {
   const dragOverItem = useRef(null);
   const [dragging, setDragging] = useState(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const isSoldOutToday = (item) => item.availableUntil === today;
 
   const load = async () => {

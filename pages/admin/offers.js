@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getAllOffers, createOffer, updateOffer, deleteOffer, getAllMenuItems } from '../../lib/db';
+import { getAllOffers, createOffer, updateOffer, deleteOffer, getAllMenuItems, todayKey } from '../../lib/db';
 import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -33,7 +33,7 @@ function formatDate(value) {
 
 // ═══ Offer status derived from dates ═══
 function offerStatus(o) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   if (o.endDate && o.endDate < today) return 'expired';
   if (o.startDate && o.startDate > today) return 'scheduled';
   return 'active';
@@ -47,7 +47,7 @@ const STATUS_META = {
 export default function AdminOffers() {
   const { userData } = useAuth();
   const rid = userData?.restaurantId;
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
 
   const [offers, setOffers] = useState([]);
   const [menuItems, setMenuItems] = useState([]);

@@ -15,7 +15,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import PageHead from '../../components/PageHead';
-import { getAllMenuItems, createOrder, getRestaurantById } from '../../lib/db';
+import { getAllMenuItems, createOrder, getRestaurantById, todayKey } from '../../lib/db';
 import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -226,7 +226,7 @@ export default function AdminNewOrder() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
                   {filtered.map(item => {
-                    const soldOut = item.availableUntil === new Date().toISOString().split('T')[0];
+                    const soldOut = item.availableUntil === todayKey();
                     return (
                       <button key={item.id}
                         className="menu-item-card"

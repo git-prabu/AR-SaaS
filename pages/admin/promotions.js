@@ -19,7 +19,7 @@ import {
   getAllOffers, deleteOffer,
   getCoupons, updateCoupon, deleteCoupon,
   getCombos, updateCombo, deleteCombo,
-  getAllMenuItems,
+  getAllMenuItems, todayKey,
 } from '../../lib/db';
 import toast from 'react-hot-toast';
 
@@ -49,7 +49,9 @@ const A = {
   forestBorder: '1px solid rgba(255,255,255,0.06)',
 };
 
-function today() { return new Date().toISOString().split('T')[0]; }
+// Local-timezone today. Imported from lib/db as todayKey() to avoid
+// the UTC-off-by-5.5hr bug in IST.
+const today = todayKey;
 function offerStatus(o) {
   const t = today();
   if (o.endDate && o.endDate < t) return 'expired';

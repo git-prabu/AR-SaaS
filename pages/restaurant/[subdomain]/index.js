@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -716,10 +716,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
 
   // ── Enrich menu items with active offer data (memoized) ──────────────────
-  const [todayStr, setTodayStr] = useState(() => new Date().toISOString().split('T')[0]);
+  const [todayStr, setTodayStr] = useState(() => todayKey());
   useEffect(() => {
     const iv = setInterval(() => {
-      const now = new Date().toISOString().split('T')[0];
+      const now = todayKey();
       if (now !== todayStr) setTodayStr(now);
     }, 60000);
     return () => clearInterval(iv);
