@@ -566,7 +566,9 @@ export default function AdminPayments() {
                             </span>
                             <span style={{ color: A.faintText, fontSize: 14 }}>·</span>
                             <span style={{ fontSize: 14, fontWeight: 600, color: A.ink }}>
-                              Table {order.tableNumber || '—'}
+                              {(order.orderType === 'takeaway' || order.orderType === 'takeout')
+                                ? `Takeaway${order.customerName ? ` · ${order.customerName}` : ''}`
+                                : `Table ${order.tableNumber || '—'}`}
                             </span>
                             <span style={{
                               fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',

@@ -122,6 +122,16 @@ async function apiCall(endpoint, body) {
   let data;
   try { data = JSON.parse(text); }
   catch {
+    // Non-JSON response (usually Vercel's generic 500 HTML page). Surface
+    // a clearer hint so the admin knows to check env vars / Vercel logs.
+    if (resp.status === 500) {
+      throw new Error(
+        'Server error (500). Likely cause: FIREBASE_ADMIN_* env vars missing on Vercel. ' +
+        'Go to Vercel → Project Settings → Environment Variables and add ' +
+        'FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY, ' +
+        'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET. Then redeploy.'
+      );
+    }
     throw new Error(`Server error (${resp.status})`);
   }
   if (!resp.ok) {
