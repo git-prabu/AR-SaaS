@@ -212,14 +212,40 @@ export default function AdminReports() {
   const [txnFilter, setTxnFilter] = useState({ status: 'all', method: 'all' });
   const [txnSearch, setTxnSearch] = useState('');
 
+  // Custom date-range state. When customActive, overrides period's start/end
+  // with customStart/customEnd (local dates). Prior-window auto-shifts to the
+  // equivalent length immediately before customStart for delta comparisons.
+  const [customActive, setCustomActive] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd]     = useState('');
+  const [customOpen, setCustomOpen]   = useState(false);
+
   useEffect(() => {
     if (!rid) return;
     getOrders(rid).then(o => { setOrders(o); setLoading(false); });
   }, [rid]);
 
   // ─── Range + filter ──────────────────────────────────────────
-  const { start, end, label: periodLabel } = periodRange(period);
-  const { start: priorStart, end: priorEnd } = priorRange(period, start);
+  // Custom mode folds custom dates into the same {start,end,label} shape
+  // the rest of the page already uses — so chart/ledger/txn code doesn't
+  // need to know whether this is a preset period or a custom range.
+  const rangeResolution = useMemo(() => {
+    if (customActive && customStart && customEnd) {
+      const s = new Date(customStart); s.setHours(0, 0, 0, 0);
+      const e = new Date(customEnd);   e.setHours(23, 59, 59, 999);
+      const spanMs = e - s;
+      const priorE = new Date(s.getTime() - 1);
+      const priorS = new Date(s.getTime() - (spanMs + 1));
+      const startLbl = s.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      const endLbl   = e.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const label = customStart === customEnd ? startLbl : `${startLbl} – ${endLbl}`;
+      return { start: s, end: e, label, priorStart: priorS, priorEnd: priorE };
+    }
+    const { start, end, label } = periodRange(period);
+    const { start: priorStart, end: priorEnd } = priorRange(period, start);
+    return { start, end, label, priorStart, priorEnd };
+  }, [customActive, customStart, customEnd, period]);
+  const { start, end, label: periodLabel, priorStart, priorEnd } = rangeResolution;
 
   const inRange = useMemo(() => orders.filter(o => {
     if (!o.createdAt?.seconds) return false;
@@ -445,13 +471,13 @@ export default function AdminReports() {
               <div style={{ fontFamily: A.font, fontSize: 26, fontWeight: 600, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>Revenue Reports</div>
               <div style={{ fontFamily: A.font, fontSize: 13, color: A.mutedText, marginTop: 6 }}>Financial summary · {periodLabel}</div>
             </div>
-            <div className="no-print" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="no-print" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
               {/* Period pill */}
               <div style={{ display: 'inline-flex', background: '#FFFFFF', border: A.borderStrong, borderRadius: 8, padding: 2 }}>
                 {PERIOD_OPTS.map(p => {
-                  const active = period === p.key;
+                  const active = !customActive && period === p.key;
                   return (
-                    <button key={p.key} onClick={() => setPeriod(p.key)} style={{
+                    <button key={p.key} onClick={() => { setCustomActive(false); setCustomOpen(false); setPeriod(p.key); }} style={{
                       padding: '6px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
                       color: active ? '#FFFFFF' : A.mutedText,
                       background: active ? A.ink : 'transparent',
@@ -459,7 +485,58 @@ export default function AdminReports() {
                     }}>{p.label}</button>
                   );
                 })}
+                <button onClick={() => setCustomOpen(o => !o)} style={{
+                  padding: '6px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                  color: customActive ? '#FFFFFF' : A.mutedText,
+                  background: customActive ? A.ink : 'transparent',
+                  border: 'none', borderRadius: 6, cursor: 'pointer', letterSpacing: '0.02em',
+                }}>{customActive ? `${customStart} → ${customEnd}` : 'Custom'}</button>
               </div>
+
+              {/* Custom date popover */}
+              {customOpen && (
+                <div style={{
+                  position: 'absolute', top: 42, right: 0, zIndex: 20,
+                  background: '#FFFFFF', border: A.borderStrong, borderRadius: 10,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                  padding: 14, width: 280,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>Custom range</div>
+                  <label style={{ display: 'block', fontSize: 11, color: A.mutedText, marginBottom: 4 }}>Start date</label>
+                  <input type="date" value={customStart} max={customEnd || undefined}
+                    onChange={e => setCustomStart(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', border: A.border, borderRadius: 8, fontSize: 13, marginBottom: 10, boxSizing: 'border-box', fontFamily: A.font, color: A.ink, background: '#FFFFFF' }} />
+                  <label style={{ display: 'block', fontSize: 11, color: A.mutedText, marginBottom: 4 }}>End date</label>
+                  <input type="date" value={customEnd} min={customStart || undefined}
+                    onChange={e => setCustomEnd(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', border: A.border, borderRadius: 8, fontSize: 13, marginBottom: 12, boxSizing: 'border-box', fontFamily: A.font, color: A.ink, background: '#FFFFFF' }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => {
+                        if (!customStart || !customEnd || customStart > customEnd) return;
+                        setCustomActive(true); setCustomOpen(false);
+                      }}
+                      disabled={!customStart || !customEnd || customStart > customEnd}
+                      style={{
+                        flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+                        background: A.ink, color: '#FFFFFF',
+                        fontSize: 12, fontWeight: 600, fontFamily: A.font,
+                        cursor: (!customStart || !customEnd || customStart > customEnd) ? 'not-allowed' : 'pointer',
+                        opacity: (!customStart || !customEnd || customStart > customEnd) ? 0.5 : 1,
+                      }}>Apply</button>
+                    {customActive && (
+                      <button
+                        onClick={() => { setCustomActive(false); setCustomOpen(false); }}
+                        style={{
+                          padding: '8px 12px', borderRadius: 8, border: A.border,
+                          background: '#FFFFFF', color: A.mutedText,
+                          fontSize: 12, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                        }}>Clear</button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Thin vertical divider separates filter pills from action buttons */}
               <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)', margin: '0 4px' }} />
               <button onClick={exportCSV} style={{
