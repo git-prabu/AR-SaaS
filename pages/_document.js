@@ -20,10 +20,12 @@ export default function Document() {
         />
         {/* Favicon + icons */}
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        {/* PWA — manifest + iOS home-screen support */}
+        {/* PWA — manifest + iOS home-screen support (iOS uses apple-touch-icon.png specifically) */}
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Advert Radical" />
