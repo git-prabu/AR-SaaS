@@ -95,6 +95,14 @@ export default function AdminFeedback() {
   // (so we can disable its buttons during the request).
   const [acting, setActing] = useState(null);
   const [bulkActing, setBulkActing] = useState(false);
+  // Per-review expansion — when a review is expanded, the order items block
+  // is visible. Collapsed by default so the list stays scannable.
+  const [expandedIds, setExpandedIds] = useState(new Set());
+  const toggleExpanded = (id) => setExpandedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const load = () => {
     if (!rid) return;
@@ -630,33 +638,57 @@ export default function AdminFeedback() {
                       </div>
                     )}
 
-                    {/* Order items (if attached) */}
+                    {/* Order items (if attached) — collapsed by default. Click the
+                        "Show order (N)" button to expand. Keeps the list scannable
+                        when there are many reviews. */}
                     {f.orderItems && f.orderItems.length > 0 && (
-                      <div style={{
-                        padding: '10px 14px', borderRadius: 10,
-                        background: A.shellDarker, border: A.border,
-                      }}>
+                      expandedIds.has(f.id) ? (
                         <div style={{
-                          fontSize: 10, fontWeight: 700, letterSpacing: '0.10em',
-                          textTransform: 'uppercase', color: A.warningDim, marginBottom: 6,
-                        }}>Order</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {f.orderItems.map((item, i) => (
-                            <span key={i} style={{
-                              padding: '3px 10px', borderRadius: 6,
-                              background: A.shell, border: A.border,
-                              fontSize: 12, fontWeight: 600, color: A.ink,
-                            }}>
-                              {item.name}{item.qty > 1 ? <span style={{ color: A.mutedText, fontWeight: 500 }}> ×{item.qty}</span> : null}
-                            </span>
-                          ))}
-                        </div>
-                        {f.orderTotal && (
-                          <div style={{ fontSize: 11, fontWeight: 700, color: A.mutedText, marginTop: 6 }}>
-                            Total: <span style={{ color: A.ink }}>₹{f.orderTotal}</span>
+                          padding: '10px 14px', borderRadius: 10,
+                          background: A.shellDarker, border: A.border,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <div style={{
+                              fontSize: 10, fontWeight: 700, letterSpacing: '0.10em',
+                              textTransform: 'uppercase', color: A.warningDim,
+                            }}>Order</div>
+                            <button
+                              onClick={() => toggleExpanded(f.id)}
+                              style={{
+                                background: 'none', border: 'none', padding: 0,
+                                fontSize: 11, color: A.mutedText, cursor: 'pointer', fontWeight: 600,
+                              }}>
+                              Hide ↑
+                            </button>
                           </div>
-                        )}
-                      </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {f.orderItems.map((item, i) => (
+                              <span key={i} style={{
+                                padding: '3px 10px', borderRadius: 6,
+                                background: A.shell, border: A.border,
+                                fontSize: 12, fontWeight: 600, color: A.ink,
+                              }}>
+                                {item.name}{item.qty > 1 ? <span style={{ color: A.mutedText, fontWeight: 500 }}> ×{item.qty}</span> : null}
+                              </span>
+                            ))}
+                          </div>
+                          {f.orderTotal && (
+                            <div style={{ fontSize: 11, fontWeight: 700, color: A.mutedText, marginTop: 6 }}>
+                              Total: <span style={{ color: A.ink }}>₹{f.orderTotal}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => toggleExpanded(f.id)}
+                          style={{
+                            background: 'none', border: 'none', padding: 0,
+                            fontSize: 11, fontWeight: 600, color: A.warningDim,
+                            cursor: 'pointer', letterSpacing: '0.04em', textAlign: 'left',
+                          }}>
+                          Show order ({f.orderItems.length} item{f.orderItems.length === 1 ? '' : 's'}) ↓
+                        </button>
+                      )
                     )}
 
                     {/* Admin note (if saved) */}

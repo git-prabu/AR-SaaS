@@ -661,7 +661,11 @@ export default function AdminOrders() {
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 marginBottom: 4,
                               }}>
-                                {table && <span>Table {table} · </span>}
+                                {(order.orderType === 'takeaway' || order.orderType === 'takeout')
+                                  ? <span style={{ color: A.warningDim, fontWeight: 700 }}>
+                                      Takeaway{order.customerName ? ` · ${order.customerName}` : ''} ·{' '}
+                                    </span>
+                                  : table && <span>Table {table} · </span>}
                                 {itemsText}
                                 {hiddenItemCount > 0 && (
                                   <span style={{

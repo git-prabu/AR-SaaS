@@ -683,13 +683,17 @@ export default function KitchenDisplay() {
               const btnColor = meta.btnKind === 'ink' ? A.cream : A.shell;
 
               // Order type badge (all current orders are dine-in)
+              // Customer + captain pages write 'takeaway'; older code used 'takeout'.
+              // Accept both as synonyms so takeaway badge shows correctly.
               const orderType = order.orderType || 'dinein';
-              const typeLabel = orderType === 'takeout' ? 'TAKEOUT' : orderType === 'delivery' ? 'DELIVERY' : 'DINE-IN';
-              const typeBg = orderType === 'takeout' ? 'rgba(26,26,26,0.08)'
-                           : orderType === 'delivery' ? 'rgba(63,158,90,0.10)'
+              const isTakeaway = orderType === 'takeaway' || orderType === 'takeout';
+              const isDelivery = orderType === 'delivery';
+              const typeLabel = isTakeaway ? 'TAKEAWAY' : isDelivery ? 'DELIVERY' : 'DINE-IN';
+              const typeBg = isTakeaway ? 'rgba(26,26,26,0.08)'
+                           : isDelivery ? 'rgba(63,158,90,0.10)'
                            : 'rgba(196,168,109,0.14)';
-              const typeColor = orderType === 'takeout' ? A.ink
-                              : orderType === 'delivery' ? A.success
+              const typeColor = isTakeaway ? A.ink
+                              : isDelivery ? A.success
                               : A.warningDim;
 
               // Status tag (kept per user request — small, redundant but clarifying)
@@ -755,7 +759,9 @@ export default function KitchenDisplay() {
                         )}
                       </div>
                       <div style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>
-                        {order.tableNumber ? `Table ${order.tableNumber}` : 'No table'}
+                        {isTakeaway
+                          ? (order.customerName ? `Takeaway · ${order.customerName}` : 'Takeaway')
+                          : (order.tableNumber ? `Table ${order.tableNumber}` : 'No table')}
                         {typeof order.covers === 'number' && ` · ${order.covers} covers`}
                       </div>
                     </div>

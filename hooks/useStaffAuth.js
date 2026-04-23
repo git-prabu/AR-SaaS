@@ -21,7 +21,16 @@ import {
 } from 'firebase/auth';
 import { staffAuth } from '../lib/firebase';
 
-const StaffAuthContext = createContext(null);
+// Default value covers the case where a component consumes this hook but
+// isn't (yet) inside a Provider — during SSR or error states. Destructuring
+// the return value won't crash.
+const StaffAuthContext = createContext({
+  user: null,
+  claims: null,
+  loading: true,
+  signInWithToken: async () => { throw new Error('StaffAuthProvider missing'); },
+  signOut: async () => {},
+});
 
 export function StaffAuthProvider({ children }) {
   const [user, setUser] = useState(null);

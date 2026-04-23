@@ -231,8 +231,12 @@ export default function AdminAnalytics() {
     return d >= rangeStart;
   });
   const totalOrders = ordersInRange.length;
-  const totalRevenue = ordersInRange.reduce((s, o) => s + (o.total || 0), 0);
-  const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
+  // Revenue excludes refunded orders — those happened but the money went
+  // back, so counting them as revenue would double-count. Count of total
+  // orders still includes refunded (the order did exist).
+  const paidOrdersInRange = ordersInRange.filter(o => o.paymentStatus !== 'refunded');
+  const totalRevenue = paidOrdersInRange.reduce((s, o) => s + (o.total || 0), 0);
+  const avgOrderValue = paidOrdersInRange.length > 0 ? (totalRevenue / paidOrdersInRange.length) : 0;
 
   const phonesByDay = {};
   ordersInRange.forEach(o => {
@@ -1068,16 +1072,27 @@ export default function AdminAnalytics() {
                   }}>{label}</button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[7, 14, 30, 90].map(d => (
-                  <button key={d} onClick={() => setRange(d)} style={{
-                    padding: '4px 12px', borderRadius: 16,
-                    border: range === d ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
-                    fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
-                    background: range === d ? 'rgba(196,168,109,0.12)' : 'transparent',
-                    color: range === d ? A.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
-                  }}>{d}d</button>
-                ))}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {[7, 14, 30, 90].map(d => {
+                  const active = !customActive && range === d;
+                  return (
+                    <button key={d} onClick={() => { setCustomActive(false); setRange(d); }} style={{
+                      padding: '4px 12px', borderRadius: 16,
+                      border: active ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
+                      fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
+                      background: active ? 'rgba(196,168,109,0.12)' : 'transparent',
+                      color: active ? A.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
+                    }}>{d}d</button>
+                  );
+                })}
+                {/* Custom pill — mirrors main range selector state. */}
+                <button onClick={() => setCustomOpen(o => !o)} style={{
+                  padding: '4px 12px', borderRadius: 16,
+                  border: customActive ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
+                  fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
+                  background: customActive ? 'rgba(196,168,109,0.12)' : 'transparent',
+                  color: customActive ? A.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
+                }}>{customActive ? `${customStart.slice(5)} → ${customEnd.slice(5)}` : 'Custom'}</button>
               </div>
             </div>
           </div>

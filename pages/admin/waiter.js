@@ -195,16 +195,20 @@ export default function WaiterDashboard() {
       }));
     const serves = allOrders
       .filter(o => o.status === 'ready')
-      .map(o => ({
-        id: 'serve:' + o.id,
-        rawId: o.id,
-        type: 'serve',
-        table: o.tableNumber || '—',
-        // For serves, subtitle is the order number + item count
-        subtitle: `${orderLabel(o)} · ${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}`,
-        seconds: o.updatedAt?.seconds || o.createdAt?.seconds || 0,
-        raw: o,
-      }));
+      .map(o => {
+        const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
+        return {
+          id: 'serve:' + o.id,
+          rawId: o.id,
+          type: 'serve',
+          isTakeaway,
+          table: isTakeaway ? (o.customerName || 'Pickup') : (o.tableNumber || '—'),
+          // For serves, subtitle is the order number + item count
+          subtitle: `${orderLabel(o)} · ${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}`,
+          seconds: o.updatedAt?.seconds || o.createdAt?.seconds || 0,
+          raw: o,
+        };
+      });
     // Sort oldest first — that's the action priority for both types.
     return [...calls, ...serves].sort((a, b) => (a.seconds || 0) - (b.seconds || 0));
   }, [allCalls, allOrders]);
@@ -320,14 +324,18 @@ export default function WaiterDashboard() {
     const ordersHist = allOrders
       .filter(o => o.status === 'served')
       .filter(o => (o.updatedAt?.seconds || o.createdAt?.seconds || 0) >= periodStart)
-      .map(o => ({
-        id: 'serve:' + o.id,
-        type: 'serve',
-        table: o.tableNumber || '—',
-        label: `${orderLabel(o)} · ${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}`,
-        createdSec: o.createdAt?.seconds || 0,
-        resolvedSec: o.updatedAt?.seconds || null,
-      }));
+      .map(o => {
+        const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
+        return {
+          id: 'serve:' + o.id,
+          type: 'serve',
+          isTakeaway,
+          table: isTakeaway ? (o.customerName || 'Pickup') : (o.tableNumber || '—'),
+          label: `${orderLabel(o)} · ${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}`,
+          createdSec: o.createdAt?.seconds || 0,
+          resolvedSec: o.updatedAt?.seconds || null,
+        };
+      });
     const all = [...callsHist, ...ordersHist].sort((a, b) => (b.resolvedSec || 0) - (a.resolvedSec || 0));
 
     // Filter by search (table number or label)
@@ -603,7 +611,7 @@ export default function WaiterDashboard() {
                           }}>{typeLabel}</span>
                           <span style={{
                             fontWeight: 700, fontSize: 16, color: A.ink, letterSpacing: '-0.3px',
-                          }}>Table {item.table}</span>
+                          }}>{item.isTakeaway ? `Takeaway · ${item.table}` : `Table ${item.table}`}</span>
                           {urgency === 'over' && (
                             <span style={{
                               fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
@@ -760,7 +768,7 @@ export default function WaiterDashboard() {
                       }}>{typeLabel}</span>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: A.ink, lineHeight: 1.3 }}>
-                          Table {h.table}
+                          {h.isTakeaway ? `Takeaway · ${h.table}` : `Table ${h.table}`}
                         </div>
                         <div style={{ fontSize: 12, color: A.mutedText, marginTop: 2 }}>
                           {h.label}

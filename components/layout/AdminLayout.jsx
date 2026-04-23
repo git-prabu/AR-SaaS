@@ -26,9 +26,11 @@ const navSections = [
   },
   {
     label: 'CATALOG', items: [
-      { href: '/admin/items',      label: 'Menu Items',  icon: 'utensils' },
-      { href: '/admin/requests',   label: 'Add Items',   icon: 'plus' },
-      { href: '/admin/promotions', label: 'Promotions',  icon: 'tag' },
+      { href: '/admin/items',    label: 'Menu Items', icon: 'utensils' },
+      { href: '/admin/requests', label: 'Add Items',  icon: 'plus' },
+      { href: '/admin/combos',   label: 'Combos',     icon: 'puzzle' },
+      { href: '/admin/offers',   label: 'Offers',     icon: 'tag' },
+      { href: '/admin/coupons',  label: 'Coupons',    icon: 'ticket' },
     ]
   },
   {
