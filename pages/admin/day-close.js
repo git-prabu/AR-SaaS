@@ -10,7 +10,7 @@ import Head from 'next/head';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getOrders } from '../../lib/db';
+import { getOrders, todayKey } from '../../lib/db';
 import PageHead from '../../components/PageHead';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -42,7 +42,34 @@ const A = {
 const PAID_STATUSES = new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']);
 const formatRupee = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 
-function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+// Convert a 'YYYY-MM-DD' string to { start, end } Unix-second bounds for that
+// local day. Used to filter orders for any past date the admin wants to audit.
+function dayBoundsFromKey(key) {
+  if (!key) return { start: 0, end: 0 };
+  const [y, m, d] = key.split('-').map(Number);
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime() / 1000;
+  const end   = new Date(y, m - 1, d, 23, 59, 59, 999).getTime() / 1000;
+  return { start, end };
+}
+
+// Format 'YYYY-MM-DD' as "Friday, 24 April 2026" for the subtitle + Z-report header.
+function formatLongDate(key) {
+  if (!key) return '';
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Shift a 'YYYY-MM-DD' key by `deltaDays` (negative = earlier, positive = later).
+function shiftDayKey(key, deltaDays) {
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + deltaDays);
+  const yy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
 
 export default function AdminDayClose() {
   const { userData } = useAuth();
@@ -53,6 +80,11 @@ export default function AdminDayClose() {
   const [loading, setLoading] = useState(true);
   const [openingCash, setOpeningCash] = useState('');
   const [closingCash, setClosingCash] = useState('');
+  // Which day the Z-report is scoped to. Defaults to today; admin can pick a
+  // past day to audit (cash inputs are still editable but the counts are
+  // derived from that day's orders).
+  const [selectedDate, setSelectedDate] = useState(() => todayKey());
+  const isToday = selectedDate === todayKey();
 
   useEffect(() => {
     if (!rid) return;
@@ -62,18 +94,21 @@ export default function AdminDayClose() {
       .catch(err => { console.error('day-close load:', err); setLoading(false); });
   }, [rid]);
 
-  // ─── Today's orders ───
-  const todayOrders = useMemo(() => {
-    const startTs = startOfToday().getTime() / 1000;
-    return orders.filter(o => (o.createdAt?.seconds || 0) >= startTs);
-  }, [orders]);
+  // ─── Orders scoped to the selected day ───
+  const dayOrders = useMemo(() => {
+    const { start, end } = dayBoundsFromKey(selectedDate);
+    return orders.filter(o => {
+      const ts = o.createdAt?.seconds || 0;
+      return ts >= start && ts <= end;
+    });
+  }, [orders, selectedDate]);
 
   // ─── Summary derivations ───
   const summary = useMemo(() => {
-    const served = todayOrders.filter(o => o.status === 'served');
-    const refunded = todayOrders.filter(o => o.paymentStatus === 'refunded');
-    const paid = todayOrders.filter(o => PAID_STATUSES.has(o.paymentStatus));
-    const unpaid = todayOrders.filter(o =>
+    const served = dayOrders.filter(o => o.status === 'served');
+    const refunded = dayOrders.filter(o => o.paymentStatus === 'refunded');
+    const paid = dayOrders.filter(o => PAID_STATUSES.has(o.paymentStatus));
+    const unpaid = dayOrders.filter(o =>
       o.status === 'served' && !PAID_STATUSES.has(o.paymentStatus) && o.paymentStatus !== 'refunded'
     );
 
@@ -92,7 +127,7 @@ export default function AdminDayClose() {
     });
 
     return {
-      totalOrders: todayOrders.length,
+      totalOrders: dayOrders.length,
       servedCount: served.length,
       paidCount: paid.length,
       unpaidCount: unpaid.length,
@@ -103,7 +138,7 @@ export default function AdminDayClose() {
       netRevenue,
       byMethod, countByMethod,
     };
-  }, [todayOrders]);
+  }, [dayOrders]);
 
   // ─── Cash reconciliation ───
   const opening = Number(openingCash) || 0;
@@ -145,19 +180,68 @@ export default function AdminDayClose() {
                 Day Close
               </div>
               <div style={{ fontSize: 13, color: A.mutedText, marginTop: 6 }}>
-                End-of-shift reconciliation for {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {isToday
+                  ? `End-of-shift reconciliation for ${formatLongDate(selectedDate)}`
+                  : `Viewing past day — ${formatLongDate(selectedDate)}`}
               </div>
             </div>
-            <button
-              onClick={printZReport}
-              style={{
-                padding: '10px 18px', borderRadius: 10, border: 'none',
-                background: A.ink, color: A.cream,
-                fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-              }}>
-              Print Z-report →
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {/* Day navigation: ◀ Prev · <date input> · ▶ Next (disabled at today) · Today reset.
+                  `max={todayKey()}` on the input prevents picking future days; the Next button
+                  is disabled when already at today for the same reason. */}
+              <button
+                onClick={() => setSelectedDate(d => shiftDayKey(d, -1))}
+                title="Previous day"
+                style={{
+                  width: 36, height: 36, borderRadius: 8, border: A.borderStrong,
+                  background: A.shell, color: A.ink, fontSize: 14, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: A.font,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>‹</button>
+              <input
+                type="date"
+                value={selectedDate}
+                max={todayKey()}
+                onChange={e => { if (e.target.value) setSelectedDate(e.target.value); }}
+                style={{
+                  padding: '8px 12px', borderRadius: 8, border: A.borderStrong,
+                  background: A.shell, color: A.ink,
+                  fontSize: 13, fontWeight: 600, fontFamily: A.font,
+                  outline: 'none', minWidth: 150,
+                }}
+              />
+              <button
+                onClick={() => setSelectedDate(d => shiftDayKey(d, 1))}
+                disabled={isToday}
+                title={isToday ? 'Cannot view future days' : 'Next day'}
+                style={{
+                  width: 36, height: 36, borderRadius: 8, border: A.borderStrong,
+                  background: A.shell, color: A.ink, fontSize: 14, fontWeight: 700,
+                  cursor: isToday ? 'not-allowed' : 'pointer', fontFamily: A.font,
+                  opacity: isToday ? 0.4 : 1,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>›</button>
+              {!isToday && (
+                <button
+                  onClick={() => setSelectedDate(todayKey())}
+                  title="Jump to today"
+                  style={{
+                    padding: '8px 14px', borderRadius: 8, border: A.borderStrong,
+                    background: A.shell, color: A.mutedText,
+                    fontSize: 12, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                  }}>Today</button>
+              )}
+              <button
+                onClick={printZReport}
+                style={{
+                  padding: '10px 18px', borderRadius: 10, border: 'none',
+                  background: A.ink, color: A.cream,
+                  fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                }}>
+                Print Z-report →
+              </button>
+            </div>
           </div>
         </div>
 
@@ -174,7 +258,9 @@ export default function AdminDayClose() {
               <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>Z-REPORT · {restaurantName}</span>
               <span style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
               <span style={{ fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>
-                {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                {isToday
+                  ? new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                  : formatLongDate(selectedDate)}
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
@@ -195,7 +281,7 @@ export default function AdminDayClose() {
           {loading ? (
             <div style={{ background: A.shell, borderRadius: 14, padding: 48, textAlign: 'center', boxShadow: A.cardShadow, border: A.border }}>
               <div style={{ width: 28, height: 28, border: `3px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-              <div style={{ fontSize: 13, color: A.mutedText }}>Loading today's orders…</div>
+              <div style={{ fontSize: 13, color: A.mutedText }}>{isToday ? "Loading today's orders…" : 'Loading orders for this day…'}</div>
             </div>
           ) : (
             <>

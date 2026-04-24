@@ -2,10 +2,11 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updatePaymentStatus } from '../../lib/db';
+import { updatePaymentStatus, todayKey } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import DateRangePicker from '../../components/DateRangePicker';
 
 // ═══ Aspire palette — same tokens as analytics/orders/kitchen/waiter ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -101,6 +102,11 @@ export default function AdminPayments() {
   // Default to 'today' — admins open this page to handle current-shift payments.
   // Historical data is still accessible via Week/Month/All pills when needed (e.g. revenue review).
   const [period, setPeriod] = useState('today');
+  // Custom date range — overrides `period` when active. Kept as a separate
+  // object so a single setter can flip active + dates atomically (avoids
+  // "active true but start empty" intermediate state). Shared shape across
+  // payments/waiter/orders for consistency with the DateRangePicker component.
+  const [customRange, setCustomRange] = useState({ active: false, start: '', end: '' });
   const [search, setSearch] = useState('');
   const [updating, setUpdating] = useState(null);  // order id currently being updated
   const [expandedId, setExpandedId] = useState(null);
@@ -150,6 +156,15 @@ export default function AdminPayments() {
   const isRequested = (o) => PAYMENT_STATUS[o.paymentStatus]?.kind === 'requested';
 
   // ═══ Period filtering (applies to all stats + list) ═══
+  // When a custom range is active, it overrides the period pills. Custom
+  // bounds use local midnight→23:59:59 to match the period-pill semantics.
+  const customBounds = useMemo(() => {
+    if (!customRange.active || !customRange.start || !customRange.end) return null;
+    const s = new Date(customRange.start + 'T00:00:00'); s.setHours(0, 0, 0, 0);
+    const e = new Date(customRange.end   + 'T23:59:59'); e.setHours(23, 59, 59, 999);
+    return { start: s.getTime() / 1000, end: e.getTime() / 1000 };
+  }, [customRange]);
+
   const periodStart = useMemo(() => {
     if (period === 'today') return startOfToday();
     if (period === 'week')  return startOfWeek();
@@ -160,10 +175,11 @@ export default function AdminPayments() {
   // For paid orders, filter by paymentUpdatedAt (when money arrived).
   // For unpaid/requested, filter by createdAt (when bill was generated).
   const inPeriod = (o) => {
-    if (periodStart === 0) return true;
     const ts = isPaid(o)
       ? (o.paymentUpdatedAt?.seconds || o.createdAt?.seconds || 0)
       : (o.createdAt?.seconds || 0);
+    if (customBounds) return ts >= customBounds.start && ts <= customBounds.end;
+    if (periodStart === 0) return true;
     return ts >= periodStart;
   };
 
@@ -189,7 +205,7 @@ export default function AdminPayments() {
     }, {});
 
     return { pending: pending.length, paidCount: paid.length, collected, avgSec, methodCounts };
-  }, [relevantOrders, period]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [relevantOrders, period, customRange]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ═══ List of orders shown — applies filter + period + search ═══
   const displayed = useMemo(() => {
@@ -206,7 +222,7 @@ export default function AdminPayments() {
       });
     }
     return list;
-  }, [relevantOrders, filter, period, search]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [relevantOrders, filter, period, search, customRange]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ═══ Mark as paid — called with explicit method so `unpaid` orders don't silently default to cash ═══
   const markPaid = async (order, method /* 'cash' | 'card' | 'online' */) => {
@@ -393,7 +409,9 @@ export default function AdminPayments() {
                 </div>
               </div>
               <span style={{ fontFamily: A.font, fontSize: 10, color: A.forestTextMuted, fontWeight: 500, flexShrink: 0, letterSpacing: '0.02em' }}>
-                {period === 'today' ? 'Today' : period === 'week' ? 'This week' : period === 'month' ? 'This month' : 'All time'}
+                {customRange.active
+                  ? `${customRange.start} → ${customRange.end}`
+                  : period === 'today' ? 'Today' : period === 'week' ? 'This week' : period === 'month' ? 'This month' : 'All time'}
               </span>
             </div>
           </div>
@@ -441,13 +459,16 @@ export default function AdminPayments() {
 
             <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />
 
-            {/* Period pills */}
-            <div style={{ display: 'inline-flex', gap: 4 }}>
+            {/* Period pills + Custom date-range picker.
+                Wrapped in position:relative so DateRangePicker's popover anchors to
+                this group (absolute top:42 right:0). Picking a period pill clears
+                any active custom range; picking Custom overrides the period pill. */}
+            <div style={{ display: 'inline-flex', gap: 4, position: 'relative', alignItems: 'center' }}>
               {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([val, label]) => {
-                const active = period === val;
+                const active = !customRange.active && period === val;
                 return (
                   <button key={val} className={`pay-period-pill ${active ? 'active' : ''}`}
-                    onClick={() => setPeriod(val)}
+                    onClick={() => { setCustomRange({ active: false, start: '', end: '' }); setPeriod(val); }}
                     style={{
                       padding: '6px 12px', fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 500,
                       background: active ? A.ink : 'transparent',
@@ -457,6 +478,13 @@ export default function AdminPayments() {
                     }}>{label}</button>
                 );
               })}
+              <DateRangePicker
+                value={customRange}
+                onChange={setCustomRange}
+                maxDate={todayKey()}
+                theme={A}
+                pillClassName="pay-period-pill"
+              />
             </div>
 
             <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />

@@ -2,11 +2,12 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updateOrderStatus, updatePaymentStatus } from '../../lib/db';
+import { updateOrderStatus, updatePaymentStatus, todayKey } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { timeAgo } from '../../lib/utils';
+import DateRangePicker from '../../components/DateRangePicker';
 
 // ─────────────────────────────────────────────────────────────
 // Aspire palette — matches analytics/reports for brand consistency.
@@ -64,6 +65,16 @@ function periodRange(period) {
   return { start: 0, end: Infinity }; // 'all'
 }
 
+// Turn a { active, start, end } custom range into a { start, end } seconds
+// bound, or null when the custom range isn't active. Start snaps to local
+// midnight; end snaps to 23:59:59 local so both endpoints are inclusive.
+function customRangeBounds(cr) {
+  if (!cr?.active || !cr.start || !cr.end) return null;
+  const s = new Date(cr.start + 'T00:00:00'); s.setHours(0, 0, 0, 0);
+  const e = new Date(cr.end   + 'T23:59:59'); e.setHours(23, 59, 59, 999);
+  return { start: s.getTime() / 1000, end: e.getTime() / 1000 };
+}
+
 // Payment status helpers.
 const PAID_STATUSES = new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']);
 const REQUESTED_STATUSES = new Set(['cash_requested', 'card_requested', 'online_requested']);
@@ -114,6 +125,8 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [statusFilter, setStatusFilter] = useState('active');   // active | served | all
   const [periodFilter, setPeriodFilter] = useState('today');    // today | week | month | all
+  // Custom date range — overrides periodFilter when active.
+  const [customRange, setCustomRange] = useState({ active: false, start: '', end: '' });
   const [searchQ, setSearchQ] = useState('');
   const [updating, setUpdating] = useState(null);
   const [, setTick] = useState(0);
@@ -239,7 +252,10 @@ export default function AdminOrders() {
 
   // ── Derived state: filtered orders + grouping ──
   const filtered = useMemo(() => {
-    const range = periodRange(periodFilter);
+    // Custom range takes precedence over the period pill. When no custom
+    // range is active, fall back to the period-pill helper.
+    const custom = customRangeBounds(customRange);
+    const range = custom || periodRange(periodFilter);
     const q = searchQ.trim().toLowerCase();
     const numericQ = q.replace(/^#/, '').trim();
 
@@ -273,7 +289,7 @@ export default function AdminOrders() {
       }
       return true;
     });
-  }, [orders, statusFilter, periodFilter, searchQ]);
+  }, [orders, statusFilter, periodFilter, customRange, searchQ]);
 
   // Group filtered orders by day (for the day-tag dividers).
   const grouped = useMemo(() => {
@@ -303,16 +319,20 @@ export default function AdminOrders() {
     return { pending, preparing, ready, servedCount: served.length, revenue, inFlight: pending + preparing + ready };
   }, [orders]);
 
-  // ── Tab counts (respect period filter) ──
+  // ── Tab counts (respect period filter; custom range overrides) ──
   const tabCounts = useMemo(() => {
-    const range = periodRange(periodFilter);
-    const scoped = orders.filter(o => (o.createdAt?.seconds || 0) >= range.start);
+    const custom = customRangeBounds(customRange);
+    const range = custom || periodRange(periodFilter);
+    const scoped = orders.filter(o => {
+      const secs = o.createdAt?.seconds || 0;
+      return secs >= range.start && secs <= range.end;
+    });
     return {
       active: scoped.filter(o => o.status !== 'served').length,
       served: scoped.filter(o => o.status === 'served').length,
       all: scoped.length,
     };
-  }, [orders, periodFilter]);
+  }, [orders, periodFilter, customRange]);
 
   return (
     <AdminLayout>
@@ -478,16 +498,20 @@ export default function AdminOrders() {
                 }}
               />
             </div>
-            {/* Day pills — right */}
+            {/* Day pills + Custom date-range picker — right.
+                position:relative so DateRangePicker's popover (absolute
+                top:42 right:0) anchors to this group. Picking a pill clears
+                any active custom range; Custom overrides the pill. */}
             <div className="day-pills" style={{
-              display: 'inline-flex', background: A.shell, border: A.borderStrong,
-              borderRadius: 10, padding: 3,
+              display: 'inline-flex', alignItems: 'center',
+              background: A.shell, border: A.borderStrong,
+              borderRadius: 10, padding: 3, position: 'relative',
             }}>
               {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([val, label]) => {
-                const active = periodFilter === val;
+                const active = !customRange.active && periodFilter === val;
                 return (
                   <button key={val} className="day-pill"
-                    onClick={() => setPeriodFilter(val)}
+                    onClick={() => { setCustomRange({ active: false, start: '', end: '' }); setPeriodFilter(val); }}
                     style={{
                       padding: '7px 14px', fontFamily: A.font, fontSize: 12,
                       fontWeight: active ? 600 : 500,
@@ -498,6 +522,15 @@ export default function AdminOrders() {
                     }}>{label}</button>
                 );
               })}
+              <DateRangePicker
+                value={customRange}
+                onChange={setCustomRange}
+                maxDate={todayKey()}
+                theme={{ ...A, cream: A.forestText }}
+                pillClassName="day-pill"
+                pillStyle={{ padding: '7px 14px', borderRadius: 7 }}
+                pillActiveStyle={{ color: A.forestText, background: A.ink, fontWeight: 600 }}
+              />
             </div>
           </div>
 

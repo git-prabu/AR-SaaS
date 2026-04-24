@@ -3,10 +3,11 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs } from '../../lib/db';
+import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs, todayKey } from '../../lib/db';
 import { db, staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import DateRangePicker from '../../components/DateRangePicker';
 
 // ═══ Aspire palette — same tokens as analytics/reports/orders/kitchen ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -104,6 +105,8 @@ export default function WaiterDashboard() {
   const [resolvingId, setResolvingId] = useState(null); // id of the call/order currently being acted on
   const [tab, setTab] = useState('queue');  // 'queue' | 'history'
   const [historyPeriod, setHistoryPeriod] = useState('today'); // 'today' | 'week' | 'month' | 'all'
+  // Custom date range — overrides historyPeriod when active.
+  const [historyCustomRange, setHistoryCustomRange] = useState({ active: false, start: '', end: '' });
   const [historySearch, setHistorySearch] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [tick, setTick] = useState(0);
@@ -305,14 +308,28 @@ export default function WaiterDashboard() {
 
   // ── History data ──
   // History shows calls (resolved) AND orders (served). Combined so the waiter can audit their shift.
+  //
+  // Range selection: a custom range (if active) overrides the period pill.
+  // Custom bounds are local-midnight → 23:59:59 to match period semantics.
   const historyItems = useMemo(() => {
-    const periodStart = historyPeriod === 'today' ? startOfToday()
-                      : historyPeriod === 'week'  ? startOfWeek()
-                      : historyPeriod === 'month' ? startOfMonth()
-                      : 0;
+    let rangeStart = 0;
+    let rangeEnd   = Infinity;
+    if (historyCustomRange.active && historyCustomRange.start && historyCustomRange.end) {
+      const s = new Date(historyCustomRange.start + 'T00:00:00'); s.setHours(0, 0, 0, 0);
+      const e = new Date(historyCustomRange.end   + 'T23:59:59'); e.setHours(23, 59, 59, 999);
+      rangeStart = s.getTime() / 1000;
+      rangeEnd   = e.getTime() / 1000;
+    } else {
+      rangeStart = historyPeriod === 'today' ? startOfToday()
+                 : historyPeriod === 'week'  ? startOfWeek()
+                 : historyPeriod === 'month' ? startOfMonth()
+                 : 0;
+    }
+    const inRange = (ts) => ts >= rangeStart && ts <= rangeEnd;
+
     const callsHist = allCalls
       .filter(c => c.status === 'resolved')
-      .filter(c => (c.resolvedAt?.seconds || c.createdAt?.seconds || 0) >= periodStart)
+      .filter(c => inRange(c.resolvedAt?.seconds || c.createdAt?.seconds || 0))
       .map(c => ({
         id: 'call:' + c.id,
         type: 'call',
@@ -323,7 +340,7 @@ export default function WaiterDashboard() {
       }));
     const ordersHist = allOrders
       .filter(o => o.status === 'served')
-      .filter(o => (o.updatedAt?.seconds || o.createdAt?.seconds || 0) >= periodStart)
+      .filter(o => inRange(o.updatedAt?.seconds || o.createdAt?.seconds || 0))
       .map(o => {
         const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
         return {
@@ -345,7 +362,7 @@ export default function WaiterDashboard() {
       String(h.table).toLowerCase().includes(q) ||
       h.label.toLowerCase().includes(q)
     );
-  }, [allCalls, allOrders, historyPeriod, historySearch]);
+  }, [allCalls, allOrders, historyPeriod, historyCustomRange, historySearch]);
 
   // Stats for header strip
   const doneTodayCount = useMemo(() => {
@@ -695,12 +712,15 @@ export default function WaiterDashboard() {
               display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
               marginBottom: 14,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {/* Period pills + Custom date-range picker. position:relative so
+                  DateRangePicker's popover (absolute top:42) anchors here.
+                  Picking a pill clears any active custom range; Custom overrides the pill. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', position: 'relative' }}>
                 {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([val, label]) => {
-                  const active = historyPeriod === val;
+                  const active = !historyCustomRange.active && historyPeriod === val;
                   return (
                     <button key={val} className={`waiter-period-pill ${active ? 'active' : ''}`}
-                      onClick={() => setHistoryPeriod(val)}
+                      onClick={() => { setHistoryCustomRange({ active: false, start: '', end: '' }); setHistoryPeriod(val); }}
                       style={{
                         padding: '6px 12px', fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 500,
                         background: active ? A.ink : 'transparent',
@@ -712,6 +732,13 @@ export default function WaiterDashboard() {
                     </button>
                   );
                 })}
+                <DateRangePicker
+                  value={historyCustomRange}
+                  onChange={setHistoryCustomRange}
+                  maxDate={todayKey()}
+                  theme={A}
+                  pillClassName="waiter-period-pill"
+                />
               </div>
               <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)' }} />
               <input
