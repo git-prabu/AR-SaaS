@@ -103,7 +103,9 @@ const emptyForm = { name: '', username: '', pin: '', role: 'kitchen' };
 async function authHeaders() {
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error('Not signed in');
-  const token = await currentUser.getIdToken();
+  // Force-refresh the ID token so we don't send a stale one. Firebase tokens
+  // expire after 1 hour; stale tokens cause "Unauthorized" on the server.
+  const token = await currentUser.getIdToken(true);
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
 
@@ -135,7 +137,11 @@ async function apiCall(endpoint, body) {
     throw new Error(`Server error (${resp.status})`);
   }
   if (!resp.ok) {
-    throw new Error(data.error || `Request failed (${resp.status})`);
+    // Surface server-side detail — requireAdminAuth throws messages like
+    // "User doc not found", "Not a restaurant admin", "No restaurantId" that
+    // tell the admin exactly which gate failed. Previously we swallowed them.
+    const base = data.error || `Request failed (${resp.status})`;
+    throw new Error(data.detail ? `${base} — ${data.detail}` : base);
   }
   return data;
 }
