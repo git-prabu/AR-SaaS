@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import CountUp from 'react-countup';
 import BentoGlow from '../../components/BentoGlow';
+import DateRangePicker from '../../components/DateRangePicker';
 
 // ═══ Aspire theme (local to analytics page — replaces Cinematic Forest per user request) ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -114,6 +115,78 @@ function getTodayKey() {
   return `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+// ─── Period → date-range bounds ──────────────────────────────────────────────
+// One helper drives every widget in this page (fetch, filter, pad, label,
+// CountUp keys). `period` is 'today'|'week'|'month'|'all'; `customRange` is
+// { active, start, end } where start/end are YYYY-MM-DD local dates (from the
+// DateRangePicker component). A non-null `customRange.active` overrides period.
+//
+// Returns:
+//   start        — Date at 00:00:00 local on the first day of the range
+//   end          — Date at 23:59:59 local on the last day of the range
+//   spanDays     — integer day count (>=1) for getAnalytics/getWaiterCallsCount
+//   startKey     — 'YYYY-MM-DD' for getAnalytics(rid, days, startKey, endKey)
+//   endKey       — 'YYYY-MM-DD' for getAnalytics
+//   labelLong    — UI label, e.g. 'This Week' or '2026-04-20 → 2026-04-24'
+//   labelShort   — compact label for tab-bars, e.g. 'Week'
+//   key          — stable identifier for CountUp keys — changes when period
+//                  or custom range changes so the number animates on swap.
+function getPeriodBounds(period, customRange) {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // Custom range takes precedence over the period pill.
+  if (customRange && customRange.active && customRange.start && customRange.end) {
+    const s = new Date(customRange.start + 'T00:00:00'); s.setHours(0, 0, 0, 0);
+    const e = new Date(customRange.end   + 'T23:59:59'); e.setHours(23, 59, 59, 999);
+    const spanDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1);
+    return {
+      start: s, end: e, spanDays,
+      startKey: ymd(s), endKey: ymd(e),
+      labelLong: `${customRange.start} → ${customRange.end}`,
+      labelShort: `${customRange.start.slice(5)} → ${customRange.end.slice(5)}`,
+      key: `${customRange.start}_${customRange.end}`,
+    };
+  }
+
+  if (period === 'today') {
+    return {
+      start: todayStart, end: todayEnd, spanDays: 1,
+      startKey: ymd(todayStart), endKey: ymd(todayEnd),
+      labelLong: 'Today', labelShort: 'Today', key: 'today',
+    };
+  }
+  if (period === 'week') {
+    // Rolling last 7 days — matches /admin/reports + /admin/orders + /admin/payments semantics.
+    const s = new Date(todayStart); s.setDate(s.getDate() - 6);
+    return {
+      start: s, end: todayEnd, spanDays: 7,
+      startKey: ymd(s), endKey: ymd(todayEnd),
+      labelLong: 'This Week', labelShort: 'Week', key: 'week',
+    };
+  }
+  if (period === 'month') {
+    // Rolling last 30 days — matches reports/orders/payments.
+    const s = new Date(todayStart); s.setDate(s.getDate() - 29);
+    return {
+      start: s, end: todayEnd, spanDays: 30,
+      startKey: ymd(s), endKey: ymd(todayEnd),
+      labelLong: 'This Month', labelShort: 'Month', key: 'month',
+    };
+  }
+  // 'all' — capped at 365 days to bound Firestore reads. Most restaurants won't
+  // have 365 days of analytics docs yet; for older accounts this shows the last
+  // 12 months which is the common "all time" mental model for restaurant ops.
+  const s = new Date(todayStart); s.setDate(s.getDate() - 364);
+  return {
+    start: s, end: todayEnd, spanDays: 365,
+    startKey: ymd(s), endKey: ymd(todayEnd),
+    labelLong: 'All Time', labelShort: 'All', key: 'all',
+  };
+}
+
 /* ═══════════════════════════════════════ */
 export default function AdminAnalytics() {
   const { userData } = useAuth();
@@ -124,23 +197,25 @@ export default function AdminAnalytics() {
   const [waiterStat, setWaiterStat] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState(7);
-  const [committedRange, setCommittedRange] = useState(7);
-  // Custom date-range state. When customActive is true, the range pills are
-  // bypassed and analytics is filtered by [customStart, customEnd] inclusive.
-  // Dates are YYYY-MM-DD strings (local timezone via <input type="date">).
-  const [customActive, setCustomActive] = useState(false);
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd]     = useState('');
-  const [customOpen, setCustomOpen]   = useState(false);
+  // Period pill state — 'today' | 'week' | 'month' | 'all'. Defaults to 'week'
+  // (last 7 days) since that's the most common at-a-glance range for ops.
+  const [period, setPeriod] = useState('week');
+  // Custom date range — overrides `period` when active. Shape matches the
+  // <DateRangePicker> component: { active, start, end } where start/end are
+  // YYYY-MM-DD local dates. Picking Custom overrides the period pill; picking
+  // a period pill clears the custom range.
+  const [customRange, setCustomRange] = useState({ active: false, start: '', end: '' });
+  // Stable identifier that changes when the committed fetch bounds change —
+  // used as the CountUp `key` so numbers re-animate when swapping periods.
+  // Updated at the end of load() so numbers don't flicker mid-request.
+  const [committedBounds, setCommittedBounds] = useState('week');
   const [tab, setTab] = useState('overview');
   const [chartMode, setChartMode] = useState({}); // { trend: 'line'|'bar' } — single shared mode for the merged trend chart
   const [chartMetric, setChartMetric] = useState('revenue'); // merged trend chart metric: 'revenue' | 'orders' | 'visits'
-  const [visitsRangeOpen, setVisitsRangeOpen] = useState(false);
   const [visitsBarHover, setVisitsBarHover] = useState(null);
-  const [revRangeOpen, setRevRangeOpen] = useState(false);
+  // revRangeOpen state removed — the chart-local range dropdown is gone; the
+  // main header's period pills now drive the chart.
   const [revBarHover, setRevBarHover] = useState(null);
-  const [ordRangeOpen, setOrdRangeOpen] = useState(false);
   const [ordBarHover, setOrdBarHover] = useState(null);
   const [peakBarHover, setPeakBarHover] = useState(null);
   const [dayBarHover, setDayBarHover] = useState(null);
@@ -165,37 +240,32 @@ export default function AdminAnalytics() {
   const load = useCallback(async () => {
     if (!rid) return;
     if (!initialLoadDone.current) setLoading(true);
-    // In custom mode, fetch by date range AND compute an equivalent prior-window
-    // of the same length for delta calcs. In days mode, keep original behavior.
-    let analPromise, prevPromise, effectiveRange;
-    if (customActive && customStart && customEnd) {
-      const start = new Date(customStart);
-      const end = new Date(customEnd);
-      const spanDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
-      const priorStart = new Date(start); priorStart.setDate(priorStart.getDate() - spanDays);
-      const priorEnd   = new Date(start); priorEnd.setDate(priorEnd.getDate() - 1);
-      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      analPromise = getAnalytics(rid, spanDays, customStart, customEnd);
-      prevPromise = getAnalytics(rid, spanDays, fmt(priorStart), fmt(priorEnd));
-      effectiveRange = spanDays;
-    } else {
-      analPromise = getAnalytics(rid, range);
-      prevPromise = getAnalytics(rid, range * 2);
-      effectiveRange = range;
-    }
-    const [anal, allAnal, items, today, waiter, allOrders] = await Promise.all([
-      analPromise, prevPromise, getAllMenuItems(rid),
-      getTodayAnalytics(rid), getWaiterCallsCount(rid, effectiveRange), getOrders(rid),
+
+    // All range logic flows through getPeriodBounds so custom and preset
+    // periods share the same code path. The prior-window query is shifted
+    // back by spanDays (same length, immediately before the current window)
+    // so the delta % is always an equal-length comparison.
+    const bounds = getPeriodBounds(period, customRange);
+    const { startKey, endKey, spanDays } = bounds;
+    const priorStart = new Date(bounds.start); priorStart.setDate(priorStart.getDate() - spanDays);
+    const priorEnd   = new Date(bounds.start); priorEnd.setDate(priorEnd.getDate() - 1);
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+    const [anal, prev, items, today, waiter, allOrders] = await Promise.all([
+      getAnalytics(rid, spanDays, startKey, endKey),
+      getAnalytics(rid, spanDays, ymd(priorStart), ymd(priorEnd)),
+      getAllMenuItems(rid),
+      getTodayAnalytics(rid),
+      getWaiterCallsCount(rid, spanDays),
+      getOrders(rid),
     ]);
     setAnalytics(anal);
-    // In custom mode, the "prev" query returned the prior window directly.
-    // In days mode, the old helper returned 2×range; take the first half.
-    setPrevAnal(customActive ? allAnal : allAnal.slice(0, Math.max(0, allAnal.length - range)));
+    setPrevAnal(prev);
     setMenuItems(items); setTodayStat(today); setWaiterStat(waiter);
     setOrders(allOrders || []); setLoading(false);
-    setCommittedRange(customActive ? `${customStart}_${customEnd}` : range);
+    setCommittedBounds(bounds.key);
     initialLoadDone.current = true;
-  }, [rid, range, customActive, customStart, customEnd]);
+  }, [rid, period, customRange]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -224,11 +294,18 @@ export default function AdminAnalytics() {
     return (rated.reduce((s, i) => s + (i.ratingAvg || 0), 0) / rated.length).toFixed(1);
   })();
 
-  const rangeStart = new Date(Date.now() - committedRange * 24 * 60 * 60 * 1000);
+  // Derived bounds for the currently-selected period (or custom range).
+  // Single source of truth for every date-window filter on this page.
+  const bounds = useMemo(() => getPeriodBounds(period, customRange), [period, customRange]);
+  const rangeStart = bounds.start;
+  const rangeEnd   = bounds.end;
   const ordersInRange = orders.filter(o => {
     if (!o.createdAt) return true;
     const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
-    return d >= rangeStart;
+    // Both ends inclusive — custom ranges can end on a past day so a
+    // single `d >= start` check (the old one-sided bug) leaked orders
+    // from after the selected window into every stat.
+    return d >= rangeStart && d <= rangeEnd;
   });
   const totalOrders = ordersInRange.length;
   // Revenue excludes refunded orders — those happened but the money went
@@ -260,10 +337,10 @@ export default function AdminAnalytics() {
   });
   // Pad with zero-revenue days so the chart shows the full range consistently
   // (prevents "snapping" when range changes and avoids misleading skipped days).
-  const __now = new Date();
-  for (let i = 0; i < committedRange; i++) {
-    const d = new Date(__now); d.setDate(__now.getDate() - i);
-    const k = d.toISOString().slice(5, 10);
+  // Walks forward from the bounds.start (works for both preset and custom ranges).
+  for (let i = 0; i < bounds.spanDays; i++) {
+    const d = new Date(bounds.start); d.setDate(d.getDate() + i);
+    const k = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     if (!revByDay[k]) revByDay[k] = { date: k, revenue: 0, orders: 0 };
   }
   const revenueChartData = Object.values(revByDay).sort((a, b) => a.date.localeCompare(b.date));
@@ -528,7 +605,7 @@ export default function AdminAnalytics() {
       .slice(0, 4);
   }, [
     topOrderedItems, totalRevenue, totalOrders, avgOrderValue, arRateLifetime, totalARViewsLifetime, totalViewsLifetime,
-    activeItems, itemFreq, ordersInRange, lowRated, busiestDay, dayData, range,
+    activeItems, itemFreq, ordersInRange, lowRated, busiestDay, dayData, period, customRange,
   ]);
 
   const healthScore = useMemo(() => {
@@ -614,7 +691,7 @@ export default function AdminAnalytics() {
 
   const exportCSV = () => {
     // Overview now combines visits + revenue + orders (Orders & Revenue tab folded in).
-    if (tab === 'overview') downloadCSV(combinedChartData.map(d => ({ date: d.date, visits: d.visits, revenue: d.revenue, orders: d.orders })), `analytics-${range}d.csv`);
+    if (tab === 'overview') downloadCSV(combinedChartData.map(d => ({ date: d.date, visits: d.visits, revenue: d.revenue, orders: d.orders })), `analytics-${bounds.key}.csv`);
     else downloadCSV(activeItems.map(i => ({ name: i.name, category: i.category || '', views: i.views || 0, ar_views: i.arViews || 0, rating_avg: i.ratingAvg || 0 })), 'menu-performance.csv');
   };
 
@@ -628,12 +705,11 @@ export default function AdminAnalytics() {
   const secTitle = { fontFamily: A.font, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' };
   const labelSm = { fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.35)' };
 
-  // Date range label + today key for charts
+  // Date range label + today key for charts. Uses the committed bounds so the
+  // label matches the data currently rendered (not mid-request bounds).
   const dateRangeLabel = (() => {
-    const end = new Date();
-    const start = new Date(Date.now() - range * 24 * 60 * 60 * 1000);
     const fmt = d => `${MONTHS[d.getMonth()]} ${d.getDate()}`;
-    return `${fmt(start)} — ${fmt(end)}`;
+    return `${fmt(bounds.start)} — ${fmt(bounds.end)}`;
   })();
   const todayDotKey = getTodayKey();
   const getAnnotation = (data, key) => {
@@ -695,71 +771,36 @@ export default function AdminAnalytics() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
+                {/* Period pills + Custom date-range picker.
+                    Replaces the old 7d/14d/30d/90d pills with Today/Week/Month/All
+                    to match /admin/reports semantics. Picking a pill clears any
+                    active custom range; picking Custom overrides the pill. */}
                 <div style={{ display: 'inline-flex', background: '#FFFFFF', border: A.border, borderRadius: 10, padding: 3 }}>
-                  {[7, 14, 30, 90].map(d => (
-                    <button key={d} onClick={() => { setCustomActive(false); setCustomOpen(false); setRange(d); }} style={{
-                      padding: '6px 14px', borderRadius: 7,
-                      border: 'none',
-                      fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: A.font,
-                      background: (!customActive && range === d) ? A.subtleBg : 'transparent',
-                      color: (!customActive && range === d) ? A.ink : A.mutedText, transition: 'all 0.15s',
-                    }}>{d}d</button>
-                  ))}
-                  <button onClick={() => setCustomOpen(o => !o)} style={{
-                    padding: '6px 14px', borderRadius: 7,
-                    border: 'none',
-                    fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: A.font,
-                    background: customActive ? A.subtleBg : 'transparent',
-                    color: customActive ? A.ink : A.mutedText, transition: 'all 0.15s',
-                  }}>
-                    {customActive ? `${customStart} → ${customEnd}` : 'Custom'}
-                  </button>
+                  {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([key, label]) => {
+                    const active = !customRange.active && period === key;
+                    return (
+                      <button key={key} onClick={() => { setCustomRange({ active: false, start: '', end: '' }); setPeriod(key); }} style={{
+                        padding: '6px 14px', borderRadius: 7,
+                        border: 'none',
+                        fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer', fontFamily: A.font,
+                        background: active ? A.subtleBg : 'transparent',
+                        color: active ? A.ink : A.mutedText, transition: 'all 0.15s',
+                      }}>{label}</button>
+                    );
+                  })}
+                  {/* Main header Custom pill — compactLabel=true to show
+                      "MM-DD → MM-DD" instead of the full ISO form, so the
+                      label doesn't wrap on narrower viewports. */}
+                  <DateRangePicker
+                    value={customRange}
+                    onChange={setCustomRange}
+                    maxDate={todayKey()}
+                    theme={A}
+                    compactLabel={true}
+                    pillStyle={{ padding: '6px 14px', borderRadius: 7, fontSize: 13, whiteSpace: 'nowrap' }}
+                    pillActiveStyle={{ background: A.subtleBg, color: A.ink, fontWeight: 700 }}
+                  />
                 </div>
-
-                {/* Custom date-range popover — click "Custom" to toggle */}
-                {customOpen && (
-                  <div style={{
-                    position: 'absolute', top: 42, right: 0, zIndex: 20,
-                    background: A.shell, border: A.border, borderRadius: 10,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                    padding: 14, width: 280,
-                  }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>Custom range</div>
-                    <label style={{ display: 'block', fontSize: 11, color: A.mutedText, marginBottom: 4 }}>Start date</label>
-                    <input type="date" value={customStart} max={customEnd || undefined}
-                      onChange={e => setCustomStart(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: A.border, borderRadius: 8, fontSize: 13, marginBottom: 10, boxSizing: 'border-box', fontFamily: A.font, color: A.ink, background: A.shell }} />
-                    <label style={{ display: 'block', fontSize: 11, color: A.mutedText, marginBottom: 4 }}>End date</label>
-                    <input type="date" value={customEnd} min={customStart || undefined} max={todayKey()}
-                      onChange={e => setCustomEnd(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: A.border, borderRadius: 8, fontSize: 13, marginBottom: 12, boxSizing: 'border-box', fontFamily: A.font, color: A.ink, background: A.shell }} />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        onClick={() => {
-                          if (!customStart || !customEnd) return;
-                          if (customStart > customEnd) return;
-                          setCustomActive(true); setCustomOpen(false);
-                        }}
-                        disabled={!customStart || !customEnd || customStart > customEnd}
-                        style={{
-                          flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
-                          background: A.ink, color: A.cream,
-                          fontSize: 12, fontWeight: 600, fontFamily: A.font,
-                          cursor: (!customStart || !customEnd || customStart > customEnd) ? 'not-allowed' : 'pointer',
-                          opacity: (!customStart || !customEnd || customStart > customEnd) ? 0.5 : 1,
-                        }}>Apply</button>
-                      {customActive && (
-                        <button
-                          onClick={() => { setCustomActive(false); setCustomOpen(false); }}
-                          style={{
-                            padding: '8px 12px', borderRadius: 8, border: A.border,
-                            background: A.shell, color: A.mutedText,
-                            fontSize: 12, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
-                          }}>Clear</button>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 <button onClick={exportCSV} style={{
                   padding: '8px 14px', borderRadius: 10, border: A.border,
@@ -818,9 +859,9 @@ export default function AdminAnalytics() {
             {/* Header row — gold dot + label + thin rule + 'vs previous period' meta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning, boxShadow: '0 0 6px rgba(196,168,109,0.35)' }} />
-              <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>LAST {range} DAYS</span>
+              <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>{bounds.labelLong.toUpperCase()}</span>
               <div style={{ flex: 1, height: 1, background: 'rgba(196,168,109,0.20)' }} />
-              <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, fontWeight: 500 }}>vs previous {range} days</span>
+              <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, fontWeight: 500 }}>vs previous period</span>
             </div>
             {/* Inner stat tiles — subtle cream bg to differentiate from the wrapper */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
@@ -838,7 +879,7 @@ export default function AdminAnalytics() {
                   <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 8 }}>{s.label}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 28 }}>
                     <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: s.highlight ? A.warning : A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
-                      <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue key={committedRange} />
+                      <CountUp end={s.value} duration={1.5} separator="," prefix={s.prefix} preserveValue key={committedBounds} />
                     </span>
                     {s.d !== undefined && s.d !== 0 && (
                       <span style={{
@@ -966,22 +1007,10 @@ export default function AdminAnalytics() {
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink }}>
                       <span style={{ fontSize: 13, opacity: 0.55 }}>📅</span>{chipTxt}
                     </div>
-                    <div style={{ position: 'relative' }}>
-                      <button type="button" onClick={() => setRevRangeOpen(o => !o)} onBlur={() => setTimeout(() => setRevRangeOpen(false), 150)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: A.ink, padding: '7px 12px', background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.12)', borderRadius: 8, cursor: 'pointer', outline: 'none', boxShadow: revRangeOpen ? '0 0 0 3px rgba(38,52,49,0.06)' : 'none' }}>
-                        Last {range} days
-                        <span style={{ fontSize: 9, color: 'rgba(38,52,49,0.5)', transition: 'transform 0.18s', transform: revRangeOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-                      </button>
-                      {revRangeOpen && (
-                        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: 140, background: '#FFFFFF', border: '1px solid rgba(38,52,49,0.10)', borderRadius: 10, boxShadow: '0 12px 32px rgba(38,52,49,0.12)', padding: 4, zIndex: 50 }}>
-                          {[7, 14, 30, 90].map(d => {
-                            const active = range === d;
-                            return (
-                              <button key={d} type="button" onMouseDown={(e) => { e.preventDefault(); setRange(d); setRevRangeOpen(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontFamily: aspireFont, fontSize: 13, fontWeight: active ? 600 : 500, color: active ? A.ink : 'rgba(38,52,49,0.75)', background: active ? 'rgba(38,52,49,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Last {d} days</button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    {/* Chart-local range dropdown removed — the single source of
+                        truth is now the main Today/Week/Month/All/Custom pills
+                        in the page header. The date chip above still shows the
+                        current window for this chart. */}
                   </div>
                 </div>
 
@@ -998,7 +1027,7 @@ export default function AdminAnalytics() {
                   const up = isNew ? true : (trendPct == null ? null : trendPct >= 0);
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                      <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix={M.prefix} preserveValue key={`${committedRange}-${chartMetric}`} /></span>
+                      <span style={{ fontFamily: aspireFont, fontWeight: 700, fontSize: 22, color: A.ink, letterSpacing: '-0.3px', lineHeight: 1 }}><CountUp end={v} duration={1.5} separator="," prefix={M.prefix} preserveValue key={`${committedBounds}-${chartMetric}`} /></span>
                       {up !== null && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -1072,27 +1101,41 @@ export default function AdminAnalytics() {
                   }}>{label}</button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {[7, 14, 30, 90].map(d => {
-                  const active = !customActive && range === d;
+              {/* Sticky tab-bar period pills. Mirrors the main header selector
+                  (shared `period` + `customRange` state). Rendered with chip-style
+                  borders to fit the compact sticky-bar aesthetic. Parent needs
+                  position:relative so the DateRangePicker popover anchors here. */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
+                {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([key, label]) => {
+                  const active = !customRange.active && period === key;
                   return (
-                    <button key={d} onClick={() => { setCustomActive(false); setRange(d); }} style={{
+                    <button key={key} onClick={() => { setCustomRange({ active: false, start: '', end: '' }); setPeriod(key); }} style={{
                       padding: '4px 12px', borderRadius: 16,
                       border: active ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
                       fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
                       background: active ? 'rgba(196,168,109,0.12)' : 'transparent',
                       color: active ? A.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
-                    }}>{d}d</button>
+                    }}>{label}</button>
                   );
                 })}
-                {/* Custom pill — mirrors main range selector state. */}
-                <button onClick={() => setCustomOpen(o => !o)} style={{
-                  padding: '4px 12px', borderRadius: 16,
-                  border: customActive ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
-                  fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
-                  background: customActive ? 'rgba(196,168,109,0.12)' : 'transparent',
-                  color: customActive ? A.warning : 'rgba(38,52,49,0.35)', transition: 'all 0.15s',
-                }}>{customActive ? `${customStart.slice(5)} → ${customEnd.slice(5)}` : 'Custom'}</button>
+                <DateRangePicker
+                  value={customRange}
+                  onChange={setCustomRange}
+                  maxDate={todayKey()}
+                  theme={A}
+                  compactLabel
+                  pillStyle={{
+                    padding: '4px 12px', borderRadius: 16,
+                    border: customRange.active ? `1.5px solid ${A.warning}` : '1.5px solid rgba(38,52,49,0.1)',
+                    fontSize: 11, fontWeight: 700,
+                    background: 'transparent',
+                    color: 'rgba(38,52,49,0.35)',
+                  }}
+                  pillActiveStyle={{
+                    background: 'rgba(196,168,109,0.12)', color: A.warning,
+                    border: `1.5px solid ${A.warning}`,
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -1174,7 +1217,7 @@ export default function AdminAnalytics() {
                 <BentoGlow style={{ ...card, padding: '20px 24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                     <div style={secTitle}>Dish Performance</div>
-                    {topDishes.length > 0 && <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)', fontWeight: 500 }}>{range}d data</span>}
+                    {topDishes.length > 0 && <span style={{ fontSize: 10, color: 'rgba(38,52,49,0.35)', fontWeight: 500 }}>{bounds.labelShort} data</span>}
                   </div>
                   {topDishes.length > 0 ? (() => {
                     const rightCount = Math.min(topDishes.length - 1, 5);
@@ -1336,7 +1379,7 @@ export default function AdminAnalytics() {
                   {waiterStat ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {[
-                        { label: 'Total Calls', value: waiterStat.total, color: A.ink, sub: `${range}d period` },
+                        { label: 'Total Calls', value: waiterStat.total, color: A.ink, sub: `${bounds.labelShort} period` },
                         { label: 'Resolved', value: waiterStat.resolved, color: '#3F9E5A', sub: waiterStat.total > 0 ? `${Math.round((waiterStat.resolved / waiterStat.total) * 100)}% rate` : '—' },
                         { label: 'Avg Response', value: formatTime(waiterStat.avgResponseSeconds), color: A.warning, sub: 'call to resolve' },
                       ].map(s => (
@@ -1416,7 +1459,7 @@ export default function AdminAnalytics() {
                             }}>{item.name}</div>
                             {/* Big value */}
                             <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 28, color: t.valueColor, letterSpacing: '-0.5px', lineHeight: 1 }}>
-                              <CountUp key={committedRange} end={item.views || 0} duration={1.5} separator="," />
+                              <CountUp key={committedBounds} end={item.views || 0} duration={1.5} separator="," />
                             </div>
                             <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 500, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 3 }}>views</div>
                             {/* AR badge if relevant */}
@@ -1810,14 +1853,14 @@ export default function AdminAnalytics() {
                       <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
                         <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.40)', marginBottom: 6 }}>AR tap-through</div>
                         <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
-                          <CountUp end={Math.round(parseFloat(arRate))} duration={1.4} preserveValue key={committedRange} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
+                          <CountUp end={Math.round(parseFloat(arRate))} duration={1.4} preserveValue key={committedBounds} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
                         </div>
                         <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.5)', marginTop: 4 }}>of all item views</div>
                       </div>
                       <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
                         <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(38,52,49,0.40)', marginBottom: 6 }}>AR → order</div>
                         <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: '#C4A86D', letterSpacing: '-0.4px', lineHeight: 1 }}>
-                          <CountUp end={Math.round(parseFloat(arToOrderRate))} duration={1.4} preserveValue key={committedRange} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
+                          <CountUp end={Math.round(parseFloat(arToOrderRate))} duration={1.4} preserveValue key={committedBounds} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
                         </div>
                         <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(38,52,49,0.5)', marginTop: 4 }}>of orders saw AR first</div>
                       </div>
@@ -2062,7 +2105,7 @@ export default function AdminAnalytics() {
                         </svg>
                         <div style={{ marginTop: 10 }}>
                           <span style={{ fontFamily: A.font, fontWeight: 700, fontSize: 30, color: scoreColor, letterSpacing: '-0.5px' }}>
-                            <CountUp end={healthScore} duration={1.2} key={committedRange} preserveValue />
+                            <CountUp end={healthScore} duration={1.2} key={committedBounds} preserveValue />
                           </span>
                           <span style={{ fontFamily: A.font, fontSize: 14, color: A.forestTextMuted, marginLeft: 5 }}>/100</span>
                         </div>
