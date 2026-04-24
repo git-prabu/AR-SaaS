@@ -328,26 +328,46 @@ export default function AdminAnalytics() {
     return { date: key, visits: d.totalVisits || 0, unique: d.uniqueVisitors || 0, customers: phonesByDay[key]?.size || 0 };
   });
 
-  const revByDay = {};
+  // In Today mode (1-day span) we bucket by HOUR instead of by day — the
+  // chart then shows a time-of-day curve instead of a single flat bar.
+  // Matches /admin/reports behavior for the same period. For multi-day ranges
+  // we keep the daily "MM-DD" buckets.
+  const isTodayChart = bounds.spanDays === 1;
+
+  const revByBucket = {};
   ordersInRange.forEach(o => {
     const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
-    const key = d.toISOString().slice(5, 10);
-    if (!revByDay[key]) revByDay[key] = { date: key, revenue: 0, orders: 0 };
-    revByDay[key].revenue += o.total || 0; revByDay[key].orders += 1;
+    // Hourly keys sort correctly because they're zero-padded 2-digit strings ("00"…"23").
+    const key = isTodayChart
+      ? String(d.getHours()).padStart(2, '0')
+      : d.toISOString().slice(5, 10);
+    if (!revByBucket[key]) revByBucket[key] = { date: key, revenue: 0, orders: 0 };
+    revByBucket[key].revenue += o.total || 0; revByBucket[key].orders += 1;
   });
-  // Pad with zero-revenue days so the chart shows the full range consistently
-  // (prevents "snapping" when range changes and avoids misleading skipped days).
-  // Walks forward from the bounds.start (works for both preset and custom ranges).
-  for (let i = 0; i < bounds.spanDays; i++) {
-    const d = new Date(bounds.start); d.setDate(d.getDate() + i);
-    const k = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    if (!revByDay[k]) revByDay[k] = { date: k, revenue: 0, orders: 0 };
+  // Pad empty buckets so the chart axis stays consistent (prevents misleading
+  // skipped hours/days). Hourly pads all 24 hours; daily walks forward from
+  // bounds.start across spanDays.
+  if (isTodayChart) {
+    for (let h = 0; h < 24; h++) {
+      const k = String(h).padStart(2, '0');
+      if (!revByBucket[k]) revByBucket[k] = { date: k, revenue: 0, orders: 0 };
+    }
+  } else {
+    for (let i = 0; i < bounds.spanDays; i++) {
+      const d = new Date(bounds.start); d.setDate(d.getDate() + i);
+      const k = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!revByBucket[k]) revByBucket[k] = { date: k, revenue: 0, orders: 0 };
+    }
   }
-  const revenueChartData = Object.values(revByDay).sort((a, b) => a.date.localeCompare(b.date));
+  const revenueChartData = Object.values(revByBucket).sort((a, b) => a.date.localeCompare(b.date));
 
-  // Merged trend chart data — unions chartData (visits) with revenueChartData (revenue + orders) by date key.
-  // Used by the single Trend Over Time card on the Orders & Revenue tab. Revenue/orders charts shared the
-  // same revByDay padding so the date axis stays full-range; for visits we fall back to 0 on padded days.
+  // Merged trend chart data — unions chartData (visits) with revenueChartData
+  // (revenue + orders) by bucket key.
+  //   Daily mode: visits come from the analytics docs keyed by date.
+  //   Hourly mode (Today): we don't have hourly visit tracking in Firestore,
+  //   so visits are left at 0 per hour. The Visits metric in Today is a
+  //   flat line — the LIVE TODAY card is the right place to read today's
+  //   total visitor count anyway.
   const combinedChartData = (() => {
     const visitsByDate = {};
     chartData.forEach(d => { visitsByDate[d.date] = d.visits || 0; });
@@ -355,7 +375,7 @@ export default function AdminAnalytics() {
       date: r.date,
       revenue: r.revenue || 0,
       orders: r.orders || 0,
-      visits: visitsByDate[r.date] || 0,
+      visits: isTodayChart ? 0 : (visitsByDate[r.date] || 0),
     }));
   })();
 
@@ -923,20 +943,50 @@ export default function AdminAnalytics() {
             const gEnd = trendUp ? '#4A9A5E' : '#E89143';
 
             const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            // Parse both day keys ("MM-DD" / "YYYY-MM-DD") AND hour keys ("HH")
+            // — hour keys are 2-digit 00-23 strings used only in Today mode.
             const parseKey = v => {
               if (!v) return null;
               const p = String(v).split('-').map(Number);
+              if (p.length === 1 && isTodayChart) {
+                const h = p[0];
+                if (isNaN(h) || h < 0 || h > 23) return null;
+                return { isHour: true, h };
+              }
               let yy, mm, dd;
               if (p.length === 2) { mm = p[0]; dd = p[1]; yy = new Date().getFullYear(); }
               else if (p.length === 3) { yy = p[0]; mm = p[1]; dd = p[2]; } else return null;
               if (!mm || !dd || mm < 1 || mm > 12) return null;
               return { yy, mm, dd };
             };
-            const fmtDayFirst = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]}` : ''; };
-            const fmtFullDate = v => { const p = parseKey(v); return p ? `${p.dd} ${months[p.mm - 1]} ${p.yy}` : ''; };
-            const chipTxt = combinedChartData.length
-              ? `${fmtDayFirst(combinedChartData[0].date)} - ${fmtFullDate(combinedChartData[combinedChartData.length - 1].date)}`
-              : '';
+            // Hour formatters render "2 PM" style; day formatters unchanged.
+            const fmtHour = h => {
+              if (h === 0) return '12 AM';
+              if (h === 12) return 'Noon';
+              return h < 12 ? `${h} AM` : `${h - 12} PM`;
+            };
+            const fmtDayFirst = v => {
+              const p = parseKey(v);
+              if (!p) return '';
+              if (p.isHour) return fmtHour(p.h);
+              return `${p.dd} ${months[p.mm - 1]}`;
+            };
+            const fmtFullDate = v => {
+              const p = parseKey(v);
+              if (!p) return '';
+              if (p.isHour) {
+                // In hourly mode the "full" label includes today's date so
+                // the tooltip header reads like "2 PM · 24 Apr".
+                const now = new Date();
+                return `${fmtHour(p.h)} · ${now.getDate()} ${months[now.getMonth()]}`;
+              }
+              return `${p.dd} ${months[p.mm - 1]} ${p.yy}`;
+            };
+            const chipTxt = isTodayChart
+              ? `Today · ${new Date().getDate()} ${months[new Date().getMonth()]} (hourly)`
+              : combinedChartData.length
+                ? `${fmtDayFirst(combinedChartData[0].date)} - ${fmtFullDate(combinedChartData[combinedChartData.length - 1].date)}`
+                : '';
 
             // Tooltip — uses active metric's prefix and value formatting.
             const TrendTip = ({ active, payload, label }) => {
