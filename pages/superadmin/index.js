@@ -4,6 +4,32 @@ import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import { getAllRestaurants, getAllPendingRequests } from '../../lib/saDb';
 import Link from 'next/link';
 
+// ═══ Aspire palette — same tokens as admin pages ═══
+const A = {
+  font: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  cream: '#EDEDED',
+  ink: '#1A1A1A',
+  shell: '#FFFFFF',
+  shellDarker: '#FAFAF8',
+  warning: '#C4A86D',
+  warningDim: '#A08656',
+  success: '#3F9E5A',
+  danger: '#D9534F',
+  mutedText: 'rgba(0,0,0,0.55)',
+  faintText: 'rgba(0,0,0,0.38)',
+  subtleBg: 'rgba(0,0,0,0.04)',
+  border: '1px solid rgba(0,0,0,0.06)',
+  cardShadow: '0 2px 10px rgba(0,0,0,0.03)',
+  // Matte-black signature card tokens
+  forest: '#1A1A1A',
+  forestDarker: '#2A2A2A',
+  forestText: '#EAE7E3',
+  forestTextMuted: 'rgba(234,231,227,0.55)',
+  forestTextFaint: 'rgba(234,231,227,0.35)',
+  forestSubtleBg: 'rgba(255,255,255,0.04)',
+  forestBorder: '1px solid rgba(255,255,255,0.06)',
+};
+
 export default function SuperAdminDashboard() {
   const [restaurants, setRestaurants] = useState([]);
   const [pending, setPending] = useState([]);
@@ -16,83 +42,153 @@ export default function SuperAdminDashboard() {
   }, []);
 
   const active = restaurants.filter(r => r.isActive).length;
-  const totalItems = restaurants.reduce((s, r) => s + (r.itemsUsed||0), 0);
+  const totalItems = restaurants.reduce((s, r) => s + (r.itemsUsed || 0), 0);
 
+  // Matte-black signature stats. `accent: true` lights the value in gold; otherwise cream.
   const stats = [
-    { label:'Restaurants', value:restaurants.length, icon:'🏪', bg:'rgba(255,255,255,0.65)',      accent:'#E05A3A' },
-    { label:'Active',      value:active,             icon:'✅', bg:'rgba(143,196,168,0.3)',       accent:'#3A6A48' },
-    { label:'Pending',     value:pending.length,     icon:'📋', bg:'rgba(244,200,100,0.3)',       accent:'#8B6010' },
-    { label:'AR Items',    value:totalItems,          icon:'🥗', bg:'rgba(196,181,212,0.35)',      accent:'#6A4A8A' },
+    { label: 'Restaurants', value: restaurants.length, accent: false },
+    { label: 'Active',      value: active,             accent: false, color: A.success },
+    { label: 'Pending',     value: pending.length,     accent: true },
+    { label: 'AR Items',    value: totalItems,         accent: false },
   ];
 
   return (
     <SuperAdminLayout>
       <Head><title>Super Admin — Advert Radical</title></Head>
-      <div style={{padding:32,maxWidth:960,margin:'0 auto'}}>
+      <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
-          @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
-          .sc{border-radius:20px;padding:20px;border:1.5px solid rgba(255,220,170,0.5);box-shadow:0 6px 24px rgba(120,70,30,0.1),inset 0 1px 0 rgba(255,255,255,0.6);backdropFilter:blur(8px);}
-          .rr{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(200,140,80,0.12);}
-          .rr:last-child{border-bottom:none;}
+          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+          @keyframes spin { to { transform: rotate(360deg); } }
         `}</style>
 
-        <div style={{marginBottom:28}}>
-          <h1 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:24,color:'#2A1F10',margin:0}}>Platform Overview</h1>
-          <p style={{fontSize:13,color:'rgba(42,31,16,0.45)',marginTop:5}}>Advert Radical — Super Admin</p>
+        {/* Header */}
+        <div style={{ padding: '24px 28px 0' }}>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>Super Admin</span>
+              <span style={{ opacity: 0.5 }}>›</span>
+              <span style={{ color: A.mutedText }}>Overview</span>
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+              Platform <span style={{ color: A.mutedText, fontWeight: 500 }}>Overview</span>
+            </div>
+            <div style={{ fontSize: 13, color: A.mutedText, marginTop: 4 }}>
+              Advert Radical · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+          </div>
+
+          {/* ── PLATFORM TODAY — matte black signature card ── */}
+          <div style={{
+            background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+            borderRadius: 14, padding: '20px 24px', marginBottom: 14,
+            border: A.forestBorder, boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>PLATFORM</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
+              <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>Live</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {stats.map(s => (
+                <div key={s.label} style={{
+                  padding: '16px 18px', borderRadius: 10,
+                  background: A.forestSubtleBg, border: A.forestBorder,
+                }}>
+                  <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>{s.label}</div>
+                  <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 28, color: s.color || (s.accent ? A.warning : A.forestText), lineHeight: 1, letterSpacing: '-0.5px' }}>
+                    {s.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:12,marginBottom:20}}>
-          {stats.map(s=>(
-            <div key={s.label} className="sc" style={{background:s.bg,backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
-              <div style={{fontSize:26,marginBottom:10}}>{s.icon}</div>
-              <div style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:28,color:s.accent}}>{s.value}</div>
-              <div style={{fontSize:12,color:'rgba(42,31,16,0.5)',marginTop:3}}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {pending.length > 0 && (
-          <div className="sc" style={{background:'rgba(244,200,100,0.2)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',border:'1.5px solid rgba(220,160,30,0.3)',padding:24,marginBottom:16}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-              <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:16,color:'#2A1F10',margin:0,display:'flex',alignItems:'center',gap:8}}>
-                <span style={{width:8,height:8,borderRadius:'50%',background:'#D09010',display:'inline-block',animation:'pulse 2s infinite'}}/>
-                Pending Requests ({pending.length})
-              </h2>
-              <Link href="/superadmin/requests" style={{fontSize:12,color:'#E05A3A',textDecoration:'none',fontWeight:700}}>View all →</Link>
-            </div>
-            {pending.slice(0,5).map(req=>(
-              <div key={req.id} className="rr">
-                <div style={{width:36,height:36,borderRadius:12,overflow:'hidden',background:'rgba(200,140,80,0.2)',flexShrink:0}}>
-                  {req.imageURL?<img src={req.imageURL} alt={req.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>🍽️</div>}
+        <div style={{ padding: '0 28px 60px' }}>
+          {/* Pending requests — only when there are some */}
+          {pending.length > 0 && (
+            <div style={{
+              background: A.shell, borderRadius: 14, padding: '20px 24px',
+              border: A.border, boxShadow: A.cardShadow, marginBottom: 14,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 6px rgba(196,168,109,0.5)' }} />
+                  <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>Pending Requests</span>
+                  <span style={{ fontFamily: A.font, fontSize: 11, color: A.faintText }}>· {pending.length}</span>
                 </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:600,color:'#2A1F10',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{req.name}</div>
-                  <div style={{fontSize:11,color:'rgba(42,31,16,0.45)'}}>{req.restaurantName}</div>
-                </div>
-                <Link href="/superadmin/requests" style={{fontSize:12,color:'#E05A3A',textDecoration:'none',fontWeight:700,flexShrink:0}}>Review →</Link>
+                <Link href="/superadmin/requests" style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.ink, textDecoration: 'none' }}>View all →</Link>
               </div>
-            ))}
-          </div>
-        )}
-
-        <div className="sc" style={{background:'rgba(255,245,220,0.7)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',padding:24}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-            <h2 style={{fontFamily:'Poppins,sans-serif',fontWeight:800,fontSize:16,color:'#2A1F10',margin:0}}>Recent Restaurants</h2>
-            <Link href="/superadmin/restaurants" style={{fontSize:12,color:'#E05A3A',textDecoration:'none',fontWeight:700}}>View all →</Link>
-          </div>
-          {loading ? [1,2,3].map(i=><div key={i} style={{height:42,borderRadius:10,background:'rgba(200,140,80,0.15)',marginBottom:8,animation:'shimmer 1.4s infinite'}}/>)
-            : restaurants.slice(0,7).map(r=>(
-              <div key={r.id} className="rr">
-                <div style={{flex:1,minWidth:0}}>
-                  <Link href={`/superadmin/restaurant/${r.id}`} style={{fontSize:13,fontWeight:600,color:'#2A1F10',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'block',textDecoration:'none'}} onMouseOver={e=>e.currentTarget.style.color='#E05A3A'} onMouseOut={e=>e.currentTarget.style.color='#2A1F10'}>{r.name}</Link>
-                  <div style={{fontSize:11,color:'rgba(42,31,16,0.4)'}}>{r.subdomain}.advertradical.com</div>
+              {pending.slice(0, 5).map((req, i) => (
+                <div key={req.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 0',
+                  borderTop: i > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', background: A.subtleBg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.faintText, fontSize: 12 }}>
+                    {req.imageURL
+                      ? <img src={req.imageURL} alt={req.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : '—'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.name}</div>
+                    <div style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText }}>{req.restaurantName}</div>
+                  </div>
+                  <Link href="/superadmin/requests" style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.warningDim, textDecoration: 'none', flexShrink: 0 }}>Review →</Link>
                 </div>
-                <span style={{fontSize:11,color:'rgba(42,31,16,0.4)',textTransform:'capitalize',marginRight:8}}>{r.plan}</span>
-                <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700,background:r.isActive?'rgba(60,106,72,0.12)':'rgba(160,120,80,0.1)',color:r.isActive?'#2A5A38':'rgba(100,60,30,0.45)',border:`1.5px solid ${r.isActive?'rgba(60,106,72,0.25)':'rgba(160,120,80,0.2)'}`}}>
-                  {r.isActive?'Active':'Inactive'}
-                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Recent restaurants */}
+          <div style={{
+            background: A.shell, borderRadius: 14, padding: '20px 24px',
+            border: A.border, boxShadow: A.cardShadow,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>Recent Restaurants</div>
+              <Link href="/superadmin/restaurants" style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.ink, textDecoration: 'none' }}>View all →</Link>
+            </div>
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
+                <div style={{ width: 24, height: 24, border: `2.5px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
               </div>
-            ))}
+            ) : restaurants.length === 0 ? (
+              <div style={{ padding: '32px 0', textAlign: 'center', fontSize: 13, color: A.mutedText }}>No restaurants yet</div>
+            ) : (
+              restaurants.slice(0, 7).map((r, i) => (
+                <div key={r.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 0',
+                  borderTop: i > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Link href={`/superadmin/restaurant/${r.id}`} style={{
+                      fontFamily: A.font, fontSize: 13, fontWeight: 600, color: A.ink,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      display: 'block', textDecoration: 'none', transition: 'color 0.15s',
+                    }}
+                      onMouseOver={e => e.currentTarget.style.color = A.warningDim}
+                      onMouseOut={e => e.currentTarget.style.color = A.ink}>
+                      {r.name}
+                    </Link>
+                    <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText }}>{r.subdomain}.advertradical.com</div>
+                  </div>
+                  <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, textTransform: 'capitalize', marginRight: 8 }}>{r.plan}</span>
+                  <span style={{
+                    padding: '3px 10px', borderRadius: 20,
+                    fontFamily: A.font, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                    background: r.isActive ? 'rgba(63,158,90,0.10)' : A.subtleBg,
+                    color: r.isActive ? A.success : A.faintText,
+                    border: `1px solid ${r.isActive ? 'rgba(63,158,90,0.20)' : 'rgba(0,0,0,0.06)'}`,
+                  }}>
+                    {r.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </SuperAdminLayout>

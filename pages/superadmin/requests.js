@@ -8,10 +8,30 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 const db = saDb;
 import toast from 'react-hot-toast';
 
-const S = {
-  card:  { background:'#FFFFFF', border:'1px solid rgba(42,31,16,0.07)', borderRadius:20, boxShadow:'0 2px 14px rgba(42,31,16,0.06)' },
-  h1:    { fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:22, color:'#1E1B18', margin:0 },
-  sub:   { fontSize:13, color:'rgba(42,31,16,0.45)', marginTop:4 },
+// ═══ Aspire palette — same tokens as admin pages ═══
+const A = {
+  font: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  cream: '#EDEDED',
+  ink: '#1A1A1A',
+  shell: '#FFFFFF',
+  shellDarker: '#FAFAF8',
+  warning: '#C4A86D',
+  warningDim: '#A08656',
+  success: '#3F9E5A',
+  danger: '#D9534F',
+  mutedText: 'rgba(0,0,0,0.55)',
+  faintText: 'rgba(0,0,0,0.38)',
+  subtleBg: 'rgba(0,0,0,0.04)',
+  border: '1px solid rgba(0,0,0,0.06)',
+  borderStrong: '1px solid rgba(0,0,0,0.10)',
+  cardShadow: '0 2px 10px rgba(0,0,0,0.03)',
+};
+
+// Single status pill style — gold for pending, green for approved, red for rejected.
+const STATUS_PILL = {
+  pending:  { bg: 'rgba(196,168,109,0.12)', color: A.warningDim, border: 'rgba(196,168,109,0.30)' },
+  approved: { bg: 'rgba(63,158,90,0.10)',   color: A.success,    border: 'rgba(63,158,90,0.22)'    },
+  rejected: { bg: 'rgba(217,83,79,0.10)',   color: A.danger,     border: 'rgba(217,83,79,0.22)'    },
 };
 
 export default function SuperAdminRequests() {
@@ -38,11 +58,11 @@ export default function SuperAdminRequests() {
     ]);
     let allReqs = [...reqs];
     if (filter !== 'pending') {
-      const extras = await Promise.all(rests.map(r => getRequests(r.id, filter).then(rs => rs.map(q => ({ ...q, restaurantId:r.id, restaurantName:r.name })))));
-      allReqs = extras.flat().sort((a,b) => (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+      const extras = await Promise.all(rests.map(r => getRequests(r.id, filter).then(rs => rs.map(q => ({ ...q, restaurantId: r.id, restaurantName: r.name })))));
+      allReqs = extras.flat().sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     }
     setRestaurants(rests);
-    setRequests(filter==='pending' ? reqs : allReqs);
+    setRequests(filter === 'pending' ? reqs : allReqs);
     setMenuItems(allItems);
     setLoading(false);
   };
@@ -57,26 +77,25 @@ export default function SuperAdminRequests() {
     const restaurant = restaurants.find(r => r.id === rid);
     if (!restaurant) { toast.error('Restaurant not found'); return; }
     const sizeMB = fileSizeMB(modelFile);
-    if ((restaurant.storageUsedMB||0) + sizeMB > (restaurant.maxStorageMB||500)) { toast.error('Restaurant storage limit exceeded'); return; }
+    if ((restaurant.storageUsedMB || 0) + sizeMB > (restaurant.maxStorageMB || 500)) { toast.error('Restaurant storage limit exceeded'); return; }
     setUploading(req.id); setProgress(0);
     try {
       const modelURL = await uploadFile(modelFile, buildModelPath(rid, modelFile.name), setProgress);
       // Menu item already exists (published at submission) — just unlock AR on it
-      await updateDoc(doc(db,'restaurants',rid,'menuItems',req.id), {
+      await updateDoc(doc(db, 'restaurants', rid, 'menuItems', req.id), {
         modelURL,
         arReady: true,
         updatedAt: serverTimestamp(),
       });
       await updateRequestStatus(rid, req.id, 'approved', modelURL);
       // Only update storage — itemsUsed was incremented at submission time
-      await updateRestaurant(rid, { storageUsedMB: parseFloat(((restaurant.storageUsedMB||0)+sizeMB).toFixed(2)) });
+      await updateRestaurant(rid, { storageUsedMB: parseFloat(((restaurant.storageUsedMB || 0) + sizeMB).toFixed(2)) });
       toast.success(`"${req.name}" AR approved and unlocked!`);
-      setModelFiles(f => { const n={...f}; delete n[req.id]; return n; });
+      setModelFiles(f => { const n = { ...f }; delete n[req.id]; return n; });
       load();
-    } catch (err) { toast.error('Approval failed: '+err.message); }
+    } catch (err) { toast.error('Approval failed: ' + err.message); }
     finally { setUploading(null); setProgress(0); }
   };
-
 
   const handleGenerateModel = async (req) => {
     if (!req.imageURL) { toast.error('No dish photo found — upload a photo to the item first'); return; }
@@ -85,9 +104,9 @@ export default function SuperAdminRequests() {
     const toastId = toast.loading('Generating 3D model (this takes ~2 min)…');
     try {
       const res = await fetch('/api/generate-model', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ imageUrl: req.imageURL, itemName: req.name }),
+        body: JSON.stringify({ imageUrl: req.imageURL, itemName: req.name }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -99,7 +118,6 @@ export default function SuperAdminRequests() {
         setGenStatus(s => ({ ...s, [req.id]: 'error' }));
         return;
       }
-      // Fetch the generated .glb as a File so it can be used with existing handleApprove
       const glbRes = await fetch(data.modelUrl);
       const blob   = await glbRes.blob();
       const file   = new File([blob], `${req.name.replace(/\s+/g, '_')}_ar.glb`, { type: 'model/gltf-binary' });
@@ -118,183 +136,237 @@ export default function SuperAdminRequests() {
     toast.success('Request rejected'); load();
   };
 
-  const filterColors = { pending:['#F4D070','#8B6020'], approved:['#8FC4A8','#1A5A38'], rejected:['#F4A0B0','#8B1A2A'] };
+  const pendingArCount = menuItems.filter(i => !i.arReady && !i.modelURL).length;
 
   return (
     <SuperAdminLayout>
       <Head><title>Requests — Super Admin</title></Head>
-      <div style={{ background:'#F2F0EC', minHeight:'100vh', padding:32, fontFamily:'Inter,sans-serif' }}>
-        <div style={{ maxWidth:960, margin:'0 auto' }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}} .upload-zone:hover{border-color:rgba(224,90,58,0.4)!important;background:#FFF8F5!important}`}</style>
+      <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          .upload-zone:hover { border-color: ${A.warning} !important; background: ${A.shellDarker} !important; }
+        `}</style>
 
-          <div style={{ marginBottom:24 }}>
-            <h1 style={S.h1}>Menu Requests</h1>
-            <p style={S.sub}>Upload 3D model to unlock AR for items already live on the menu.</p>
+        <div style={{ padding: '24px 28px 60px', maxWidth: 1100, margin: '0 auto' }}>
+          {/* Header */}
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>Super Admin</span>
+              <span style={{ opacity: 0.5 }}>›</span>
+              <span style={{ color: A.mutedText }}>Requests</span>
+            </div>
+            <div style={{ fontWeight: 600, fontSize: 26, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1.1 }}>Menu Requests</div>
+            <div style={{ fontSize: 13, color: A.mutedText, marginTop: 4 }}>Upload 3D model to unlock AR for items already live on the menu.</div>
           </div>
 
           {/* Top-level tab switcher */}
-          <div style={{ display:'flex', gap:4, marginBottom:24, background:'#E8E5E0', borderRadius:14, padding:4, width:'fit-content' }}>
+          <div style={{ display: 'inline-flex', gap: 0, marginBottom: 20, background: A.shell, border: A.border, borderRadius: 10, padding: 3, boxShadow: A.cardShadow }}>
             {[
-              { key:'requests', label:'AR Requests',  icon:'📦' },
-              { key:'items',    label:'Live Items',    icon:'🍽️' },
-            ].map(t => (
-              <button key={t.key} onClick={()=>setActiveTab(t.key)} style={{ padding:'8px 20px', borderRadius:10, border:'none', fontSize:13, fontWeight:600, fontFamily:'Poppins,sans-serif', cursor:'pointer', transition:'all 0.15s', background: activeTab===t.key ? '#fff' : 'transparent', color: activeTab===t.key ? '#1E1B18' : 'rgba(42,31,16,0.5)', boxShadow: activeTab===t.key ? '0 2px 8px rgba(42,31,16,0.1)' : 'none', display:'flex', alignItems:'center', gap:6 }}>
-                <span>{t.icon}</span>{t.label}
-                {t.key==='items' && menuItems.filter(i=>!i.arReady&&!i.modelURL).length > 0 && (
-                  <span style={{ background:'#E05A3A', color:'#fff', borderRadius:99, fontSize:10, fontWeight:800, padding:'1px 6px', marginLeft:2 }}>
-                    {menuItems.filter(i=>!i.arReady&&!i.modelURL).length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* ── AR REQUESTS TAB ── */}
-          {activeTab === 'requests' && (<>
-
-          {/* Filter tabs */}
-          <div style={{ display:'flex', gap:6, marginBottom:22 }}>
-            {['pending','approved','rejected'].map(s => {
-              const [bg, color] = filterColors[s];
+              { key: 'requests', label: 'AR Requests' },
+              { key: 'items',    label: 'Live Items'  },
+            ].map(t => {
+              const active = activeTab === t.key;
               return (
-                <button key={s} onClick={()=>{setFilter(s);setLoading(true);}} style={{ padding:'8px 18px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', textTransform:'capitalize', background:filter===s?'#1E1B18':'#fff', color:filter===s?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow:filter===s?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
-                  {s} {filter===s?`(${requests.length})`:''}
+                <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
+                  padding: '8px 18px', borderRadius: 7, border: 'none',
+                  fontFamily: A.font, fontSize: 13, fontWeight: active ? 700 : 600,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  background: active ? A.ink : 'transparent',
+                  color: active ? A.cream : A.mutedText,
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                }}>
+                  {t.label}
+                  {t.key === 'items' && pendingArCount > 0 && (
+                    <span style={{
+                      padding: '1px 7px', borderRadius: 10,
+                      background: active ? 'rgba(237,237,237,0.18)' : 'rgba(196,168,109,0.20)',
+                      color: active ? A.cream : A.warningDim,
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
+                    }}>{pendingArCount}</span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {loading ? (
-            <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-              <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-            </div>
-          ) : requests.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>📭</div>
-              <p style={{ fontSize:14 }}>No {filter} requests.</p>
-            </div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {requests.map(req => {
-                const isExpand = expanded === req.id;
-                const [badgeBg, badgeColor] = filterColors[req.status] || filterColors.pending;
-                return (
-                  <div key={req.id} style={{ ...S.card, overflow:'hidden', border: req.status==='pending'?'1px solid rgba(244,208,112,0.4)':'1px solid rgba(42,31,16,0.07)' }}>
-                    {/* Header row */}
-                    <div onClick={()=>setExpanded(isExpand?null:req.id)} style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 20px', cursor:'pointer' }}>
-                      <div style={{ width:48, height:48, borderRadius:14, overflow:'hidden', background:'#F2F0EC', flexShrink:0 }}>
-                        {req.imageURL ? <img src={req.imageURL} alt={req.name} style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🍽️</div>}
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontWeight:600, fontSize:14, color:'#1E1B18' }}>{req.name}</div>
-                        <div style={{ fontSize:12, color:'rgba(42,31,16,0.45)', marginTop:2 }}>{req.restaurantName}</div>
-                      </div>
-                      <span style={{ padding:'4px 12px', borderRadius:30, fontSize:11, fontWeight:700, background:badgeBg+'33', color:badgeColor, border:`1px solid ${badgeBg}66`, textTransform:'capitalize', flexShrink:0 }}>{req.status}</span>
-                      <span style={{ color:'rgba(42,31,16,0.4)', fontSize:12, marginLeft:4 }}>{isExpand?'▲':'▼'}</span>
-                    </div>
+          {/* ── AR REQUESTS TAB ── */}
+          {activeTab === 'requests' && (<>
 
-                    {/* Expanded */}
-                    {isExpand && (
-                      <div style={{ borderTop:'1px solid rgba(42,31,16,0.06)', padding:'20px 20px 24px', background:'#FAFAF8' }}>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
-                          {/* Item info */}
-                          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                            {[['Description',req.description],['Category',req.category],['Prep Time',req.prepTime],['Ingredients',req.ingredients?.join(', ')]].filter(([,v])=>v).map(([k,v])=>(
-                              <div key={k}>
-                                <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>{k}</div>
-                                <div style={{ fontSize:13, color:'rgba(42,31,16,0.7)', lineHeight:1.5 }}>{v}</div>
-                              </div>
-                            ))}
-                            {req.nutritionalData && (
-                              <div>
-                                <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Nutrition</div>
-                                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
-                                  {Object.entries(req.nutritionalData).map(([k,v]) => v!=null && (
-                                    <div key={k} style={{ background:'#fff', borderRadius:10, padding:'8px', textAlign:'center', border:'1px solid rgba(42,31,16,0.06)' }}>
-                                      <div style={{ fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#E05A3A' }}>{v}</div>
-                                      <div style={{ fontSize:10, color:'rgba(42,31,16,0.4)', textTransform:'capitalize', marginTop:2 }}>{k}</div>
+            {/* Filter pills (pending/approved/rejected) */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+              {['pending', 'approved', 'rejected'].map(s => {
+                const active = filter === s;
+                return (
+                  <button key={s} onClick={() => { setFilter(s); setLoading(true); }} style={{
+                    padding: '7px 16px', borderRadius: 20,
+                    border: active ? `1px solid ${A.ink}` : A.borderStrong,
+                    fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 600,
+                    background: active ? A.ink : A.shell,
+                    color: active ? A.cream : A.mutedText,
+                    cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.15s',
+                  }}>
+                    {s} {active ? `(${requests.length})` : ''}
+                  </button>
+                );
+              })}
+            </div>
+
+            {loading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
+                <div style={{ width: 28, height: 28, border: `2.5px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              </div>
+            ) : requests.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: A.mutedText, background: A.shell, borderRadius: 14, border: A.border }}>
+                <div style={{ fontSize: 13 }}>No {filter} requests.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {requests.map(req => {
+                  const isExpand = expanded === req.id;
+                  const pill = STATUS_PILL[req.status] || STATUS_PILL.pending;
+                  return (
+                    <div key={req.id} style={{
+                      background: A.shell, borderRadius: 14, overflow: 'hidden',
+                      border: req.status === 'pending' ? `1px solid rgba(196,168,109,0.25)` : A.border,
+                      boxShadow: A.cardShadow,
+                    }}>
+                      {/* Header row */}
+                      <div onClick={() => setExpanded(isExpand ? null : req.id)} style={{
+                        display: 'flex', alignItems: 'center', gap: 14,
+                        padding: '14px 18px', cursor: 'pointer',
+                      }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', background: A.subtleBg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.faintText, fontSize: 11 }}>
+                          {req.imageURL ? <img src={req.imageURL} alt={req.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '—'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 14, color: A.ink }}>{req.name}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText, marginTop: 2 }}>{req.restaurantName}</div>
+                        </div>
+                        <span style={{
+                          padding: '3px 10px', borderRadius: 20,
+                          fontFamily: A.font, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                          background: pill.bg, color: pill.color, border: `1px solid ${pill.border}`,
+                          flexShrink: 0,
+                        }}>{req.status}</span>
+                        <span style={{ color: A.faintText, fontSize: 11, marginLeft: 4 }}>{isExpand ? '▲' : '▼'}</span>
+                      </div>
+
+                      {/* Expanded */}
+                      {isExpand && (
+                        <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', padding: '20px 20px 22px', background: A.shellDarker }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                            {/* Item info */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                              {[['Description', req.description], ['Category', req.category], ['Prep Time', req.prepTime], ['Ingredients', req.ingredients?.join(', ')]].filter(([, v]) => v).map(([k, v]) => (
+                                <div key={k}>
+                                  <div style={{ fontFamily: A.font, fontSize: 10, color: A.faintText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{k}</div>
+                                  <div style={{ fontFamily: A.font, fontSize: 13, color: A.ink, lineHeight: 1.5 }}>{v}</div>
+                                </div>
+                              ))}
+                              {req.nutritionalData && (
+                                <div>
+                                  <div style={{ fontFamily: A.font, fontSize: 10, color: A.faintText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Nutrition</div>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                                    {Object.entries(req.nutritionalData).map(([k, v]) => v != null && (
+                                      <div key={k} style={{ background: A.shell, borderRadius: 8, padding: '8px', textAlign: 'center', border: A.border }}>
+                                        <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 14, color: A.warningDim }}>{v}</div>
+                                        <div style={{ fontFamily: A.font, fontSize: 10, color: A.faintText, textTransform: 'capitalize', marginTop: 2 }}>{k}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 3D model upload (pending only) */}
+                            {req.status === 'pending' && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ fontFamily: A.font, fontSize: 10, color: A.faintText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Attach 3D Model (.glb)</div>
+                                <div className="upload-zone" onClick={() => document.getElementById(`model-${req.id}`).click()} style={{
+                                  border: `2px dashed rgba(0,0,0,0.12)`, borderRadius: 12, padding: 20,
+                                  textAlign: 'center', cursor: 'pointer', background: A.shell, transition: 'all 0.15s',
+                                }}>
+                                  {modelFiles[req.id] ? (
+                                    <div>
+                                      <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 700, color: A.success, marginBottom: 4 }}>✓ {modelFiles[req.id].name}</div>
+                                      <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText }}>{fileSizeMB(modelFiles[req.id]).toFixed(1)} MB</div>
                                     </div>
-                                  ))}
+                                  ) : (
+                                    <div>
+                                      <div style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText, marginBottom: 4 }}>Click to upload .glb model</div>
+                                      <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText }}>Max 10MB</div>
+                                    </div>
+                                  )}
+                                  <input id={`model-${req.id}`} type="file" accept=".glb,.gltf" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (!f) return; if (fileSizeMB(f) > 10) { toast.error('Model must be under 10MB'); return; } setModelFiles(p => ({ ...p, [req.id]: f })); }} />
+                                </div>
+                                {uploading === req.id && progress > 0 && (
+                                  <div style={{ height: 4, background: A.subtleBg, borderRadius: 99, overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', borderRadius: 99, background: A.warning, width: `${progress}%`, transition: 'width 0.3s' }} />
+                                  </div>
+                                )}
+                                {/* AI Generate from Photo */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                  <div style={{ flex: 1, height: 1, background: A.subtleBg }} />
+                                  <span style={{ fontFamily: A.font, fontSize: 10, color: A.faintText, fontWeight: 700, letterSpacing: '0.06em' }}>OR</span>
+                                  <div style={{ flex: 1, height: 1, background: A.subtleBg }} />
+                                </div>
+                                <button onClick={() => handleGenerateModel(req)} disabled={!!generating || !!uploading} style={{
+                                  width: '100%', padding: '11px 14px', borderRadius: 10,
+                                  border: `1px solid rgba(196,168,109,0.35)`,
+                                  background: genStatus[req.id] === 'done' ? 'rgba(63,158,90,0.08)'
+                                            : genStatus[req.id] === 'error' ? 'rgba(217,83,79,0.06)'
+                                            : 'rgba(196,168,109,0.08)',
+                                  cursor: (!!generating || !!uploading) ? 'not-allowed' : 'pointer',
+                                  opacity: (!!generating || !!uploading) ? 0.6 : 1,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                  transition: 'all 0.15s',
+                                }}>
+                                  <div style={{ textAlign: 'left' }}>
+                                    <div style={{
+                                      fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                                      color: genStatus[req.id] === 'done' ? A.success
+                                           : genStatus[req.id] === 'error' ? A.danger
+                                           : A.warningDim,
+                                    }}>
+                                      {generating === req.id ? 'Generating 3D Model…'
+                                        : genStatus[req.id] === 'done' ? '3D Model Ready ↓ Approve to publish'
+                                        : genStatus[req.id] === 'error' ? 'Generation failed — try again'
+                                        : 'Generate 3D from Dish Photo'}
+                                    </div>
+                                    {generating !== req.id && genStatus[req.id] !== 'done' && (
+                                      <div style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, marginTop: 2 }}>
+                                        {req.imageURL ? 'Uses AI to auto-create a .glb from the dish photo (~2 min)' : 'No dish photo — upload one first'}
+                                      </div>
+                                    )}
+                                  </div>
+                                </button>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                  <button onClick={() => handleApprove(req)} disabled={!modelFiles[req.id] || uploading === req.id} style={{
+                                    flex: 1, padding: '11px 16px', borderRadius: 10, border: 'none',
+                                    background: A.success, color: A.shell,
+                                    fontFamily: A.font, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                                    opacity: (!modelFiles[req.id] || uploading === req.id) ? 0.45 : 1,
+                                  }}>
+                                    {uploading === req.id ? 'Publishing…' : '✓ Approve & Publish'}
+                                  </button>
+                                  <button onClick={() => handleReject(req)} disabled={!!uploading} style={{
+                                    padding: '11px 16px', borderRadius: 10,
+                                    border: `1px solid rgba(217,83,79,0.30)`, background: 'rgba(217,83,79,0.06)',
+                                    color: A.danger, fontFamily: A.font, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                                  }}>
+                                    Reject
+                                  </button>
                                 </div>
                               </div>
                             )}
                           </div>
-
-                          {/* 3D model upload (pending only) */}
-                          {req.status === 'pending' && (
-                            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                              <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>Attach 3D Model (.glb)</div>
-                              <div className="upload-zone" onClick={()=>document.getElementById(`model-${req.id}`).click()} style={{ border:'2px dashed rgba(42,31,16,0.15)', borderRadius:14, padding:20, textAlign:'center', cursor:'pointer', background:'#F7F5F2', transition:'all 0.15s' }}>
-                                {modelFiles[req.id] ? (
-                                  <div>
-                                    <div style={{ fontSize:24, marginBottom:6 }}>✅</div>
-                                    <div style={{ fontSize:12, fontWeight:600, color:'#1A5A38' }}>{modelFiles[req.id].name}</div>
-                                    <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', marginTop:2 }}>{fileSizeMB(modelFiles[req.id]).toFixed(1)} MB</div>
-                                  </div>
-                                ) : (
-                                  <div>
-                                    <div style={{ fontSize:28, marginBottom:6 }}>📦</div>
-                                    <div style={{ fontSize:12, color:'rgba(42,31,16,0.5)' }}>Click to upload .glb model</div>
-                                    <div style={{ fontSize:11, color:'rgba(42,31,16,0.35)', marginTop:2 }}>Max 10MB</div>
-                                  </div>
-                                )}
-                                <input id={`model-${req.id}`} type="file" accept=".glb,.gltf" style={{ display:'none' }} onChange={e=>{const f=e.target.files[0];if(!f)return;if(fileSizeMB(f)>10){toast.error('Model must be under 10MB');return;}setModelFiles(p=>({...p,[req.id]:f}));}}/>
-                              </div>
-                              {uploading===req.id && progress>0 && (
-                                <div style={{ height:4, background:'rgba(42,31,16,0.08)', borderRadius:99, overflow:'hidden' }}>
-                                  <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#E05A3A,#F07050)', width:`${progress}%`, transition:'width 0.3s' }} />
-                                </div>
-                              )}
-                              {/* AI Generate from Photo */}
-                              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                                <div style={{ flex:1, height:1, background:'rgba(42,31,16,0.08)' }}/>
-                                <span style={{ fontSize:10, color:'rgba(42,31,16,0.35)', fontWeight:600, letterSpacing:'0.05em' }}>OR</span>
-                                <div style={{ flex:1, height:1, background:'rgba(42,31,16,0.08)' }}/>
-                              </div>
-                              <button
-                                onClick={()=>handleGenerateModel(req)}
-                                disabled={!!generating || !!uploading}
-                                style={{
-                                  width:'100%', padding:'12px', borderRadius:12,
-                                  border:'1.5px solid rgba(247,155,61,0.4)',
-                                  background: genStatus[req.id]==='done' ? 'rgba(45,139,78,0.08)' : genStatus[req.id]==='error' ? 'rgba(200,30,30,0.06)' : 'rgba(247,155,61,0.07)',
-                                  cursor: (!!generating || !!uploading) ? 'not-allowed' : 'pointer',
-                                  opacity: (!!generating || !!uploading) ? 0.6 : 1,
-                                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                                  transition:'all 0.2s'
-                                }}>
-                                <span style={{ fontSize:16 }}>
-                                  {generating===req.id ? '⏳' : genStatus[req.id]==='done' ? '✅' : genStatus[req.id]==='error' ? '❌' : '🤖'}
-                                </span>
-                                <div>
-                                  <div style={{ fontSize:13, fontWeight:700, fontFamily:'Poppins,sans-serif', color: genStatus[req.id]==='done'?'#1A6B3A':genStatus[req.id]==='error'?'#8B1A1A':'#A06010' }}>
-                                    {generating===req.id ? 'Generating 3D Model…' : genStatus[req.id]==='done' ? '3D Model Ready ↓ Approve to publish' : genStatus[req.id]==='error' ? 'Generation failed — try again' : 'Generate 3D from Dish Photo'}
-                                  </div>
-                                  {generating!==req.id && genStatus[req.id]!=='done' && (
-                                    <div style={{ fontSize:11, color:'rgba(42,31,16,0.4)', textAlign:'left' }}>
-                                      {req.imageURL ? 'Uses AI to auto-create a .glb from the dish photo (~2 min)' : '⚠️ No dish photo — upload one first'}
-                                    </div>
-                                  )}
-                                </div>
-                              </button>
-                              <div style={{ display:'flex', gap:10 }}>
-                                <button onClick={()=>handleApprove(req)} disabled={!modelFiles[req.id]||uploading===req.id} style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#4ABA70,#2A9A50)', color:'#fff', fontSize:13, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', opacity:(!modelFiles[req.id]||uploading===req.id)?0.45:1 }}>
-                                  {uploading===req.id?'Publishing…':'✓ Approve & Publish'}
-                                </button>
-                                <button onClick={()=>handleReject(req)} disabled={!!uploading} style={{ padding:'11px 16px', borderRadius:12, border:'1.5px solid rgba(244,160,176,0.5)', background:'rgba(244,160,176,0.1)', color:'#8B1A2A', fontSize:13, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer' }}>
-                                  Reject
-                                </button>
-                              </div>
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>) /* end AR Requests tab */}
 
           {/* ── LIVE ITEMS TAB ── */}
@@ -305,72 +377,98 @@ export default function SuperAdminRequests() {
             return (
               <>
                 {/* Sub-filter pills */}
-                <div style={{ display:'flex', gap:6, marginBottom:20 }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
                   {[
-                    { key:'all',        label:'All Items' },
-                    { key:'pending_ar', label:'⏳ Awaiting AR' },
-                    { key:'ar_ready',   label:'✅ AR Active' },
-                  ].map(f => (
-                    <button key={f.key} onClick={()=>setItemFilter(f.key)} style={{ padding:'7px 16px', borderRadius:30, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Inter,sans-serif', background: itemFilter===f.key?'#1E1B18':'#fff', color: itemFilter===f.key?'#FFF5E8':'rgba(42,31,16,0.55)', boxShadow: itemFilter===f.key?'0 2px 8px rgba(30,27,24,0.18)':'0 1px 4px rgba(42,31,16,0.06)', transition:'all 0.15s' }}>
-                      {f.label} ({f.key==='all'?menuItems.length : f.key==='pending_ar'?menuItems.filter(i=>!i.arReady&&!i.modelURL).length : menuItems.filter(i=>i.arReady||i.modelURL).length})
-                    </button>
-                  ))}
+                    { key: 'all',        label: 'All Items' },
+                    { key: 'pending_ar', label: 'Awaiting AR' },
+                    { key: 'ar_ready',   label: 'AR Active' },
+                  ].map(f => {
+                    const active = itemFilter === f.key;
+                    const count = f.key === 'all' ? menuItems.length
+                                : f.key === 'pending_ar' ? menuItems.filter(i => !i.arReady && !i.modelURL).length
+                                : menuItems.filter(i => i.arReady || i.modelURL).length;
+                    return (
+                      <button key={f.key} onClick={() => setItemFilter(f.key)} style={{
+                        padding: '7px 14px', borderRadius: 20,
+                        border: active ? `1px solid ${A.ink}` : A.borderStrong,
+                        fontFamily: A.font, fontSize: 12, fontWeight: active ? 700 : 600,
+                        cursor: 'pointer',
+                        background: active ? A.ink : A.shell,
+                        color: active ? A.cream : A.mutedText, transition: 'all 0.15s',
+                      }}>
+                        {f.label} ({count})
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {loading ? (
-                  <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
-                    <div style={{ width:32, height:32, border:'3px solid #E05A3A', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                  <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
+                    <div style={{ width: 28, height: 28, border: `2.5px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                   </div>
                 ) : filtered.length === 0 ? (
-                  <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(42,31,16,0.4)' }}>
-                    <div style={{ fontSize:40, marginBottom:12 }}>🍽️</div>
-                    <p style={{ fontSize:14 }}>No items found.</p>
+                  <div style={{ textAlign: 'center', padding: '60px 20px', color: A.mutedText, background: A.shell, borderRadius: 14, border: A.border }}>
+                    <div style={{ fontSize: 13 }}>No items found.</div>
                   </div>
                 ) : (
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
-                    {filtered.map(item => (
-                      <div key={item.id+item.restaurantId} style={{ ...S.card, padding:16, display:'flex', flexDirection:'column', gap:12 }}>
-                        {/* Image */}
-                        <div style={{ width:'100%', height:140, borderRadius:14, overflow:'hidden', background:'#F2F0EC', flexShrink:0, position:'relative' }}>
-                          {item.imageURL
-                            ? <img src={item.imageURL} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:36 }}>🍽️</div>
-                          }
-                          {/* AR status pill overlay */}
-                          <div style={{ position:'absolute', top:8, right:8, padding:'3px 10px', borderRadius:99, fontSize:10, fontWeight:700, background: (item.arReady||item.modelURL) ? 'rgba(45,139,78,0.92)' : 'rgba(30,27,24,0.75)', color:'#fff', backdropFilter:'blur(4px)' }}>
-                            {(item.arReady||item.modelURL) ? '✅ AR Active' : '⏳ Awaiting AR'}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+                    {filtered.map(item => {
+                      const arActive = item.arReady || item.modelURL;
+                      return (
+                        <div key={item.id + item.restaurantId} style={{
+                          background: A.shell, borderRadius: 14,
+                          border: A.border, boxShadow: A.cardShadow,
+                          padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+                        }}>
+                          {/* Image */}
+                          <div style={{ width: '100%', height: 140, borderRadius: 10, overflow: 'hidden', background: A.subtleBg, flexShrink: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', color: A.faintText, fontSize: 13 }}>
+                            {item.imageURL
+                              ? <img src={item.imageURL} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : 'No photo'}
+                            <div style={{
+                              position: 'absolute', top: 8, right: 8,
+                              padding: '3px 10px', borderRadius: 20,
+                              fontFamily: A.font, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                              background: arActive ? 'rgba(63,158,90,0.92)' : 'rgba(26,26,26,0.85)',
+                              color: A.shell, backdropFilter: 'blur(4px)',
+                            }}>
+                              {arActive ? 'AR Active' : 'Awaiting AR'}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Info */}
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontWeight:700, fontSize:14, color:'#1E1B18', marginBottom:2 }}>{item.name}</div>
-                          <div style={{ fontSize:11, color:'rgba(42,31,16,0.5)', marginBottom:6, display:'flex', gap:8, flexWrap:'wrap' }}>
-                            <span style={{ background:'rgba(247,155,61,0.12)', color:'#A06010', borderRadius:6, padding:'1px 7px', fontWeight:600 }}>
-                              {item.restaurantName}
-                            </span>
-                            {item.category && <span>{item.category}</span>}
-                            {item.price    && <span style={{ fontWeight:700, color:'#E05A3A' }}>₹{item.price}</span>}
+                          {/* Info */}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 14, color: A.ink, marginBottom: 4 }}>{item.name}</div>
+                            <div style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, marginBottom: 6, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{
+                                background: 'rgba(196,168,109,0.12)', color: A.warningDim,
+                                borderRadius: 6, padding: '1px 7px', fontWeight: 600,
+                              }}>
+                                {item.restaurantName}
+                              </span>
+                              {item.category && <span>{item.category}</span>}
+                              {item.price && <span style={{ fontWeight: 700, color: A.ink }}>₹{item.price}</span>}
+                            </div>
+                            {item.description && (
+                              <p style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, lineHeight: 1.5, margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {item.description}
+                              </p>
+                            )}
                           </div>
-                          {item.description && (
-                            <p style={{ fontSize:11, color:'rgba(42,31,16,0.45)', lineHeight:1.5, margin:0, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
-                              {item.description}
-                            </p>
-                          )}
-                        </div>
 
-                        {/* Footer */}
-                        <div style={{ borderTop:'1px solid rgba(42,31,16,0.06)', paddingTop:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <div style={{ fontSize:10, color:'rgba(42,31,16,0.35)' }}>
-                            Added {item.createdAt?.seconds ? new Date(item.createdAt.seconds*1000).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : 'recently'}
-                          </div>
-                          <div style={{ display:'flex', gap:6, fontSize:10, color:'rgba(42,31,16,0.4)' }}>
-                            {item.views   > 0 && <span>👁 {item.views}</span>}
-                            {item.arViews > 0 && <span>🥽 {item.arViews}</span>}
+                          {/* Footer */}
+                          <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontFamily: A.font, fontSize: 10, color: A.faintText }}>
+                              Added {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'recently'}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, fontFamily: A.font, fontSize: 10, color: A.mutedText }}>
+                              {item.views > 0 && <span>{item.views} views</span>}
+                              {item.arViews > 0 && <span>{item.arViews} AR</span>}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
