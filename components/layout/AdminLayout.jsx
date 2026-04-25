@@ -26,11 +26,12 @@ const navSections = [
   },
   {
     label: 'CATALOG', items: [
-      { href: '/admin/items',    label: 'Menu Items', icon: 'utensils' },
-      { href: '/admin/requests', label: 'Add Items',  icon: 'plus' },
-      { href: '/admin/combos',   label: 'Combos',     icon: 'puzzle' },
-      { href: '/admin/offers',   label: 'Offers',     icon: 'tag' },
-      { href: '/admin/coupons',  label: 'Coupons',    icon: 'ticket' },
+      { href: '/admin/items',      label: 'Menu Items',  icon: 'utensils' },
+      { href: '/admin/requests',   label: 'Add Items',   icon: 'plus' },
+      // Single Promotions entry replaces the old Combos / Offers / Coupons
+      // trio. The /admin/promotions page hosts all 3 with inline drawers;
+      // /admin/{combos,offers,coupons} redirect there for backwards compat.
+      { href: '/admin/promotions', label: 'Promotions',  icon: 'tag' },
     ]
   },
   {
