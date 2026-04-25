@@ -20,10 +20,11 @@ const A = {
 };
 
 const navItems = [
-  { href: '/superadmin',             label: 'Overview',     icon: 'chart' },
-  { href: '/superadmin/restaurants', label: 'Restaurants',  icon: 'building' },
-  { href: '/superadmin/requests',    label: 'Requests',     icon: 'inbox' },
-  { href: '/superadmin/plans',       label: 'Plan Manager', icon: 'crown' },
+  { href: '/superadmin',             label: 'Overview',       icon: 'chart' },
+  { href: '/superadmin/restaurants', label: 'Restaurants',    icon: 'building' },
+  { href: '/superadmin/requests',    label: 'Requests',       icon: 'inbox' },
+  { href: '/superadmin/plans',       label: 'Plan Manager',   icon: 'crown' },
+  { href: '/superadmin/email',       label: 'Email Settings', icon: 'mail' },
 ];
 
 // Lucide-style SVG icons. Stroke = currentColor so they pick up nav text color.
@@ -34,6 +35,7 @@ const NavIcon = ({ name }) => {
     case 'building': return <svg {...props}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h.01M15 9h.01M9 15h.01M15 15h.01"/></svg>;
     case 'inbox':    return <svg {...props}><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>;
     case 'crown':    return <svg {...props}><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M5 20h14"/></svg>;
+    case 'mail':     return <svg {...props}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>;
     default:         return <svg {...props}><circle cx="12" cy="12" r="3"/></svg>;
   }
 };

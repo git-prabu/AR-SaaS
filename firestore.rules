@@ -233,5 +233,16 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
     }
 
+    // ── System Config (super-admin only) ──────────────────────────
+    // Holds platform-wide settings the super admin needs to rotate without
+    // a redeploy. Currently just `email` (sender Gmail credentials for the
+    // daily summary cron). Restaurant admins MUST NOT see these — the
+    // appPassword is a secret. Server-side reads happen via the Admin SDK
+    // (which bypasses these rules), so the cron + /api/email/send-test
+    // can still reach the doc.
+    match /systemConfig/{configId} {
+      allow read, write: if isSuperAdmin();
+    }
+
   }
 }

@@ -19,6 +19,7 @@
     "firebase-admin": "^13.8.0",
     "gsap": "^3.14.2",
     "next": "^16.1.6",
+    "nodemailer": "^6.9.16",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.2",
     "react": "^18",

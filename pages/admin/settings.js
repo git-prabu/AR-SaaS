@@ -141,6 +141,8 @@ export default function AdminSettings() {
     // NEW — Bill Customization
     billFooter: '',
     hsnCode: '',
+    // NEW — Daily summary email override (blank = send to admin's signup email)
+    notificationsEmail: '',
   });
 
   // Snapshot for change-detection: subdomain (read-only) + initial form values
@@ -167,6 +169,7 @@ export default function AdminSettings() {
         city: r.city || '',
         billFooter: r.billFooter || '',
         hsnCode: r.hsnCode || '9963',  // Default to 9963 (SAC for restaurant services)
+        notificationsEmail: r.notificationsEmail || '',
       };
       setForm(next);
       setInitialForm(next);
@@ -225,6 +228,7 @@ export default function AdminSettings() {
         city: form.city.trim(),
         billFooter: form.billFooter.trim(),
         hsnCode: form.hsnCode.trim(),
+        notificationsEmail: form.notificationsEmail.trim(),
       });
       toast.success('Settings saved!');
       // Build the same normalized snapshot we just persisted, then update
@@ -245,6 +249,7 @@ export default function AdminSettings() {
         city: form.city.trim(),
         billFooter: form.billFooter.trim(),
         hsnCode: form.hsnCode.trim(),
+        notificationsEmail: form.notificationsEmail.trim(),
       };
       setForm(saved);
       setInitialForm(saved);
@@ -593,6 +598,33 @@ export default function AdminSettings() {
                     />
                     <div style={{ fontSize: 11, color: A.faintText, marginTop: 6, lineHeight: 1.5 }}>
                       Your UPI ID from GPay, PhonePe, Paytm, or any UPI app. Customers will be able to pay you directly.
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 6: Daily summary email */}
+                {/* Where the midnight-IST daily summary email goes for THIS
+                    restaurant. Blank = falls back to the admin's signup email
+                    (the address used on /admin/login). Useful when the owner
+                    wants reports going to their personal inbox instead of the
+                    operational login. */}
+                <div style={sectionCardStyle}>
+                  <SectionHeader label="DAILY SUMMARY EMAIL" />
+                  <div style={sectionDescStyle}>
+                    Each night at midnight IST, you'll receive an email summarizing the day's orders, revenue, and top dishes. Override the recipient below — leave blank to use your login email.
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Notifications email</label>
+                    <input
+                      className="ar-input"
+                      type="email"
+                      value={form.notificationsEmail} onChange={update('notificationsEmail')}
+                      style={inputStyle}
+                      placeholder="owner@yourdomain.com (blank = use login email)"
+                    />
+                    <div style={{ fontSize: 11, color: A.faintText, marginTop: 6, lineHeight: 1.5 }}>
+                      Where the daily report lands. Doesn't change your login email.
                     </div>
                   </div>
                 </div>
