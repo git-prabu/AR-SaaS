@@ -412,6 +412,17 @@ export default function WaiterDashboard() {
         .waiter-icon-btn:hover { background: ${A.shellDarker}; }
         .waiter-action-btn:hover:not(:disabled) { filter: brightness(1.08); }
         .waiter-action:hover { box-shadow: 0 4px 20px rgba(38,52,49,0.06); }
+
+        /* Tablet (iPad Mini → iPad Pro) — waiter staff hold the tablet
+           and tap mid-shift, often with one hand. ≥48px touch targets so
+           Resolve / Mark Served can't be missed. Action card padding bumps
+           to give breathing room around the tap zones. */
+        @media (min-width: 641px) and (max-width: 1199px) {
+          .waiter-action-btn   { padding: 14px 22px !important; font-size: 14px !important; min-height: 48px; min-width: 132px !important; }
+          .waiter-tab-pill     { padding: 12px 20px !important; min-height: 48px; }
+          .waiter-period-pill  { padding: 10px 16px !important; min-height: 44px; }
+          .waiter-icon-btn     { min-height: 48px; min-width: 48px; padding: 12px 14px !important; }
+        }
       `}</style>
 
       {/* ═══ Header ═══ */}

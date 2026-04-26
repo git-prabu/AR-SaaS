@@ -402,9 +402,25 @@ export default function KitchenDisplay() {
         .kds-recall-btn:hover { background: ${A.subtleBg}; color: ${A.ink}; }
         .kds-ticket { transition: all 0.15s; }
         .kds-ticket:hover { box-shadow: 0 4px 20px rgba(38,52,49,0.06); }
+
+        /* Phone — single column, stacked filter bar. */
         @media (max-width: 640px) {
           .kds-grid { grid-template-columns: 1fr !important; }
           .kds-filter-bar { flex-direction: column; align-items: flex-start !important; }
+        }
+
+        /* Tablet (iPad Mini → iPad Pro) — restaurant floor staff hit these
+           buttons mid-service, often at angle / with greasy fingers. Apple's
+           Human Interface Guidelines call for ≥44pt touch targets; we use
+           48px to be comfortable. Inline density-based sizing is overridden
+           with !important — on tablet the buttons are uniformly large
+           regardless of the comfortable/compact toggle. Body text bumps to
+           14px so it's legible at arm's length. */
+        @media (min-width: 641px) and (max-width: 1199px) {
+          .kds-bump-btn   { padding: 14px 16px !important; font-size: 14px !important; min-height: 48px; }
+          .kds-recall-btn { padding: 12px !important;     min-height: 48px; min-width: 48px; }
+          .kds-icon-btn   { min-height: 48px; min-width: 48px; padding: 12px 14px !important; }
+          .kds-station-pill { padding: 10px 16px !important; font-size: 13px !important; min-height: 40px; }
         }
       `}</style>
 
