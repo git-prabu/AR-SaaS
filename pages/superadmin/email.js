@@ -62,6 +62,11 @@ export default function SuperAdminEmail() {
   const [showPassword, setShowPassword] = useState(false);
   // Last-saved snapshot for the "updated at" footer line.
   const [updatedAt, setUpdatedAt] = useState(null);
+  // Recipient for the "Send test email" button. Defaults to the logged-in
+  // superadmin's auth email but can be overridden — useful when the auth
+  // email isn't a real inbox (e.g. signup placeholder address).
+  const [testRecipient, setTestRecipient] = useState('');
+  useEffect(() => { if (user?.email && !testRecipient) setTestRecipient(user.email); }, [user]);
 
   useEffect(() => {
     (async () => {
@@ -135,6 +140,10 @@ export default function SuperAdminEmail() {
     if (isDirty) return toast.error('Save changes first, then send test.');
     if (!form.senderEmail.trim()) return toast.error('Set sender email first.');
     if (!user) return toast.error('Not signed in.');
+    const recipient = testRecipient.trim();
+    if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      return toast.error('Enter a valid recipient email above.');
+    }
     setTesting(true);
     try {
       // Force-refresh the ID token so a stale token never causes a spurious 401.
@@ -142,11 +151,11 @@ export default function SuperAdminEmail() {
       const res = await fetch('/api/email/send-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ to: user?.email }),
+        body: JSON.stringify({ to: recipient }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
-        toast.success(`Test email sent to ${user?.email}. Check your inbox (and spam folder).`);
+        toast.success(`Test email sent to ${recipient}. Check the inbox (and spam folder).`);
       } else {
         toast.error('Send failed: ' + (data.error || `HTTP ${res.status}`));
       }
@@ -275,7 +284,25 @@ export default function SuperAdminEmail() {
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Test recipient input + actions.
+                  Recipient defaults to the superadmin's auth email, but can
+                  be overridden — useful when the auth email is a placeholder
+                  that doesn't actually receive mail. */}
+              <div style={{
+                background: A.shell, borderRadius: 14, padding: '18px 22px',
+                border: A.border, boxShadow: A.cardShadow, marginBottom: 14,
+              }}>
+                <Label>Send test email to</Label>
+                <input className="em-inp" style={inputStyle}
+                  type="email"
+                  value={testRecipient}
+                  onChange={e => setTestRecipient(e.target.value)}
+                  placeholder="your.personal.email@gmail.com" />
+                <div style={{ marginTop: 6, fontSize: 11, color: A.faintText, lineHeight: 1.5 }}>
+                  Where the "Send test email" button will deliver a one-off test message.
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button onClick={handleSave} disabled={saving || !isDirty} style={{
                   padding: '11px 22px', borderRadius: 10, border: 'none',
@@ -295,7 +322,7 @@ export default function SuperAdminEmail() {
                   opacity: (testing || isDirty || !initial?.senderEmail) ? 0.5 : 1,
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                 }}>
-                  {testing ? <><span style={{ width: 13, height: 13, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Sending…</> : `Send test email to ${user?.email || 'me'}`}
+                  {testing ? <><span style={{ width: 13, height: 13, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Sending…</> : 'Send test email'}
                 </button>
                 {isDirty && <span style={{ fontSize: 11, color: A.warningDim, fontWeight: 600 }}>● Unsaved changes</span>}
               </div>
