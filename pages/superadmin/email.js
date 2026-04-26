@@ -93,7 +93,11 @@ export default function SuperAdminEmail() {
     })();
   }, []);
 
-  const isDirty = !!initial && JSON.stringify(form) !== JSON.stringify(initial);
+  // Compare against initial (or EMPTY when initial is null — happens when the
+  // first Firestore read failed). Falling back to EMPTY means a freshly-typed
+  // form is still considered dirty even if we never managed to load saved
+  // state, so the user can always rescue themselves by typing + saving.
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initial || EMPTY);
 
   const handleSave = async () => {
     if (!form.senderEmail.trim()) return toast.error('Sender email is required');
