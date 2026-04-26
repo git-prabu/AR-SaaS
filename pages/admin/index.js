@@ -18,7 +18,8 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import PageHead from '../../components/PageHead';
 import { useAdminOrders, useAdminWaiterCalls } from '../../contexts/AdminDataContext';
-import { getFeedback } from '../../lib/db';
+import { getFeedback, getRestaurantById, getAllMenuItems, getStaffMembers, updateRestaurant } from '../../lib/db';
+import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
@@ -165,6 +166,12 @@ function DashboardContent() {
         </div>
       </div>
 
+      {/* Onboarding checklist — auto-hides for restaurants that have already
+          dismissed it (or never saw it because they're already past setup). */}
+      <div style={{ padding: '0 28px' }}>
+        <OnboardingChecklist rid={rid} ordersCount={orders.length} />
+      </div>
+
       <div style={{ padding: '0 28px 60px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14 }}>
         {/* ═══ LEFT — Needs attention ═══ */}
         <div style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, padding: '22px 26px' }}>
@@ -242,6 +249,163 @@ function DashboardContent() {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Onboarding checklist ───
+// Shown on the dashboard for first-time owners until either every step is
+// complete or the owner explicitly dismisses it. Once dismissed, we set
+// restaurants/{rid}.onboardingComplete=true and never show it again.
+//
+// Each step auto-checks based on real Firestore state (no manual ticking).
+// That means an owner who already had a profile + items + staff before this
+// feature shipped will see the checklist as fully complete on first load,
+// and can dismiss it in one click.
+function OnboardingChecklist({ rid, ordersCount }) {
+  const [restaurant, setRestaurant] = useState(null);
+  const [menuItemCount, setMenuItemCount] = useState(0);
+  const [staffCount, setStaffCount] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
+  const [hidden, setHidden] = useState(false); // local hide after dismiss
+
+  useEffect(() => {
+    if (!rid) return;
+    let cancelled = false;
+    Promise.all([
+      getRestaurantById(rid),
+      getAllMenuItems(rid),
+      getStaffMembers(rid).catch(() => []),
+    ]).then(([r, items, staff]) => {
+      if (cancelled) return;
+      setRestaurant(r || {});
+      setMenuItemCount((items || []).length);
+      setStaffCount((staff || []).length);
+      setLoaded(true);
+    }).catch(err => {
+      console.error('onboarding checklist load:', err);
+      if (!cancelled) setLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, [rid]);
+
+  // Don't render until we've checked the dismissed flag — avoids flicker.
+  if (!loaded) return null;
+  if (hidden) return null;
+  if (restaurant?.onboardingComplete === true) return null;
+
+  // Step completion logic — each one is a derived boolean from Firestore state.
+  const profileDone = !!(restaurant?.address?.trim() && restaurant?.phone?.trim() && restaurant?.cuisine?.trim());
+  const itemsDone   = menuItemCount > 0;
+  // Tables: we don't have a hard "tables generated" doc, so use either an
+  // explicit tableCount field on the restaurant OR the presence of any orders
+  // (which implies tables/QRs exist since customers ordered through them).
+  const tablesDone  = !!(restaurant?.tableCount > 0) || ordersCount > 0;
+  const staffDone   = staffCount > 0;
+  const orderDone   = ordersCount > 0;
+
+  const steps = [
+    { key: 'profile', done: profileDone, label: 'Complete restaurant profile', sub: 'Address, phone, cuisine — shown on customer menu + bills.', href: '/admin/settings' },
+    { key: 'items',   done: itemsDone,   label: 'Add your first menu item',     sub: 'Photo, name, price. AR model can come later.',                  href: '/admin/requests' },
+    { key: 'tables',  done: tablesDone,  label: 'Generate table QR codes',      sub: 'Print + place on each table — customers scan to order.',        href: '/admin/qrcode' },
+    { key: 'staff',   done: staffDone,   label: 'Invite kitchen + waiter staff', sub: 'Each staff gets a 4-digit PIN to log in on their tablet.',     href: '/admin/staff' },
+    { key: 'order',   done: orderDone,   label: 'Place a test order',           sub: 'Walk-in order from /admin/new-order or scan a table QR yourself.', href: '/admin/new-order' },
+  ];
+
+  const completedCount = steps.filter(s => s.done).length;
+  const allDone = completedCount === steps.length;
+  const progressPct = Math.round((completedCount / steps.length) * 100);
+
+  const dismiss = async () => {
+    setDismissing(true);
+    try {
+      await updateRestaurant(rid, { onboardingComplete: true });
+      setHidden(true);
+      toast.success(allDone ? "You're all set up!" : 'Checklist dismissed.');
+    } catch (e) {
+      console.error('dismiss onboarding:', e);
+      toast.error('Could not save — try again.');
+    } finally {
+      setDismissing(false);
+    }
+  };
+
+  return (
+    <div style={{
+      background: A.shell, borderRadius: 14, border: A.border,
+      boxShadow: A.cardShadow, padding: '22px 26px', marginBottom: 14,
+    }}>
+      {/* Header — title + progress + dismiss */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: allDone ? A.success : A.warning }} />
+        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: allDone ? A.success : A.warning }}>
+          {allDone ? "You're All Set" : 'Get Started'}
+        </span>
+        <span style={{ flex: 1, height: 1, background: allDone ? 'rgba(63,158,90,0.20)' : 'rgba(196,168,109,0.20)' }} />
+        <span style={{ fontSize: 11, color: A.mutedText, fontWeight: 500, fontFamily: "'JetBrains Mono', monospace" }}>
+          {completedCount} / {steps.length} ({progressPct}%)
+        </span>
+        <button onClick={dismiss} disabled={dismissing} title="Hide this checklist permanently"
+          style={{
+            padding: '5px 12px', borderRadius: 6,
+            border: A.border, background: A.shellDarker,
+            fontSize: 11, fontWeight: 600, color: A.mutedText, fontFamily: A.font,
+            cursor: dismissing ? 'not-allowed' : 'pointer', opacity: dismissing ? 0.5 : 1,
+          }}>
+          {dismissing ? '…' : (allDone ? 'Done — hide' : 'Dismiss')}
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: 4, background: A.subtleBg, borderRadius: 2, overflow: 'hidden', marginBottom: 18 }}>
+        <div style={{
+          width: `${progressPct}%`, height: '100%',
+          background: allDone ? A.success : `linear-gradient(90deg, ${A.warning}, #A08656)`,
+          transition: 'width 0.3s ease',
+        }} />
+      </div>
+
+      {/* Step list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {steps.map(s => (
+          <div key={s.key} style={{
+            display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 14, alignItems: 'center',
+            padding: '10px 14px', borderRadius: 10,
+            background: s.done ? 'rgba(63,158,90,0.04)' : A.subtleBg,
+            border: s.done ? '1px solid rgba(63,158,90,0.15)' : '1px solid rgba(0,0,0,0.04)',
+            opacity: s.done ? 0.75 : 1,
+          }}>
+            {/* Checkbox */}
+            <div style={{
+              width: 22, height: 22, borderRadius: 6,
+              border: s.done ? `1.5px solid ${A.success}` : `1.5px solid rgba(0,0,0,0.18)`,
+              background: s.done ? A.success : 'transparent',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: A.shell, fontSize: 13, fontWeight: 700,
+            }}>{s.done ? '✓' : ''}</div>
+
+            <div>
+              <div style={{
+                fontSize: 13, fontWeight: 600, color: A.ink,
+                textDecoration: s.done ? 'line-through' : 'none',
+              }}>{s.label}</div>
+              <div style={{ fontSize: 11, color: A.mutedText, marginTop: 2 }}>{s.sub}</div>
+            </div>
+
+            {!s.done && (
+              <Link href={s.href} style={{ textDecoration: 'none' }}>
+                <span style={{
+                  padding: '6px 14px', borderRadius: 7,
+                  background: A.ink, color: A.cream,
+                  fontSize: 11, fontWeight: 600, fontFamily: A.font,
+                  display: 'inline-block',
+                }}>Go →</span>
+              </Link>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
