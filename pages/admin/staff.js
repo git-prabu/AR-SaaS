@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import EmptyState from '../../components/EmptyState';
 import { getStaffMembers } from '../../lib/db';
 import { auth } from '../../lib/firebase';
 
@@ -598,19 +599,14 @@ export default function StaffManagement() {
               }}>Retry</button>
             </div>
           ) : filtered.length === 0 ? (
-            <div style={{
-              background: A.shell, borderRadius: 14, border: A.border, padding: '56px 32px',
-              textAlign: 'center', boxShadow: A.cardShadow,
-            }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: A.ink, marginBottom: 6 }}>
-                {staff.length === 0 ? 'No staff added yet' : 'No matches for this filter'}
-              </div>
-              <div style={{ fontSize: 13, color: A.mutedText, maxWidth: 380, margin: '0 auto', lineHeight: 1.5 }}>
-                {staff.length === 0
-                  ? 'Add kitchen staff and waiters to give them login access on their tablets.'
-                  : 'Try clearing search or picking a different category.'}
-              </div>
-            </div>
+            <EmptyState
+              title={staff.length === 0 ? 'No staff added yet' : 'No matches for this filter'}
+              subtitle={staff.length === 0
+                ? 'Add kitchen staff and waiters to give them login access on their tablets.'
+                : 'Try clearing search or picking a different category.'}
+              ctaLabel={staff.length === 0 ? '+ Add staff member' : null}
+              onCta={staff.length === 0 ? openAdd : null}
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filtered.map(s => {

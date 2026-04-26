@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import EmptyState from '../../components/EmptyState';
 import { getRequests, submitRequestAndPublish, getAllMenuItems, deleteRequest, getRestaurantById } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
@@ -1042,19 +1043,14 @@ export default function AdminRequests() {
               <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 600 }}>Loading items…</div>
             </div>
           ) : filtered.length === 0 ? (
-            <div style={{
-              background: A.shell, borderRadius: 14, border: A.border, padding: '56px 32px',
-              textAlign: 'center', boxShadow: A.cardShadow,
-            }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: A.ink, marginBottom: 6 }}>
-                {stats.total === 0 ? 'No items yet' : 'No items match this filter'}
-              </div>
-              <div style={{ fontSize: 13, color: A.mutedText, maxWidth: 380, margin: '0 auto', lineHeight: 1.5 }}>
-                {stats.total === 0
-                  ? 'Click "+ New Item" above to add your first menu item, or use Bulk Upload to import from Excel.'
-                  : 'Try a different filter, or add a new item.'}
-              </div>
-            </div>
+            <EmptyState
+              title={stats.total === 0 ? 'No items yet' : 'No items match this filter'}
+              subtitle={stats.total === 0
+                ? 'Add your first menu item — name, photo, price. AR models can be added later from the customer side.'
+                : 'Try a different filter, or add a new item.'}
+              ctaLabel={stats.total === 0 ? '+ Add your first item' : null}
+              onCta={stats.total === 0 ? () => setShowForm(true) : null}
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filtered.map(req => {

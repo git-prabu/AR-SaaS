@@ -3,6 +3,8 @@ import Head from 'next/head';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import EmptyState from '../../components/EmptyState';
+import { useRouter } from 'next/router';
 import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, todayKey } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
@@ -71,6 +73,7 @@ const DragHandleIcon = ({ color = 'rgba(0,0,0,0.35)' }) => (
 );
 
 export default function AdminItems() {
+  const router = useRouter();
   const { userData } = useAuth();
   const rid = userData?.restaurantId;
 
@@ -530,11 +533,13 @@ export default function AdminItems() {
           {!loaded ? (
             <LoadingCard />
           ) : displayed.length === 0 ? (
-            <EmptyCard
-              titleText={items.length === 0 ? 'No menu items yet' : 'No items match your filter'}
-              subtitleText={items.length === 0
-                ? 'Menu items appear here once customers request AR models for your dishes. Meanwhile, you can create placeholders via Firestore or upload directly.'
+            <EmptyState
+              title={items.length === 0 ? 'No menu items yet' : 'No items match your filter'}
+              subtitle={items.length === 0
+                ? 'Add your dishes via the Add Items page — that\'s where you upload the photo, name, price, and AR model. Once added, they\'ll appear here.'
                 : 'Try clearing filters or search terms.'}
+              ctaLabel={items.length === 0 ? 'Go to Add Items →' : null}
+              onCta={items.length === 0 ? () => router.push('/admin/requests') : null}
             />
           ) : (
             <div style={{
