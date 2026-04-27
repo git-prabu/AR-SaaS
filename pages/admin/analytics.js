@@ -393,18 +393,25 @@ export default function AdminAnalytics() {
   // Merged trend chart data — unions chartData (visits) with revenueChartData
   // (revenue + orders) by bucket key.
   //   Daily mode: visits come from the analytics docs keyed by date.
-  //   Hourly mode (Today): we don't have hourly visit tracking in Firestore,
-  //   so visits are left at 0 per hour. The Visits metric in Today is a
-  //   flat line — the LIVE TODAY card is the right place to read today's
-  //   total visitor count anyway.
+  //   Hourly mode (Today): Firestore analytics docs are day-granular —
+  //   sessions[] only stores session IDs, not timestamps — so we can't
+  //   bucket visits by hour. Instead we show today's daily total as a flat
+  //   line at every hour bucket so the user sees the actual count rather
+  //   than a confusing zero. Source preference order:
+  //     1. todayStat.totalVisits (already loaded by getTodayAnalytics in load())
+  //     2. chartData[0].visits (the today doc inside the analytics array)
+  //     3. 0 fallback (no analytics doc for today yet — first hour of the day)
   const combinedChartData = (() => {
     const visitsByDate = {};
     chartData.forEach(d => { visitsByDate[d.date] = d.visits || 0; });
+    const todayDailyVisits = isTodayChart
+      ? (todayStat?.totalVisits ?? chartData[0]?.visits ?? 0)
+      : 0;
     return revenueChartData.map(r => ({
       date: r.date,
       revenue: r.revenue || 0,
       orders: r.orders || 0,
-      visits: isTodayChart ? 0 : (visitsByDate[r.date] || 0),
+      visits: isTodayChart ? todayDailyVisits : (visitsByDate[r.date] || 0),
     }));
   })();
 
