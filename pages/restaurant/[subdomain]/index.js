@@ -680,12 +680,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       setMenuItems(items);
     }, () => { /* ignore errors */ }));
 
-    // 3) Offers — real-time
-    const offersQ = query(
-      collection(db, 'restaurants', restaurant.id, 'offers'),
-      where('isActive', '==', true)
-    );
-    unsubs.push(onSnapshot(offersQ, (snap) => {
+    // 3) Offers — real-time. Subscribes to ALL offers; the active/expired
+    // filter happens client-side via the activeOffers useMemo below using
+    // startDate / endDate. Earlier this query had a `where('isActive','==',true)`
+    // filter, but offer docs don't carry an isActive field (status is
+    // computed from dates — see /admin/promotions offerStatus()), so the
+    // filter silently returned zero rows and offers never reached the menu.
+    const offersRef = collection(db, 'restaurants', restaurant.id, 'offers');
+    unsubs.push(onSnapshot(offersRef, (snap) => {
       setOffers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, () => {}));
 
@@ -725,10 +727,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return () => clearInterval(iv);
   }, [todayStr]);
 
+  // Filter offers to ones that are LIVE today: started already (or no
+  // start date) AND not yet expired. Mirrors the offerStatus() logic on
+  // /admin/promotions so the customer sees exactly what the admin
+  // dashboard considers "Active". Computed once per render and reused for
+  // both per-item enrichment AND the offers strip near the bottom of the
+  // page — keeps the two views in sync.
+  const activeOffers = useMemo(() => (offers || []).filter(o => {
+    if (o.endDate && o.endDate < todayStr) return false;        // expired
+    if (o.startDate && o.startDate > todayStr) return false;    // scheduled (not yet)
+    return true;
+  }), [offers, todayStr]);
+
   const enrichedItems = useMemo(() => (menuItems || []).map(item => {
     const soldOut = item.availableUntil === todayStr;
     const isOutOfStock = item.isOutOfStock || false;
-    const activeOffer = !soldOut && !isOutOfStock && (offers || []).find(o => o.linkedItemId === item.id);
+    const activeOffer = !soldOut && !isOutOfStock && activeOffers.find(o => o.linkedItemId === item.id);
     if (!activeOffer) return { ...item, soldOut, isOutOfStock };
     const savePct = activeOffer.discountedPrice && item.price
       ? Math.round(((item.price - activeOffer.discountedPrice) / item.price) * 100)
@@ -744,7 +758,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       offerDescription: activeOffer.description,
       offerPrice: activeOffer.discountedPrice ?? null,
     };
-  }), [menuItems, offers, todayStr]);
+  }), [menuItems, activeOffers, todayStr]);
 
   const cats = useMemo(() => ['All', ...new Set(enrichedItems.map(i => i.category).filter(Boolean))], [enrichedItems]);
   const filtered = useMemo(() => activeCat === 'All' ? enrichedItems : enrichedItems.filter(i => i.category === activeCat), [enrichedItems, activeCat]);
@@ -2684,15 +2698,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         <main className="main">
 
           {/* ── Offers Strip ── */}
-          {(offers || []).length > 0 && (
+          {/* Uses activeOffers (date-filtered) so the strip only shows offers
+              that are live today. Counts + iteration stay in sync with the
+              per-item offer badges that sit on dish cards. */}
+          {activeOffers.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, paddingInline: 2 }}>
                 <span style={{ fontSize: 13 }}>🏷️</span>
                 <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 12, color: darkMode ? '#F79B3D' : '#A06010', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Today&apos;s Offers</span>
-                <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.3)', fontWeight: 500 }}>{offers.length} active</span>
+                <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.3)', fontWeight: 500 }}>{activeOffers.length} active</span>
               </div>
               <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, paddingTop: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-                {(offers || []).map((offer, i) => {
+                {activeOffers.map((offer, i) => {
                   const linked = offer.linkedItemId ? enrichedItems.find(m => m.id === offer.linkedItemId) : null;
                   const isClickable = !!linked;
                   const savePct = offer.discountedPrice && linked?.price
