@@ -307,6 +307,32 @@ export default function AdminAnalytics() {
     // from after the selected window into every stat.
     return d >= rangeStart && d <= rangeEnd;
   });
+
+  // ─── Bounds for the chart specifically ──────────────────────────────
+  // The chart data is built from these bounds (NOT live `bounds`). This
+  // ties the chart's data shape to whatever period the analytics docs
+  // are loaded for, so when the user clicks a new period the chart
+  // continues showing the OLD data + OLD shape until load() completes —
+  // then both data and shape update in a single atomic re-render.
+  // Without this, the chart would receive a new-length data array
+  // (e.g. 7 → 24 buckets) while still on the old chart instance, and
+  // recharts would snap mid-animation trying to tween between mismatched
+  // shapes. With this, recharts gets ONE clean update and can smoothly
+  // morph between values.
+  const chartBounds = useMemo(() => {
+    if (!committedBounds) return bounds;
+    if (committedBounds.includes('_')) {
+      const [start, end] = committedBounds.split('_');
+      return getPeriodBounds(null, { active: true, start, end });
+    }
+    return getPeriodBounds(committedBounds, { active: false, start: '', end: '' });
+  }, [committedBounds, bounds]);
+
+  const ordersForChart = orders.filter(o => {
+    if (!o.createdAt) return true;
+    const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
+    return d >= chartBounds.start && d <= chartBounds.end;
+  });
   const totalOrders = ordersInRange.length;
   // Revenue excludes refunded orders — those happened but the money went
   // back, so counting them as revenue would double-count. Count of total
@@ -332,10 +358,13 @@ export default function AdminAnalytics() {
   // chart then shows a time-of-day curve instead of a single flat bar.
   // Matches /admin/reports behavior for the same period. For multi-day ranges
   // we keep the daily "MM-DD" buckets.
-  const isTodayChart = bounds.spanDays === 1;
+  // NOTE: this uses chartBounds (committed), not live bounds, so the chart's
+  // data shape stays stable until load() completes — recharts gets one
+  // atomic update instead of a mid-flight reshape that would cause snapping.
+  const isTodayChart = chartBounds.spanDays === 1;
 
   const revByBucket = {};
-  ordersInRange.forEach(o => {
+  ordersForChart.forEach(o => {
     const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
     // Hourly keys sort correctly because they're zero-padded 2-digit strings ("00"…"23").
     const key = isTodayChart
@@ -346,15 +375,15 @@ export default function AdminAnalytics() {
   });
   // Pad empty buckets so the chart axis stays consistent (prevents misleading
   // skipped hours/days). Hourly pads all 24 hours; daily walks forward from
-  // bounds.start across spanDays.
+  // chartBounds.start across spanDays.
   if (isTodayChart) {
     for (let h = 0; h < 24; h++) {
       const k = String(h).padStart(2, '0');
       if (!revByBucket[k]) revByBucket[k] = { date: k, revenue: 0, orders: 0 };
     }
   } else {
-    for (let i = 0; i < bounds.spanDays; i++) {
-      const d = new Date(bounds.start); d.setDate(d.getDate() + i);
+    for (let i = 0; i < chartBounds.spanDays; i++) {
+      const d = new Date(chartBounds.start); d.setDate(d.getDate() + i);
       const k = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       if (!revByBucket[k]) revByBucket[k] = { date: k, revenue: 0, orders: 0 };
     }
@@ -1093,25 +1122,19 @@ export default function AdminAnalytics() {
                 })()}
 
                 {/* Chart — Line (AreaChart) or Bar.
-                    Two interlocking guards keep the animation smooth:
-                      (a) `key={committedBounds}` — fresh remount per period.
-                      (b) `committedBounds === bounds.key` — render the chart
-                          ONLY when the underlying data has finished loading
-                          for the current period. Otherwise show a brief
-                          spinner. The IIFE chain `analytics → revByBucket →
-                          combinedChartData` reshapes immediately when the
-                          user clicks a new period (because bounds.spanDays /
-                          isTodayChart change synchronously), but the actual
-                          analytics docs are still loading — so an old chart
-                          would receive a new-shape data prop and try to tween
-                          between completely different lengths (e.g. 7 daily
-                          → 24 hourly), which recharts can't do — it snaps
-                          to end mid-animation. Hiding during the gap means
-                          each period gets exactly one clean fresh animation. */}
-                {combinedChartData.length > 0 && committedBounds === bounds.key ? (
+                    Animation stays smooth because `combinedChartData` is
+                    derived from `chartBounds` (the committed-bounds —
+                    matches the loaded analytics docs), not from live
+                    `bounds`. So the chart keeps showing the OLD data + OLD
+                    shape until load() completes; then everything updates in
+                    one atomic re-render and recharts can smoothly morph.
+                    No `key` prop — letting the same chart instance receive
+                    the new data prop is what triggers recharts' built-in
+                    tween. A `key` would force a remount and lose that tween. */}
+                {combinedChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     {trendMode === 'line' ? (
-                      <AreaChart key={committedBounds} data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
+                      <AreaChart data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
                         <defs>
                           <linearGradient id="trendStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor={gStart} /><stop offset="100%" stopColor={gEnd} /></linearGradient>
                           <linearGradient id="trendFill" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -1127,7 +1150,7 @@ export default function AdminAnalytics() {
                         <Area type="monotone" dataKey={M.key} stroke="url(#trendStroke)" strokeWidth={2.5} fill="url(#trendFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name={M.label} animationDuration={1500} />
                       </AreaChart>
                     ) : (
-                      <BarChart key={committedBounds} data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setRevBarHover(s.activeTooltipIndex); else setRevBarHover(null); }} onMouseLeave={() => setRevBarHover(null)}>
+                      <BarChart data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setRevBarHover(s.activeTooltipIndex); else setRevBarHover(null); }} onMouseLeave={() => setRevBarHover(null)}>
                         <defs>
                           <filter id="trendBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
                         </defs>
@@ -1146,16 +1169,7 @@ export default function AdminAnalytics() {
                       </BarChart>
                     )}
                   </ResponsiveContainer>
-                ) : combinedChartData.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data in this period</div>
-                ) : (
-                  // Mid-transition: data is reshaping but the new analytics
-                  // docs haven't landed yet. Hold a fixed-height spinner so
-                  // the page doesn't jump. Typically resolves in 200-800ms.
-                  <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: 24, height: 24, border: `2px solid ${A.subtleBg}`, borderTopColor: A.warning, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  </div>
-                )}
+                ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data in this period</div>}
               </BentoGlow>
             );
           })()}
