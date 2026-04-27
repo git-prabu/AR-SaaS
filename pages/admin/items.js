@@ -6,7 +6,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
 import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey } from '../../lib/db';
-import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
+import { uploadFile, uploadImage, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 import useBulkSelection from '../../hooks/useBulkSelection';
 import BulkActionBar from '../../components/admin/BulkActionBar';
@@ -287,7 +287,11 @@ export default function AdminItems() {
     setImgUpload(u => ({ ...u, [item.id]: { uploading: true, progress: 0 } }));
     try {
       const path = buildImagePath(rid, file.name);
-      const url = await uploadFile(file, path, (pct) =>
+      // uploadImage auto-resizes large photos in the browser before sending —
+      // big screenshots (1+ MB) become ~150 KB, which dramatically improves
+      // customer menu load time on slow networks. Falls back to uploadFile
+      // behaviour for already-small or non-image files.
+      const url = await uploadImage(file, path, (pct) =>
         setImgUpload(u => ({ ...u, [item.id]: { uploading: true, progress: pct } }))
       );
       await updateMenuItem(rid, item.id, { imageURL: url });
