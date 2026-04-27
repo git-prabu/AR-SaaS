@@ -1173,10 +1173,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     </div>
   );
   // ── Subscription enforcement ──────────────────────────────────────────
+  // Accept both 'active' (paid) and 'trial' as valid statuses — trial
+  // restaurants need a working customer page during their 14-day window,
+  // otherwise they can't actually use the product to evaluate it. Block
+  // only on explicit 'expired' / 'inactive' / 'cancelled' style statuses.
   const subEnd = restaurant?.subscriptionEnd;
   const payStatus = restaurant?.paymentStatus;
   const isExpired = subEnd && new Date(subEnd) < new Date();
-  const isInactive = payStatus && payStatus !== 'active';
+  const VALID_PAY_STATUSES = new Set(['active', 'trial']);
+  const isInactive = payStatus && !VALID_PAY_STATUSES.has(payStatus);
   const menuBlocked = isExpired || isInactive;
 
   if (menuBlocked) return (

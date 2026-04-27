@@ -55,7 +55,16 @@ function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d
 function DashboardContent() {
   const { userData } = useAuth();
   const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  // Fetch the restaurant name from the restaurant doc itself rather than
+  // relying on userData.restaurantName (which the signup flow doesn't write
+  // — user doc only has email/role/name/restaurantId). Falls back to a
+  // friendly placeholder if the read hasn't completed yet.
+  const [restaurantName, setRestaurantName] = useState('Your Restaurant');
+  useEffect(() => {
+    if (!rid) return;
+    getRestaurantById(rid).then(r => { if (r?.name) setRestaurantName(r.name); }).catch(() => {});
+  }, [rid]);
+
   const { orders, loaded: ordersLoaded } = useAdminOrders();
   const { calls, loaded: callsLoaded } = useAdminWaiterCalls();
 
