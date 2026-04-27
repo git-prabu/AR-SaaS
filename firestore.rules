@@ -100,9 +100,12 @@ service cloud.firestore {
         // Public: customers can read their own order by orderId
         // (for order confirmation screen — no auth required)
         allow read: if true;
-        // Public: customers can update payment status only (Confirm Payment button)
+        // Public: customers can update payment status only (Confirm Payment button).
+        // lastModifiedBy + lastModifiedAt are stamped by lib/db.js.withActor() on
+        // every mutation including this one — they're audit foundation, not
+        // business state, so they're safe to allow in the public-update set.
         allow update: if request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['paymentStatus', 'paymentUpdatedAt']);
+          .hasOnly(['paymentStatus', 'paymentUpdatedAt', 'lastModifiedBy', 'lastModifiedAt']);
         // Restaurant admin: read + update status (pending→preparing→ready→served)
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
         // Staff (kitchen or waiter): read + update so kitchen.js and waiter.js

@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updateOrderStatus, updatePaymentStatus, todayKey } from '../../lib/db';
+import { updateOrderStatus, updatePaymentStatus, todayKey, withActor } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -237,11 +237,11 @@ export default function AdminOrders() {
     if (!confirm(`Refund ₹${order.total || 0} for order ${orderLabel(order)}? This is reversible only by editing the order directly.`)) return;
     setUpdating(order.id + '_pay');
     try {
-      await updateDoc(doc(db, 'restaurants', rid, 'orders', order.id), {
+      await updateDoc(doc(db, 'restaurants', rid, 'orders', order.id), withActor({
         paymentStatus: 'refunded',
         refundedAt: serverTimestamp(),
         refundReason: reason.trim(),
-      });
+      }));
       toast.success('Order refunded.');
     } catch (e) {
       console.error('Refund failed:', e);

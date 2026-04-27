@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants, saDb } from '../../lib/saDb';
+import { withActor } from '../../lib/db';
 import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/saStorage';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 // saDb is the superAdminDb instance — use instead of db for all SA Firestore writes
@@ -82,11 +83,11 @@ export default function SuperAdminRequests() {
     try {
       const modelURL = await uploadFile(modelFile, buildModelPath(rid, modelFile.name), setProgress);
       // Menu item already exists (published at submission) — just unlock AR on it
-      await updateDoc(doc(db, 'restaurants', rid, 'menuItems', req.id), {
+      await updateDoc(doc(db, 'restaurants', rid, 'menuItems', req.id), withActor({
         modelURL,
         arReady: true,
         updatedAt: serverTimestamp(),
-      });
+      }));
       await updateRequestStatus(rid, req.id, 'approved', modelURL);
       // Only update storage — itemsUsed was incremented at submission time
       await updateRestaurant(rid, { storageUsedMB: parseFloat(((restaurant.storageUsedMB || 0) + sizeMB).toFixed(2)) });
