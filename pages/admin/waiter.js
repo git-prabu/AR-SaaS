@@ -413,10 +413,28 @@ export default function WaiterDashboard() {
         .waiter-action-btn:hover:not(:disabled) { filter: brightness(1.08); }
         .waiter-action:hover { box-shadow: 0 4px 20px rgba(38,52,49,0.06); }
 
-        /* Tablet (iPad Mini → iPad Pro) — waiter staff hold the tablet
-           and tap mid-shift, often with one hand. ≥48px touch targets so
-           Resolve / Mark Served can't be missed. Action card padding bumps
-           to give breathing room around the tap zones. */
+        /* Phone (≤ 640px) — waiter on a 6"-7" handset.
+           Shrink padding, stack action-card columns, bigger tap targets,
+           tab pills full-width so they can't be missed.
+           The `.waiter-action` card is currently a 3-col grid (info /
+           timer / button) — at phone width that compresses too much, so
+           we let it wrap and pin the action button to its own row. */
+        @media (max-width: 640px) {
+          .waiter-tab-pill     { flex: 1; min-height: 48px; padding: 12px 16px !important; font-size: 13px !important; }
+          .waiter-period-pill  { min-height: 44px; padding: 10px 14px !important; }
+          .waiter-action-btn   { width: 100%; min-height: 48px; padding: 14px 22px !important; font-size: 14px !important; }
+          .waiter-action-grid  { grid-template-columns: 1fr auto !important; gap: 10px !important; }
+          .waiter-action-grid > .waiter-action-cta { grid-column: 1 / -1; }
+          .waiter-icon-btn     { min-height: 44px; min-width: 44px; padding: 10px 12px !important; }
+          .waiter-page-top     { padding: 16px 14px 0 !important; }
+          .waiter-title        { font-size: 22px !important; }
+          .waiter-content      { padding-left: 14px !important; padding-right: 14px !important; }
+        }
+
+        /* Tablet (iPad Mini → iPad Pro, 641-1199px) — waiter staff hold
+           the tablet and tap mid-shift, often with one hand. ≥48px touch
+           targets so Resolve / Mark Served can't be missed. Action-card
+           padding bumps to give breathing room around the tap zones. */
         @media (min-width: 641px) and (max-width: 1199px) {
           .waiter-action-btn   { padding: 14px 22px !important; font-size: 14px !important; min-height: 48px; min-width: 132px !important; }
           .waiter-tab-pill     { padding: 12px 20px !important; min-height: 48px; }
