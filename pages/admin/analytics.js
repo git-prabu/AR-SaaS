@@ -1092,11 +1092,17 @@ export default function AdminAnalytics() {
                   );
                 })()}
 
-                {/* Chart — Line (AreaChart) or Bar */}
+                {/* Chart — Line (AreaChart) or Bar.
+                    `key={committedBounds}` forces a clean remount when the
+                    period changes (Today → Week → Month → All / Custom).
+                    Without it, recharts tries to tween between drastically
+                    different data shapes (e.g. 24 hourly points → 7 daily
+                    points) and fails — animation starts then snaps to end.
+                    With the key, each period gets a fresh animation from 0. */}
                 {combinedChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     {trendMode === 'line' ? (
-                      <AreaChart data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
+                      <AreaChart key={committedBounds} data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
                         <defs>
                           <linearGradient id="trendStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor={gStart} /><stop offset="100%" stopColor={gEnd} /></linearGradient>
                           <linearGradient id="trendFill" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -1112,7 +1118,7 @@ export default function AdminAnalytics() {
                         <Area type="monotone" dataKey={M.key} stroke="url(#trendStroke)" strokeWidth={2.5} fill="url(#trendFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name={M.label} animationDuration={1500} />
                       </AreaChart>
                     ) : (
-                      <BarChart data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setRevBarHover(s.activeTooltipIndex); else setRevBarHover(null); }} onMouseLeave={() => setRevBarHover(null)}>
+                      <BarChart key={committedBounds} data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }} onMouseMove={(s) => { if (s && typeof s.activeTooltipIndex === 'number') setRevBarHover(s.activeTooltipIndex); else setRevBarHover(null); }} onMouseLeave={() => setRevBarHover(null)}>
                         <defs>
                           <filter id="trendBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
                         </defs>

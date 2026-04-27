@@ -780,52 +780,90 @@ export default function WaiterDashboard() {
                 No history in this period
               </div>
             ) : (
-              <div style={{
-                background: A.shell, borderRadius: 14, border: A.border,
-                boxShadow: A.shadowCard, overflow: 'hidden',
-              }}>
-                {historyItems.map((h, i) => {
-                  const waitSec = (h.resolvedSec && h.createdSec) ? (h.resolvedSec - h.createdSec) : null;
-                  const isCall = h.type === 'call';
-                  const typeColor = isCall ? A.warningDim : A.success;
-                  const typeBg = isCall ? 'rgba(196,168,109,0.14)' : 'rgba(63,158,90,0.10)';
-                  const typeLabel = isCall ? 'CALL' : 'SERVED';
-                  return (
-                    <div key={h.id} style={{
-                      padding: '14px 18px',
-                      borderTop: i > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                      display: 'grid',
-                      gridTemplateColumns: '80px 1fr auto auto',
-                      gap: 16, alignItems: 'center',
+              // Group by day so the timeline reads "FRI, 25 APR · 12 ITEMS" → list,
+              // "THU, 24 APR · 8 ITEMS" → list — same pattern as /admin/payments.
+              // Sort descending by date (newest day first); within each day items
+              // stay in their existing sort order (most-recent resolvedSec first).
+              (() => {
+                const groups = [];
+                const byKey = new Map();
+                historyItems.forEach(h => {
+                  const sec = h.resolvedSec || h.createdSec || 0;
+                  if (!sec) return;
+                  const d = new Date(sec * 1000);
+                  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  if (!byKey.has(key)) {
+                    const g = { key, date: d, items: [] };
+                    byKey.set(key, g);
+                    groups.push(g);
+                  }
+                  byKey.get(key).items.push(h);
+                });
+                groups.sort((a, b) => b.date - a.date);
+                return groups.map(group => (
+                  <div key={group.key} style={{ marginBottom: 22 }}>
+                    {/* Day tag — same matte-black pill the Payments page uses */}
+                    <div style={{
+                      display: 'inline-block', padding: '5px 14px', borderRadius: 14,
+                      background: A.ink, color: A.cream,
+                      fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      marginBottom: 10,
                     }}>
-                      <span style={{
-                        fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
-                        padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase',
-                        background: typeBg, color: typeColor,
-                        justifySelf: 'start',
-                      }}>{typeLabel}</span>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: A.ink, lineHeight: 1.3 }}>
-                          {h.isTakeaway ? `Takeaway · ${h.table}` : `Table ${h.table}`}
-                        </div>
-                        <div style={{ fontSize: 12, color: A.mutedText, marginTop: 2 }}>
-                          {h.label}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 11, color: A.faintText, fontWeight: 500, whiteSpace: 'nowrap' }}>
-                        {h.resolvedSec ? new Date(h.resolvedSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                      </div>
-                      <span style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 12, fontWeight: 700, color: A.mutedText,
-                        fontVariantNumeric: 'tabular-nums', minWidth: 50, textAlign: 'right',
-                      }}>
-                        {waitSec !== null ? formatElapsed(waitSec) : '—'}
+                      {group.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      <span style={{ color: 'rgba(237,237,237,0.5)', marginLeft: 10, fontWeight: 500 }}>
+                        {group.items.length} item{group.items.length === 1 ? '' : 's'}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div style={{
+                      background: A.shell, borderRadius: 14, border: A.border,
+                      boxShadow: A.shadowCard, overflow: 'hidden',
+                    }}>
+                      {group.items.map((h, i) => {
+                        const waitSec = (h.resolvedSec && h.createdSec) ? (h.resolvedSec - h.createdSec) : null;
+                        const isCall = h.type === 'call';
+                        const typeColor = isCall ? A.warningDim : A.success;
+                        const typeBg = isCall ? 'rgba(196,168,109,0.14)' : 'rgba(63,158,90,0.10)';
+                        const typeLabel = isCall ? 'CALL' : 'SERVED';
+                        return (
+                          <div key={h.id} style={{
+                            padding: '14px 18px',
+                            borderTop: i > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                            display: 'grid',
+                            gridTemplateColumns: '80px 1fr auto auto',
+                            gap: 16, alignItems: 'center',
+                          }}>
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                              padding: '3px 8px', borderRadius: 4, textTransform: 'uppercase',
+                              background: typeBg, color: typeColor,
+                              justifySelf: 'start',
+                            }}>{typeLabel}</span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 14, fontWeight: 600, color: A.ink, lineHeight: 1.3 }}>
+                                {h.isTakeaway ? `Takeaway · ${h.table}` : `Table ${h.table}`}
+                              </div>
+                              <div style={{ fontSize: 12, color: A.mutedText, marginTop: 2 }}>
+                                {h.label}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 11, color: A.faintText, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                              {h.resolvedSec ? new Date(h.resolvedSec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                            </div>
+                            <span style={{
+                              fontFamily: "'JetBrains Mono', monospace",
+                              fontSize: 12, fontWeight: 700, color: A.mutedText,
+                              fontVariantNumeric: 'tabular-nums', minWidth: 50, textAlign: 'right',
+                            }}>
+                              {waitSec !== null ? formatElapsed(waitSec) : '—'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()
             )}
           </div>
         )}
