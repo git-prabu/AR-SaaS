@@ -393,25 +393,30 @@ export default function AdminAnalytics() {
   // Merged trend chart data — unions chartData (visits) with revenueChartData
   // (revenue + orders) by bucket key.
   //   Daily mode: visits come from the analytics docs keyed by date.
-  //   Hourly mode (Today): Firestore analytics docs are day-granular —
-  //   sessions[] only stores session IDs, not timestamps — so we can't
-  //   bucket visits by hour. Instead we show today's daily total as a flat
-  //   line at every hour bucket so the user sees the actual count rather
-  //   than a confusing zero. Source preference order:
-  //     1. todayStat.totalVisits (already loaded by getTodayAnalytics in load())
-  //     2. chartData[0].visits (the today doc inside the analytics array)
-  //     3. 0 fallback (no analytics doc for today yet — first hour of the day)
+  //   Hourly mode (Today): visits come from the `hourlyVisits` map field on
+  //   today's analytics doc — a Firestore map keyed by hour-of-day
+  //   ("0"..."23") with the count of visits in that hour. Field is written
+  //   by trackVisit() in lib/db.js. For days where the field is missing
+  //   (legacy docs from before this field was introduced) the chart shows
+  //   0 visits — those days' hourly breakdown is simply unrecoverable.
   const combinedChartData = (() => {
     const visitsByDate = {};
     chartData.forEach(d => { visitsByDate[d.date] = d.visits || 0; });
-    const todayDailyVisits = isTodayChart
-      ? (todayStat?.totalVisits ?? chartData[0]?.visits ?? 0)
-      : 0;
+    // todayStat is always today's doc; chartData[0] is the same doc when in
+    // Today mode so we can reach the hourlyVisits map either way.
+    const hourlyMap = isTodayChart
+      ? (todayStat?.hourlyVisits || chartData[0]?.hourlyVisits || {})
+      : null;
     return revenueChartData.map(r => ({
       date: r.date,
       revenue: r.revenue || 0,
       orders: r.orders || 0,
-      visits: isTodayChart ? todayDailyVisits : (visitsByDate[r.date] || 0),
+      // In hourly mode, `r.date` is a 2-digit zero-padded hour ("00"…"23").
+      // hourlyVisits is keyed by non-padded hour ("0"…"23"), so parseInt
+      // bridges the two representations.
+      visits: isTodayChart
+        ? (hourlyMap?.[String(parseInt(r.date, 10))] || 0)
+        : (visitsByDate[r.date] || 0),
     }));
   })();
 
