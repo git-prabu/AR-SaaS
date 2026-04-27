@@ -5,9 +5,11 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, todayKey } from '../../lib/db';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
+import useBulkSelection from '../../hooks/useBulkSelection';
+import BulkActionBar from '../../components/admin/BulkActionBar';
 
 // ═══ Aspire palette ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -58,6 +60,41 @@ async function autoTranslate(text, targetLang) {
     }
     return '';
   } catch { return ''; }
+}
+
+// ═══ CSV helpers — used by Petpooja-compatible import/export ═══
+// Tiny inline CSV parser/serializer. Avoids pulling in a parser library
+// for what's essentially three rules: comma-separated, quote when needed,
+// double-quote inside quoted fields. Handles \r\n on Windows-saved files.
+function escapeCSV(cell) {
+  const s = String(cell ?? '');
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+function parseCSV(text) {
+  // Returns rows[][] = array of fields per row. Strips a UTF-8 BOM that
+  // Excel adds to "Save as CSV UTF-8" files (otherwise the first column
+  // header reads "﻿name" and matching breaks).
+  const src = text.replace(/^﻿/, '');
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else { field += ch; }
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (ch === '\r') { /* ignore — handled by \n branch */ }
+      else { field += ch; }
+    }
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
 }
 
 // ═══ Drag handle icon (replaces ⠿) ═══
@@ -372,7 +409,170 @@ export default function AdminItems() {
     catch { toast.error('Update failed'); }
   };
 
-  const canDrag = statusFilter === 'all' && catFilter === 'all' && !search.trim();
+  // ═══ Bulk selection + actions ═══
+  // Hook is fed the currently-VISIBLE items so "select all" toggles only
+  // what's on screen; selections stick across filter changes until cleared.
+  const sel = useBulkSelection(displayed, item => item.id);
+  const [bulkBusy, setBulkBusy] = useState(null); // 'sold-out' | 'available' | 'category' | 'delete' | null
+
+  // Selected items — looked up against the full items list (not displayed)
+  // so a selection from one filter can be acted on after a filter change.
+  const selectedItems = useMemo(
+    () => items.filter(i => sel.isSelected(i.id)),
+    [items, sel]
+  );
+
+  const bulkSetSoldOut = async () => {
+    if (selectedItems.length === 0) return;
+    setBulkBusy('sold-out');
+    try {
+      await Promise.all(selectedItems.map(i =>
+        updateMenuItem(rid, i.id, { availableUntil: today })
+      ));
+      toast.success(`${selectedItems.length} marked sold-out for today.`);
+      sel.clear();
+      await load();
+    } catch (e) {
+      console.error(e); toast.error('Bulk update failed.');
+    } finally { setBulkBusy(null); }
+  };
+
+  const bulkSetAvailable = async () => {
+    if (selectedItems.length === 0) return;
+    setBulkBusy('available');
+    try {
+      await Promise.all(selectedItems.map(i =>
+        updateMenuItem(rid, i.id, { availableUntil: null, isOutOfStock: false, isActive: true })
+      ));
+      toast.success(`${selectedItems.length} restored to available.`);
+      sel.clear();
+      await load();
+    } catch (e) {
+      console.error(e); toast.error('Bulk update failed.');
+    } finally { setBulkBusy(null); }
+  };
+
+  const bulkChangeCategory = async () => {
+    if (selectedItems.length === 0) return;
+    const newCat = window.prompt('Move selected items to which category? (existing or new name)');
+    if (newCat === null) return; // cancelled
+    const trimmed = newCat.trim();
+    if (!trimmed) { toast.error('Category name required'); return; }
+    setBulkBusy('category');
+    try {
+      await Promise.all(selectedItems.map(i =>
+        updateMenuItem(rid, i.id, { category: trimmed })
+      ));
+      toast.success(`${selectedItems.length} moved to "${trimmed}".`);
+      sel.clear();
+      await load();
+    } catch (e) {
+      console.error(e); toast.error('Bulk update failed.');
+    } finally { setBulkBusy(null); }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedItems.length === 0) return;
+    if (!confirm(`Delete ${selectedItems.length} item${selectedItems.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBulkBusy('delete');
+    try {
+      await Promise.all(selectedItems.map(i => deleteMenuItem(rid, i.id)));
+      toast.success(`${selectedItems.length} deleted.`);
+      sel.clear();
+      await load();
+    } catch (e) {
+      console.error(e); toast.error('Bulk delete failed.');
+    } finally { setBulkBusy(null); }
+  };
+
+  // ═══ CSV import / export — Petpooja-compatible columns ═══
+  // Schema: name, category, price, veg, description, prep_time_min, image_url
+  // - veg = "Yes" / "No" (Petpooja convention)
+  // - prep_time_min is optional; blank = unspecified
+  // - image_url is optional; if blank on import, item is created without an image
+  const exportCSV = () => {
+    if (items.length === 0) { toast.error('No items to export.'); return; }
+    const rows = [
+      ['name', 'category', 'price', 'veg', 'description', 'prep_time_min', 'image_url'],
+      ...items.map(i => [
+        i.name || '',
+        i.category || '',
+        i.price ?? '',
+        i.isVeg ? 'Yes' : 'No',
+        i.description || '',
+        i.prepTime ?? '',
+        i.imageURL || '',
+      ]),
+    ];
+    const csv = rows.map(r => r.map(escapeCSV).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `menu-items-${todayKey()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${items.length} items.`);
+  };
+
+  const csvFileInputRef = useRef(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset so selecting the same file twice still fires onChange
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = parseCSV(text);
+      if (parsed.length < 2) { toast.error('CSV is empty or has no rows.'); return; }
+      const [header, ...rows] = parsed;
+      const idx = (col) => header.findIndex(h => h.trim().toLowerCase() === col);
+      const colName  = idx('name');
+      const colCat   = idx('category');
+      const colPrice = idx('price');
+      const colVeg   = idx('veg');
+      const colDesc  = idx('description');
+      const colPrep  = idx('prep_time_min');
+      const colImg   = idx('image_url');
+      if (colName === -1 || colPrice === -1) {
+        toast.error('CSV missing required columns: name, price');
+        return;
+      }
+      if (!confirm(`Import ${rows.length} row${rows.length === 1 ? '' : 's'}? Existing items will NOT be overwritten — these are added as new items.`)) {
+        return;
+      }
+      let ok = 0, skipped = 0;
+      for (const row of rows) {
+        const name = (row[colName] || '').trim();
+        const priceRaw = (row[colPrice] || '').trim();
+        const price = parseFloat(priceRaw);
+        if (!name || isNaN(price) || price < 0) { skipped += 1; continue; }
+        const data = {
+          name,
+          category: colCat   !== -1 ? (row[colCat]  || '').trim() : '',
+          price,
+          isVeg:    colVeg   !== -1 ? /^(yes|y|true|1|veg)$/i.test((row[colVeg] || '').trim()) : false,
+          description: colDesc !== -1 ? (row[colDesc] || '').trim() : '',
+          prepTime: colPrep  !== -1 && row[colPrep] ? parseInt(row[colPrep], 10) || null : null,
+          imageURL: colImg   !== -1 ? (row[colImg]  || '').trim() || null : null,
+          modelURL: null, arReady: false,
+          sortOrder: 9999, isFeatured: false,
+        };
+        try { await createMenuItem(rid, data); ok += 1; }
+        catch (err) { console.error('Import row failed for', name, err); skipped += 1; }
+      }
+      if (ok > 0) toast.success(`Imported ${ok} item${ok === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped` : ''}.`);
+      else toast.error(`No rows imported (${skipped} skipped). Check column headers + price values.`);
+      await load();
+    } catch (err) {
+      console.error('CSV import failed:', err);
+      toast.error('Could not parse CSV — check the file format.');
+    } finally { setImporting(false); }
+  };
+
+  const canDrag = statusFilter === 'all' && catFilter === 'all' && !search.trim() && sel.count === 0;
 
   return (
     <AdminLayout>
@@ -397,6 +597,16 @@ export default function AdminItems() {
           .it-badge-tile:hover { border-color: rgba(196,168,109,0.45) !important; }
         `}</style>
 
+        {/* Hidden file input — triggered by the Import CSV button. Lives at
+            the top of the JSX so its ref is mounted before any handler runs. */}
+        <input
+          ref={csvFileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleImportFile}
+          style={{ display: 'none' }}
+        />
+
         {/* ═══ Header ═══ */}
         <div style={{ padding: '24px 28px 0' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, gap: 14, flexWrap: 'wrap' }}>
@@ -412,6 +622,36 @@ export default function AdminItems() {
               <div style={{ fontSize: 13, color: A.mutedText, marginTop: 4 }}>
                 Edit, translate, and order every dish shown on your live menu
               </div>
+            </div>
+
+            {/* Export / Import CSV — Petpooja-compatible columns. Import
+                creates new docs (does NOT update existing items) so a
+                misclick can't overwrite a curated menu. */}
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignSelf: 'flex-start' }}>
+              <button onClick={exportCSV} disabled={items.length === 0 || importing}
+                style={{
+                  padding: '9px 16px', borderRadius: 9, border: A.borderStrong,
+                  background: A.shell, color: A.ink,
+                  fontSize: 12, fontWeight: 600, fontFamily: A.font,
+                  cursor: (items.length === 0 || importing) ? 'not-allowed' : 'pointer',
+                  opacity: (items.length === 0 || importing) ? 0.5 : 1,
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                ↓ Export CSV
+              </button>
+              <button onClick={() => csvFileInputRef.current?.click()} disabled={importing}
+                style={{
+                  padding: '9px 16px', borderRadius: 9, border: A.borderStrong,
+                  background: A.shell, color: A.ink,
+                  fontSize: 12, fontWeight: 600, fontFamily: A.font,
+                  cursor: importing ? 'not-allowed' : 'pointer',
+                  opacity: importing ? 0.5 : 1,
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                {importing
+                  ? <><span style={{ width: 11, height: 11, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> Importing…</>
+                  : '↑ Import CSV'}
+              </button>
             </div>
           </div>
 
@@ -546,10 +786,10 @@ export default function AdminItems() {
               background: A.shell, borderRadius: 14, border: A.border,
               boxShadow: A.shadowCard, overflow: 'hidden',
             }}>
-              {/* Table header */}
+              {/* Table header — leading 28px column for the bulk-select checkbox */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '36px 56px 1fr 110px 90px 90px 110px 100px',
+                gridTemplateColumns: '28px 36px 56px 1fr 110px 90px 90px 110px 100px',
                 gap: 10, alignItems: 'center',
                 padding: '10px 18px',
                 borderBottom: A.border,
@@ -557,6 +797,11 @@ export default function AdminItems() {
                 fontSize: 10, fontWeight: 700, color: A.faintText,
                 letterSpacing: '0.08em', textTransform: 'uppercase',
               }}>
+                <SelectAllCheckbox
+                  allSelected={sel.allSelected}
+                  someSelected={sel.someSelected}
+                  onToggle={sel.toggleAll}
+                />
                 <div></div>
                 <div></div>
                 <div>Dish</div>
@@ -576,6 +821,7 @@ export default function AdminItems() {
                 const refCount = (refs?.combos.length || 0) + (refs?.offers.length || 0);
                 const upload = imgUpload[item.id];
 
+                const checked = sel.isSelected(item.id);
                 return (
                   <div key={item.id} className={`it-row ${dragging === item.id ? 'dragging' : ''} ${dragOverItem.current === item.id ? 'over' : ''}`}
                     draggable={canDrag}
@@ -585,14 +831,20 @@ export default function AdminItems() {
                     onDragEnd={handleDragEnd}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '36px 56px 1fr 110px 90px 90px 110px 100px',
+                      gridTemplateColumns: '28px 36px 56px 1fr 110px 90px 90px 110px 100px',
                       gap: 10, alignItems: 'center',
                       padding: '12px 18px',
                       borderBottom: idx === displayed.length - 1 ? 'none' : A.border,
                       opacity: visible ? 1 : 0.55,
                       animation: 'fadeUp 0.22s ease both',
                       animationDelay: `${Math.min(idx * 0.02, 0.2)}s`,
+                      background: checked ? 'rgba(196,168,109,0.06)' : undefined,
                     }}>
+
+                    {/* Bulk-select checkbox — clicking the row outside it
+                        does NOT toggle (avoids accidental selection while
+                        the user is interacting with the row). */}
+                    <RowCheckbox checked={checked} onChange={() => sel.toggle(item.id)} />
 
                     {/* Drag handle */}
                     <div className={canDrag ? 'it-drag' : ''}
@@ -600,7 +852,7 @@ export default function AdminItems() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         opacity: canDrag ? 1 : 0.2,
                       }}
-                      title={canDrag ? 'Drag to reorder' : 'Clear filters to reorder'}>
+                      title={canDrag ? 'Drag to reorder' : (sel.count > 0 ? 'Clear selection to reorder' : 'Clear filters to reorder')}>
                       <DragHandleIcon color={canDrag ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.15)'} />
                     </div>
 
@@ -1124,6 +1376,19 @@ export default function AdminItems() {
             </div>
           </>
         )}
+
+        {/* Floating bulk-action bar — appears when 1+ rows selected */}
+        <BulkActionBar
+          count={sel.count}
+          itemLabel="item"
+          onClear={sel.clear}
+          actions={[
+            { label: 'Mark sold-out today', onClick: bulkSetSoldOut,    busy: bulkBusy === 'sold-out' },
+            { label: 'Mark available',      onClick: bulkSetAvailable,  busy: bulkBusy === 'available' },
+            { label: 'Change category',     onClick: bulkChangeCategory, busy: bulkBusy === 'category' },
+            { label: 'Delete',              onClick: bulkDelete, danger: true, busy: bulkBusy === 'delete' },
+          ]}
+        />
       </div>
     </AdminLayout>
   );
@@ -1138,6 +1403,57 @@ const inputStyle = {
 };
 function Label({ children }) { return <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'rgba(0,0,0,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6, fontFamily: INTER }}>{children}</label>; }
 function Required() { return <span style={{ color: '#D9534F', fontWeight: 700 }}>*</span>; }
+
+// Select-all checkbox in the table header. Tri-state: empty / checked /
+// indeterminate (some-but-not-all of visible items selected).
+function SelectAllCheckbox({ allSelected, someSelected, onToggle }) {
+  return (
+    <label
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 20, height: 20, cursor: 'pointer',
+      }}
+      title={allSelected ? 'Deselect all visible' : 'Select all visible'}
+    >
+      <input
+        type="checkbox"
+        checked={allSelected}
+        ref={(el) => { if (el) el.indeterminate = !allSelected && someSelected; }}
+        onChange={onToggle}
+        style={{
+          width: 16, height: 16, margin: 0, cursor: 'pointer',
+          accentColor: '#C4A86D',
+        }}
+      />
+    </label>
+  );
+}
+
+// Per-row checkbox. stopPropagation so clicking it doesn't kick off a
+// row-level action like drag.
+function RowCheckbox({ checked, onChange }) {
+  return (
+    <label
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 20, height: 20, cursor: 'pointer',
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        style={{
+          width: 16, height: 16, margin: 0, cursor: 'pointer',
+          accentColor: '#C4A86D',
+        }}
+      />
+    </label>
+  );
+}
+
 function Divider() { return <div style={{ width: 1, height: 24, background: 'rgba(234,231,227,0.06)', flexShrink: 0 }} />; }
 function StatTile({ label, value, color = '#EAE7E3', big = false }) {
   return (
