@@ -54,7 +54,16 @@ self.addEventListener('fetch', (event) => {
   // Cached aggressively because URLs include a stable token + path so
   // they don't change once an image is uploaded. Returning customer hits
   // these from disk, no network at all.
+  //
+  // CORS exception: when admin code does `fetch(url, { mode: 'cors' })`
+  // to read image bytes back into a Blob (e.g. the bulk-optimize tool),
+  // the cache may hold an opaque response from a prior <img> tag fetch.
+  // Returning an opaque response to a cors request throws "an 'opaque'
+  // response was used for a request whose type is not no-cors". So we
+  // bypass the SW for cors requests — they go straight to network and
+  // never touch the cache. The <img>-tag path keeps using the cache.
   if (url.hostname === 'firebasestorage.googleapis.com') {
+    if (request.mode === 'cors') return;
     event.respondWith(cacheFirstCapped(IMG_CACHE, request, IMG_CACHE_CAP));
     return;
   }
