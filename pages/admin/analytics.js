@@ -393,29 +393,73 @@ export default function AdminAnalytics() {
   // Merged trend chart data — unions chartData (visits) with revenueChartData
   // (revenue + orders) by bucket key.
   //   Daily mode: visits come from the analytics docs keyed by date.
-  //   Hourly mode (Today): visits come from the `hourlyVisits` map field on
-  //   today's analytics doc — a Firestore map keyed by hour-of-day
-  //   ("0"..."23") with the count of visits in that hour. Field is written
-  //   by trackVisit() in lib/db.js. For days where the field is missing
-  //   (legacy docs from before this field was introduced) the chart shows
-  //   0 visits — those days' hourly breakdown is simply unrecoverable.
+  //   Hourly mode (Today / 1-day Custom): three-tier resolution.
+  //     (1) Use the real `hourlyVisits` map on the day's analytics doc IF
+  //         it exists and its bucket sums equal/exceed totalVisits — i.e.,
+  //         every visit on that day was tracked with the new schema.
+  //     (2) Else, distribute totalVisits PROPORTIONALLY to hours that had
+  //         orders. Visits and orders strongly correlate, so this is a
+  //         reasonable proxy when real per-hour visit data is missing.
+  //         Sum is preserved (the last bucket gets the remainder so the
+  //         hourly total exactly matches totalVisits).
+  //     (3) Else (no real data + no orders to proxy with) → 0 everywhere.
+  //         Honest — better than a flat line that overstates by 24×.
+  //   Going forward (every day after this commit ships) tier 1 always
+  //   applies. The proxy is the transition path for today's pre-existing
+  //   visits + any legacy days the user pulls into a Custom range.
   const combinedChartData = (() => {
     const visitsByDate = {};
     chartData.forEach(d => { visitsByDate[d.date] = d.visits || 0; });
-    // todayStat is always today's doc; chartData[0] is the same doc when in
-    // Today mode so we can reach the hourlyVisits map either way.
-    const hourlyMap = isTodayChart
-      ? (todayStat?.hourlyVisits || chartData[0]?.hourlyVisits || {})
-      : null;
+
+    // Reach the day's full doc (not the trimmed chartData mapping) so we
+    // can read `hourlyVisits` plus the totals it should sum to.
+    const dayDoc = isTodayChart ? (analytics[0] || todayStat) : null;
+    const dayTotalVisits = dayDoc?.totalVisits || 0;
+    const realHourly = dayDoc?.hourlyVisits || null;
+    const realHourlySum = realHourly
+      ? Object.values(realHourly).reduce((s, n) => s + (Number(n) || 0), 0)
+      : 0;
+    const realHourlyComplete = realHourly && realHourlySum >= dayTotalVisits;
+
+    // Build the order-based proxy distribution when real data is missing
+    // or incomplete. Sum across hours always equals dayTotalVisits exactly.
+    let proxyHourly = null;
+    if (isTodayChart && !realHourlyComplete && dayTotalVisits > 0) {
+      const ordersPerHour = {};
+      ordersForChart.forEach(o => {
+        const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date((o.createdAt?.seconds || 0) * 1000);
+        const h = d.getHours();
+        ordersPerHour[h] = (ordersPerHour[h] || 0) + 1;
+      });
+      const totalOrders = Object.values(ordersPerHour).reduce((s, n) => s + n, 0);
+      if (totalOrders > 0) {
+        proxyHourly = {};
+        const hours = Object.keys(ordersPerHour).map(Number).sort((a, b) => a - b);
+        let assigned = 0;
+        hours.forEach((h, i) => {
+          if (i === hours.length - 1) {
+            // Last hour absorbs the rounding remainder so the hourly sum
+            // exactly equals dayTotalVisits — no off-by-one display weirdness.
+            proxyHourly[String(h)] = Math.max(0, dayTotalVisits - assigned);
+          } else {
+            const share = Math.round(dayTotalVisits * (ordersPerHour[h] / totalOrders));
+            proxyHourly[String(h)] = share;
+            assigned += share;
+          }
+        });
+      }
+    }
+
+    const effectiveHourly = realHourlyComplete ? realHourly : proxyHourly;
+
     return revenueChartData.map(r => ({
       date: r.date,
       revenue: r.revenue || 0,
       orders: r.orders || 0,
       // In hourly mode, `r.date` is a 2-digit zero-padded hour ("00"…"23").
-      // hourlyVisits is keyed by non-padded hour ("0"…"23"), so parseInt
-      // bridges the two representations.
+      // hourlyVisits keys are non-padded ("0"…"23") — parseInt bridges them.
       visits: isTodayChart
-        ? (hourlyMap?.[String(parseInt(r.date, 10))] || 0)
+        ? (effectiveHourly?.[String(parseInt(r.date, 10))] || 0)
         : (visitsByDate[r.date] || 0),
     }));
   })();
