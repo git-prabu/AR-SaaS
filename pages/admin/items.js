@@ -6,7 +6,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
 import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey } from '../../lib/db';
-import { uploadFile, uploadImage, buildImagePath, fileSizeMB } from '../../lib/storage';
+import { uploadFile, uploadImage, buildImagePath, fileSizeMB, optimizeOneImage, deleteFile } from '../../lib/storage';
 import toast from 'react-hot-toast';
 import useBulkSelection from '../../hooks/useBulkSelection';
 import BulkActionBar from '../../components/admin/BulkActionBar';
@@ -489,6 +489,74 @@ export default function AdminItems() {
     } finally { setBulkBusy(null); }
   };
 
+  // ═══ Bulk image optimization ═══
+  // Retroactively shrinks existing oversized menu photos through the same
+  // resizeImage() pipeline that handles new uploads. Items already under
+  // 200 KB are skipped inside resizeImage(), so this is safe to run any
+  // number of times — repeated runs after the first do nothing.
+  // Quality preservation: PNGs stay PNG (lossless), JPEGs are re-encoded
+  // at 0.85 (industry standard "visually identical" level).
+  const [optimizing, setOptimizing] = useState(null); // null | { index, total, name }
+
+  const runBulkOptimize = async () => {
+    const targets = items.filter(i => i.imageURL);
+    if (targets.length === 0) {
+      toast.error('No menu images to optimize.');
+      return;
+    }
+    if (!confirm(
+      `Optimize ${targets.length} menu image${targets.length === 1 ? '' : 's'}?\n\n` +
+      `Each photo is re-encoded into a smaller version. Quality is preserved ` +
+      `(PNGs stay PNG, JPEGs stay JPEG at standard quality). Images already ` +
+      `under 200 KB are skipped automatically.`
+    )) return;
+
+    setOptimizing({ index: 0, total: targets.length, name: '' });
+    let processed = 0, skipped = 0, failed = 0, savedBytes = 0;
+
+    for (let i = 0; i < targets.length; i++) {
+      const it = targets[i];
+      setOptimizing({ index: i + 1, total: targets.length, name: it.name || '' });
+      try {
+        const result = await optimizeOneImage(rid, it);
+        if (!result) {
+          skipped += 1;
+        } else {
+          await updateMenuItem(rid, it.id, { imageURL: result.newURL });
+          setItems(prev => prev.map(x => x.id === it.id ? { ...x, imageURL: result.newURL } : x));
+          // Best-effort cleanup of the old Storage file. An orphaned old
+          // file is harmless (just costs a few cents of storage) so we
+          // don't let a delete failure abort the whole batch.
+          if (result.oldPath) {
+            deleteFile(result.oldPath).catch(() => {});
+          }
+          processed += 1;
+          savedBytes += (result.sizeBefore - result.sizeAfter);
+        }
+      } catch (e) {
+        failed += 1;
+        console.error('[optimize]', it.name, e);
+      }
+    }
+
+    setOptimizing(null);
+
+    const savedStr = savedBytes > 1024 * 1024
+      ? `${(savedBytes / 1024 / 1024).toFixed(1)} MB`
+      : `${Math.round(savedBytes / 1024)} KB`;
+    if (processed > 0) {
+      toast.success(
+        `Optimized ${processed} image${processed === 1 ? '' : 's'} · saved ${savedStr}` +
+        (skipped ? ` · ${skipped} already small` : '') +
+        (failed  ? ` · ${failed} failed`        : '')
+      );
+    } else if (failed === 0) {
+      toast.success(`All ${skipped} image${skipped === 1 ? '' : 's'} already optimized — no changes needed.`);
+    } else {
+      toast.error(`Couldn't optimize any images — ${failed} failed (see browser console).`);
+    }
+  };
+
   // ═══ CSV import / export — Petpooja-compatible columns ═══
   // Schema: name, category, price, veg, description, prep_time_min, image_url
   // - veg = "Yes" / "No" (Petpooja convention)
@@ -655,6 +723,27 @@ export default function AdminItems() {
                 {importing
                   ? <><span style={{ width: 11, height: 11, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> Importing…</>
                   : '↑ Import CSV'}
+              </button>
+              {/* Optimize images — retroactively shrinks oversized menu
+                  photos so existing items benefit from the same resize
+                  pipeline as new uploads. Disabled when no images exist
+                  or when an optimize pass is already running. */}
+              <button onClick={runBulkOptimize}
+                disabled={!!optimizing || items.filter(i => i.imageURL).length === 0}
+                title={optimizing
+                  ? `Optimizing ${optimizing.name || ''}…`
+                  : 'Re-encode oversized menu photos for faster loading'}
+                style={{
+                  padding: '9px 16px', borderRadius: 9, border: A.borderStrong,
+                  background: A.shell, color: A.ink,
+                  fontSize: 12, fontWeight: 600, fontFamily: A.font,
+                  cursor:  (!!optimizing || items.filter(i => i.imageURL).length === 0) ? 'not-allowed' : 'pointer',
+                  opacity: (!!optimizing || items.filter(i => i.imageURL).length === 0) ? 0.5 : 1,
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}>
+                {optimizing
+                  ? <><span style={{ width: 11, height: 11, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> Optimizing {optimizing.index}/{optimizing.total}</>
+                  : '✨ Optimize images'}
               </button>
             </div>
           </div>
