@@ -1093,13 +1093,22 @@ export default function AdminAnalytics() {
                 })()}
 
                 {/* Chart — Line (AreaChart) or Bar.
-                    `key={committedBounds}` forces a clean remount when the
-                    period changes (Today → Week → Month → All / Custom).
-                    Without it, recharts tries to tween between drastically
-                    different data shapes (e.g. 24 hourly points → 7 daily
-                    points) and fails — animation starts then snaps to end.
-                    With the key, each period gets a fresh animation from 0. */}
-                {combinedChartData.length > 0 ? (
+                    Two interlocking guards keep the animation smooth:
+                      (a) `key={committedBounds}` — fresh remount per period.
+                      (b) `committedBounds === bounds.key` — render the chart
+                          ONLY when the underlying data has finished loading
+                          for the current period. Otherwise show a brief
+                          spinner. The IIFE chain `analytics → revByBucket →
+                          combinedChartData` reshapes immediately when the
+                          user clicks a new period (because bounds.spanDays /
+                          isTodayChart change synchronously), but the actual
+                          analytics docs are still loading — so an old chart
+                          would receive a new-shape data prop and try to tween
+                          between completely different lengths (e.g. 7 daily
+                          → 24 hourly), which recharts can't do — it snaps
+                          to end mid-animation. Hiding during the gap means
+                          each period gets exactly one clean fresh animation. */}
+                {combinedChartData.length > 0 && committedBounds === bounds.key ? (
                   <ResponsiveContainer width="100%" height={260}>
                     {trendMode === 'line' ? (
                       <AreaChart key={committedBounds} data={combinedChartData} margin={{ top: 12, right: 22, left: 4, bottom: 8 }}>
@@ -1137,7 +1146,16 @@ export default function AdminAnalytics() {
                       </BarChart>
                     )}
                   </ResponsiveContainer>
-                ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data in this period</div>}
+                ) : combinedChartData.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(38,52,49,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data in this period</div>
+                ) : (
+                  // Mid-transition: data is reshaping but the new analytics
+                  // docs haven't landed yet. Hold a fixed-height spinner so
+                  // the page doesn't jump. Typically resolves in 200-800ms.
+                  <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 24, height: 24, border: `2px solid ${A.subtleBg}`, borderTopColor: A.warning, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  </div>
+                )}
               </BentoGlow>
             );
           })()}
