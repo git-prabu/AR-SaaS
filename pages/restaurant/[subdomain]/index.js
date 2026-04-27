@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -4137,11 +4137,32 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 }
 
 export async function getStaticPaths() {
-  // Generate no paths at build time.
-  // fallback:'blocking' means: first request for any subdomain hits the server,
-  // builds the static page, then caches it. Every subsequent visitor gets the
-  // cached static HTML — typically <100ms vs ~900ms with getServerSideProps.
-  return { paths: [], fallback: 'blocking' };
+  // Pre-build a static page for every active restaurant at deploy time so the
+  // first customer never pays the ~6-second cold-cache wait. The previous
+  // implementation returned `paths: []` and relied entirely on
+  // `fallback: 'blocking'` — which meant every brand-new visit had to wait
+  // for getStaticProps' four Firestore round-trips before any HTML came back.
+  // For low-traffic restaurants the cache went cold between visits, so
+  // basically every new customer hit that 6-second wait.
+  //
+  // Now: every active restaurant ships with its HTML already cached on the
+  // Vercel edge — first visit is ~200ms. Restaurants signed up AFTER deploy
+  // still hit the fallback path once, then get cached for everyone else.
+  try {
+    const restaurants = await getAllRestaurants();
+    return {
+      paths: restaurants
+        .filter(r => r.isActive && r.subdomain)
+        .map(r => ({ params: { subdomain: r.subdomain } })),
+      fallback: 'blocking',
+    };
+  } catch (err) {
+    // Don't kill the deploy if Firestore is flaky during build — fall back to
+    // pure on-demand (original behaviour). Slow for first visits, but the
+    // page still works.
+    console.error('[getStaticPaths] failed to list restaurants:', err.message);
+    return { paths: [], fallback: 'blocking' };
+  }
 }
 
 export async function getStaticProps({ params }) {
