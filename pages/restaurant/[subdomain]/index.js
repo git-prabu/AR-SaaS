@@ -3333,10 +3333,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
               {/* ── STEP: form ── */}
               {orderStep === 'form' && (<>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexShrink: 0 }}>
                   <button onClick={() => setOrderStep('cart')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)', fontSize: 18, lineHeight: 1, padding: 0 }}>←</button>
                   <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{t.confirmSummary}</div>
                 </div>
+                {/* Scrollable form body — keeps the header pinned at the top and
+                    the Confirm button pinned at the bottom while the inputs in
+                    the middle scroll on mobile. Without this wrapper, on phones
+                    the form taller than 80vh leaves the Confirm button below
+                    the visible area with nothing to scroll. */}
+                <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', minHeight: 0, marginBottom: 16 }}>
                 {/* Order summary */}
                 <div style={{ padding: '12px 14px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 16 }}>
                   {cart.map(c => (
@@ -3417,8 +3423,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   value={specialNote} onChange={e => setSpecialNote(e.target.value)} rows={2}
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 20, resize: 'none', boxSizing: 'border-box' }}
                 />
+                </div>
+                {/* Confirm button — outside the scroll wrapper so it stays
+                    visible at the bottom even when the form is mid-scroll. */}
                 <button onClick={placeOrder} disabled={isSubmitting}
-                  style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : darkMode ? '#F79B3D' : '#1E1B18', color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
+                  style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : darkMode ? '#F79B3D' : '#1E1B18', color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
                   {isSubmitting ? '...' : t.confirmOrder}
                 </button>
               </>)}
