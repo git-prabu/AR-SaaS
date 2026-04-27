@@ -2849,7 +2849,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s`, opacity: (item.soldOut || item.isOutOfStock) ? 0.65 : 1, cursor: (item.soldOut || item.isOutOfStock) ? 'not-allowed' : 'pointer' }} onClick={() => { if (!item.soldOut && !item.isOutOfStock) openItem(item); }}>
                   <div className="c-img" style={{ position: 'relative' }}>
                     <div className={`img-skeleton${imgLoaded[item.id] ? ' loaded' : ''}`} />
-                    <img src={imgSrc(item)} alt={item.name} loading="lazy"
+                    <img src={imgSrc(item)} alt={item.name} loading="lazy" decoding="async"
                       className={imgLoaded[item.id] ? 'img-visible' : ''}
                       style={{ filter: item.soldOut ? 'grayscale(60%)' : 'none' }}
                       onLoad={() => setImgLoaded(s => ({ ...s, [item.id]: true }))}
@@ -2995,7 +2995,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
               <button className="close-btn" onClick={closeItem}>✕</button>
               {!showAR && (
                 <div className="m-hero">
-                  <img src={imgSrc(selectedItem)} alt={selectedItem.name}
+                  <img src={imgSrc(selectedItem)} alt={selectedItem.name} loading="lazy" decoding="async"
                     onError={() => setImgErr(e => ({ ...e, [selectedItem.id]: true }))} />
                   {selectedItem.offerBadge && selectedItem.offerLabel && (
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '7px 14px', background: selectedItem.offerColor || '#F79B3D', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center' }}>
@@ -3570,7 +3570,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       onMouseOver={e => { e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.09)' : 'rgba(42,31,16,0.08)'; }}
                       onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.04)'; }}>
                       {item.imageURL ? (
-                        <img src={item.imageURL} alt={item.name} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+                        <img src={item.imageURL} alt={item.name} loading="lazy" decoding="async" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
                         <div style={{ width: 52, height: 52, borderRadius: 10, background: darkMode ? 'rgba(255,255,255,0.08)' : '#F0E8DE', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🍽</div>
                       )}
