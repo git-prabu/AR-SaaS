@@ -68,6 +68,15 @@ export default function SuperAdminEmail() {
   const [testRecipient, setTestRecipient] = useState('');
   useEffect(() => { if (user?.email && !testRecipient) setTestRecipient(user.email); }, [user]);
 
+  // "Trigger daily summary now" — runs the same pipeline the nightly cron
+  // runs (lib/dailySummary.runDailySummary) and surfaces a per-restaurant
+  // breakdown so we can see who got the email, who was skipped, and why.
+  // The date defaults to yesterday IST (same day the cron summarises) but
+  // a superadmin can re-run for any past day.
+  const [triggering, setTriggering] = useState(false);
+  const [triggerResult, setTriggerResult] = useState(null);
+  const [triggerDate, setTriggerDate] = useState(() => yesterdayISO());
+
   useEffect(() => {
     (async () => {
       try {
@@ -138,6 +147,43 @@ export default function SuperAdminEmail() {
     } catch (e) {
       toast.error('Save failed: ' + e.message);
     } finally { setSaving(false); }
+  };
+
+  const handleTrigger = async () => {
+    if (!user) return toast.error('Not signed in.');
+    if (!initial?.senderEmail) return toast.error('Configure sender email first.');
+    if (!triggerDate) return toast.error('Pick a date first.');
+    if (!confirm(
+      `Trigger daily summary for ${triggerDate}?\n\n` +
+      `This sends a real email to every active restaurant's notifications email ` +
+      `(or the admin's signup email as fallback). Same pipeline the nightly ` +
+      `cron uses — just on demand.`
+    )) return;
+    setTriggering(true);
+    setTriggerResult(null);
+    try {
+      const idToken = await user.getIdToken(true);
+      const res = await fetch('/api/email/trigger-daily-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ dateKey: triggerDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setTriggerResult(data);
+        if (data.sent > 0) {
+          toast.success(`Sent ${data.sent} email${data.sent === 1 ? '' : 's'} for ${data.dateKey}.`);
+        } else if (data.total === 0) {
+          toast.error('No active restaurants found.');
+        } else {
+          toast.error(`No emails sent — ${data.skipped} skipped, ${data.failed} failed. See breakdown below.`);
+        }
+      } else {
+        toast.error('Trigger failed: ' + (data.error || `HTTP ${res.status}`));
+      }
+    } catch (e) {
+      toast.error('Trigger failed: ' + e.message);
+    } finally { setTriggering(false); }
   };
 
   const handleTest = async () => {
@@ -331,9 +377,100 @@ export default function SuperAdminEmail() {
                 {isDirty && <span style={{ fontSize: 11, color: A.warningDim, fontWeight: 600 }}>● Unsaved changes</span>}
               </div>
 
+              {/* On-demand daily-summary trigger. Mirrors the nightly cron
+                  (/api/cron/daily-summary) but auth-gated by superadmin
+                  Firebase ID token instead of CRON_SECRET. The result
+                  table below shows exactly which restaurants got the email
+                  and which were skipped/failed — invaluable for debugging
+                  "why didn't I get an email last night". */}
+              <div style={{
+                marginTop: 22, background: A.shell, borderRadius: 14, padding: '20px 24px',
+                border: A.border, boxShadow: A.cardShadow,
+              }}>
+                <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 12, color: A.warningDim, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                  Trigger daily summary now
+                </div>
+                <div style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, marginBottom: 14 }}>
+                  Re-runs the exact same pipeline the nightly cron runs — for testing or if the cron didn't fire.
+                  Defaults to yesterday IST (same day the cron summarises). Real emails go out, so use carefully.
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                  <input type="date" className="em-inp" style={{ ...inputStyle, width: 'auto', padding: '9px 12px', fontFamily: A.font }}
+                    value={triggerDate}
+                    onChange={e => setTriggerDate(e.target.value)}
+                    max={todayISO()} />
+                  <button onClick={handleTrigger} disabled={triggering || !initial?.senderEmail || isDirty} style={{
+                    padding: '11px 22px', borderRadius: 10,
+                    border: A.borderStrong, background: A.shell, color: A.ink,
+                    fontFamily: A.font, fontSize: 13, fontWeight: 600,
+                    cursor: (triggering || !initial?.senderEmail || isDirty) ? 'not-allowed' : 'pointer',
+                    opacity: (triggering || !initial?.senderEmail || isDirty) ? 0.5 : 1,
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                  }}>
+                    {triggering
+                      ? <><span style={{ width: 13, height: 13, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Running…</>
+                      : '▶ Trigger now'}
+                  </button>
+                  {isDirty && <span style={{ fontSize: 11, color: A.warningDim, fontWeight: 600 }}>Save changes first</span>}
+                  {!initial?.senderEmail && <span style={{ fontSize: 11, color: A.danger, fontWeight: 600 }}>Set sender email first</span>}
+                </div>
+
+                {/* Result card — only appears after a run */}
+                {triggerResult && (
+                  <div style={{
+                    background: A.subtleBg, borderRadius: 9, padding: '14px 16px',
+                    marginTop: 14, border: A.border,
+                  }}>
+                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10, fontSize: 13 }}>
+                      <span><strong style={{ color: A.ink }}>{triggerResult.dateKey}</strong></span>
+                      <span style={{ color: A.success, fontWeight: 600 }}>{triggerResult.sent} sent</span>
+                      <span style={{ color: A.warningDim, fontWeight: 600 }}>{triggerResult.skipped} skipped</span>
+                      <span style={{ color: A.danger, fontWeight: 600 }}>{triggerResult.failed} failed</span>
+                      <span style={{ color: A.mutedText }}>· {triggerResult.total} active restaurants</span>
+                    </div>
+                    {triggerResult.details?.length > 0 ? (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: 500, fontSize: 12, borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ borderBottom: A.border }}>
+                              <th style={{ textAlign: 'left', padding: '6px 8px', color: A.mutedText, fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.05em' }}>Restaurant</th>
+                              <th style={{ textAlign: 'left', padding: '6px 8px', color: A.mutedText, fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.05em' }}>Status</th>
+                              <th style={{ textAlign: 'left', padding: '6px 8px', color: A.mutedText, fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.05em' }}>Recipient / reason</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {triggerResult.details.map((d, i) => (
+                              <tr key={d.rid + i} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                                <td style={{ padding: '7px 8px', color: A.ink, fontWeight: 500 }}>{d.name || d.rid}</td>
+                                <td style={{ padding: '7px 8px' }}>
+                                  <span style={{
+                                    padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                                    background: d.status === 'sent'    ? 'rgba(63,158,90,0.15)'
+                                              : d.status === 'skipped' ? 'rgba(196,168,109,0.18)'
+                                              :                          'rgba(217,83,79,0.15)',
+                                    color:      d.status === 'sent'    ? A.success
+                                              : d.status === 'skipped' ? A.warningDim
+                                              :                          A.danger,
+                                  }}>{d.status}</span>
+                                </td>
+                                <td style={{ padding: '7px 8px', color: A.mutedText, fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>
+                                  {d.to || d.reason || d.error || ''}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div style={{ color: A.mutedText, fontSize: 12 }}>No active restaurants found.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Info card — quick how-to so the workflow is self-evident */}
               <div style={{
-                marginTop: 28, background: A.shell, borderRadius: 14, padding: '20px 24px',
+                marginTop: 22, background: A.shell, borderRadius: 14, padding: '20px 24px',
                 border: A.border, boxShadow: A.cardShadow,
               }}>
                 <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 12, color: A.warningDim, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
@@ -354,6 +491,15 @@ export default function SuperAdminEmail() {
   );
 }
 SuperAdminEmail.getLayout = (page) => page;
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function yesterdayISO() {
+  const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function Label({ children }) {
   return <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: A.mutedText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 7, fontFamily: A.font }}>{children}</label>;
