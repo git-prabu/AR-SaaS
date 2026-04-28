@@ -4,6 +4,10 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs, markOrderPaid, markOrderPaidAs, todayKey } from '../../lib/db';
+import {
+  announceCall, announceReady, announcePayment,
+  unlockSound, isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
+} from '../../lib/sounds';
 import { db, staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -109,6 +113,7 @@ export default function WaiterDashboard() {
   const [historyCustomRange, setHistoryCustomRange] = useState({ active: false, start: '', end: '' });
   const [historySearch, setHistorySearch] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabledState] = useState(false);
   const [tick, setTick] = useState(0);
   // Phase C.2 — cash payment confirmation modal
   // When the waiter taps "Mark Paid" on a cash_requested order, we ask
@@ -117,8 +122,8 @@ export default function WaiterDashboard() {
   const [cashModal, setCashModal] = useState(null);  // { item, cashReceived: '' } | null
 
   // Refs
-  const audioRef = useRef(null);
-  const prevActionCountRef = useRef(null);
+  // (audioRef removed in Phase D — sounds are now synthesized via lib/sounds
+  //  with distinct tones per event type, so we no longer preload an MP3.)
   const prevActionIdsRef = useRef(new Set());
   const initialLoadDoneRef = useRef(false);
   const [flashingIds, setFlashingIds] = useState(new Set());
@@ -143,20 +148,22 @@ export default function WaiterDashboard() {
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
 
-  // ── Load sound pref + preload audio ──
+  // ── Load sound + voice prefs (Phase D — synthesized, no MP3 preload) ──
   useEffect(() => {
     try {
       const stored = localStorage.getItem('ar_waiter_sound');
       if (stored !== null) setSoundEnabled(stored === 'true');
     } catch {}
     try {
-      audioRef.current = new Audio('/notification.mp3');
-      audioRef.current.preload = 'auto';
+      setVoiceEnabledState(isVoiceEnabled());
     } catch {}
   }, []);
   useEffect(() => {
     try { localStorage.setItem('ar_waiter_sound', String(soundEnabled)); } catch {}
   }, [soundEnabled]);
+  useEffect(() => {
+    setVoiceEnabledLS(voiceEnabled);
+  }, [voiceEnabled]);
 
   // ── 1-second tick for live elapsed timers ──
   useEffect(() => {
@@ -263,18 +270,12 @@ export default function WaiterDashboard() {
     return formatElapsed(Math.floor(Date.now() / 1000) - oldest);
   }, [actionQueue, tick]);
 
-  // ── Sound alert: play when a new action appears ──
-  useEffect(() => {
-    const now = actionQueue.length;
-    const prev = prevActionCountRef.current;
-    if (prev !== null && now > prev && soundEnabled && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
-    }
-    prevActionCountRef.current = now;
-  }, [actionQueue, soundEnabled]);
-
-  // ── Detect newly-arrived items for flash + unseen-below tracking ──
+  // ── Detect newly-arrived items: flash + unseen tracking + sound + voice ──
+  // Single effect drives all four: we already need to identify the new
+  // items by id (for flash), so we reuse that diff to play the right
+  // sound for the highest-priority new arrival. Without picking a
+  // priority a customer who taps "Confirm Payment" right after staff
+  // marks an order ready could trigger two simultaneous chimes.
   useEffect(() => {
     const currentIds = new Set(actionQueue.map(i => i.id));
     const prevIds = prevActionIdsRef.current;
@@ -285,13 +286,29 @@ export default function WaiterDashboard() {
       return;
     }
 
-    const newlyAdded = [...currentIds].filter(id => !prevIds.has(id));
-    if (newlyAdded.length > 0) {
-      setFlashingIds(prev => { const n = new Set(prev); newlyAdded.forEach(id => n.add(id)); return n; });
-      setUnseenIds(prev => { const n = new Set(prev); newlyAdded.forEach(id => n.add(id)); return n; });
+    const newlyAddedItems = actionQueue.filter(i => !prevIds.has(i.id));
+    if (newlyAddedItems.length > 0) {
+      const newlyAddedIds = newlyAddedItems.map(i => i.id);
+      setFlashingIds(prev => { const n = new Set(prev); newlyAddedIds.forEach(id => n.add(id)); return n; });
+      setUnseenIds(prev => { const n = new Set(prev); newlyAddedIds.forEach(id => n.add(id)); return n; });
       setTimeout(() => {
-        setFlashingIds(prev => { const n = new Set(prev); newlyAdded.forEach(id => n.delete(id)); return n; });
+        setFlashingIds(prev => { const n = new Set(prev); newlyAddedIds.forEach(id => n.delete(id)); return n; });
       }, 4000);
+
+      // Sound + voice: announce the highest-priority new item.
+      // Priority order: payment > call > serve. Payments are highest
+      // because cash/UPI collection is the most "must respond" event.
+      if (soundEnabled) {
+        const priority = { payment: 3, call: 2, serve: 1 };
+        const pick = [...newlyAddedItems].sort((a, b) => (priority[b.type] || 0) - (priority[a.type] || 0))[0];
+        if (pick.type === 'payment') {
+          announcePayment(pick.table, pick.methodLabel || 'payment');
+        } else if (pick.type === 'call') {
+          announceCall(pick.table, pick.subtitle);
+        } else {
+          announceReady(pick.table);
+        }
+      }
     }
     setUnseenIds(prev => {
       let changed = false;
@@ -301,7 +318,7 @@ export default function WaiterDashboard() {
     });
 
     prevActionIdsRef.current = currentIds;
-  }, [actionQueue]);
+  }, [actionQueue, soundEnabled]);
 
   // ── Scroll detection: clear unseen when near bottom ──
   useEffect(() => {
@@ -549,9 +566,10 @@ export default function WaiterDashboard() {
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start' }}>
-            {/* Sound toggle */}
+            {/* Sound toggle — also unlocks the AudioContext on first tap so
+                subsequent automatic plays aren't blocked by autoplay policy. */}
             <button className="waiter-icon-btn"
-              onClick={() => setSoundEnabled(v => !v)}
+              onClick={() => { setSoundEnabled(v => !v); unlockSound(); }}
               title={soundEnabled ? 'Mute new-action sound' : 'Enable new-action sound'}
               style={{
                 padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
@@ -563,6 +581,25 @@ export default function WaiterDashboard() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+              )}
+            </button>
+
+            {/* Voice toggle (Phase D). Off by default — voice is more
+                disruptive than a chime, and most environments only want
+                it on the waiter tablet. Mic icon when on, slashed when off. */}
+            <button className="waiter-icon-btn"
+              onClick={() => setVoiceEnabledState(v => !v)}
+              title={voiceEnabled ? 'Mute voice announcements' : 'Enable voice announcements'}
+              style={{
+                padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
+                color: voiceEnabled ? A.ink : A.faintText,
+                fontSize: 14, cursor: 'pointer', fontFamily: A.font, minWidth: 38,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+              {voiceEnabled ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-1m14 0v1a7 7 0 0 1-.11 1.23"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               )}
             </button>
 

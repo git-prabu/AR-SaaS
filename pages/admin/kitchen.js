@@ -7,6 +7,10 @@ import { updateOrderStatus, updateOrderStatusAs } from '../../lib/db';
 import { db, staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import {
+  announceOrder, unlockSound,
+  isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
+} from '../../lib/sounds';
 
 // ═══ Aspire palette — same tokens as analytics/reports/orders ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -104,11 +108,15 @@ export default function KitchenDisplay() {
   // UI state
   const [density, setDensity] = useState('comfortable'); // 'comfortable' or 'compact'
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabledState] = useState(false);
   const [todayServed, setTodayServed] = useState(0);
 
   // Refs
-  const audioRef = useRef(null);
+  // (audioRef removed in Phase D — sounds are synthesized via lib/sounds.)
   const prevPendingRef = useRef(null);
+  // Track previous order IDs so we can identify the new one and announce its details (table, item count).
+  const prevOrderIdsRef = useRef(new Set());
+  const initialOrdersLoadedRef = useRef(false);
   // Set of ticket IDs that just appeared — drives the gold flash animation (clears after 4s)
   const [flashingIds, setFlashingIds] = useState(new Set());
   // Set of ticket IDs the user hasn't scrolled into view yet — drives the bottom banner
@@ -138,22 +146,24 @@ export default function KitchenDisplay() {
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
 
-  // ══ Load sound preference from localStorage; preload audio ══
+  // ══ Load sound + voice prefs (Phase D — synthesized, no MP3 preload) ══
   useEffect(() => {
     try {
       const stored = localStorage.getItem('ar_kitchen_sound');
       if (stored !== null) setSoundEnabled(stored === 'true');
     } catch {}
     try {
-      audioRef.current = new Audio('/notification.mp3');
-      audioRef.current.preload = 'auto';
+      setVoiceEnabledState(isVoiceEnabled());
     } catch {}
   }, []);
 
-  // ══ Persist sound preference ══
+  // ══ Persist preferences ══
   useEffect(() => {
     try { localStorage.setItem('ar_kitchen_sound', String(soundEnabled)); } catch {}
   }, [soundEnabled]);
+  useEffect(() => {
+    setVoiceEnabledLS(voiceEnabled);
+  }, [voiceEnabled]);
 
   // ══ Load density preference from localStorage ══
   useEffect(() => {
@@ -193,15 +203,35 @@ export default function KitchenDisplay() {
     return unsub;
   }, [rid, staffSession]);
 
-  // ══ Sound alert: play when pending count goes up ══
+  // ══ Sound + voice alert when a new pending order arrives (Phase D) ══
+  // We diff by id (not just by count) so we can pick the actual new
+  // order doc and pass its table number + item count to announceOrder
+  // (which both chimes and speaks "New order, table 4, 2 items").
+  // First snapshot is suppressed — otherwise every existing pending
+  // ticket would beep on page reload.
   useEffect(() => {
-    const pendingNow = orders.filter(o => o.status === 'pending').length;
-    const prev = prevPendingRef.current;
-    if (prev !== null && pendingNow > prev && soundEnabled && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {}); // autoplay-blocked fails silently
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+    const currentIds = new Set(pendingOrders.map(o => o.id));
+
+    if (!initialOrdersLoadedRef.current) {
+      prevOrderIdsRef.current = currentIds;
+      initialOrdersLoadedRef.current = true;
+      prevPendingRef.current = pendingOrders.length;
+      return;
     }
-    prevPendingRef.current = pendingNow;
+
+    const prevIds = prevOrderIdsRef.current;
+    const newOrders = pendingOrders.filter(o => !prevIds.has(o.id));
+    if (newOrders.length > 0 && soundEnabled) {
+      // Most-recent new order (sorted desc by createdAt already from the listener)
+      const o = newOrders[0];
+      const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
+      const tableLabel = isTakeaway ? (o.customerName || 'Takeaway') : (o.tableNumber || '—');
+      const itemCount = (o.items || []).length;
+      announceOrder(tableLabel, itemCount);
+    }
+    prevOrderIdsRef.current = currentIds;
+    prevPendingRef.current = pendingOrders.length;
   }, [orders, soundEnabled]);
 
 
@@ -470,9 +500,10 @@ export default function KitchenDisplay() {
               })}
             </div>
 
-            {/* Sound toggle */}
+            {/* Sound toggle — also unlocks the AudioContext on first
+                tap so subsequent automatic plays aren't blocked. */}
             <button className="kds-icon-btn"
-              onClick={() => setSoundEnabled(v => !v)}
+              onClick={() => { setSoundEnabled(v => !v); unlockSound(); }}
               title={soundEnabled ? 'Mute new-order sound' : 'Enable new-order sound'}
               style={{
                 padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
@@ -481,6 +512,26 @@ export default function KitchenDisplay() {
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               }}>
               {soundEnabled ? '🔔' : '🔕'}
+            </button>
+
+            {/* Voice toggle (Phase D) — off by default; speaks "New
+                order, table N, X items" when enabled. Stored under
+                ar_voice_enabled (shared with waiter — same restaurant
+                staff often manage both pages). */}
+            <button className="kds-icon-btn"
+              onClick={() => setVoiceEnabledState(v => !v)}
+              title={voiceEnabled ? 'Mute voice announcements' : 'Enable voice announcements'}
+              style={{
+                padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
+                color: voiceEnabled ? A.ink : A.faintText,
+                fontSize: 14, cursor: 'pointer', fontFamily: A.font, minWidth: 38,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+              {voiceEnabled ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-1m14 0v1a7 7 0 0 1-.11 1.23"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+              )}
             </button>
 
             {/* Full-screen toggle */}

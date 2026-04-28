@@ -7,6 +7,10 @@ import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import DateRangePicker from '../../components/DateRangePicker';
+import {
+  announcePayment, unlockSound,
+  isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
+} from '../../lib/sounds';
 
 // ═══ Aspire palette — same tokens as analytics/orders/kitchen/waiter ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -118,6 +122,26 @@ export default function AdminPayments() {
   // undoBanner to avoid shadowing the react-hot-toast import.
   const [undoBanner, setUndoBanner] = useState(null);  // { orderId, previousStatus, expiresAt, timeoutId }
 
+  // Phase D — sound + voice on new payment-requested orders.
+  // Stored under `ar_payments_sound` (separate from kitchen/waiter so the
+  // admin can mute payments-page chimes without affecting the kitchen).
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabledState] = useState(false);
+  const prevRequestedIdsRef = useRef(new Set());
+  const initialPaymentsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('ar_payments_sound');
+      if (stored !== null) setSoundEnabled(stored === 'true');
+    } catch {}
+    try { setVoiceEnabledState(isVoiceEnabled()); } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('ar_payments_sound', String(soundEnabled)); } catch {}
+  }, [soundEnabled]);
+  useEffect(() => { setVoiceEnabledLS(voiceEnabled); }, [voiceEnabled]);
+
   // ── Firestore listener ──
   useEffect(() => {
     if (!rid) return;
@@ -133,6 +157,37 @@ export default function AdminPayments() {
 
   // ── Cleanup undo banner timeout on unmount ──
   useEffect(() => () => { if (undoBanner?.timeoutId) clearTimeout(undoBanner.timeoutId); }, [undoBanner]);
+
+  // Phase D — chime + speak when a new payment-requested order arrives.
+  // Diff by id so we can pick the actual new order and announce its
+  // table + method. Skips first snapshot so existing requests on page
+  // open don't trigger a flurry of chimes.
+  useEffect(() => {
+    const requested = allOrders.filter(o =>
+      ['cash_requested', 'card_requested', 'online_requested'].includes(o.paymentStatus)
+    );
+    const currentIds = new Set(requested.map(o => o.id));
+
+    if (!initialPaymentsLoadedRef.current) {
+      prevRequestedIdsRef.current = currentIds;
+      initialPaymentsLoadedRef.current = true;
+      return;
+    }
+
+    const prevIds = prevRequestedIdsRef.current;
+    const newOnes = requested.filter(o => !prevIds.has(o.id));
+    if (newOnes.length > 0 && soundEnabled) {
+      const o = newOnes[0];
+      const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
+      const tableLabel = isTakeaway ? (o.customerName || 'Takeaway') : (o.tableNumber || '—');
+      const methodLabel = PAYMENT_STATUS[o.paymentStatus]?.methodKey === 'cash' ? 'Cash'
+                        : PAYMENT_STATUS[o.paymentStatus]?.methodKey === 'card' ? 'Card'
+                        : PAYMENT_STATUS[o.paymentStatus]?.methodKey === 'online' ? 'UPI'
+                        : 'payment';
+      announcePayment(tableLabel, methodLabel);
+    }
+    prevRequestedIdsRef.current = currentIds;
+  }, [allOrders, soundEnabled]);
 
   // ═══ Payment-relevant orders ═══
   // Only show orders that are either:
@@ -351,6 +406,40 @@ export default function AdminPayments() {
             </div>
 
             <div className="no-print" style={{ display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start' }}>
+              {/* Sound toggle (Phase D) — chimes when a customer requests payment.
+                  Tapping also unlocks the AudioContext so subsequent automatic
+                  plays aren't blocked by autoplay policy. */}
+              <button className="pay-icon-btn"
+                onClick={() => { setSoundEnabled(v => !v); unlockSound(); }}
+                title={soundEnabled ? 'Mute payment-request sound' : 'Enable payment-request sound'}
+                style={{
+                  padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
+                  color: soundEnabled ? A.ink : A.faintText,
+                  fontSize: 14, cursor: 'pointer', fontFamily: A.font, minWidth: 38,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                {soundEnabled ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                )}
+              </button>
+              {/* Voice toggle (Phase D) — speaks "Table N, cash/card/UPI payment requested". */}
+              <button className="pay-icon-btn"
+                onClick={() => setVoiceEnabledState(v => !v)}
+                title={voiceEnabled ? 'Mute voice announcements' : 'Enable voice announcements'}
+                style={{
+                  padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
+                  color: voiceEnabled ? A.ink : A.faintText,
+                  fontSize: 14, cursor: 'pointer', fontFamily: A.font, minWidth: 38,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                {voiceEnabled ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-1m14 0v1a7 7 0 0 1-.11 1.23"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+                )}
+              </button>
               <button className="pay-icon-btn" onClick={exportCSV} title="Export current view as CSV"
                 style={{
                   padding: '8px 14px', borderRadius: 10, border: A.border, background: A.shell,
