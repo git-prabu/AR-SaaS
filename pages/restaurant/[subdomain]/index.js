@@ -1074,6 +1074,23 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return () => { cancelled = true; };
   }, [sessionChecked, sessionBlocked, restaurant?.id, tableNumber, currentBillId]);
 
+  // Pre-fetch the running bill the moment the customer adds their first
+  // item to cart. By the time they hit "Place Order", billId is already
+  // cached locally and we skip the network round-trip there — ~500-800ms
+  // saved on the order-placement tap. Falling back to fetch-on-place-order
+  // (in placeOrder() below) covers the case where this pre-fetch is still
+  // in flight or failed.
+  useEffect(() => {
+    if (currentBillId) return;                              // already have one
+    if (cart.length === 0) return;                          // wait until customer commits
+    if (!restaurant?.id || !tableNumber || !urlSid) return; // not a dine-in QR scan
+    let cancelled = false;
+    getOrCreateOpenTableBill(restaurant.id, tableNumber, urlSid)
+      .then(bid => { if (!cancelled && bid) setCurrentBillId(bid); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [cart.length, currentBillId, restaurant?.id, tableNumber, urlSid]);
+
   // ── Phase A — Aggregated bill view model ─────────────────────────────
   // Unified shape compatible with both:
   //   - the running-bill case (multiple orders attached to one bill →
@@ -1178,8 +1195,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       // Bill creation is server-side (validates the QR sid). Failing soft:
       // if the bill can't be created we proceed without billId — order is
       // a standalone single-order bill, same as pre-Phase-A behaviour.
-      let billIdForOrder = null;
-      if (finalOrderType === 'dinein' && tableNumber && urlSid) {
+      //
+      // Speed: prefer the cached `currentBillId` (set by the pre-fetch
+      // effect when cart goes non-empty, or by the previous order). Only
+      // hit the API here if no bill is cached yet — that path is the
+      // fallback when the pre-fetch didn't finish in time.
+      let billIdForOrder = (finalOrderType === 'dinein' && tableNumber && urlSid)
+        ? currentBillId
+        : null;
+      if (!billIdForOrder && finalOrderType === 'dinein' && tableNumber && urlSid) {
         billIdForOrder = await getOrCreateOpenTableBill(restaurant.id, tableNumber, urlSid);
         if (billIdForOrder && billIdForOrder !== currentBillId) {
           setCurrentBillId(billIdForOrder);
