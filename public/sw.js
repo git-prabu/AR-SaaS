@@ -111,7 +111,7 @@ async function cacheFirst(cacheName, request) {
   const cached = await cache.match(request);
   if (cached) return cached;
   const fresh = await fetch(request);
-  if (fresh && fresh.ok) cache.put(request, fresh.clone());
+  if (fresh && fresh.ok) cache.put(request, fresh.clone()).catch(() => { /* 206 partial / opaque-redirect / quota — best-effort */ });
   return fresh;
 }
 
@@ -145,7 +145,7 @@ async function networkFirst(cacheName, request) {
   const cache = await caches.open(cacheName);
   try {
     const fresh = await fetch(request);
-    if (fresh && fresh.ok) cache.put(request, fresh.clone());
+    if (fresh && fresh.ok) cache.put(request, fresh.clone()).catch(() => { /* 206 partial / opaque-redirect / quota — best-effort */ });
     return fresh;
   } catch (e) {
     const cached = await cache.match(request);
@@ -163,7 +163,7 @@ async function staleWhileRevalidate(cacheName, request) {
   const cached = await cache.match(request);
   const refresh = fetch(request)
     .then(fresh => {
-      if (fresh && fresh.ok) cache.put(request, fresh.clone());
+      if (fresh && fresh.ok) cache.put(request, fresh.clone()).catch(() => { /* 206 partial / opaque-redirect / quota — best-effort */ });
       return fresh;
     })
     .catch(() => null);

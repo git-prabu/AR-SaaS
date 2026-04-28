@@ -416,9 +416,14 @@ export default function WaiterDashboard() {
         /* Phone (≤ 640px) — waiter on a 6"-7" handset.
            Shrink padding, stack action-card columns, bigger tap targets,
            tab pills full-width so they can't be missed.
-           The `.waiter-action` card is currently a 3-col grid (info /
+           The .waiter-action card is currently a 3-col grid (info /
            timer / button) — at phone width that compresses too much, so
-           we let it wrap and pin the action button to its own row. */
+           we let it wrap and pin the action button to its own row.
+           NOTE: do NOT wrap class names in backticks here — this whole
+           block lives inside a JSX template literal, and inner backticks
+           close the outer template early. That triggered a runtime
+           ReferenceError ("action is not defined") because the bare
+           identifier "action" then leaked into JS scope. */
         @media (max-width: 640px) {
           .waiter-tab-pill     { flex: 1; min-height: 48px; padding: 12px 16px !important; font-size: 13px !important; }
           .waiter-period-pill  { min-height: 44px; padding: 10px 14px !important; }
