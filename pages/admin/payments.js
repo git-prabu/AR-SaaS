@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updatePaymentStatus, todayKey } from '../../lib/db';
+import { updatePaymentStatus, markOrderPaid, todayKey } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -231,7 +231,12 @@ export default function AdminPayments() {
     const newStatus = `paid_${method}`;
     setUpdating(order.id);
     try {
-      await updatePaymentStatus(rid, order.id, newStatus);
+      // markOrderPaid (vs the bare updatePaymentStatus) also closes the
+      // bill when every sibling order on the same billId is now paid,
+      // and clears tableSessions.currentBillId so the next QR scan
+      // opens a FRESH bill at that table. Required so the customer
+      // doesn't keep seeing the closed bill on subsequent visits.
+      await markOrderPaid(rid, order.id, newStatus);
       // Clear any selected method for this order (row is now paid, will disappear from pending filter)
       setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
       // Show undo banner for 60 seconds

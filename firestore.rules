@@ -177,6 +177,13 @@ service cloud.firestore {
         allow read, write: if isRestaurantAdmin(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
+        // Phase C — Staff (kitchen/waiter): can update ONLY currentBillId
+        // so the bill auto-close hook (markOrderPaidAs) can clear the
+        // pointer when all orders in a bill are paid. sid + isActive +
+        // expiresAt remain admin-only — staff cannot deactivate tables
+        // or rotate the security token.
+        allow update: if isStaff(restaurantId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentBillId']);
       }
 
       // ── Table Bills (running tabs for dine-in) ────────────────
