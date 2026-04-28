@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
-import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(m => m.ARViewerEmbed), { ssr: false });
 
 function getSessionId() {
@@ -592,6 +592,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     try { return sessionStorage.getItem('ar_bill_id') || null; } catch { return null; }
   });
   const [billOrders, setBillOrders] = useState([]);
+  // Place-order idempotency guard. setIsSubmitting + the button's disabled
+  // attribute has a small race window where a fast double-tap can squeeze
+  // both onClick fires through before React re-renders. A render-error
+  // mid-placeOrder also leaves isSubmitting stuck and the cart can re-fire
+  // on retry. This ref blocks at the JS engine level — second call to
+  // placeOrder while one is in flight returns immediately. Cleared in the
+  // finally block so retry-after-error still works.
+  const placeOrderInFlightRef = useRef(false);
   // Cart item notes
   const [noteOpen, setNoteOpen] = useState({});
   // Coupon
@@ -1116,6 +1124,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
   const placeOrder = async () => {
     if (!restaurant?.id || cart.length === 0) return;
+    // Idempotency guard — see placeOrderInFlightRef declaration above.
+    if (placeOrderInFlightRef.current) return;
     // Re-validate session before accepting order
     if (tableNumber) {
       const session = await getTableSession(restaurant.id, tableNumber);
@@ -1124,6 +1134,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         : isSessionValid(session);
       if (!valid) { setSessionBlocked(true); return; }
     }
+    placeOrderInFlightRef.current = true;
     setIsSubmitting(true);
     try {
       // Re-validate prices from live menu data. Modifier deltas stack on
@@ -1232,6 +1243,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       console.error('Order failed:', err);
       toast.error(`Order failed: ${err?.code || err?.message || 'Unknown error'}`);
     } finally {
+      placeOrderInFlightRef.current = false;
       setIsSubmitting(false);
     }
   };
