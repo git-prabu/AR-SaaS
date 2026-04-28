@@ -1006,22 +1006,37 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     setCouponDiscount(newDiscount);
   }, [cartPrice, appliedCoupon]);
 
-  // Live order status subscription — also picks up the server-assigned orderNumber.
-  // When createOrder completes its transaction, orderNumber is stamped on the doc.
-  // This listener fires, and we merge orderNumber into placedOrder so the receipt can show "#5"
-  // instead of the Firestore doc id fragment.
+  // Live order subscription — picks up server-assigned orderNumber AND
+  // live paymentStatus. The paymentStatus sync (Phase B) is what makes
+  // the bill modal flip from "Cash Payment Requested" to "✅ Payment
+  // Confirmed!" the moment the admin marks the order paid in
+  // /admin/payments. Without this the customer would just stay on the
+  // requested screen forever.
   useEffect(() => {
     if (!placedOrder?.orderId || !restaurant?.id) return;
     const unsub = onSnapshot(doc(db, 'restaurants', restaurant.id, 'orders', placedOrder.orderId), snap => {
       if (!snap.exists()) return;
       const data = snap.data();
       setLiveOrderStatus(data.status);
-      if (typeof data.orderNumber === 'number' && placedOrder.orderNumber !== data.orderNumber) {
-        setPlacedOrder(prev => prev ? { ...prev, orderNumber: data.orderNumber } : prev);
-      }
+      // Sync the live order fields into placedOrder so the bill modal
+      // and any status-aware UI react to admin actions immediately.
+      // Only writes the fields that actually changed — avoids needless
+      // re-renders when the snapshot fires for other reasons.
+      setPlacedOrder(prev => {
+        if (!prev) return prev;
+        const updates = {};
+        if (typeof data.orderNumber === 'number' && prev.orderNumber !== data.orderNumber) {
+          updates.orderNumber = data.orderNumber;
+        }
+        if (data.paymentStatus && prev.paymentStatus !== data.paymentStatus) {
+          updates.paymentStatus = data.paymentStatus;
+        }
+        if (Object.keys(updates).length === 0) return prev;
+        return { ...prev, ...updates };
+      });
     });
     return unsub;
-  }, [placedOrder?.orderId, restaurant?.id, placedOrder?.orderNumber]);
+  }, [placedOrder?.orderId, restaurant?.id]);
 
   // ── Phase A — Running bill effects ───────────────────────────────────
   // Persist currentBillId across reloads. sessionStorage clears on tab
@@ -1090,6 +1105,56 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       .catch(() => {});
     return () => { cancelled = true; };
   }, [cart.length, currentBillId, restaurant?.id, tableNumber, urlSid]);
+
+  // ── Phase B — Bill payment state ─────────────────────────────────────
+  // Drives the bill modal's UI swap: payment-method picker (unpaid) →
+  // "Cash Payment Requested" (requested) → "Payment Confirmed!" (paid).
+  // Computed from the LIVE paymentStatus on the orders, so when admin
+  // marks an order paid in /admin/payments, this flips automatically and
+  // the customer's bill modal reflects it without a refresh.
+  //
+  // For multi-order bills, "paid" requires ALL orders paid; any order
+  // still in `*_requested` keeps the bill in `requested`. This matches
+  // the customer mental model: "the bill" pays as one unit.
+  //
+  // The local `paymentDone` flag still feeds in for instant feedback
+  // between "Confirm Cash" tap and the Firestore round-trip — once the
+  // listener catches up with `cash_requested`, the derived state holds
+  // the same value, so there's no flicker.
+  const PAID_STATUSES = useMemo(() => new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']), []);
+  const REQUESTED_STATUSES = useMemo(() => new Set(['cash_requested', 'card_requested', 'online_requested']), []);
+
+  const billPaymentState = useMemo(() => {
+    const sourceOrders = (currentBillId && billOrders.length > 0)
+      ? billOrders
+      : (placedOrder ? [placedOrder] : []);
+    if (sourceOrders.length === 0) return 'unpaid';
+
+    const allPaid = sourceOrders.every(o => PAID_STATUSES.has(o.paymentStatus));
+    if (allPaid) return 'paid';
+
+    const anyRequested = sourceOrders.some(o => REQUESTED_STATUSES.has(o.paymentStatus));
+    if (anyRequested || paymentDone) return 'requested';
+
+    return 'unpaid';
+  }, [currentBillId, billOrders, placedOrder, paymentDone, PAID_STATUSES, REQUESTED_STATUSES]);
+
+  // Derive method from the most-progressed paymentStatus across orders.
+  // Falls back to the local paymentMethod state for the brief window
+  // between "Confirm Cash" tap and listener catch-up.
+  const billPaymentMethod = useMemo(() => {
+    const sourceOrders = (currentBillId && billOrders.length > 0)
+      ? billOrders
+      : (placedOrder ? [placedOrder] : []);
+    for (const o of sourceOrders) {
+      const ps = o.paymentStatus;
+      if (ps === 'paid_cash' || ps === 'cash_requested') return 'cash';
+      if (ps === 'paid_card' || ps === 'card_requested') return 'card';
+      if (ps === 'paid_online' || ps === 'online_requested') return 'upi';
+      if (ps === 'paid') return 'cash'; // legacy bucket
+    }
+    return paymentMethod;
+  }, [currentBillId, billOrders, placedOrder, paymentMethod]);
 
   // ── Phase A — Aggregated bill view model ─────────────────────────────
   // Unified shape compatible with both:
@@ -3894,19 +3959,38 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   );
                 })()}
 
-                {/* Payment section */}
-                {paymentDone ? (
+                {/* Payment section — three states (Phase B):
+                    - paid:      admin has confirmed payment (or webhook fired in a later phase)
+                    - requested: customer chose method, waiting on staff to collect
+                    - unpaid:    no method chosen yet, show the picker */}
+                {billPaymentState === 'paid' ? (
+                  <div style={{ textAlign: 'center', padding: '24px 18px', borderRadius: 16, background: darkMode ? 'rgba(45,139,78,0.16)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.32)' }}>
+                    <div style={{ fontSize: 56, marginBottom: 12 }}>🎉</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 19, color: '#2D8B4E', marginBottom: 8, letterSpacing: '-0.2px' }}>
+                      Payment Confirmed!
+                    </div>
+                    <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.6)', lineHeight: 1.6 }}>
+                      {billPaymentMethod === 'cash'
+                        ? `Cash payment of ₹${bill.total} received. Thank you!`
+                        : billPaymentMethod === 'card'
+                        ? `Card payment of ₹${bill.total} received. Thank you!`
+                        : billPaymentMethod === 'upi'
+                        ? `UPI payment of ₹${bill.total} received. Thank you!`
+                        : `Payment of ₹${bill.total} received. Thank you!`}
+                    </div>
+                  </div>
+                ) : billPaymentState === 'requested' ? (
                   <div style={{ textAlign: 'center', padding: '22px 16px', borderRadius: 16, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.06)', border: '1.5px solid rgba(45,139,78,0.25)' }}>
                     <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: '#2D8B4E', marginBottom: 6 }}>
-                      {paymentMethod === 'cash' ? 'Cash Payment Requested' : paymentMethod === 'card' ? 'Card Payment Requested' : paymentMethod === 'upi' ? 'UPI Payment Done' : 'Payment Requested'}
+                      {billPaymentMethod === 'cash' ? 'Cash Payment Requested' : billPaymentMethod === 'card' ? 'Card Payment Requested' : billPaymentMethod === 'upi' ? 'UPI Payment Done' : 'Payment Requested'}
                     </div>
                     <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', lineHeight: 1.6 }}>
-                      {paymentMethod === 'cash'
+                      {billPaymentMethod === 'cash'
                         ? 'Your waiter will come to collect the payment at your table.'
-                        : paymentMethod === 'card'
+                        : billPaymentMethod === 'card'
                         ? 'Your waiter will bring the card machine to your table.'
-                        : paymentMethod === 'upi'
+                        : billPaymentMethod === 'upi'
                         ? 'Please show the payment confirmation to your waiter.'
                         : 'Your waiter has been notified.'}
                     </div>
