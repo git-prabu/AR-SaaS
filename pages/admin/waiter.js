@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs, todayKey } from '../../lib/db';
+import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs, markOrderPaid, markOrderPaidAs, todayKey } from '../../lib/db';
 import { db, staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -110,6 +110,11 @@ export default function WaiterDashboard() {
   const [historySearch, setHistorySearch] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [tick, setTick] = useState(0);
+  // Phase C.2 — cash payment confirmation modal
+  // When the waiter taps "Mark Paid" on a cash_requested order, we ask
+  // them to confirm cash received + auto-compute change (printed once
+  // they tap Confirm). Card / UPI mark-paid is one-tap (no input needed).
+  const [cashModal, setCashModal] = useState(null);  // { item, cashReceived: '' } | null
 
   // Refs
   const audioRef = useRef(null);
@@ -180,10 +185,18 @@ export default function WaiterDashboard() {
   }, [rid, staffSession]);
 
   // ═══ Unified action queue ═══
-  // Merges pending waiter calls + ready-status orders into a single list.
-  // Each item has: { id, type: 'call'|'serve', table, subtitle, seconds, raw }
+  // Merges pending waiter calls + ready-status orders + payment-requested
+  // orders into a single list.
+  // Each item has: { id, type: 'call'|'serve'|'payment', table, subtitle, seconds, raw }
   // seconds is the timestamp the item first appeared (createdAt for calls;
-  // updatedAt-or-createdAt for orders — so a just-marked-ready order sorts by when it was marked ready).
+  // updatedAt-or-createdAt for orders — so a just-marked-ready order sorts
+  // by when it was marked ready).
+  //
+  // Phase C.1 — payment requests:
+  // When the customer taps "Confirm Payment" on the bill modal we set
+  // paymentStatus = '<method>_requested' (cash/card/online). The waiter
+  // needs to physically collect cash / approve UPI before marking the
+  // order paid. Those orders show up here as type:'payment' items.
   const actionQueue = useMemo(() => {
     const calls = allCalls
       .filter(c => c.status === 'pending')
@@ -212,12 +225,35 @@ export default function WaiterDashboard() {
           raw: o,
         };
       });
-    // Sort oldest first — that's the action priority for both types.
-    return [...calls, ...serves].sort((a, b) => (a.seconds || 0) - (b.seconds || 0));
+    const payments = allOrders
+      .filter(o => /_requested$/.test(o.paymentStatus || ''))
+      .map(o => {
+        const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
+        const method = (o.paymentStatus || '').replace('_requested', '');  // cash | card | online
+        const methodLabel = method === 'cash' ? 'Cash' : method === 'card' ? 'Card' : 'UPI';
+        const totalRupees = '₹' + Math.round(Number(o.total) || 0).toLocaleString('en-IN');
+        return {
+          id: 'pay:' + o.id,
+          rawId: o.id,
+          type: 'payment',
+          method,                  // used by handleAction to compose paid_<method>
+          methodLabel,
+          isTakeaway,
+          table: isTakeaway ? (o.customerName || 'Pickup') : (o.tableNumber || '—'),
+          subtitle: `${orderLabel(o)} · ${totalRupees} · ${methodLabel}`,
+          // Sort by when the customer requested payment (paymentUpdatedAt) so
+          // the queue reflects the order in which staff need to collect.
+          seconds: o.paymentUpdatedAt?.seconds || o.updatedAt?.seconds || o.createdAt?.seconds || 0,
+          raw: o,
+        };
+      });
+    // Sort oldest first — that's the action priority across all three types.
+    return [...calls, ...serves, ...payments].sort((a, b) => (a.seconds || 0) - (b.seconds || 0));
   }, [allCalls, allOrders]);
 
   const callsCount = actionQueue.filter(i => i.type === 'call').length;
   const servesCount = actionQueue.filter(i => i.type === 'serve').length;
+  const paymentsCount = actionQueue.filter(i => i.type === 'payment').length;
 
   // Oldest action age — drives the stats strip. `tick` dep makes it recompute every second.
   const oldestAge = useMemo(() => {
@@ -283,7 +319,16 @@ export default function WaiterDashboard() {
   // ── Actions ──
   // Staff writes route through staffDb (Firestore rules gate on claims);
   // admin writes use the existing helpers (which use the admin db).
+  // Three action types now: 'call' → resolve, 'serve' → mark served,
+  // 'payment' → mark paid (cash routes via the cash modal first).
   const handleAction = async (item) => {
+    // Cash payments need the modal so we capture cash received + change given.
+    // Open the modal and let confirmCashPayment finish the write.
+    if (item.type === 'payment' && item.method === 'cash') {
+      const totalRupees = Math.round(Number(item.raw?.total) || 0);
+      setCashModal({ item, cashReceived: String(totalRupees) });
+      return;
+    }
     setResolvingId(item.id);
     try {
       if (item.type === 'call') {
@@ -292,16 +337,57 @@ export default function WaiterDashboard() {
         } else {
           await resolveWaiterCall(rid, item.rawId);
         }
-      } else {
+      } else if (item.type === 'serve') {
         if (staffSession) {
           await updateOrderStatusAs(staffDb, rid, item.rawId, 'served');
         } else {
           await updateOrderStatus(rid, item.rawId, 'served');
         }
+      } else if (item.type === 'payment') {
+        // card or online — direct mark-paid, no extras needed.
+        const newStatus = `paid_${item.method}`;
+        if (staffSession) {
+          await markOrderPaidAs(staffDb, rid, item.rawId, newStatus);
+        } else {
+          await markOrderPaid(rid, item.rawId, newStatus);
+        }
       }
     } catch (e) {
       console.error('Action failed:', e);
-      toast.error(item.type === 'call' ? 'Could not resolve call. Retry in a moment.' : 'Could not mark order as served. Retry in a moment.');
+      const msg = item.type === 'call'    ? 'Could not resolve call. Retry in a moment.'
+                : item.type === 'serve'   ? 'Could not mark order as served. Retry in a moment.'
+                                          : 'Could not mark payment. Retry in a moment.';
+      toast.error(msg);
+    }
+    setResolvingId(null);
+  };
+
+  // Phase C.2 — confirm cash payment (called from the modal Confirm button).
+  // Auto-computes changeGiven from cashReceived - total. Both are persisted
+  // on the order doc so the cash drawer audit can reconcile later.
+  const confirmCashPayment = async () => {
+    if (!cashModal) return;
+    const { item, cashReceived } = cashModal;
+    const total = Math.round(Number(item.raw?.total) || 0);
+    const received = Math.round(Number(cashReceived) || 0);
+    if (received < total) {
+      toast.error(`Cash received (₹${received}) is less than total (₹${total}).`);
+      return;
+    }
+    const change = received - total;
+    setResolvingId(item.id);
+    try {
+      const extras = { cashReceived: received, changeGiven: change };
+      if (staffSession) {
+        await markOrderPaidAs(staffDb, rid, item.rawId, 'paid_cash', extras);
+      } else {
+        await markOrderPaid(rid, item.rawId, 'paid_cash', extras);
+      }
+      toast.success(change > 0 ? `Paid · Change ₹${change}` : 'Paid · Exact cash');
+      setCashModal(null);
+    } catch (e) {
+      console.error('Cash payment failed:', e);
+      toast.error('Could not mark payment. Retry in a moment.');
     }
     setResolvingId(null);
   };
@@ -507,7 +593,7 @@ export default function WaiterDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 80 }}>
                 <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 2 }}>
-                  Actions {(callsCount > 0 || servesCount > 0) && <span style={{ color: A.forestTextMuted, fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>· {callsCount}c · {servesCount}s</span>}
+                  Actions {(callsCount > 0 || servesCount > 0 || paymentsCount > 0) && <span style={{ color: A.forestTextMuted, fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>· {callsCount}c · {servesCount}s · {paymentsCount}p</span>}
                 </div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 22, color: actionQueue.length > 0 ? A.warning : A.forestText, lineHeight: 1, letterSpacing: '-0.5px' }}>
                   {actionQueue.length}
@@ -598,7 +684,7 @@ export default function WaiterDashboard() {
                 No actions pending
               </div>
               <div style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, maxWidth: 360, margin: '0 auto' }}>
-                New calls and ready-to-serve orders will appear here in real time.
+                New calls, ready-to-serve orders, and payment requests will appear here in real time.
               </div>
             </div>
           ) : (
@@ -607,6 +693,8 @@ export default function WaiterDashboard() {
                 const elapsed = Math.max(0, Math.floor(Date.now() / 1000) - (item.seconds || 0));
                 const isFlashing = flashingIds.has(item.id);
                 const isCall = item.type === 'call';
+                const isServe = item.type === 'serve';
+                const isPayment = item.type === 'payment';
 
                 // Age urgency band
                 let urgency = 'fresh';
@@ -619,14 +707,51 @@ export default function WaiterDashboard() {
                                  : urgency === 'warn' ? A.warning
                                  : A.ink;
 
-                // Type-specific accent (card left-edge stripe + type pill color)
-                const accentColor = isCall ? A.warning : A.success;
-                const typeBg = isCall ? 'rgba(196,168,109,0.14)' : 'rgba(63,158,90,0.10)';
-                const typeColor = isCall ? A.warningDim : A.success;
-                const typeLabel = isCall ? 'CALL' : 'READY';
-                const btnBg = isCall ? A.warning : A.success;
-                const btnColor = isCall ? A.ink : A.shell;
-                const btnLabel = isCall ? 'Resolve' : 'Mark Served';
+                // Type-specific accent (card left-edge stripe + type pill color + button)
+                // Payments are colored by their method to match /admin/payments:
+                //   cash   → gold (warning)
+                //   card   → slate blue
+                //   online → purple
+                let accentColor, typeBg, typeColor, typeLabel, btnBg, btnColor, btnLabel;
+                if (isCall) {
+                  accentColor = A.warning;
+                  typeBg = 'rgba(196,168,109,0.14)';
+                  typeColor = A.warningDim;
+                  typeLabel = 'CALL';
+                  btnBg = A.warning;
+                  btnColor = A.ink;
+                  btnLabel = 'Resolve';
+                } else if (isServe) {
+                  accentColor = A.success;
+                  typeBg = 'rgba(63,158,90,0.10)';
+                  typeColor = A.success;
+                  typeLabel = 'READY';
+                  btnBg = A.success;
+                  btnColor = A.shell;
+                  btnLabel = 'Mark Served';
+                } else /* isPayment */ {
+                  if (item.method === 'cash') {
+                    accentColor = A.warning;
+                    typeBg = 'rgba(196,168,109,0.14)';
+                    typeColor = A.warningDim;
+                    btnBg = A.warning;
+                    btnColor = A.ink;
+                  } else if (item.method === 'card') {
+                    accentColor = '#4A7488';
+                    typeBg = 'rgba(74,116,136,0.12)';
+                    typeColor = '#4A7488';
+                    btnBg = '#4A7488';
+                    btnColor = A.shell;
+                  } else /* online */ {
+                    accentColor = '#6B4A88';
+                    typeBg = 'rgba(107,74,136,0.12)';
+                    typeColor = '#6B4A88';
+                    btnBg = '#6B4A88';
+                    btnColor = A.shell;
+                  }
+                  typeLabel = `PAY · ${(item.methodLabel || '').toUpperCase()}`;
+                  btnLabel = 'Mark Paid';
+                }
 
                 return (
                   <div key={item.id}
@@ -674,8 +799,10 @@ export default function WaiterDashboard() {
                         <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 500 }}>
                           {item.subtitle}
                         </div>
-                        {/* For serves, also show the item list underneath — waiter needs to grab the right plates */}
-                        {!isCall && item.raw?.items && item.raw.items.length > 0 && (
+                        {/* For serves, also show the item list underneath — waiter needs to grab the right plates.
+                            Payments don't need the item breakdown (the customer already paid against
+                            the running bill — total + method are enough for staff). */}
+                        {isServe && item.raw?.items && item.raw.items.length > 0 && (
                           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                             {item.raw.items.slice(0, 4).map((it, i) => (
                               <span key={i} style={{
@@ -706,7 +833,7 @@ export default function WaiterDashboard() {
                           letterSpacing: '-0.2px', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                         }}>{formatElapsed(elapsed)}</div>
                         <div style={{ fontSize: 10, color: A.faintText, fontWeight: 500, marginTop: 3 }}>
-                          {isCall ? 'waiting' : 'ready'}
+                          {isCall ? 'waiting' : isServe ? 'ready' : 'requested'}
                         </div>
                       </div>
 
@@ -912,6 +1039,137 @@ export default function WaiterDashboard() {
           </div>
         )}
       </div>
+
+      {/* ═══ Phase C.2 — Cash payment confirmation modal ═══
+           Captures cash received from the customer and auto-computes change.
+           Total is pre-filled (most common case = exact change). Both
+           values are persisted to the order doc so end-of-shift cash-drawer
+           reconciliation has a paper trail.
+
+           UX notes:
+           - Confirm disabled until cashReceived >= total (we toast on
+             attempt, but the visual cue keeps it from feeling broken)
+           - Tapping the backdrop OR Cancel closes without writing
+           - Order # + table shown so the staff can double-check before
+             they commit (cash mistakes are expensive to undo) */}
+      {cashModal && (() => {
+        const item = cashModal.item;
+        const total = Math.round(Number(item?.raw?.total) || 0);
+        const received = Math.round(Number(cashModal.cashReceived) || 0);
+        const change = Math.max(0, received - total);
+        const ok = received >= total;
+        return (
+          <div
+            onClick={() => setCashModal(null)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 100,
+              background: 'rgba(0,0,0,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 16, fontFamily: A.font,
+              animation: 'fadeUp 0.2s ease both',
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: A.shell, borderRadius: 16, padding: '24px 24px 20px',
+                width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                  padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
+                  background: 'rgba(196,168,109,0.14)', color: A.warningDim,
+                }}>PAY · CASH</span>
+                <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>
+                  {item.isTakeaway ? `Takeaway · ${item.table}` : `Table ${item.table}`}
+                </span>
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px', marginBottom: 18 }}>
+                Cash payment
+              </div>
+
+              {/* Total — read-only reference */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, padding: '10px 14px', background: A.shellDarker, borderRadius: 10 }}>
+                <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>Order total</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>
+                  ₹{total.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              {/* Cash received input */}
+              <label style={{ display: 'block', fontSize: 11, color: A.mutedText, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>
+                Cash received
+              </label>
+              <div style={{ position: 'relative', marginBottom: 12 }}>
+                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: A.mutedText, fontWeight: 600 }}>₹</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={total}
+                  value={cashModal.cashReceived}
+                  onChange={e => setCashModal(m => ({ ...m, cashReceived: e.target.value }))}
+                  autoFocus
+                  style={{
+                    width: '100%', padding: '12px 14px 12px 28px',
+                    borderRadius: 10, border: A.border, background: A.shell,
+                    fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                    color: A.ink, outline: 'none', letterSpacing: '-0.3px',
+                  }}
+                />
+              </div>
+
+              {/* Change — auto-computed */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                marginBottom: 18, padding: '10px 14px',
+                background: change > 0 ? 'rgba(63,158,90,0.08)' : A.shellDarker,
+                borderRadius: 10,
+              }}>
+                <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>Change to give</span>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700,
+                  color: change > 0 ? A.success : A.faintText,
+                  letterSpacing: '-0.3px',
+                }}>
+                  ₹{change.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setCashModal(null)}
+                  disabled={resolvingId === item.id}
+                  style={{
+                    flex: 1, padding: '12px 16px', borderRadius: 10, border: A.border,
+                    background: A.shell, color: A.mutedText,
+                    fontFamily: A.font, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmCashPayment}
+                  disabled={!ok || resolvingId === item.id}
+                  style={{
+                    flex: 2, padding: '12px 16px', borderRadius: 10, border: 'none',
+                    background: ok ? A.warning : 'rgba(196,168,109,0.35)',
+                    color: A.ink, fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                    cursor: ok ? 'pointer' : 'not-allowed', letterSpacing: '0.01em',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  }}
+                >
+                  {resolvingId === item.id
+                    ? <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(0,0,0,0.4)', borderTopColor: A.ink, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    : `Confirm Payment${change > 0 ? ` (₹${change} change)` : ''}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 
