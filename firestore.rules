@@ -179,6 +179,23 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin();
       }
 
+      // ── Table Bills (running tabs for dine-in) ────────────────
+      // One bill per table session — multiple orders at the same table
+      // attach to the same bill via order.billId. Bill creation runs
+      // server-side via /api/tableBill/get-or-create (Admin SDK, bypasses
+      // these rules) so we don't allow public writes here. Customers and
+      // staff just need to READ the bill to see their running total.
+      match /tableBills/{billId} {
+        // Public: read so the customer can see their running bill
+        allow read: if true;
+        // Restaurant admin: full access (close, manage, audit)
+        allow read, write: if isRestaurantAdmin(restaurantId);
+        // Staff (kitchen/waiter): full access for the running-bill UI
+        allow read, write: if isStaff(restaurantId);
+        // Super admin: full access
+        allow read, write: if isSuperAdmin();
+      }
+
       // ── AR Model Requests ─────────────────────────────────────
       match /requests/{requestId} {
         // Restaurant admin: read + create their own requests
