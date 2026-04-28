@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -581,6 +581,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   });
   const [billOpen, setBillOpen] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
+  // ── Phase A — Running bill (dine-in tab) ─────────────────────────────
+  // currentBillId points at the active tab for this table. Set when an
+  // order is placed at a table; restored from sessionStorage on reload
+  // and from `tableSessions/{n}.currentBillId` after a fresh QR scan.
+  // billOrders holds every order attached to that bill — bill modal
+  // renders the aggregate (items + totals) across them.
+  const [currentBillId, setCurrentBillId] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try { return sessionStorage.getItem('ar_bill_id') || null; } catch { return null; }
+  });
+  const [billOrders, setBillOrders] = useState([]);
   // Cart item notes
   const [noteOpen, setNoteOpen] = useState({});
   // Coupon
@@ -1004,6 +1015,94 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return unsub;
   }, [placedOrder?.orderId, restaurant?.id, placedOrder?.orderNumber]);
 
+  // ── Phase A — Running bill effects ───────────────────────────────────
+  // Persist currentBillId across reloads. sessionStorage clears on tab
+  // close — that's fine, the next QR scan re-discovers the bill via the
+  // tableSessions pointer (effect below).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (currentBillId) sessionStorage.setItem('ar_bill_id', currentBillId);
+      else sessionStorage.removeItem('ar_bill_id');
+    } catch {}
+  }, [currentBillId]);
+
+  // Subscribe to every order in the current bill — this is what powers the
+  // running-total bill modal. New orders placed at the same table get
+  // appended in real-time.
+  useEffect(() => {
+    if (!currentBillId || !restaurant?.id) return;
+    const q = query(
+      collection(db, 'restaurants', restaurant.id, 'orders'),
+      where('billId', '==', currentBillId),
+      orderBy('createdAt', 'asc')
+    );
+    return onSnapshot(
+      q,
+      snap => setBillOrders(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => console.warn('[billOrders] listener error:', err.message)
+    );
+  }, [currentBillId, restaurant?.id]);
+
+  // After a valid table-QR scan, see if a bill is already open at this
+  // table (e.g. customer reloaded the page or scanned from a second
+  // device). If yes, adopt it so the bill modal shows the running total
+  // already accumulated. Bails out silently on any error so a Firestore
+  // hiccup never breaks the page.
+  useEffect(() => {
+    if (currentBillId) return;
+    if (!sessionChecked || sessionBlocked) return;
+    if (!restaurant?.id || !tableNumber) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await getTableSession(restaurant.id, tableNumber);
+        if (cancelled || !session?.currentBillId) return;
+        const billDoc = await getTableBill(restaurant.id, session.currentBillId);
+        if (cancelled) return;
+        if (billDoc?.status === 'open') setCurrentBillId(session.currentBillId);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [sessionChecked, sessionBlocked, restaurant?.id, tableNumber, currentBillId]);
+
+  // ── Phase A — Aggregated bill view model ─────────────────────────────
+  // Unified shape compatible with both:
+  //   - the running-bill case (multiple orders attached to one bill →
+  //     items + totals are summed across them)
+  //   - the single-order case (takeaway / pre-Phase-A orders without a
+  //     billId → fall back to the placedOrder shape)
+  // The bill modal renders from this so the same JSX handles both cases.
+  const bill = useMemo(() => {
+    const useBill = currentBillId && billOrders.length > 0;
+    const orders = useBill
+      ? billOrders
+      : (placedOrder ? [{ id: placedOrder.orderId, ...placedOrder }] : []);
+    if (orders.length === 0) return null;
+
+    const items = orders.flatMap(o => o.items || []);
+    const sum = (key) => orders.reduce((s, o) => s + (Number(o[key]) || 0), 0);
+    const first = orders[0];
+    return {
+      isBill:               useBill,
+      orderIds:             orders.map(o => o.id || o.orderId).filter(Boolean),
+      items,
+      subtotal:             sum('subtotal'),
+      serviceCharge:        sum('serviceCharge'),
+      cgst:                 sum('cgst'),
+      sgst:                 sum('sgst'),
+      discount:             sum('discount'),
+      roundOff:             sum('roundOff'),
+      total:                sum('total'),
+      tableNumber:          first.tableNumber || placedOrder?.tableNumber || '',
+      gstPercent:           first.gstPercent || 0,
+      serviceChargePercent: first.serviceChargePercent || 0,
+      couponCode:           orders.find(o => o.couponCode)?.couponCode || null,
+      orderCount:           orders.length,
+      multipleOrders:       orders.length > 1,
+    };
+  }, [currentBillId, billOrders, placedOrder]);
+
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
     const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
@@ -1061,9 +1160,25 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         ? ''
         : (orderTableInput.trim() || tableNumber || 'Not specified');
 
+      // ── Phase A — Attach order to a running bill (dine-in via QR only) ──
+      // For dine-in orders that arrived via a real table QR (tableNumber +
+      // urlSid present), fetch or create the running bill so multiple
+      // orders at the same table aggregate into one customer-visible bill.
+      // Bill creation is server-side (validates the QR sid). Failing soft:
+      // if the bill can't be created we proceed without billId — order is
+      // a standalone single-order bill, same as pre-Phase-A behaviour.
+      let billIdForOrder = null;
+      if (finalOrderType === 'dinein' && tableNumber && urlSid) {
+        billIdForOrder = await getOrCreateOpenTableBill(restaurant.id, tableNumber, urlSid);
+        if (billIdForOrder && billIdForOrder !== currentBillId) {
+          setCurrentBillId(billIdForOrder);
+        }
+      }
+
       const orderId = await createOrder(restaurant.id, {
         tableNumber: finalTable,
         orderType: finalOrderType,
+        billId: billIdForOrder, // null for takeaway / non-QR — preserves single-order behaviour
         customerName: finalOrderType === 'takeaway' ? (customerName.trim() || '') : '',
         customerPhone: phone || null,
         items: freshCart.map(c => ({
@@ -3675,7 +3790,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         )}
 
         {/* ─── MY BILL SHEET ─── */}
-        {billOpen && placedOrder && (
+        {billOpen && bill && (
           <SheetOverlay onClose={() => setBillOpen(false)} darkMode={darkMode}>
             <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
               {/* Handle */}
@@ -3687,8 +3802,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Your Bill</div>
-                    {placedOrder.tableNumber && placedOrder.tableNumber !== 'Not specified' && (
-                      <div style={{ fontSize: 12, color: 'rgba(45,139,78,0.8)', fontWeight: 600, marginTop: 3 }}>Table {placedOrder.tableNumber}</div>
+                    {bill.tableNumber && bill.tableNumber !== 'Not specified' && (
+                      <div style={{ fontSize: 12, color: 'rgba(45,139,78,0.8)', fontWeight: 600, marginTop: 3 }}>
+                        Table {bill.tableNumber}
+                        {bill.multipleOrders && (
+                          <span style={{ marginLeft: 8, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', fontWeight: 500 }}>
+                            · {bill.orderCount} orders
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                   <button onClick={() => setBillOpen(false)} style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', border: 'none', borderRadius: '50%', width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: darkMode ? '#FFF5E8' : '#1E1B18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
@@ -3696,7 +3818,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
                 {/* Items */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-                  {placedOrder.items.map((item, i) => (
+                  {bill.items.map((item, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.03)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.07)'}` }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{item.name}</div>
@@ -3709,15 +3831,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
                 {/* Bill breakdown */}
                 {(() => {
-                  const sub = placedOrder.subtotal ?? placedOrder.total;
-                  const gstPct = placedOrder.gstPercent || 0;
-                  const scPct = placedOrder.serviceChargePercent || 0;
-                  const cgst = placedOrder.cgst || 0;
-                  const sgst = placedOrder.sgst || 0;
-                  const sc = placedOrder.serviceCharge || 0;
-                  const disc = placedOrder.discount || 0;
-                  const ro = placedOrder.roundOff || 0;
-                  const grand = placedOrder.total;
+                  const sub = bill.subtotal || bill.total;
+                  const gstPct = bill.gstPercent;
+                  const scPct = bill.serviceChargePercent;
+                  const cgst = bill.cgst;
+                  const sgst = bill.sgst;
+                  const sc = bill.serviceCharge;
+                  const disc = bill.discount;
+                  const ro = bill.roundOff;
+                  const grand = bill.total;
                   const lineStyle = { display: 'flex', justifyContent: 'space-between', fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.6)' : 'rgba(42,31,16,0.6)', marginBottom: 6 };
                   return (
                     <div style={{ padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(42,31,16,0.02)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.07)'}`, marginBottom: 18 }}>
@@ -3725,7 +3847,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       {sc > 0 && <div style={lineStyle}><span>Service Charge ({scPct}%)</span><span>₹{sc.toFixed(2)}</span></div>}
                       {cgst > 0 && <div style={lineStyle}><span>C.G.S.T {(gstPct / 2).toFixed(1)}%</span><span>₹{cgst.toFixed(2)}</span></div>}
                       {sgst > 0 && <div style={lineStyle}><span>S.G.S.T {(gstPct / 2).toFixed(1)}%</span><span>₹{sgst.toFixed(2)}</span></div>}
-                      {disc > 0 && <div style={{ ...lineStyle, color: '#2D8B4E', fontWeight: 600 }}><span>Discount ({placedOrder.couponCode})</span><span>−₹{disc.toFixed(0)}</span></div>}
+                      {disc > 0 && <div style={{ ...lineStyle, color: '#2D8B4E', fontWeight: 600 }}><span>Discount{bill.couponCode ? ` (${bill.couponCode})` : ''}</span><span>−₹{disc.toFixed(0)}</span></div>}
                       {ro !== 0 && <div style={lineStyle}><span>Round off</span><span>{ro > 0 ? '+' : ''}₹{ro.toFixed(2)}</span></div>}
                       <div style={{ height: 1, background: darkMode ? 'rgba(255,255,255,0.07)' : 'rgba(42,31,16,0.08)', margin: '10px 0' }} />
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3789,7 +3911,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
                     {/* UPI: Step-by-step flow */}
                     {paymentMethod === 'upi' && restaurant?.upiId && (() => {
-                      const upiUrl = `upi://pay?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${placedOrder.total}&cu=INR&tn=${encodeURIComponent('Order ' + (placedOrder.orderId?.slice(-6).toUpperCase() || ''))}`;
+                      // Phase A — UPI URL uses the BILL total (sum of all orders
+                      // in the running tab), not the latest order's total. The
+                      // tn= reference shows the bill / order id so the receipt
+                      // is traceable.
+                      const tnRef = bill.isBill && currentBillId
+                        ? 'Bill ' + currentBillId.slice(-6).toUpperCase()
+                        : 'Order ' + (placedOrder?.orderId?.slice(-6).toUpperCase() || '');
+                      const upiUrl = `upi://pay?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${bill.total}&cu=INR&tn=${encodeURIComponent(tnRef)}`;
                       return (
                         <div style={{ marginBottom: 14 }}>
                           {!upiOpened ? (
@@ -3802,7 +3931,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                 fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                                 boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
                               }}>
-                              Open UPI App — Pay ₹{placedOrder.total}
+                              Open UPI App — Pay ₹{bill.total}
                             </button>
                           ) : (
                             /* Step 2: After UPI app was opened */
@@ -3810,16 +3939,24 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                               <div style={{ textAlign: 'center', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(138,112,176,0.12)' : 'rgba(138,112,176,0.06)', border: '1.5px solid rgba(138,112,176,0.2)' }}>
                                 <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 4 }}>Pay to UPI ID</div>
                                 <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: darkMode ? '#FFF5E8' : '#1E1B18', letterSpacing: '0.03em' }}>{restaurant.upiId}</div>
-                                <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', marginTop: 6 }}>Amount: ₹{placedOrder.total}</div>
+                                <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', marginTop: 6 }}>Amount: ₹{bill.total}</div>
                               </div>
                               <button
                                 onClick={async () => {
-                                  if (!placedOrder?.orderId || !restaurant?.id) return;
+                                  if (!restaurant?.id || !bill?.orderIds?.length) return;
                                   try {
-                                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'online_requested');
+                                    // Phase A — mark every order in the running
+                                    // bill as awaiting UPI confirmation (not just
+                                    // the latest one). Otherwise a multi-order tab
+                                    // would have only the most recent order
+                                    // showing as paid even though the customer
+                                    // paid the FULL bill total in one UPI tap.
+                                    await Promise.all(
+                                      bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, 'online_requested'))
+                                    );
                                     setPaymentDone(true);
                                     setUpiOpened(false);
-                                    try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderId: placedOrder.orderId })); } catch {}
+                                    try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
                                   } catch (e) { console.error(e); }
                                 }}
                                 style={{
@@ -3850,12 +3987,20 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     {paymentMethod !== 'upi' && (
                       <button
                         onClick={async () => {
-                          if (!paymentMethod || !placedOrder?.orderId || !restaurant?.id) return;
+                          if (!paymentMethod || !restaurant?.id || !bill?.orderIds?.length) return;
                           try {
+                            // Phase A — mark every order in the running bill
+                            // (not just the latest) as awaiting cash/card
+                            // collection. Customer is paying the FULL bill
+                            // total in one go, so all linked orders flip in
+                            // sync.
                             const statusMap = { cash: 'cash_requested', card: 'card_requested' };
-                            await updatePaymentStatus(restaurant.id, placedOrder.orderId, statusMap[paymentMethod] || 'cash_requested');
+                            const newStatus = statusMap[paymentMethod] || 'cash_requested';
+                            await Promise.all(
+                              bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, newStatus))
+                            );
                             setPaymentDone(true);
-                            try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderId: placedOrder.orderId })); } catch {}
+                            try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: bill.orderIds })); } catch {}
                           } catch (e) { console.error(e); }
                         }}
                         disabled={!paymentMethod}
@@ -3887,27 +4032,30 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     const rFssai = restaurant?.fssaiNo || '';
                     const rHsn = restaurant?.hsnCode || '';                                                  // NEW: HSN/SAC code (default: 9963 for restaurants)
                     const rFooter = (restaurant?.billFooter && restaurant.billFooter.trim()) || 'Thank you! Visit again';  // NEW: custom footer line
-                    const tbl = placedOrder.tableNumber && placedOrder.tableNumber !== 'Not specified' ? placedOrder.tableNumber : '';
+                    // Phase A — Print uses the aggregated bill (sum across
+                    // all orders in the running tab) so multi-order tabs
+                    // print one combined receipt instead of just the latest.
+                    const tbl = bill.tableNumber && bill.tableNumber !== 'Not specified' ? bill.tableNumber : '';
                     const now = new Date();
                     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
                     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-                    const itemsHtml = placedOrder.items.map(it =>
+                    const itemsHtml = bill.items.map(it =>
                       `<tr><td style="text-align:left">${it.name} x${it.qty}</td><td style="text-align:right">Rs.${(it.price * it.qty).toFixed(0)}</td></tr>`
                     ).join('');
                     // Bill breakdown
-                    const sub = placedOrder.subtotal ?? placedOrder.total;
-                    const gstPct = placedOrder.gstPercent || 0;
-                    const scPct = placedOrder.serviceChargePercent || 0;
-                    const sc = placedOrder.serviceCharge || 0;
-                    const cgst = placedOrder.cgst || 0;
-                    const sgst = placedOrder.sgst || 0;
-                    const disc = placedOrder.discount || 0;
-                    const ro = placedOrder.roundOff || 0;
-                    const grand = placedOrder.total;
+                    const sub = bill.subtotal || bill.total;
+                    const gstPct = bill.gstPercent;
+                    const scPct = bill.serviceChargePercent;
+                    const sc = bill.serviceCharge;
+                    const cgst = bill.cgst;
+                    const sgst = bill.sgst;
+                    const disc = bill.discount;
+                    const ro = bill.roundOff;
+                    const grand = bill.total;
                     const scRow = sc > 0 ? `<tr><td>Service Charge (${scPct}%)</td><td style="text-align:right">Rs.${sc.toFixed(2)}</td></tr>` : '';
                     const cgstRow = cgst > 0 ? `<tr><td>C.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${cgst.toFixed(2)}</td></tr>` : '';
                     const sgstRow = sgst > 0 ? `<tr><td>S.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${sgst.toFixed(2)}</td></tr>` : '';
-                    const discRow = disc > 0 ? `<tr><td>Discount${placedOrder.couponCode ? ' ('+placedOrder.couponCode+')' : ''}</td><td style="text-align:right">-Rs.${disc.toFixed(0)}</td></tr>` : '';
+                    const discRow = disc > 0 ? `<tr><td>Discount${bill.couponCode ? ' ('+bill.couponCode+')' : ''}</td><td style="text-align:right">-Rs.${disc.toFixed(0)}</td></tr>` : '';
                     const roRow = ro !== 0 ? `<tr><td>Round off</td><td style="text-align:right">${ro > 0 ? '+' : ''}Rs.${ro.toFixed(2)}</td></tr>` : '';
                     const pmLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'upi' ? 'UPI' : '';
                     w.document.write(`<!DOCTYPE html><html><head><title>Bill</title><style>
@@ -3929,11 +4077,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       ${tbl ? `<div class="center" style="font-size:11px;margin-bottom:2px">Table: ${tbl}</div>` : ''}
                       <div class="center" style="font-size:10px">${dateStr} ${timeStr}</div>
                       ${(() => {
-                        // Prefer the sequential orderNumber (e.g. "Order #5"); fall back to id slice for legacy orders.
-                        if (typeof placedOrder.orderNumber === 'number' && placedOrder.orderNumber > 0) {
+                        // For a multi-order running bill: print the bill id +
+                        // order count. For single-order: keep the existing
+                        // "Order #5" / fallback-to-id-slice format so prints
+                        // for legacy / takeaway orders look unchanged.
+                        if (bill.isBill && currentBillId) {
+                          return `<div class="center" style="font-size:10px;margin-top:2px">Bill #${currentBillId.slice(-6).toUpperCase()} · ${bill.orderCount} order${bill.orderCount === 1 ? '' : 's'}</div>`;
+                        }
+                        if (typeof placedOrder?.orderNumber === 'number' && placedOrder.orderNumber > 0) {
                           return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderNumber}</div>`;
                         }
-                        if (placedOrder.orderId) {
+                        if (placedOrder?.orderId) {
                           return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>`;
                         }
                         return '';
