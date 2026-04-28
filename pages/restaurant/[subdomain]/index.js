@@ -1038,6 +1038,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return unsub;
   }, [placedOrder?.orderId, restaurant?.id]);
 
+  // ── Phase B.2 — Auto-close success step ──────────────────────────────
+  // After an order is placed and the cart drawer is showing the success
+  // step, close it automatically after a few seconds so the customer
+  // returns to the menu naturally. They can re-open it anytime via the
+  // Order Status FAB at the bottom right (which sets orderStep back to
+  // 'success'). Reset orderStep to 'cart' on a small delay so the drawer
+  // fade-out doesn't flash through the cart step.
+  useEffect(() => {
+    if (orderStep !== 'success' || !cartOpen) return;
+    const closeTimer = setTimeout(() => {
+      setCartOpen(false);
+      setTimeout(() => setOrderStep('cart'), 320);
+    }, 8000);
+    return () => clearTimeout(closeTimer);
+  }, [orderStep, cartOpen]);
+
   // ── Phase A — Running bill effects ───────────────────────────────────
   // Persist currentBillId across reloads. sessionStorage clears on tab
   // close — that's fine, the next QR scan re-discovers the bill via the
@@ -1208,6 +1224,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     if (!restaurant?.id || cart.length === 0) return;
     // Idempotency guard — see placeOrderInFlightRef declaration above.
     if (placeOrderInFlightRef.current) return;
+    // Phone is required (Phase B). Validate BEFORE we touch any in-flight
+    // state — a failed validation isn't a "failed attempt", it just bounces
+    // the customer back to the form.
+    const phoneRaw = (orderPhone || '').replace(/[^0-9+]/g, '');
+    if (!phoneRaw || phoneRaw.replace(/\D/g, '').length < 10) {
+      toast.error('Please enter your phone number to place the order.');
+      return;
+    }
     // Re-validate session before accepting order
     if (tableNumber) {
       const session = await getTableSession(restaurant.id, tableNumber);
@@ -1535,6 +1559,20 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           to   { transform: translateY(0) scale(1);   opacity: 1; }
         }
         @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+        /* Phase B.3 — live status FAB indicators. The dot pulses gently
+           to signal "we're tracking your order live"; the whole FAB gets
+           a stronger pulsing ring when status flips to 'ready' so the
+           customer can't miss it from across the table. */
+        @keyframes fab-pulse-dot {
+          0%, 100% { transform: scale(1);   opacity: 1; }
+          50%      { transform: scale(1.5); opacity: 0.55; }
+        }
+        @keyframes fab-ready-glow {
+          0%, 100% { box-shadow: 0 6px 22px rgba(45,139,78,0.35); }
+          50%      { box-shadow: 0 6px 30px rgba(45,139,78,0.75), 0 0 0 4px rgba(45,139,78,0.18); }
+        }
+        .status-fab-ready { animation: fab-ready-glow 1.5s ease-in-out infinite; }
 
         /* ─────────── HEADER ─────────── */
         .hdr {
@@ -3163,8 +3201,25 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             {(placedOrder || cartTotal > 0) && (
               <div className="fab-row">
                 {placedOrder && !cartOpen && (
-                  <button className="bill-fab" onClick={() => { setCartOpen(true); setOrderStep('success'); }}
+                  <button
+                    className={`bill-fab status-fab${liveOrderStatus === 'ready' ? ' status-fab-ready' : ''}`}
+                    onClick={() => { setCartOpen(true); setOrderStep('success'); }}
                     style={{ background: liveOrderStatus === 'ready' ? '#2D8B4E' : undefined, borderColor: liveOrderStatus === 'ready' ? '#2D8B4E' : undefined }}>
+                    {/* Phase B.3 — live status dot. Color matches the current
+                        kitchen state so the customer can glance and know.
+                        Hidden once the order is served (no live state to track). */}
+                    {liveOrderStatus && liveOrderStatus !== 'served' && (
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                        background: liveOrderStatus === 'ready'     ? '#FFFFFF'
+                                   : liveOrderStatus === 'preparing' ? '#4A80C0'
+                                   :                                   '#F79B3D',
+                        animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
+                        boxShadow: liveOrderStatus === 'ready'
+                          ? '0 0 0 0 rgba(255,255,255,0.5)'
+                          : '0 0 0 0 rgba(247,155,61,0.5)',
+                      }} />
+                    )}
                     <span style={{ fontSize: 16 }}>
                       {liveOrderStatus === 'ready' ? '🎉' : liveOrderStatus === 'preparing' ? '🍳' : liveOrderStatus === 'served' ? '✅' : '⏳'}
                     </span>
@@ -3630,7 +3685,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   </>
                 )}
                 {/* Phone number */}
-                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>MOBILE NUMBER <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>MOBILE NUMBER <span style={{ color: '#E05A3A', fontWeight: 800 }}>*</span></label>
                 <input
                   type="tel" inputMode="tel" placeholder="e.g. 9876543210"
                   value={orderPhone} onChange={e => setOrderPhone(e.target.value.replace(/[^0-9+\- ]/g, '').slice(0, 15))}
@@ -3696,60 +3751,38 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <div style={{ marginTop: 4, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)', fontSize: 13, color: darkMode ? '#6EC98A' : '#1A6B38', fontWeight: 600 }}>
                     🧾 Your bill is ready — tap the green "My Bill" button below
                   </div>
-                  {/* ── Customer Feedback ── */}
-                  {!feedbackSent ? (
-                    <div style={{ width: '100%', padding: '16px 18px', borderRadius: 16, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.03)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}`, textAlign: 'center' }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.7)', marginBottom: 10 }}>How was your experience?</div>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
-                        {[1,2,3,4,5].map(s => (
-                          <button key={s} onClick={() => setFeedbackRating(s)}
-                            style={{ width: 40, height: 40, borderRadius: 10, border: 'none', fontSize: 20, cursor: 'pointer', background: s <= feedbackRating ? 'rgba(247,155,61,0.2)' : darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(42,31,16,0.05)', transition: 'all 0.15s', transform: s <= feedbackRating ? 'scale(1.15)' : 'scale(1)' }}>
-                            {s <= feedbackRating ? '⭐' : '☆'}
-                          </button>
-                        ))}
-                      </div>
-                      {feedbackRating > 0 && (
-                        <>
-                          <textarea
-                            value={feedbackComment}
-                            onChange={e => setFeedbackComment(e.target.value)}
-                            placeholder={feedbackRating >= 4 ? 'What did you love? (optional)' : 'How can we improve? (optional)'}
-                            rows={2}
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: darkMode ? 'rgba(255,255,255,0.06)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 13, fontFamily: 'Inter,sans-serif', resize: 'none', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
-                          />
-                          <button
-                            onClick={async () => {
-                              if (!restaurant?.id || feedbackSending) return;
-                              setFeedbackSending(true);
-                              try {
-                                await submitFeedback(restaurant.id, {
-                                  rating: feedbackRating,
-                                  comment: feedbackComment.trim(),
-                                  orderId: placedOrder?.orderId || placedOrder?.id || null,
-                                  tableNumber: orderTableInput || tableNumber || null,
-                                  orderItems: placedOrder?.items?.map(i => ({ name: i.name, qty: i.qty, price: i.price })) || [],
-                                  orderTotal: placedOrder?.total || null,
-                                });
-                                setFeedbackSent(true);
-                              } catch { /* silently fail */ }
-                              finally { setFeedbackSending(false); }
-                            }}
-                            disabled={feedbackSending}
-                            style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 13, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: feedbackSending ? 'not-allowed' : 'pointer', opacity: feedbackSending ? 0.6 : 1 }}>
-                            {feedbackSending ? 'Sending...' : 'Submit Feedback'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', fontSize: 13, color: darkMode ? '#F79B3D' : '#C07A20', fontWeight: 600 }}>
-                      🙏 Thank you for your feedback!
-                    </div>
-                  )}
-                  <button onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
-                    style={{ marginTop: 4, padding: '11px 26px', borderRadius: 12, border: 'none', background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
-                    Back to Menu
-                  </button>
+                  {/* Phase B.2 — Add more items / View Bill CTAs.
+                      Replaces the in-flow rating block (rating happens AFTER
+                      the meal in a later phase, not when the order is just
+                      placed). The drawer also auto-closes after 8s — see
+                      the timer useEffect — so this row is the natural exit. */}
+                  <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 380, marginTop: 6 }}>
+                    <button
+                      onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
+                      style={{
+                        flex: 1, padding: '13px 16px', borderRadius: 12, border: 'none',
+                        background: 'linear-gradient(135deg,#F79B3D,#F48A1E)', color: '#fff',
+                        fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(247,155,61,0.30)',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      }}>
+                      <span style={{ fontSize: 16 }}>＋</span> Add more items
+                    </button>
+                    <button
+                      onClick={() => { setBillOpen(true); setCartOpen(false); setOrderStep('cart'); }}
+                      style={{
+                        flex: 1, padding: '13px 16px', borderRadius: 12,
+                        border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.16)'}`,
+                        background: 'transparent',
+                        color: darkMode ? '#FFF5E8' : '#1E1B18',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                        cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      }}>
+                      <span style={{ fontSize: 14 }}>🧾</span> View Bill
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
