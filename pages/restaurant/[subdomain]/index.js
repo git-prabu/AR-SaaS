@@ -1520,7 +1520,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         incrementCouponUse(restaurant.id, appliedCoupon.id).catch(() => {});
       }
 
-      // Save snapshot for the bill view
+      // Save snapshot for the bill view + downstream state machine.
+      // CRITICAL fields (Phase F): orderType — drives the Payment FAB
+      // visibility + the success-screen copy. Without it `placedOrder.
+      // orderType === 'takeaway'` was always false and the Payment FAB
+      // never rendered. paymentStatus is also stamped 'unpaid' so the
+      // payment step's "isWaiting" check evaluates correctly before the
+      // listener fires its first snapshot.
+      const isTakeaway = finalOrderType === 'takeaway';
       const orderSnapshot = {
         items: freshCart.map(c => ({ ...c })),
         subtotal, gstPercent: gstPct, serviceChargePercent: scPct,
@@ -1528,12 +1535,19 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         couponCode: appliedCoupon?.code || null,
         roundOff, total: grandTotal,
         orderId,
+        orderType: finalOrderType,
+        paymentStatus: 'unpaid',
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
+        customerName: isTakeaway ? (customerName.trim() || '') : '',
       };
       setPlacedOrder(orderSnapshot);
       setPaymentDone(false);
       setPaymentMethod(null);
-      setLiveOrderStatus('pending');
+      // Initial liveOrderStatus must match what createOrder wrote to
+      // Firestore — takeaway+unpaid is awaiting_payment, everything else
+      // is pending. Without this, the customer-side FAB flickered to
+      // "Order Status" for ~1s before the listener corrected it.
+      setLiveOrderStatus(isTakeaway ? 'awaiting_payment' : 'pending');
       try { sessionStorage.setItem('ar_placed_order', JSON.stringify(orderSnapshot)); sessionStorage.removeItem('ar_payment_done'); } catch {}
       // Phase F redesign — takeaway is pay-FIRST: the order is parked
       // in awaiting_payment server-side and the kitchen doesn't see it
@@ -1541,7 +1555,6 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       // Dine-in stays on the existing flow — customer eats first, pays
       // last, so blocking the kitchen on payment would defeat the
       // whole experience.
-      const isTakeaway = finalOrderType === 'takeaway';
       setOrderStep(isTakeaway ? 'payment' : 'success');
       clearCart();
     } catch (err) {
@@ -4059,6 +4072,19 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     window.open(j.paymentUrl, '_blank', 'noopener,noreferrer');
                   } catch (e) { console.error(e); toast.error('Could not start UPI payment. Try again.'); }
                 };
+                const onChangeMethod = async () => {
+                  if (!restaurant?.id || !placedOrder?.orderId) return;
+                  try {
+                    // Reset paymentStatus back to 'unpaid' so the picker
+                    // re-renders. The order stays in awaiting_payment so
+                    // the kitchen still doesn't see it. Customer can now
+                    // pick a different method.
+                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'unpaid');
+                  } catch (e) {
+                    console.error('change-method failed:', e);
+                    toast.error('Could not switch method. Try again.');
+                  }
+                };
                 const onCancelOrder = async () => {
                   if (!confirm('Cancel this order? You can place it again later.')) return;
                   if (!restaurant?.id || !placedOrder?.orderId) return;
@@ -4237,34 +4263,56 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         listener on placedOrder will flip to paid_* and the
                         auto-advance effect promotes us to 'success'. */}
                     {isWaiting && (
-                      <div style={{
-                        padding: '14px 16px', borderRadius: 14,
-                        background: darkMode ? 'rgba(45,139,78,0.10)' : 'rgba(45,139,78,0.06)',
-                        border: '1.5px solid rgba(45,139,78,0.25)',
-                        textAlign: 'center', marginBottom: 12,
-                      }}>
-                        <div style={{ fontSize: 22, marginBottom: 6 }}>⏳</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#6EC98A' : '#1A6B38', marginBottom: 4 }}>
-                          Waiting for payment confirmation
+                      <>
+                        <div style={{
+                          padding: '14px 16px', borderRadius: 14,
+                          background: darkMode ? 'rgba(45,139,78,0.10)' : 'rgba(45,139,78,0.06)',
+                          border: '1.5px solid rgba(45,139,78,0.25)',
+                          textAlign: 'center', marginBottom: 12,
+                        }}>
+                          <div style={{ fontSize: 22, marginBottom: 6 }}>⏳</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#6EC98A' : '#1A6B38', marginBottom: 4 }}>
+                            Waiting for payment confirmation
+                          </div>
+                          <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.4 }}>
+                            {reqStatus === 'cash_requested'   ? 'Pay cash to the cashier — your order goes to the kitchen the moment they confirm.'
+                            : reqStatus === 'card_requested'  ? 'Tap your card at the counter — your order goes to the kitchen once it clears.'
+                            : reqStatus === 'online_requested' ? "Once your bank releases the payment, we'll auto-confirm and start preparing."
+                            : 'Your order goes to the kitchen the moment payment confirms.'}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.4 }}>
-                          {reqStatus === 'cash_requested'   ? 'Pay cash to the cashier — your order goes to the kitchen the moment they confirm.'
-                          : reqStatus === 'card_requested'  ? 'Tap your card at the counter — your order goes to the kitchen once it clears.'
-                          : reqStatus === 'online_requested' ? "Once your bank releases the payment, we'll auto-confirm and start preparing."
-                          : 'Your order goes to the kitchen the moment payment confirms.'}
-                        </div>
-                      </div>
+
+                        {/* Change Method — resets paymentStatus to 'unpaid' so
+                            the customer can pick a different method without
+                            cancelling + re-creating the order. Common case:
+                            "I picked cash but I'd rather pay UPI now". */}
+                        <button onClick={onChangeMethod}
+                          style={{
+                            width: '100%', padding: '12px 14px', borderRadius: 12,
+                            background: 'transparent',
+                            border: `1.5px solid ${darkMode ? 'rgba(247,155,61,0.40)' : 'rgba(247,155,61,0.40)'}`,
+                            color: '#F79B3D',
+                            fontSize: 13, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                            cursor: 'pointer', marginBottom: 10,
+                          }}>
+                          ↺ Change payment method
+                        </button>
+                      </>
                     )}
 
-                    {/* Cancel order — small + bottom-aligned so it doesn't
-                        compete with the payment CTAs but is reachable. */}
-                    <div style={{ marginTop: 'auto', paddingTop: 8, textAlign: 'center' }}>
+                    {/* Cancel order — bottom-aligned outline button so it
+                        doesn't compete with the payment CTAs but is
+                        clearly reachable. Used to be a tiny underlined
+                        link which was too easy to miss. */}
+                    <div style={{ marginTop: 'auto', paddingTop: 8 }}>
                       <button onClick={onCancelOrder}
                         style={{
-                          background: 'transparent', border: 'none', cursor: 'pointer',
-                          fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)',
-                          textDecoration: 'underline', fontFamily: 'Inter,sans-serif',
-                          padding: 8,
+                          width: '100%', padding: '11px 14px', borderRadius: 12,
+                          background: 'transparent',
+                          border: `1.5px solid ${darkMode ? 'rgba(217,83,79,0.35)' : 'rgba(217,83,79,0.30)'}`,
+                          color: '#D9534F',
+                          fontSize: 12, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                          cursor: 'pointer',
                         }}>
                         Cancel order
                       </button>

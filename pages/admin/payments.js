@@ -365,6 +365,7 @@ export default function AdminPayments() {
   // a cashier might want to cancel from this page.
   // For paid_* orders, cancel doesn't appear (refund flow is out of scope).
   const cancelFromPayments = async (order) => {
+    console.info('[cancel] start', { orderId: order.id, status: order.status, paymentStatus: order.paymentStatus, rid });
     const cancellable = order.status === 'awaiting_payment'
       || ['cash_requested', 'card_requested', 'online_requested'].includes(order.paymentStatus);
     if (!cancellable) {
@@ -375,10 +376,22 @@ export default function AdminPayments() {
     setUpdating(order.id);
     try {
       await cancelOrder(rid, order.id, 'cancelled-by-admin');
+      console.info('[cancel] success', { orderId: order.id });
       toast.success('Order cancelled');
     } catch (e) {
-      console.error(e);
-      toast.error('Could not cancel. Try again.');
+      // Loud + helpful logging so any future failure has a paper trail.
+      console.error('[cancel] failed', {
+        orderId: order.id,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        code: e?.code,
+        message: e?.message,
+        full: e,
+      });
+      const codeNote = e?.code === 'permission-denied'
+        ? ' (permission denied — Firestore rule rejection; try refreshing the page)'
+        : e?.code ? ` (${e.code})` : '';
+      toast.error('Could not cancel.' + codeNote);
     }
     setUpdating(null);
   };

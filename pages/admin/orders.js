@@ -214,6 +214,7 @@ export default function AdminOrders() {
   // flow instead of a silent cancel. Confirm dialog because this is
   // destructive from the diner's perspective.
   const cancel = async (order) => {
+    console.info('[cancel/orders] start', { orderId: order.id, status: order.status, paymentStatus: order.paymentStatus });
     const cancellable = ['awaiting_payment', 'pending'].includes(order.status);
     if (!cancellable) {
       toast.error('Cannot cancel — kitchen has already started this order.');
@@ -223,10 +224,17 @@ export default function AdminOrders() {
     setUpdating(order.id);
     try {
       await cancelOrder(rid, order.id, 'cancelled-by-admin');
+      console.info('[cancel/orders] success', { orderId: order.id });
       toast.success('Order cancelled');
     } catch (e) {
-      console.error(e);
-      toast.error('Could not cancel. Try again.');
+      console.error('[cancel/orders] failed', {
+        orderId: order.id, status: order.status, paymentStatus: order.paymentStatus,
+        code: e?.code, message: e?.message,
+      });
+      const codeNote = e?.code === 'permission-denied'
+        ? ' (permission denied — try refreshing the page)'
+        : e?.code ? ` (${e.code})` : '';
+      toast.error('Could not cancel.' + codeNote);
     }
     setUpdating(null);
   };

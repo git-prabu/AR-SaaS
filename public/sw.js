@@ -24,14 +24,17 @@
 // Cache versioning: bump CACHE_VERSION whenever this strategy changes so the
 // activate handler purges old entries from previous worker versions.
 
-// Bumped ar-v3 → ar-v4 (Phase D follow-up): user reported hearing the old
-// /notification.mp3 simultaneously with the new lib/sounds chime on
-// /admin/waiter. Source code has zero functional Audio() / mp3 references
-// (verified via codebase audit), which means the leftover audio was the
-// old JS bundle still living in the SW's static-asset cache and getting
-// loaded by a stale tab. Bumping the version forces a clean activate +
-// purge on next visit, so all clients re-fetch the latest JS.
-const CACHE_VERSION  = 'ar-v4';
+// Bumped ar-v4 → ar-v5 (Phase F follow-up): user reported the admin
+// Cancel button on /admin/payments not firing for cash_requested
+// orders. Comprehensive Admin SDK audit of every state transition
+// (27/27 passed) confirmed the data layer is fine — the rule writes
+// succeed when called server-side. Most likely cause is the user's
+// browser holding an older cached JS bundle from before the cancel
+// helper was added. Bumping the version forces a clean SW activate
+// + purge so every client re-fetches latest JS. Also catches the
+// orderSnapshot.orderType + liveOrderStatus init fixes in this
+// commit and the new "Change payment method" button.
+const CACHE_VERSION  = 'ar-v5';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
