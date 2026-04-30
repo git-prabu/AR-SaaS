@@ -200,11 +200,17 @@ export default function AdminPayments() {
   // Only show orders that are either:
   //   (a) served AND have any paymentStatus (including 'unpaid' — customer ate, needs to pay)
   //   (b) have an active requested status (even if not served yet, though this is rare)
-  // Orders that are pending/preparing with no payment activity are irrelevant to this page.
+  //   (c) Phase F — takeaway in `awaiting_payment`: payment must clear
+  //       BEFORE the kitchen sees the order. Admin needs to see these
+  //       prominently here to mark them paid (or wait for the gateway
+  //       webhook to land in Phase J).
+  // Orders that are pending/preparing dine-in with no payment activity are
+  // irrelevant — the customer hasn't asked to pay yet.
   const relevantOrders = useMemo(() => {
     return allOrders.filter(o => {
       const hasPaymentActivity = o.paymentStatus && o.paymentStatus !== 'inactive';
       if (!hasPaymentActivity) return false;
+      if (o.status === 'awaiting_payment') return true;  // Phase F — pay-first takeaway
       if (o.status === 'served') return true;
       // Also show orders with active payment requests that aren't yet served (unusual but possible)
       if (['cash_requested', 'card_requested', 'online_requested'].includes(o.paymentStatus)) return true;

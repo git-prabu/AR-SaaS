@@ -42,7 +42,13 @@ const A = {
 };
 
 // Status metadata drives pill color, next-state transition, and button label.
+// Phase F adds the `awaiting_payment` state for takeaway orders that haven't
+// been paid yet — they're hidden from the kitchen until staff marks them
+// paid (or a Paytm webhook clears them in Phase J). `next: null` means
+// staff can't manually advance them; the state transitions only via the
+// payment flow.
 const STATUS_META = {
+  awaiting_payment: { label: 'Awaiting Payment', next: null, nextLabel: null, kind: 'awaiting' },
   pending:   { label: 'New Order', next: 'preparing', nextLabel: 'Start Preparing', kind: 'pending' },
   preparing: { label: 'Preparing', next: 'ready',     nextLabel: 'Mark Ready',      kind: 'preparing' },
   ready:     { label: 'Ready',     next: 'served',    nextLabel: 'Mark Served',     kind: 'ready' },
@@ -618,8 +624,11 @@ export default function AdminOrders() {
                         paymentText = 'Payment Issue';
                       }
 
-                      // Timeline dot style per status
+                      // Timeline dot style per status. `awaiting` (Phase F —
+                      // pay-first takeaway) gets a red ring so admin can spot
+                      // payment-blocked orders at a glance.
                       const dotStyle = {
+                        awaiting:  { border: `2px solid ${A.danger}`, background: 'rgba(217,83,79,0.12)' },
                         pending:   { border: `2px solid ${A.warning}`, background: 'rgba(196,168,109,0.14)' },
                         preparing: { border: `2px solid ${A.ink}`, background: A.shell },
                         ready:     { border: `2px solid ${A.success}`, background: 'rgba(63,158,90,0.12)' },
@@ -628,10 +637,15 @@ export default function AdminOrders() {
 
                       // Entry background treatment
                       const isPending = meta.kind === 'pending';
+                      const isAwaiting = meta.kind === 'awaiting';
                       const entryBg = isPending
                         ? `linear-gradient(90deg, rgba(196,168,109,0.05) 0%, ${A.shell} 22%)`
-                        : A.shell;
-                      const entryBorderLeft = isPending ? `2px solid ${A.warning}` : 'none';
+                        : isAwaiting
+                          ? `linear-gradient(90deg, rgba(217,83,79,0.04) 0%, ${A.shell} 22%)`
+                          : A.shell;
+                      const entryBorderLeft = isPending ? `2px solid ${A.warning}`
+                                            : isAwaiting ? `2px solid ${A.danger}`
+                                            : 'none';
 
                       return (
                         /* ═══ FLEX WRAPPER ═══

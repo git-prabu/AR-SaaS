@@ -9,7 +9,11 @@
 //   - Running cart with inline qty +/-
 //   - Dine-in (table number) OR Takeaway (customer name/phone) toggle
 //   - Tax (CGST+SGST) + service charge + round-off matching customer flow
-//   - createOrder → status: 'pending', paymentStatus: 'unpaid' (admin marks paid later)
+//   - createOrder → status depends on orderType + payment:
+//       dine-in unpaid     → status='pending' (kitchen starts immediately)
+//       takeaway unpaid    → status='awaiting_payment' (Phase F: kitchen
+//                            only sees it after admin marks paid)
+//       takeaway paid_cash → status='pending' (counter cash, kitchen starts)
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
@@ -57,6 +61,11 @@ export default function AdminNewOrder() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [specialNote, setSpecialNote] = useState('');
+  // Phase F — for takeaway orders, captain can flag "Customer paid now"
+  // (cash at the counter) so the order skips `awaiting_payment` and goes
+  // straight to the kitchen. Default is false: customer typically pays
+  // at pickup, so the order should hold until then.
+  const [paidNow, setPaidNow] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -119,6 +128,11 @@ export default function AdminNewOrder() {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
+      // Phase F: takeaway + paidNow → paymentStatus='paid_cash' so
+      // createOrder sets status='pending' (kitchen sees it immediately).
+      // Otherwise paymentStatus='unpaid' and createOrder routes
+      // takeaway to awaiting_payment, dine-in to pending.
+      const isTakeawayPaid = orderType === 'takeaway' && paidNow;
       const orderId = await createOrder(rid, {
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, qty: c.qty, note: c.note || '' })),
         subtotal: totals.subtotal,
@@ -134,15 +148,19 @@ export default function AdminNewOrder() {
         customerPhone: customerPhone.trim(),
         specialInstructions: specialNote.trim(),
         sessionId: `captain:${userData?.email || 'staff'}`,
-        paymentStatus: 'unpaid',
+        paymentStatus: isTakeawayPaid ? 'paid_cash' : 'unpaid',
       });
-      toast.success('Order placed! Sent to kitchen.');
+      const successMsg = orderType === 'takeaway' && !paidNow
+        ? 'Order saved. Will send to kitchen once payment is collected.'
+        : 'Order placed! Sent to kitchen.';
+      toast.success(successMsg);
       // Reset form
       setCart([]);
       setTableNumber('');
       setCustomerName('');
       setCustomerPhone('');
       setSpecialNote('');
+      setPaidNow(false);
       setOrderType('dinein');
       // Jump to orders for verification
       setTimeout(() => router.push('/admin/orders'), 500);
@@ -321,6 +339,32 @@ export default function AdminNewOrder() {
                       style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: A.shell, border: A.borderStrong, borderRadius: 8, fontSize: 14, color: A.ink, fontFamily: "'JetBrains Mono', monospace", transition: 'border-color 0.15s, box-shadow 0.15s' }}
                     />
                   </div>
+                  {/* Phase F — pay-now toggle for takeaway. When OFF (default)
+                      the order parks in `awaiting_payment` and the kitchen
+                      doesn't see it until staff marks it paid. When ON the
+                      order goes straight to the kitchen with paymentStatus
+                      already paid_cash. */}
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', background: paidNow ? 'rgba(63,158,90,0.08)' : A.subtleBg,
+                    border: paidNow ? `1px solid rgba(63,158,90,0.35)` : A.borderStrong,
+                    borderRadius: 8, cursor: 'pointer',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={paidNow}
+                      onChange={e => setPaidNow(e.target.checked)}
+                      style={{ width: 16, height: 16, accentColor: A.success, cursor: 'pointer' }}
+                    />
+                    <span style={{ flex: 1, fontSize: 13, color: A.ink, fontWeight: 600 }}>
+                      Customer paid cash now
+                    </span>
+                    <span style={{ fontSize: 11, color: A.mutedText, fontWeight: 500 }}>
+                      {paidNow
+                        ? 'Sends to kitchen immediately'
+                        : 'Hold until paid'}
+                    </span>
+                  </label>
                 </>
               )}
             </div>
