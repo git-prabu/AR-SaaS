@@ -557,7 +557,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   });
   const [cartOpen, setCartOpen] = useState(false);
   // Order flow
-  const [orderStep, setOrderStep] = useState('cart'); // 'cart' | 'form' | 'success'
+  // 'cart' → 'form' → place order → either 'success' (dine-in: order
+  // is in the kitchen immediately, customer pays after eating) OR
+  // 'payment' (takeaway, Phase F redesign: customer pays at this step,
+  // kitchen only sees the order once the payment clears, then we
+  // auto-advance to 'success').
+  const [orderStep, setOrderStep] = useState('cart'); // 'cart' | 'form' | 'payment' | 'success'
   const [orderTableInput, setOrderTableInput] = useState(''); // what customer types in the form
   const [orderPhone, setOrderPhone] = useState(() => getSavedPhone());
   const [specialNote, setSpecialNote] = useState('');
@@ -1175,6 +1180,24 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return () => clearTimeout(closeTimer);
   }, [orderStep, cartOpen]);
 
+  // ── Phase F redesign — auto-advance from payment step to success
+  //    when the order's paymentStatus becomes paid_*.
+  // The pay-first takeaway flow parks the order in awaiting_payment
+  // and shows the customer a payment screen. Once the gateway webhook
+  // (or an admin marking it paid) flips paymentStatus to paid_*, the
+  // listener above (line ~1138) writes that into placedOrder. This
+  // effect picks that up and transitions the step to 'success' so
+  // the customer sees the kitchen progress bar without having to
+  // refresh.
+  const PAID_STATUSES_CLIENT = useMemo(() => new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']), []);
+  useEffect(() => {
+    if (orderStep !== 'payment') return;
+    if (!placedOrder?.paymentStatus) return;
+    if (PAID_STATUSES_CLIENT.has(placedOrder.paymentStatus)) {
+      setOrderStep('success');
+    }
+  }, [orderStep, placedOrder?.paymentStatus, PAID_STATUSES_CLIENT]);
+
   // ── Phase A — Running bill effects ───────────────────────────────────
   // Persist currentBillId across reloads. sessionStorage clears on tab
   // close — that's fine, the next QR scan re-discovers the bill via the
@@ -1494,7 +1517,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       setPaymentMethod(null);
       setLiveOrderStatus('pending');
       try { sessionStorage.setItem('ar_placed_order', JSON.stringify(orderSnapshot)); sessionStorage.removeItem('ar_payment_done'); } catch {}
-      setOrderStep('success');
+      // Phase F redesign — takeaway is pay-FIRST: the order is parked
+      // in awaiting_payment server-side and the kitchen doesn't see it
+      // until payment clears. Show the payment step instead of success.
+      // Dine-in stays on the existing flow — customer eats first, pays
+      // last, so blocking the kitchen on payment would defeat the
+      // whole experience.
+      const isTakeaway = finalOrderType === 'takeaway';
+      setOrderStep(isTakeaway ? 'payment' : 'success');
       clearCart();
     } catch (err) {
       console.error('Order failed:', err);
@@ -3932,12 +3962,284 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </button>
               </>)}
 
+              {/* ── STEP: payment (Phase F redesign — takeaway pay-first) ──
+                   Order has been saved server-side in `awaiting_payment`,
+                   the kitchen does NOT see it yet. Customer picks payment
+                   method here. Once the order's paymentStatus flips to
+                   paid_* (via gateway webhook OR admin manually marking
+                   it paid), the auto-advance effect promotes the step to
+                   'success' and the kitchen-progress UI takes over.
+
+                   We never claim "Order Placed!" on this step — only on
+                   'success', which fires AFTER the kitchen actually has
+                   the ticket. */}
+              {orderStep === 'payment' && (() => {
+                const total = Math.round(Number(placedOrder?.total) || 0);
+                const reqStatus = placedOrder?.paymentStatus;
+                const isWaiting = reqStatus && /_requested$/.test(reqStatus);
+                const gatewayActive = !!(liveRestaurant?.gatewayActive
+                  && liveRestaurant?.gatewayProvider
+                  && liveRestaurant?.gatewayProvider !== 'none');
+                const onPickCash = async () => {
+                  if (!restaurant?.id || !placedOrder?.orderId) return;
+                  try {
+                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'cash_requested');
+                  } catch (e) { console.error(e); toast.error('Could not mark cash. Try again.'); }
+                };
+                const onPickCard = async () => {
+                  if (!restaurant?.id || !placedOrder?.orderId) return;
+                  try {
+                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'card_requested');
+                  } catch (e) { console.error(e); toast.error('Could not mark card. Try again.'); }
+                };
+                const onPickUpiManual = async () => {
+                  if (!restaurant?.id || !placedOrder?.orderId) return;
+                  try {
+                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'online_requested');
+                  } catch (e) { console.error(e); toast.error('Could not mark UPI. Try again.'); }
+                };
+                const onPickUpiGateway = async () => {
+                  if (!restaurant?.id || !placedOrder?.orderId) return;
+                  try {
+                    const r = await fetch('/api/payment/intent', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ restaurantId: restaurant.id, orderIds: [placedOrder.orderId] }),
+                    });
+                    const j = await r.json();
+                    if (!r.ok || !j.paymentUrl) {
+                      toast.error('Could not start UPI payment. Try cash/card at counter or the manual UPI option below.');
+                      return;
+                    }
+                    window.open(j.paymentUrl, '_blank', 'noopener,noreferrer');
+                  } catch (e) { console.error(e); toast.error('Could not start UPI payment. Try again.'); }
+                };
+                const onCancelOrder = async () => {
+                  if (!confirm('Cancel this order? You can place it again later.')) return;
+                  if (!restaurant?.id || !placedOrder?.orderId) return;
+                  try {
+                    // We just clear the local placedOrder so the customer
+                    // sees the menu again. The Firestore order stays in
+                    // awaiting_payment; admin can clean it up via
+                    // /admin/payments. We deliberately don't auto-delete
+                    // because admin may have already started prep based
+                    // on a phone-confirmed payment, and silently nuking
+                    // their order would be worse than leaving it.
+                    setPlacedOrder(null);
+                    setOrderStep('cart');
+                    setCartOpen(false);
+                    try { sessionStorage.removeItem('ar_placed_order'); } catch {}
+                    toast.success('Order cancelled');
+                  } catch (e) { console.error(e); toast.error('Could not cancel.'); }
+                };
+
+                return (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexShrink: 0 }}>
+                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+                        Pay to confirm order
+                      </div>
+                    </div>
+
+                    {/* Saved-but-not-sent notice — sets the right expectation
+                        before the customer walks away thinking the order is in
+                        the kitchen. */}
+                    <div style={{
+                      padding: '12px 14px', borderRadius: 12, marginBottom: 14,
+                      background: darkMode ? 'rgba(247,155,61,0.10)' : 'rgba(247,155,61,0.06)',
+                      border: '1.5px solid rgba(247,155,61,0.30)',
+                      fontSize: 13, color: darkMode ? '#F7A85A' : '#A06318', fontWeight: 600,
+                      lineHeight: 1.45,
+                    }}>
+                      📦 Your order is saved but <u>not yet sent to the kitchen</u>. We'll start preparing once your payment is confirmed.
+                    </div>
+
+                    {/* Order total */}
+                    <div style={{
+                      padding: '14px 16px', borderRadius: 14, marginBottom: 14,
+                      background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)',
+                      border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                      <span style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)' }}>Amount to pay</span>
+                      <span style={{ fontFamily: 'Inter,monospace', fontSize: 22, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+                        ₹{total.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    {/* Payment options. Each one is a single-tap action — the
+                        customer doesn't have to pick a method first then "confirm",
+                        because takeaway has fewer methods than dine-in and a
+                        single-tap flow halves the time to checkout. */}
+                    {!isWaiting && (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 8 }}>
+                          Choose payment method
+                        </div>
+
+                        {gatewayActive && (
+                          <button onClick={onPickUpiGateway}
+                            style={{
+                              width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none',
+                              background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
+                              fontFamily: 'Inter,sans-serif', fontSize: 15, fontWeight: 700,
+                              cursor: 'pointer', marginBottom: 10,
+                              boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 22 }}>📱</span>
+                              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <span>Pay ₹{total} via UPI</span>
+                                <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>Auto-confirms · GPay, PhonePe, Paytm</span>
+                              </span>
+                            </span>
+                            <span style={{ fontSize: 18 }}>→</span>
+                          </button>
+                        )}
+
+                        {!gatewayActive && restaurant?.upiId && (
+                          <button onClick={onPickUpiManual}
+                            style={{
+                              width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none',
+                              background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
+                              fontFamily: 'Inter,sans-serif', fontSize: 15, fontWeight: 700,
+                              cursor: 'pointer', marginBottom: 10,
+                              boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 22 }}>📱</span>
+                              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <span>Pay ₹{total} via UPI</span>
+                                <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>Show UPI ID — confirm after paying</span>
+                              </span>
+                            </span>
+                            <span style={{ fontSize: 18 }}>→</span>
+                          </button>
+                        )}
+
+                        <button onClick={onPickCash}
+                          style={{
+                            width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none',
+                            background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)', color: '#fff',
+                            fontFamily: 'Inter,sans-serif', fontSize: 15, fontWeight: 700,
+                            cursor: 'pointer', marginBottom: 10,
+                            boxShadow: '0 4px 18px rgba(45,139,78,0.35)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 22 }}>💵</span>
+                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <span>Pay ₹{total} cash at counter</span>
+                              <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>Confirms when cashier collects</span>
+                            </span>
+                          </span>
+                          <span style={{ fontSize: 18 }}>→</span>
+                        </button>
+
+                        <button onClick={onPickCard}
+                          style={{
+                            width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none',
+                            background: darkMode ? 'rgba(74,128,192,0.20)' : 'rgba(74,128,192,0.10)',
+                            border: `1.5px solid ${darkMode ? 'rgba(74,128,192,0.35)' : 'rgba(74,128,192,0.30)'}`,
+                            color: darkMode ? '#FFF5E8' : '#1E1B18',
+                            fontFamily: 'Inter,sans-serif', fontSize: 15, fontWeight: 700,
+                            cursor: 'pointer', marginBottom: 10,
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 22 }}>💳</span>
+                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <span>Pay ₹{total} by card at counter</span>
+                              <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.7 }}>Confirms when card is swiped</span>
+                            </span>
+                          </span>
+                          <span style={{ fontSize: 18 }}>→</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* Manual UPI step — shows the UPI ID + tap-to-open-UPI-app
+                        flow ONLY after the customer picked manual UPI. We
+                        only get here when gateway is OFF. */}
+                    {isWaiting && reqStatus === 'online_requested' && !gatewayActive && restaurant?.upiId && (() => {
+                      const tnRef = 'Order ' + (placedOrder?.orderId?.slice(-6).toUpperCase() || '');
+                      const upiUrl = `upi://pay?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${total}&cu=INR&tn=${encodeURIComponent(tnRef)}`;
+                      return (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ textAlign: 'center', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(138,112,176,0.12)' : 'rgba(138,112,176,0.06)', border: '1.5px solid rgba(138,112,176,0.2)', marginBottom: 10 }}>
+                            <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 4 }}>Pay to UPI ID</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{restaurant.upiId}</div>
+                            <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', marginTop: 6 }}>Amount: ₹{total}</div>
+                          </div>
+                          <button onClick={() => window.open(upiUrl, '_self')}
+                            style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', boxShadow: '0 4px 18px rgba(138,112,176,0.4)' }}>
+                            Open UPI App — Pay ₹{total}
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Waiting-for-confirmation banner. Shows after the
+                        customer has chosen a method but the order's
+                        paymentStatus is still in *_requested (i.e., the
+                        cashier or gateway hasn't confirmed yet). The
+                        listener on placedOrder will flip to paid_* and the
+                        auto-advance effect promotes us to 'success'. */}
+                    {isWaiting && (
+                      <div style={{
+                        padding: '14px 16px', borderRadius: 14,
+                        background: darkMode ? 'rgba(45,139,78,0.10)' : 'rgba(45,139,78,0.06)',
+                        border: '1.5px solid rgba(45,139,78,0.25)',
+                        textAlign: 'center', marginBottom: 12,
+                      }}>
+                        <div style={{ fontSize: 22, marginBottom: 6 }}>⏳</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#6EC98A' : '#1A6B38', marginBottom: 4 }}>
+                          Waiting for payment confirmation
+                        </div>
+                        <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.4 }}>
+                          {reqStatus === 'cash_requested'   ? 'Pay cash to the cashier — your order goes to the kitchen the moment they confirm.'
+                          : reqStatus === 'card_requested'  ? 'Tap your card at the counter — your order goes to the kitchen once it clears.'
+                          : reqStatus === 'online_requested' ? "Once your bank releases the payment, we'll auto-confirm and start preparing."
+                          : 'Your order goes to the kitchen the moment payment confirms.'}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cancel order — small + bottom-aligned so it doesn't
+                        compete with the payment CTAs but is reachable. */}
+                    <div style={{ marginTop: 'auto', paddingTop: 8, textAlign: 'center' }}>
+                      <button onClick={onCancelOrder}
+                        style={{
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)',
+                          textDecoration: 'underline', fontFamily: 'Inter,sans-serif',
+                          padding: 8,
+                        }}>
+                        Cancel order
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* ── STEP: success ── */}
-              {orderStep === 'success' && (
+              {orderStep === 'success' && (() => {
+                // Phase F redesign — copy differs for takeaway. The
+                // generic dine-in line ("we'll bring it to your table")
+                // doesn't apply when the customer is picking up at the
+                // counter, and reading "we'll bring it to your table"
+                // on a takeaway success screen sets the wrong expectation.
+                const isTakeawaySuccess = placedOrder?.orderType === 'takeaway';
+                const successMsg = isTakeawaySuccess
+                  ? "Payment confirmed and your order is in the kitchen. We'll have it ready for pickup soon."
+                  : t.orderSentMsg;
+                return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 0', gap: 16, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
                   <div style={{ fontSize: 56 }}>🎉</div>
                   <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{t.orderPlaced}</div>
-                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{t.orderSentMsg}</div>
+                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{successMsg}</div>
                   {/* Prompt to open bill tab */}
                   {/* Live order status tracker */}
                   {placedOrder && (() => {
@@ -4008,7 +4310,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     </button>
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           </SheetOverlay>
         )}
