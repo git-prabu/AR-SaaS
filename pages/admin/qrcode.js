@@ -121,8 +121,23 @@ export default function AdminQRCode() {
     return sid ? `${base}?table=${table}&sid=${sid}` : `${base}?table=${table}`;
   };
 
-  // Get working URL for a table using its current active session sid
+  // ── Phase K — Stable per-table QR URL ───────────────────────────────
+  // The QR encodes /r/{subdomain}/{table}, which resolves the CURRENT
+  // sid server-side and 302s to the menu URL. This means you print the
+  // QR ONCE per table and it keeps working forever — even after Clear
+  // & Activate rotates the sid (which used to invalidate the printed
+  // QR and force a reprint).
+  //
+  // We deliberately NEVER embed the sid in the QR anymore. The entire
+  // point of the redirect layer is to make the QR sid-independent.
   const getTableURL = (tableNum) => {
+    if (!restaurant?.subdomain) return '';
+    return `${BASE_URL}/r/${restaurant.subdomain}/${tableNum}`;
+  };
+
+  // Live URL the QR resolves to right now (used in the "current URL"
+  // display + copy-to-clipboard helpers, NOT in the QR image itself).
+  const getResolvedTableURL = (tableNum) => {
     const session = sessions[String(tableNum)];
     const sid = isSessionValid(session) ? session.sid : null;
     return getMenuURL(tableNum, sid);
@@ -672,7 +687,8 @@ export default function AdminQRCode() {
                       Set your table count and hit Generate
                     </div>
                     <div style={{ fontSize: 12, color: A.mutedText }}>
-                      Each QR will encode your menu URL + table number automatically
+                      Each QR encodes a stable redirect URL — print once, paste on the table forever.
+                      Clear &amp; Activate rotates the security token without invalidating the printed QR.
                     </div>
                   </div>
                 )}
@@ -693,7 +709,7 @@ export default function AdminQRCode() {
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 16, lineHeight: 1.5 }}>
-                  Activate a table when guests sit down. Only active sessions can view the menu and place orders — prevents fake orders from outside the restaurant.
+                  Activate a table when guests sit down. Only active sessions can view the menu and place orders — prevents fake orders from outside the restaurant. The printed QR keeps working forever; Clear &amp; Activate just rotates the security token behind the scenes.
                 </div>
 
                 {/* Session duration + Activate/Clear All */}
