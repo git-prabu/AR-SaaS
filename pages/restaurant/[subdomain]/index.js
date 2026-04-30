@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, cancelOrder, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
@@ -1144,6 +1144,24 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       if (!snap.exists()) return;
       const data = snap.data();
       setLiveOrderStatus(data.status);
+
+      // If admin cancelled the order, clear the customer-side placedOrder
+      // so the cancelled state doesn't haunt their FABs / bill / status
+      // forever. Toast the cancellation so the customer knows what
+      // happened. We deliberately only fire this when the listener sees
+      // a NEW cancellation — comparing snap.data().status to the local
+      // placedOrder snapshot so we don't toast on every snap.
+      if (data.status === 'cancelled' && placedOrder.orderType === 'takeaway') {
+        toast('Order was cancelled', { icon: '✖️' });
+        setPlacedOrder(null);
+        try { sessionStorage.removeItem('ar_placed_order'); } catch {}
+        if (cartOpen) {
+          setCartOpen(false);
+          setOrderStep('cart');
+        }
+        return;
+      }
+
       // Sync the live order fields into placedOrder so the bill modal
       // and any status-aware UI react to admin actions immediately.
       // Only writes the fields that actually changed — avoids needless
@@ -1162,7 +1180,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       });
     });
     return unsub;
-  }, [placedOrder?.orderId, restaurant?.id]);
+  }, [placedOrder?.orderId, restaurant?.id, placedOrder?.orderType, cartOpen]);
 
   // ── Phase B.2 — Auto-close success step ──────────────────────────────
   // After an order is placed and the cart drawer is showing the success
@@ -3388,7 +3406,29 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             {/* Top row: My Bill (only after order placed) + Cart */}
             {(placedOrder || cartTotal > 0) && (
               <div className="fab-row">
-                {placedOrder && !cartOpen && (
+                {/* Phase F redesign — when a takeaway order is still in
+                    awaiting_payment, the FAB swaps from "Order Status"
+                    (which would show a kitchen progress bar that's
+                    misleading because the kitchen hasn't started yet)
+                    to a "Payment" CTA that reopens the payment step.
+                    Without this the customer had no way back to the
+                    payment screen after closing it. */}
+                {placedOrder && !cartOpen && liveOrderStatus === 'awaiting_payment' && placedOrder.orderType === 'takeaway' && (
+                  <button
+                    className="bill-fab status-fab"
+                    onClick={() => { setCartOpen(true); setOrderStep('payment'); }}
+                    style={{ background: '#F79B3D', borderColor: '#F79B3D', color: '#1E1B18' }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: '#1E1B18',
+                      animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
+                    }} />
+                    <span style={{ fontSize: 16 }}>💳</span>
+                    <span>Payment</span>
+                  </button>
+                )}
+
+                {placedOrder && !cartOpen && liveOrderStatus !== 'awaiting_payment' && liveOrderStatus !== 'cancelled' && (
                   <button
                     className={`bill-fab status-fab${liveOrderStatus === 'ready' ? ' status-fab-ready' : ''}`}
                     onClick={() => { setCartOpen(true); setOrderStep('success'); }}
@@ -3414,7 +3454,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <span>{liveOrderStatus === 'ready' ? 'Order Ready!' : liveOrderStatus === 'preparing' ? 'Preparing…' : liveOrderStatus === 'served' ? 'Served!' : 'Order Status'}</span>
                   </button>
                 )}
-                {placedOrder && !cartOpen && (
+
+                {/* My Bill: only useful for dine-in (running tab) and
+                    once payment is confirmed. Hide for takeaway-
+                    awaiting-payment because there's nothing to bill yet
+                    — payment IS the bill. */}
+                {placedOrder && !cartOpen && liveOrderStatus !== 'awaiting_payment' && liveOrderStatus !== 'cancelled' && (
                   <button className="bill-fab" onClick={() => setBillOpen(true)}>
                     <span style={{ fontSize: 16 }}>🧾</span>
                     <span>My Bill</span>
@@ -4018,19 +4063,23 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   if (!confirm('Cancel this order? You can place it again later.')) return;
                   if (!restaurant?.id || !placedOrder?.orderId) return;
                   try {
-                    // We just clear the local placedOrder so the customer
-                    // sees the menu again. The Firestore order stays in
-                    // awaiting_payment; admin can clean it up via
-                    // /admin/payments. We deliberately don't auto-delete
-                    // because admin may have already started prep based
-                    // on a phone-confirmed payment, and silently nuking
-                    // their order would be worse than leaving it.
+                    // Actually flip the Firestore order to status='cancelled'
+                    // so admin sees the cancellation too. Firestore rules
+                    // restrict customer cancellation to status==='awaiting_payment'
+                    // — once the order has been paid (status='pending'+) the
+                    // rule rejects it and we surface the error to the user.
+                    await cancelOrder(restaurant.id, placedOrder.orderId, 'cancelled-by-customer');
                     setPlacedOrder(null);
                     setOrderStep('cart');
                     setCartOpen(false);
                     try { sessionStorage.removeItem('ar_placed_order'); } catch {}
                     toast.success('Order cancelled');
-                  } catch (e) { console.error(e); toast.error('Could not cancel.'); }
+                  } catch (e) {
+                    console.error(e);
+                    // Most likely cause: payment already cleared on the server
+                    // (rule rejection) — order is no longer cancellable.
+                    toast.error('Could not cancel — payment may have already been confirmed. Please ask the counter staff.');
+                  }
                 };
 
                 return (

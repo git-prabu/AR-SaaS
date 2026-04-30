@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updateOrderStatus, updatePaymentStatus, todayKey, withActor } from '../../lib/db';
+import { updateOrderStatus, updatePaymentStatus, cancelOrder, todayKey, withActor } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -54,6 +54,11 @@ const STATUS_META = {
   preparing: { label: 'Preparing', next: 'ready',     nextLabel: 'Mark Ready',      kind: 'preparing' },
   ready:     { label: 'Ready',     next: 'served',    nextLabel: 'Mark Served',     kind: 'ready' },
   served:    { label: 'Served',    next: null,        nextLabel: null,              kind: 'served' },
+  // Phase F follow-up: terminal cancelled state. No advance button, no
+  // accent on the timeline; rendered in muted grey to distinguish from
+  // an active order. Reachable from the customer cancel button OR the
+  // admin "Cancel" button on /admin/orders or /admin/payments.
+  cancelled: { label: 'Cancelled', next: null,        nextLabel: null,              kind: 'cancelled' },
 };
 
 // Period filter → timestamp range.
@@ -201,6 +206,28 @@ export default function AdminOrders() {
     setUpdating(order.id);
     try { await updateOrderStatus(rid, order.id, meta.next); }
     catch { toast.error('Failed to update order status'); }
+    setUpdating(null);
+  };
+
+  // Cancel an order. Available from this page on awaiting_payment +
+  // pending only — once the kitchen has started prep we want a refund
+  // flow instead of a silent cancel. Confirm dialog because this is
+  // destructive from the diner's perspective.
+  const cancel = async (order) => {
+    const cancellable = ['awaiting_payment', 'pending'].includes(order.status);
+    if (!cancellable) {
+      toast.error('Cannot cancel — kitchen has already started this order.');
+      return;
+    }
+    if (!confirm(`Cancel order ${order.orderNumber ? '#' + order.orderNumber : ''}? This cannot be undone.`)) return;
+    setUpdating(order.id);
+    try {
+      await cancelOrder(rid, order.id, 'cancelled-by-admin');
+      toast.success('Order cancelled');
+    } catch (e) {
+      console.error(e);
+      toast.error('Could not cancel. Try again.');
+    }
     setUpdating(null);
   };
 
@@ -627,18 +654,22 @@ export default function AdminOrders() {
 
                       // Timeline dot style per status. `awaiting` (Phase F —
                       // pay-first takeaway) gets a red ring so admin can spot
-                      // payment-blocked orders at a glance.
+                      // payment-blocked orders at a glance. `cancelled` gets
+                      // a thin grey ring so it visually fades from the active
+                      // pipeline.
                       const dotStyle = {
                         awaiting:  { border: `2px solid ${A.danger}`, background: 'rgba(217,83,79,0.12)' },
                         pending:   { border: `2px solid ${A.warning}`, background: 'rgba(196,168,109,0.14)' },
                         preparing: { border: `2px solid ${A.ink}`, background: A.shell },
                         ready:     { border: `2px solid ${A.success}`, background: 'rgba(63,158,90,0.12)' },
                         served:    { border: `2px solid ${A.faintText}`, background: A.shell },
+                        cancelled: { border: `1.5px dashed ${A.faintText}`, background: A.shell },
                       }[meta.kind];
 
                       // Entry background treatment
                       const isPending = meta.kind === 'pending';
                       const isAwaiting = meta.kind === 'awaiting';
+                      const isCancelled = meta.kind === 'cancelled';
                       const entryBg = isPending
                         ? `linear-gradient(90deg, rgba(196,168,109,0.05) 0%, ${A.shell} 22%)`
                         : isAwaiting
@@ -755,8 +786,33 @@ export default function AdminOrders() {
                               letterSpacing: '-0.3px', textAlign: 'right', color: A.ink, minWidth: 80,
                             }}>{formatRupee(total)}</span>
 
-                            {/* Action: button for active states, status pill for served */}
-                            <div className="entry-action" style={{ minWidth: 140, textAlign: 'right' }}>
+                            {/* Action: advance + cancel for active orders;
+                                served pill for completed; cancelled pill for
+                                cancelled. Cancel only renders for awaiting +
+                                pending — once kitchen has started prep we'd
+                                need a refund flow, not a silent cancel. */}
+                            <div className="entry-action" style={{ minWidth: 140, textAlign: 'right', display: 'inline-flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                              {/* Cancel button — only for awaiting_payment +
+                                  pending. Awaiting takeaway gets the highest
+                                  visual prominence (tinted danger) since
+                                  cancellation is the most likely admin action
+                                  on those rows. */}
+                              {(isAwaiting || isPending) && (
+                                <button className="entry-btn" disabled={updating === order.id}
+                                  onClick={() => cancel(order)}
+                                  title="Cancel this order"
+                                  style={{
+                                    background: 'transparent',
+                                    color: A.danger,
+                                    border: `1.5px solid ${isAwaiting ? A.danger : 'rgba(217,83,79,0.30)'}`,
+                                    padding: '8px 14px', borderRadius: 8,
+                                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                    fontFamily: A.font, whiteSpace: 'nowrap',
+                                    opacity: updating === order.id ? 0.6 : 1,
+                                  }}>
+                                  Cancel
+                                </button>
+                              )}
                               {meta.next ? (
                                 // Active order: show advance button
                                 <button className="entry-btn" disabled={updating === order.id}
@@ -775,14 +831,21 @@ export default function AdminOrders() {
                                     ? <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                                     : meta.nextLabel}
                                 </button>
-                              ) : (
+                              ) : isCancelled ? (
+                                // Cancelled order: passive status pill, muted
+                                <span style={{
+                                  fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                                  textTransform: 'uppercase', padding: '5px 12px', borderRadius: 10,
+                                  background: 'rgba(0,0,0,0.04)', color: A.faintText, display: 'inline-block',
+                                }}>Cancelled</span>
+                              ) : meta.kind === 'served' ? (
                                 // Served order: passive status pill
                                 <span style={{
                                   fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                                   textTransform: 'uppercase', padding: '5px 12px', borderRadius: 10,
                                   background: 'transparent', color: A.faintText, display: 'inline-block',
                                 }}>Served · {timeAgo(secs)}</span>
-                              )}
+                              ) : null}
                             </div>
                           </div>
 

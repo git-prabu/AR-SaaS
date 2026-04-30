@@ -106,6 +106,19 @@ service cloud.firestore {
         // business state, so they're safe to allow in the public-update set.
         allow update: if request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['paymentStatus', 'paymentUpdatedAt', 'lastModifiedBy', 'lastModifiedAt']);
+
+        // Public: customers can cancel their OWN takeaway order while it's
+        // still parked in awaiting_payment. The kitchen hasn't started any
+        // work yet so a clean cancellation is safe + expected.
+        // Restrictions:
+        //   - current status MUST be 'awaiting_payment' (no cancelling
+        //     orders the kitchen is already preparing)
+        //   - new status MUST be 'cancelled'
+        //   - only the cancel-related fields can change in this update
+        allow update: if resource.data.status == 'awaiting_payment'
+          && request.resource.data.status == 'cancelled'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'lastModifiedBy', 'lastModifiedAt']);
         // Restaurant admin: read + update status (pending→preparing→ready→served)
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
         // Staff (kitchen or waiter): read + update so kitchen.js and waiter.js

@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updatePaymentStatus, markOrderPaid, todayKey } from '../../lib/db';
+import { updatePaymentStatus, markOrderPaid, cancelOrder, todayKey } from '../../lib/db';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -354,6 +354,31 @@ export default function AdminPayments() {
     } catch (e) {
       console.error('Cash payment failed:', e);
       toast.error('Could not mark as paid. Retry in a moment.');
+    }
+    setUpdating(null);
+  };
+
+  // ═══ Cancel order — admin-side ═══
+  // Available for orders that haven't been picked up by the kitchen yet
+  // (awaiting_payment) and for orders where payment was requested but
+  // never confirmed (cash/card/online_requested) — those are the rows
+  // a cashier might want to cancel from this page.
+  // For paid_* orders, cancel doesn't appear (refund flow is out of scope).
+  const cancelFromPayments = async (order) => {
+    const cancellable = order.status === 'awaiting_payment'
+      || ['cash_requested', 'card_requested', 'online_requested'].includes(order.paymentStatus);
+    if (!cancellable) {
+      toast.error('Cannot cancel — order is past the cancellable window.');
+      return;
+    }
+    if (!confirm(`Cancel order ${order.orderNumber ? '#' + order.orderNumber : ''}? This cannot be undone.`)) return;
+    setUpdating(order.id);
+    try {
+      await cancelOrder(rid, order.id, 'cancelled-by-admin');
+      toast.success('Order cancelled');
+    } catch (e) {
+      console.error(e);
+      toast.error('Could not cancel. Try again.');
     }
     setUpdating(null);
   };
@@ -846,22 +871,38 @@ export default function AdminPayments() {
                                     {meta.methodKey === 'cash' ? 'Cash' : meta.methodKey === 'card' ? 'Card' : 'UPI'}
                                   </span>
                                 </div>
-                                <button className="pay-action-btn"
-                                  disabled={updating === order.id}
-                                  onClick={() => markPaid(order, meta.methodKey)}
-                                  style={{
-                                    padding: '9px 20px', borderRadius: 8, border: 'none',
-                                    background: A.success, color: A.shell,
-                                    fontFamily: A.font, fontSize: 13, fontWeight: 700,
-                                    cursor: 'pointer', letterSpacing: '0.01em',
-                                    opacity: updating === order.id ? 0.6 : 1,
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                    minWidth: 130,
-                                  }}>
-                                  {updating === order.id
-                                    ? <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: A.shell, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                                    : 'Mark as Paid'}
-                                </button>
+                                <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                                  <button className="pay-action-btn"
+                                    disabled={updating === order.id}
+                                    onClick={() => cancelFromPayments(order)}
+                                    title="Cancel this order"
+                                    style={{
+                                      padding: '8px 14px', borderRadius: 8,
+                                      background: 'transparent', color: A.danger,
+                                      border: `1.5px solid rgba(217,83,79,0.30)`,
+                                      fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                                      cursor: 'pointer',
+                                      opacity: updating === order.id ? 0.6 : 1,
+                                    }}>
+                                    Cancel
+                                  </button>
+                                  <button className="pay-action-btn"
+                                    disabled={updating === order.id}
+                                    onClick={() => markPaid(order, meta.methodKey)}
+                                    style={{
+                                      padding: '9px 20px', borderRadius: 8, border: 'none',
+                                      background: A.success, color: A.shell,
+                                      fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                                      cursor: 'pointer', letterSpacing: '0.01em',
+                                      opacity: updating === order.id ? 0.6 : 1,
+                                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                      minWidth: 130,
+                                    }}>
+                                    {updating === order.id
+                                      ? <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: A.shell, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                                      : 'Mark as Paid'}
+                                  </button>
+                                </div>
                               </>
                             ) : (
                               // Unpaid — customer hasn't picked. Two-step flow:
@@ -903,6 +944,21 @@ export default function AdminPayments() {
                                         );
                                       })}
                                     </div>
+                                    <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                                    <button className="pay-action-btn"
+                                      disabled={updating === order.id}
+                                      onClick={() => cancelFromPayments(order)}
+                                      title="Cancel this order"
+                                      style={{
+                                        padding: '8px 14px', borderRadius: 8,
+                                        background: 'transparent', color: A.danger,
+                                        border: `1.5px solid rgba(217,83,79,0.30)`,
+                                        fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                                        cursor: 'pointer',
+                                        opacity: updating === order.id ? 0.6 : 1,
+                                      }}>
+                                      Cancel
+                                    </button>
                                     <button className="pay-action-btn"
                                       disabled={updating === order.id}
                                       onClick={() => markPaid(order, effectiveMethod)}
@@ -920,6 +976,7 @@ export default function AdminPayments() {
                                         ? <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: A.shell, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                                         : 'Mark as Paid'}
                                     </button>
+                                    </div>
                                   </>
                                 );
                               })()
