@@ -183,15 +183,19 @@ export default function AdminPayments() {
 
     const prevIds = prevRequestedIdsRef.current;
     const newOnes = requested.filter(o => !prevIds.has(o.id));
-    if (newOnes.length > 0 && soundEnabled) {
+    if (newOnes.length > 0) {
       const o = newOnes[0];
       const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
-      const tableLabel = isTakeaway ? (o.customerName || 'Takeaway') : (o.tableNumber || '—');
+      const rawTable = isTakeaway ? (o.customerName || 'Takeaway') : (o.tableNumber || '');
+      const tableLabel = String(rawTable || '').trim() || 'unknown';
       const methodLabel = PAYMENT_STATUS[o.paymentStatus]?.methodKey === 'cash' ? 'Cash'
                         : PAYMENT_STATUS[o.paymentStatus]?.methodKey === 'card' ? 'Card'
                         : PAYMENT_STATUS[o.paymentStatus]?.methodKey === 'online' ? 'UPI'
                         : 'payment';
-      announcePayment(tableLabel, methodLabel);
+      // Sound + voice independently gated (Apr 30 fix). soundEnabled
+      // controls only the chime; voice is gated by the global
+      // ar_voice_enabled flag inside lib/sounds.
+      announcePayment(tableLabel, methodLabel, { sound: soundEnabled });
     }
     prevRequestedIdsRef.current = currentIds;
   }, [allOrders, soundEnabled]);

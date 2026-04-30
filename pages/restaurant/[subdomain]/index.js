@@ -1310,6 +1310,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     const items = orders.flatMap(o => o.items || []);
     const sum = (key) => orders.reduce((s, o) => s + (Number(o[key]) || 0), 0);
     const first = orders[0];
+
+    // paidAt: the latest paymentUpdatedAt across orders that are in a
+    // paid_* state. Used by the printed bill to stamp the moment payment
+    // was actually confirmed (not the moment Print Bill was clicked, which
+    // is what we used to do — the user reported the time on the receipt
+    // was the click time, which doesn't match what cash registers do).
+    // null when no order on the bill is paid yet.
+    const PAID = ['paid_cash', 'paid_card', 'paid_online', 'paid'];
+    let paidAtMs = 0;
+    for (const o of orders) {
+      if (!PAID.includes(o.paymentStatus)) continue;
+      // paymentUpdatedAt is a Firestore Timestamp { seconds, nanoseconds }
+      // when read live; can also be a plain number/string after JSON
+      // serialisation in edge cases. Handle both shapes.
+      const t = o.paymentUpdatedAt;
+      let ms = 0;
+      if (t && typeof t.seconds === 'number') ms = t.seconds * 1000;
+      else if (t && typeof t.toMillis === 'function') ms = t.toMillis();
+      else if (t) ms = new Date(t).getTime() || 0;
+      if (ms > paidAtMs) paidAtMs = ms;
+    }
+
     return {
       isBill:               useBill,
       orderIds:             orders.map(o => o.id || o.orderId).filter(Boolean),
@@ -1327,6 +1349,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       couponCode:           orders.find(o => o.couponCode)?.couponCode || null,
       orderCount:           orders.length,
       multipleOrders:       orders.length > 1,
+      paidAtMs:             paidAtMs || null,
     };
   }, [currentBillId, billOrders, placedOrder]);
 
@@ -4459,9 +4482,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     const rHsn = restaurant?.hsnCode || '';
                     const rFooter = (restaurant?.billFooter && restaurant.billFooter.trim()) || 'Thank you! Visit again';
                     const tbl = bill.tableNumber && bill.tableNumber !== 'Not specified' ? bill.tableNumber : '';
-                    const now = new Date();
-                    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                    // Bill timestamp = moment payment was confirmed (paidAtMs from
+                    // the bill memo, derived from the latest paymentUpdatedAt across
+                    // all paid orders on the bill). Falls back to "now" only when
+                    // no order on the bill is paid yet — printing an unpaid bill is
+                    // unusual but possible (customer wants a copy before paying).
+                    const stampDate = bill.paidAtMs ? new Date(bill.paidAtMs) : new Date();
+                    const dateStr = stampDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const timeStr = stampDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
                     const itemsHtml = bill.items.map(it =>
                       `<tr><td style="text-align:left">${it.name} x${it.qty}</td><td style="text-align:right">Rs.${(it.price * it.qty).toFixed(0)}</td></tr>`
                     ).join('');

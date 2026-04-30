@@ -8,9 +8,29 @@ import { db, staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import {
-  announceOrder, unlockSound,
+  announceOrder, unlockSound, speak,
   isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
 } from '../../lib/sounds';
+
+// Apr 30 — track which order ids the kitchen has already announced this
+// session, so the voice doesn't re-read an order that was recalled from
+// preparing back to pending, AND so on remount we don't re-announce
+// orders the staff already heard about. Per-tab via sessionStorage so a
+// completely new tab starts fresh.
+const ANNOUNCED_KEY = 'ar_kitchen_announced_ids';
+function readAnnounced() {
+  if (typeof window === 'undefined') return new Set();
+  try { return new Set(JSON.parse(sessionStorage.getItem(ANNOUNCED_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function writeAnnounced(set) {
+  if (typeof window === 'undefined') return;
+  try {
+    // Cap at last 200 ids so the storage doesn't bloat across a long shift.
+    const list = [...set].slice(-200);
+    sessionStorage.setItem(ANNOUNCED_KEY, JSON.stringify(list));
+  } catch {}
+}
 
 // ═══ Aspire palette — same tokens as analytics/reports/orders ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -204,31 +224,77 @@ export default function KitchenDisplay() {
   }, [rid, staffSession]);
 
   // ══ Sound + voice alert when a new pending order arrives (Phase D) ══
-  // We diff by id (not just by count) so we can pick the actual new
-  // order doc and pass its table number + item count to announceOrder
-  // (which both chimes and speaks "New order, table 4, 2 items").
-  // First snapshot is suppressed — otherwise every existing pending
-  // ticket would beep on page reload.
+  //
+  // Apr 30 fixes (this is the cleaned-up, post-bug-report logic):
+  //
+  //   1. Per-id announced set in sessionStorage.
+  //      Once we've announced an order id, never re-announce it — even
+  //      if it's recalled from preparing back to pending. Solves the
+  //      "voice reads orders that are already off the list" report.
+  //
+  //   2. On remount, announce a SUMMARY of pending orders the staff
+  //      hasn't heard about yet ("3 pending orders waiting"). Solves
+  //      "not reading the latest orders while switching to that page"
+  //      — previously the first snapshot was silenced as a baseline,
+  //      so newly-arrived orders that landed while the page was unmounted
+  //      stayed silent forever.
+  //
+  //   3. itemCount sums qty across line items — an order with
+  //      3× Cold Coffee + 2× Pizza reads "5 items" instead of "2 items".
+  //
+  //   4. tableLabel falls back to "unknown" instead of "—" so the
+  //      speech synth doesn't pronounce the em-dash.
+  //
+  //   5. Sound + voice independently gated. Earlier the entire announce
+  //      call was inside `if (soundEnabled)` so turning the speaker icon
+  //      off silenced the mic too, even when voice was enabled.
   useEffect(() => {
     const pendingOrders = orders.filter(o => o.status === 'pending');
     const currentIds = new Set(pendingOrders.map(o => o.id));
+    const announced = readAnnounced();
 
     if (!initialOrdersLoadedRef.current) {
       prevOrderIdsRef.current = currentIds;
       initialOrdersLoadedRef.current = true;
       prevPendingRef.current = pendingOrders.length;
+
+      // Summary on remount: any pending orders that haven't been
+      // announced yet (either fresh or arrived while we were on a
+      // different page) get a single batched voice message — no
+      // per-order chime, that would spam if there are 5+ waiting.
+      const unheard = pendingOrders.filter(o => !announced.has(o.id));
+      if (unheard.length > 0) {
+        unheard.forEach(o => announced.add(o.id));
+        writeAnnounced(announced);
+        // Speak the summary; isVoiceEnabled() inside speak() gates it,
+        // so this is a no-op when voice is off. We deliberately skip
+        // playing a chime here so reopening the kitchen page after
+        // a busy stretch doesn't sound chaotic.
+        speak(`${unheard.length} pending order${unheard.length === 1 ? '' : 's'} waiting`);
+      }
       return;
     }
 
     const prevIds = prevOrderIdsRef.current;
-    const newOrders = pendingOrders.filter(o => !prevIds.has(o.id));
-    if (newOrders.length > 0 && soundEnabled) {
-      // Most-recent new order (sorted desc by createdAt already from the listener)
+    // "Newly added to pending" AND "we haven't already announced this id".
+    // Without the second filter, a Recall-to-New (preparing → pending)
+    // would re-trigger the same announcement.
+    const newOrders = pendingOrders.filter(o => !prevIds.has(o.id) && !announced.has(o.id));
+    if (newOrders.length > 0) {
+      // Most-recent new order — orders listener sorts desc by createdAt.
       const o = newOrders[0];
       const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
-      const tableLabel = isTakeaway ? (o.customerName || 'Takeaway') : (o.tableNumber || '—');
-      const itemCount = (o.items || []).length;
-      announceOrder(tableLabel, itemCount);
+      const rawTable = isTakeaway ? (o.customerName || 'Takeaway') : (o.tableNumber || '');
+      const tableLabel = String(rawTable || '').trim() || 'unknown';
+      const itemCount = (o.items || []).reduce((sum, it) => sum + (Number(it.qty) || 1), 0);
+      announceOrder(tableLabel, itemCount, { sound: soundEnabled });
+
+      // Mark all the freshly-discovered orders as announced (not just
+      // the one we read out loud) — otherwise the next snapshot would
+      // pick up the un-read ones as "newly added" and announce them
+      // one at a time on every render tick.
+      newOrders.forEach(o => announced.add(o.id));
+      writeAnnounced(announced);
     }
     prevOrderIdsRef.current = currentIds;
     prevPendingRef.current = pendingOrders.length;

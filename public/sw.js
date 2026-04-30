@@ -24,7 +24,14 @@
 // Cache versioning: bump CACHE_VERSION whenever this strategy changes so the
 // activate handler purges old entries from previous worker versions.
 
-const CACHE_VERSION  = 'ar-v3';
+// Bumped ar-v3 → ar-v4 (Phase D follow-up): user reported hearing the old
+// /notification.mp3 simultaneously with the new lib/sounds chime on
+// /admin/waiter. Source code has zero functional Audio() / mp3 references
+// (verified via codebase audit), which means the leftover audio was the
+// old JS bundle still living in the SW's static-asset cache and getting
+// loaded by a stale tab. Bumping the version forces a clean activate +
+// purge on next visit, so all clients re-fetch the latest JS.
+const CACHE_VERSION  = 'ar-v4';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

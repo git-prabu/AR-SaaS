@@ -298,16 +298,21 @@ export default function WaiterDashboard() {
       // Sound + voice: announce the highest-priority new item.
       // Priority order: payment > call > serve. Payments are highest
       // because cash/UPI collection is the most "must respond" event.
-      if (soundEnabled) {
-        const priority = { payment: 3, call: 2, serve: 1 };
-        const pick = [...newlyAddedItems].sort((a, b) => (priority[b.type] || 0) - (priority[a.type] || 0))[0];
-        if (pick.type === 'payment') {
-          announcePayment(pick.table, pick.methodLabel || 'payment');
-        } else if (pick.type === 'call') {
-          announceCall(pick.table, pick.subtitle);
-        } else {
-          announceReady(pick.table);
-        }
+      //
+      // Sound and voice are INDEPENDENT (Apr 30 fix): we always call
+      // the announcer, passing { sound: soundEnabled } so the chime
+      // only plays when the speaker icon is on. Voice is gated
+      // internally inside lib/sounds via isVoiceEnabled() so the mic
+      // icon's localStorage flag controls it on its own. Without this
+      // split, turning the speaker off was also silencing the voice.
+      const priority = { payment: 3, call: 2, serve: 1 };
+      const pick = [...newlyAddedItems].sort((a, b) => (priority[b.type] || 0) - (priority[a.type] || 0))[0];
+      if (pick.type === 'payment') {
+        announcePayment(pick.table, pick.methodLabel || 'payment', { sound: soundEnabled });
+      } else if (pick.type === 'call') {
+        announceCall(pick.table, pick.subtitle, { sound: soundEnabled });
+      } else {
+        announceReady(pick.table, { sound: soundEnabled });
       }
     }
     setUnseenIds(prev => {
