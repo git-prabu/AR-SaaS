@@ -4233,7 +4233,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 <button
                   onClick={() => {
                     const w = window.open('', '_blank', 'width=300,height=700');
-                    if (!w) return;
+                    // Phase E — popup-blocked fallback. Mobile browsers
+                    // (and some desktop browsers with strict blockers)
+                    // return null. Tell the customer how to fix instead
+                    // of silently doing nothing — otherwise the button
+                    // looks broken.
+                    if (!w) {
+                      toast.error('Please allow popups for this site to print the bill.');
+                      return;
+                    }
                     const rName = restaurant?.name || 'Restaurant';
                     const rAddress = restaurant?.address || '';
                     const rPhone = restaurant?.phone || '';

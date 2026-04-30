@@ -127,6 +127,13 @@ export default function AdminPayments() {
   // admin can mute payments-page chimes without affecting the kitchen).
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabledState] = useState(false);
+  // Phase E — cash payment confirmation modal (mirrors waiter.js behaviour).
+  // When admin marks an order paid with method='cash', we open this modal
+  // first to capture cashReceived + auto-compute change. Card / UPI mark-paid
+  // is one-tap (no input needed). Both values get persisted on the order
+  // doc for end-of-shift cash-drawer reconciliation.
+  const [cashModal, setCashModal] = useState(null);  // { order } | null
+  const [cashReceived, setCashReceived] = useState('');
   const prevRequestedIdsRef = useRef(new Set());
   const initialPaymentsLoadedRef = useRef(false);
 
@@ -280,8 +287,18 @@ export default function AdminPayments() {
   }, [relevantOrders, filter, period, search, customRange]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ═══ Mark as paid — called with explicit method so `unpaid` orders don't silently default to cash ═══
+  // Cash payments route through the cash modal first (Phase E) so we
+  // can capture cashReceived + changeGiven for the cash-drawer audit
+  // trail. Card / UPI commit immediately because there's no extra
+  // info to capture for them.
   const markPaid = async (order, method /* 'cash' | 'card' | 'online' */) => {
     if (!rid) return;
+    if (method === 'cash') {
+      const total = Math.round(Number(order?.total) || 0);
+      setCashModal({ order });
+      setCashReceived(String(total));
+      return;
+    }
     const previousStatus = order.paymentStatus;
     const newStatus = `paid_${method}`;
     setUpdating(order.id);
@@ -299,6 +316,34 @@ export default function AdminPayments() {
     } catch (e) {
       console.error('Payment update failed:', e);
       toast.error('Could not mark as paid. Check connection and retry.');
+    }
+    setUpdating(null);
+  };
+
+  // Phase E — confirm cash payment from the modal. Persists cashReceived
+  // + changeGiven on the order doc + closes any auto-closeable bill.
+  const confirmCashPayment = async () => {
+    if (!cashModal || !rid) return;
+    const order = cashModal.order;
+    const total = Math.round(Number(order?.total) || 0);
+    const received = Math.round(Number(cashReceived) || 0);
+    if (received < total) {
+      toast.error(`Cash received (₹${received}) is less than total (₹${total}).`);
+      return;
+    }
+    const change = received - total;
+    const previousStatus = order.paymentStatus;
+    setUpdating(order.id);
+    try {
+      await markOrderPaid(rid, order.id, 'paid_cash', { cashReceived: received, changeGiven: change });
+      setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
+      showUndoBanner(order.id, previousStatus);
+      toast.success(change > 0 ? `Paid · Change ₹${change}` : 'Paid · Exact cash');
+      setCashModal(null);
+      setCashReceived('');
+    } catch (e) {
+      console.error('Cash payment failed:', e);
+      toast.error('Could not mark as paid. Retry in a moment.');
     }
     setUpdating(null);
   };
@@ -912,6 +957,126 @@ export default function AdminPayments() {
             }}>×</button>
           </div>
         )}
+
+        {/* ═══ Phase E — Cash payment confirmation modal ═══
+            Mirrors the waiter-dashboard cash modal so the UX is the same
+            wherever staff confirm a cash payment. Captures cashReceived
+            + auto-computes changeGiven; both persist on the order doc
+            via markOrderPaid extras for the cash-drawer audit trail. */}
+        {cashModal && (() => {
+          const order = cashModal.order;
+          const total = Math.round(Number(order?.total) || 0);
+          const received = Math.round(Number(cashReceived) || 0);
+          const change = Math.max(0, received - total);
+          const ok = received >= total;
+          return (
+            <div
+              className="no-print"
+              onClick={() => { setCashModal(null); setCashReceived(''); }}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 100,
+                background: 'rgba(0,0,0,0.45)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 16, fontFamily: A.font,
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  background: A.shell, borderRadius: 16, padding: '24px 24px 20px',
+                  width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                    padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
+                    background: 'rgba(196,168,109,0.14)', color: A.warningDim,
+                  }}>PAY · CASH</span>
+                  <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>
+                    {orderLabel(order)} · Table {order.tableNumber || '—'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px', marginBottom: 18 }}>
+                  Cash payment
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, padding: '10px 14px', background: A.shellDarker, borderRadius: 10 }}>
+                  <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>Order total</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>
+                    ₹{total.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <label style={{ display: 'block', fontSize: 11, color: A.mutedText, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>
+                  Cash received
+                </label>
+                <div style={{ position: 'relative', marginBottom: 12 }}>
+                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: A.mutedText, fontWeight: 600 }}>₹</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={total}
+                    value={cashReceived}
+                    onChange={e => setCashReceived(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: '100%', padding: '12px 14px 12px 28px',
+                      borderRadius: 10, border: A.border, background: A.shell,
+                      fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                      color: A.ink, outline: 'none', letterSpacing: '-0.3px',
+                    }}
+                  />
+                </div>
+
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                  marginBottom: 18, padding: '10px 14px',
+                  background: change > 0 ? 'rgba(63,158,90,0.08)' : A.shellDarker,
+                  borderRadius: 10,
+                }}>
+                  <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>Change to give</span>
+                  <span style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700,
+                    color: change > 0 ? A.success : A.faintText,
+                    letterSpacing: '-0.3px',
+                  }}>
+                    ₹{change.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { setCashModal(null); setCashReceived(''); }}
+                    disabled={updating === order.id}
+                    style={{
+                      flex: 1, padding: '12px 16px', borderRadius: 10, border: A.border,
+                      background: A.shell, color: A.mutedText,
+                      fontFamily: A.font, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmCashPayment}
+                    disabled={!ok || updating === order.id}
+                    style={{
+                      flex: 2, padding: '12px 16px', borderRadius: 10, border: 'none',
+                      background: ok ? A.warning : 'rgba(196,168,109,0.35)',
+                      color: A.ink, fontFamily: A.font, fontSize: 13, fontWeight: 700,
+                      cursor: ok ? 'pointer' : 'not-allowed', letterSpacing: '0.01em',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}
+                  >
+                    {updating === order.id
+                      ? <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(0,0,0,0.4)', borderTopColor: A.ink, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                      : `Confirm Payment${change > 0 ? ` (₹${change} change)` : ''}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </AdminLayout>
   );
