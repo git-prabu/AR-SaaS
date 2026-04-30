@@ -622,6 +622,19 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const tableNumber = router.query?.table || null; // from QR URL param e.g. ?table=4
   const urlSid      = router.query?.sid   || null;  // unguessable session ID in QR URL
 
+  // Phase L — PWA install prompt state.
+  // Browser fires `beforeinstallprompt` only after its own engagement
+  // heuristics decide the page is install-worthy (visited multiple
+  // times / used some interactive elements). We capture the event,
+  // surface a small "Save to home screen" banner, and call .prompt()
+  // when the customer taps it. `installDeferred` holds the captured
+  // event because the prompt() call must happen inside a user gesture
+  // — we can't fire it from the listener itself. `installPrompted`
+  // hides the banner once the diner has either accepted, dismissed,
+  // or explicitly closed it for this session.
+  const [installDeferred, setInstallDeferred] = useState(null);
+  const [installDismissed, setInstallDismissed] = useState(false);
+
   // ── Table-session enforcement ─────────────────────────────────────────
   // The customer's QR URL has the form `?table=N&sid=...`. We must reject:
   //   1. A guessed table number (no sid)               → no urlSid
@@ -694,6 +707,58 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       window.removeEventListener('focus', onFocusOrVisible);
     };
   }, [restaurant?.id, tableNumber, urlSid]);
+
+  // Phase L — listen for the browser's beforeinstallprompt + appinstalled.
+  // Both events are no-ops when the page isn't installable (HTTP, missing
+  // manifest, no SW) so this useEffect is safe on every render path.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Skip the banner forever if the diner already dismissed it OR the
+    // PWA is already installed (running in standalone display mode).
+    try {
+      if (localStorage.getItem('ar_install_dismissed') === '1') {
+        setInstallDismissed(true);
+      }
+    } catch {}
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      setInstallDismissed(true);  // already installed; don't re-prompt
+    }
+    const onBeforeInstall = (e) => {
+      e.preventDefault();           // suppress the default mini-infobar
+      setInstallDeferred(e);
+    };
+    const onInstalled = () => {
+      setInstallDeferred(null);
+      try { localStorage.setItem('ar_install_dismissed', '1'); } catch {}
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  const triggerInstall = useCallback(async () => {
+    if (!installDeferred) return;
+    try {
+      await installDeferred.prompt();
+      // Whatever the diner picks (accept / dismiss), we don't re-prompt
+      // this session. The browser also won't refire beforeinstallprompt
+      // unless they completely uninstall + revisit later.
+      setInstallDeferred(null);
+      setInstallDismissed(true);
+      try { localStorage.setItem('ar_install_dismissed', '1'); } catch {}
+    } catch (err) {
+      console.error('install prompt failed:', err);
+    }
+  }, [installDeferred]);
+
+  const dismissInstall = useCallback(() => {
+    setInstallDismissed(true);
+    setInstallDeferred(null);
+    try { localStorage.setItem('ar_install_dismissed', '1'); } catch {}
+  }, []);
 
   // Dark mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -1534,6 +1599,20 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         <title>{restaurant.name} — Menu</title>
         <meta name="description" content={`Explore ${restaurant.name}'s menu with AR previews. Order directly from your table.`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        {/* Phase L — per-restaurant PWA manifest. Overrides the global
+            /manifest.json (which is admin-focused, start_url /admin).
+            When a diner taps "Add to Home Screen" from the menu page,
+            installing the PWA picks up THIS manifest — branded with
+            the restaurant's name + theme color, start_url pointing to
+            their table's QR redirect so re-launching always lands on
+            the latest sid. */}
+        <link
+          rel="manifest"
+          href={`/api/manifest?subdomain=${encodeURIComponent(restaurant.subdomain || '')}${tableNumber ? `&table=${encodeURIComponent(tableNumber)}` : ''}`}
+        />
+        <meta name="apple-mobile-web-app-title" content={restaurant.name} />
+        <meta name="theme-color" content="#1A1A1A" />
 
         {/* Open Graph */}
         <meta property="og:title" content={`${restaurant.name} — Menu`} />
@@ -3297,6 +3376,72 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 )}
               </div>
             )}
+            {/* Phase L — PWA install prompt banner.
+                Appears ABOVE the FAB row when the browser has decided
+                the page is install-worthy AND the diner hasn't dismissed
+                it. One tap on "Save" fires the native install dialog;
+                "Not now" hides the banner for the rest of the device's
+                lifetime (localStorage flag).
+                We deliberately keep it small + dismissible — for a
+                customer who's eating, an aggressive prompt is friction. */}
+            {installDeferred && !installDismissed && (
+              <div style={{
+                position: 'relative',
+                marginBottom: 10,
+                padding: '12px 14px',
+                background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff',
+                border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.10)' : 'rgba(42,31,16,0.10)'}`,
+                borderRadius: 14,
+                boxShadow: darkMode ? '0 4px 16px rgba(0,0,0,0.3)' : '0 4px 16px rgba(0,0,0,0.08)',
+                display: 'flex', alignItems: 'center', gap: 10,
+                fontFamily: 'Inter, sans-serif',
+              }}>
+                <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>📱</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: darkMode ? '#FFF5E8' : '#1E1B18',
+                    marginBottom: 1, letterSpacing: '-0.1px',
+                  }}>
+                    Save menu to home screen
+                  </div>
+                  <div style={{
+                    fontSize: 11,
+                    color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)',
+                    lineHeight: 1.35,
+                  }}>
+                    Open it next visit with one tap, no QR scan needed.
+                  </div>
+                </div>
+                <button
+                  onClick={triggerInstall}
+                  style={{
+                    flexShrink: 0,
+                    padding: '8px 14px', borderRadius: 9,
+                    background: '#F79B3D', color: '#1E1B18',
+                    border: 'none', cursor: 'pointer',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 12, fontWeight: 700, letterSpacing: '0.01em',
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={dismissInstall}
+                  aria-label="Dismiss"
+                  style={{
+                    flexShrink: 0,
+                    width: 24, height: 24, padding: 0,
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.4)',
+                    fontSize: 18, lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
             {/* Bottom row: Call Waiter + Help Me Choose */}
             <div className="fab-row">
               {waiterCallsEnabled && (
