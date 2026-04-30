@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
+import { playOrderSound, playCallSound, playPaymentSound } from '../../lib/sounds';
 
 const navSections = [
   {
@@ -129,11 +130,18 @@ export default function AdminLayout({ children }) {
   const [callsLoaded, setCallsLoaded] = useState(false);
 
   // ─── GLOBAL SOUND + NOTIFICATION SYSTEM ──────────────────────────────────
+  // This layout wraps every admin page, so its sound + browser-notification
+  // listeners act as a CROSS-PAGE catchall: admin can be on /admin/menu-items
+  // and still get a chime + OS notification when an order arrives.
+  //
+  // The page-specific listeners (kitchen.js / waiter.js / payments.js)
+  // play THE SAME synthesized chime via lib/sounds, with a 250ms debounce
+  // in lib/sounds itself so the cross-page + page-specific listeners
+  // firing in the same tick collapse to a single sound.
   const prevCallRef = useRef(0);
   const prevOrderRef = useRef(0);
   const notifGranted = useRef(false);
   const seenPaymentRequests = useRef(new Set());
-  const audioCtxRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -146,34 +154,11 @@ export default function AdminLayout({ children }) {
 
   const soundAllowed = () => localStorage.getItem('ar_sound_enabled') !== 'false';
 
-  const playBell = async () => {
-    if (!soundAllowed()) return;
-    try {
-      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') await ctx.resume();
-      const tone = (freq, start, dur, peak) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(peak, start + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
-        osc.start(start); osc.stop(start + dur);
-      };
-      tone(880, ctx.currentTime, 1.4, 0.55);
-      tone(1760, ctx.currentTime, 0.7, 0.25);
-      tone(880, ctx.currentTime + 0.55, 1.2, 0.45);
-      tone(1760, ctx.currentTime + 0.55, 0.6, 0.2);
-    } catch { }
-  };
-
-  const playAlert = () => {
-    if (!soundAllowed()) return;
-    try { new Audio('/notification.mp3').play().catch(() => { }); } catch { }
-  };
+  // Wraps lib/sounds calls behind the global mute toggle. The lib's
+  // own debounce handles cross-page double-fires.
+  const playForCall    = () => { if (soundAllowed()) playCallSound(); };
+  const playForOrder   = () => { if (soundAllowed()) playOrderSound(); };
+  const playForPayment = () => { if (soundAllowed()) playPaymentSound(); };
 
   const showOsNotif = (title, body) => {
     if (!notifGranted.current) return;
@@ -191,7 +176,7 @@ export default function AdminLayout({ children }) {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pending = docs.filter(d => d.status === 'pending').length;
       if (prevCallRef.current > 0 && pending > prevCallRef.current) {
-        playBell();
+        playForCall();
         showOsNotif('New Waiter Call', 'A customer needs help');
       }
       prevCallRef.current = pending;
@@ -210,7 +195,7 @@ export default function AdminLayout({ children }) {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const pending = docs.filter(d => d.status === 'pending').length;
       if (prevOrderRef.current > 0 && pending > prevOrderRef.current) {
-        playAlert();
+        playForOrder();
         showOsNotif('New Order', 'A new order has arrived');
       }
       prevOrderRef.current = pending;
@@ -225,7 +210,7 @@ export default function AdminLayout({ children }) {
         if (isPaymentRequest && !seenPaymentRequests.current.has(id)) {
           seenPaymentRequests.current.add(id);
           const methodLabel = data.paymentStatus === 'card_requested' ? 'card' : data.paymentStatus === 'online_requested' ? 'online' : 'cash';
-          playBell();
+          playForPayment();
           showOsNotif('Payment Requested', `Table ${data.tableNumber || '?'} wants to pay by ${methodLabel}`);
         }
       });

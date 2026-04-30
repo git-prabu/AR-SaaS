@@ -11,6 +11,7 @@ import {
   resolveWaiterCall, deleteWaiterCall,
   getRestaurantById, updateRestaurant, getFeedback,
 } from '../../lib/db';
+import { playOrderSound, playCallSound, playPaymentSound, unlockSound } from '../../lib/sounds';
 
 // ═══ Payment status sets — kept in sync with payments.js + reports.js.
 // Firestore order docs use suffixed statuses like `cash_requested`, `paid_cash`.
@@ -118,7 +119,7 @@ export default function NotificationsPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [browserNotifsEnabled, setBrowserNotifsEnabled] = useState(false);
   const [browserPermState, setBrowserPermState] = useState('default'); // 'granted' | 'denied' | 'default'
-  const audioRef = useRef(null);
+  // (audioRef removed — Phase D synthesized sounds use lib/sounds' shared AudioContext.)
 
   // Refs for detecting "new items" between snapshots (so we ping sound + OS notif)
   const prevCallCountRef = useRef(null);
@@ -139,10 +140,7 @@ export default function NotificationsPage() {
       const stored = localStorage.getItem('ar_sound_enabled');
       if (stored !== null) setSoundEnabled(stored === 'true');
     } catch {}
-    try {
-      audioRef.current = new Audio('/notification.mp3');
-      audioRef.current.preload = 'auto';
-    } catch {}
+    // (Phase D refactor — synthesized via lib/sounds.js, no MP3 preload.)
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setBrowserPermState(Notification.permission);
       setBrowserNotifsEnabled(Notification.permission === 'granted');
@@ -206,7 +204,7 @@ export default function NotificationsPage() {
           if (isRequested && !prevPaymentOrderIdsRef.current.has(change.doc.id)) {
             prevPaymentOrderIdsRef.current.add(change.doc.id);
             if (ordersLoaded) {
-              playSound();
+              playForPayment();
               pushBrowserNotif('Payment requested', `Table ${data.tableNumber || '—'} wants to pay`);
             }
           }
@@ -240,13 +238,12 @@ export default function NotificationsPage() {
   }, [rid]);
 
   // ══ Sound + browser notification helpers ══
-  const playSound = () => {
-    if (!soundEnabled || !audioRef.current) return;
-    try {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
-    } catch {}
-  };
+  // Each event type plays its own distinct chime via lib/sounds (Phase D)
+  // — debounced inside lib/sounds so concurrent fires from AdminLayout
+  // don't double up. The legacy single-file `notification.mp3` is gone.
+  const playForOrder    = () => { if (soundEnabled) playOrderSound();    };
+  const playForCall     = () => { if (soundEnabled) playCallSound();     };
+  const playForPayment  = () => { if (soundEnabled) playPaymentSound();  };
   const pushBrowserNotif = (title, body) => {
     if (!browserNotifsEnabled) return;
     if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return;
@@ -261,7 +258,7 @@ export default function NotificationsPage() {
     const pending = calls.filter(c => c.status === 'pending').length;
     const prev = prevCallCountRef.current;
     if (prev !== null && pending > prev) {
-      playSound();
+      playForCall();
       pushBrowserNotif('New waiter call', `${pending} call${pending === 1 ? '' : 's'} pending`);
     }
     prevCallCountRef.current = pending;
@@ -271,7 +268,7 @@ export default function NotificationsPage() {
     const newOrders = orders.filter(o => o.status === 'pending').length;
     const prev = prevOrderCountRef.current;
     if (prev !== null && newOrders > prev) {
-      playSound();
+      playForOrder();
       pushBrowserNotif('New order', `${newOrders} order${newOrders === 1 ? '' : 's'} to prepare`);
     }
     prevOrderCountRef.current = newOrders;
@@ -546,7 +543,7 @@ export default function NotificationsPage() {
 
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button className="live-icon-btn"
-                onClick={() => setSoundEnabled(v => !v)}
+                onClick={() => { setSoundEnabled(v => !v); unlockSound(); }}
                 title={soundEnabled ? 'Mute' : 'Unmute'}
                 style={{
                   padding: '8px 12px', borderRadius: 10, border: A.border, background: A.shell,
@@ -833,7 +830,7 @@ export default function NotificationsPage() {
               title="Sound alerts"
               description="Play a chime when new activity arrives."
               checked={soundEnabled}
-              onToggle={() => setSoundEnabled(v => !v)}
+              onToggle={() => { setSoundEnabled(v => !v); unlockSound(); }}
             />
 
             {/* Browser notifications */}

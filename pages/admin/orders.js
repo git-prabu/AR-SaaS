@@ -8,6 +8,7 @@ import { collection, onSnapshot, query, orderBy, doc, updateDoc, serverTimestamp
 import toast from 'react-hot-toast';
 import { timeAgo } from '../../lib/utils';
 import DateRangePicker from '../../components/DateRangePicker';
+import { playOrderSound, unlockSound } from '../../lib/sounds';
 
 // ─────────────────────────────────────────────────────────────
 // Aspire palette — matches analytics/reports for brand consistency.
@@ -141,19 +142,16 @@ export default function AdminOrders() {
   // Sound alert — default ON, persisted in localStorage
   const [soundEnabled, setSoundEnabled] = useState(true);
   const prevPendingRef = useRef(null);       // tracks last known pending count
-  const audioRef = useRef(null);             // single Audio instance
+  // (audioRef removed — Phase D synthesized sounds use lib/sounds' shared
+  //  AudioContext, no per-page Audio instance needed.)
   const rid = userData?.restaurantId;
 
-  // Load sound preference from localStorage once on mount
+  // Load sound preference from localStorage once on mount.
+  // (Phase D refactor — synthesized via lib/sounds.js, no MP3 preload.)
   useEffect(() => {
     try {
       const stored = localStorage.getItem('ar_orders_sound');
       if (stored !== null) setSoundEnabled(stored === 'true');
-    } catch {}
-    // Preload audio
-    try {
-      audioRef.current = new Audio('/notification.mp3');
-      audioRef.current.preload = 'auto';
     } catch {}
   }, []);
 
@@ -180,12 +178,12 @@ export default function AdminOrders() {
   useEffect(() => {
     const pendingNow = orders.filter(o => o.status === 'pending').length;
     const prev = prevPendingRef.current;
-    if (prev !== null && pendingNow > prev && soundEnabled && audioRef.current) {
-      // Reset playback position in case it was mid-play
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {
-        // Autoplay blocked before first user gesture; silent fail.
-      });
+    if (prev !== null && pendingNow > prev && soundEnabled) {
+      // Phase D refactor: synthesized chime via lib/sounds (auto-debounced
+      // so AdminLayout's cross-page listener firing for the same event
+      // doesn't double up). AudioContext gets unlocked on first interaction
+      // — until then the chime silently no-ops.
+      playOrderSound();
     }
     prevPendingRef.current = pendingNow;
   }, [orders, soundEnabled]);
@@ -379,9 +377,12 @@ export default function AdminOrders() {
                 <div style={{ fontFamily: A.font, fontSize: 13, color: A.mutedText, marginTop: 6 }}>Live incoming orders from your tables</div>
               </div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              {/* Sound toggle — click to mute/unmute new-order alerts */}
+              {/* Sound toggle — click to mute/unmute new-order alerts.
+                  Also unlocks the shared AudioContext on first tap so
+                  subsequent automatic plays aren't blocked by autoplay
+                  policy. */}
               <button
-                onClick={() => setSoundEnabled(v => !v)}
+                onClick={() => { setSoundEnabled(v => !v); unlockSound(); }}
                 title={soundEnabled ? 'Mute new-order sound' : 'Enable new-order sound'}
                 style={{
                   width: 34, height: 34, borderRadius: '50%',

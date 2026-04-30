@@ -4302,26 +4302,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 {/* Print Bill */}
                 <button
                   onClick={() => {
-                    const w = window.open('', '_blank', 'width=300,height=700');
-                    // Phase E — popup-blocked fallback. Mobile browsers
-                    // (and some desktop browsers with strict blockers)
-                    // return null. Tell the customer how to fix instead
-                    // of silently doing nothing — otherwise the button
-                    // looks broken.
-                    if (!w) {
-                      toast.error('Please allow popups for this site to print the bill.');
-                      return;
-                    }
+                    // Build the printable HTML (thermal-printer 80mm receipt).
+                    // Phase A — Print uses the aggregated bill (sum across all
+                    // orders in the running tab) so multi-order tabs print one
+                    // combined receipt instead of just the latest.
                     const rName = restaurant?.name || 'Restaurant';
                     const rAddress = restaurant?.address || '';
                     const rPhone = restaurant?.phone || '';
                     const rGstin = restaurant?.gstNumber || '';
                     const rFssai = restaurant?.fssaiNo || '';
-                    const rHsn = restaurant?.hsnCode || '';                                                  // NEW: HSN/SAC code (default: 9963 for restaurants)
-                    const rFooter = (restaurant?.billFooter && restaurant.billFooter.trim()) || 'Thank you! Visit again';  // NEW: custom footer line
-                    // Phase A — Print uses the aggregated bill (sum across
-                    // all orders in the running tab) so multi-order tabs
-                    // print one combined receipt instead of just the latest.
+                    const rHsn = restaurant?.hsnCode || '';
+                    const rFooter = (restaurant?.billFooter && restaurant.billFooter.trim()) || 'Thank you! Visit again';
                     const tbl = bill.tableNumber && bill.tableNumber !== 'Not specified' ? bill.tableNumber : '';
                     const now = new Date();
                     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -4345,7 +4336,19 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     const discRow = disc > 0 ? `<tr><td>Discount${bill.couponCode ? ' ('+bill.couponCode+')' : ''}</td><td style="text-align:right">-Rs.${disc.toFixed(0)}</td></tr>` : '';
                     const roRow = ro !== 0 ? `<tr><td>Round off</td><td style="text-align:right">${ro > 0 ? '+' : ''}Rs.${ro.toFixed(2)}</td></tr>` : '';
                     const pmLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'upi' ? 'UPI' : '';
-                    w.document.write(`<!DOCTYPE html><html><head><title>Bill</title><style>
+                    const orderRefHtml = (() => {
+                      if (bill.isBill && currentBillId) {
+                        return `<div class="center" style="font-size:10px;margin-top:2px">Bill #${currentBillId.slice(-6).toUpperCase()} · ${bill.orderCount} order${bill.orderCount === 1 ? '' : 's'}</div>`;
+                      }
+                      if (typeof placedOrder?.orderNumber === 'number' && placedOrder.orderNumber > 0) {
+                        return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderNumber}</div>`;
+                      }
+                      if (placedOrder?.orderId) {
+                        return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>`;
+                      }
+                      return '';
+                    })();
+                    const printHtml = `<!DOCTYPE html><html><head><title>Bill</title><style>
                       @page{size:80mm auto;margin:4mm}
                       *{margin:0;padding:0;box-sizing:border-box}
                       body{font-family:'Courier New',monospace;font-size:12px;width:72mm;margin:0 auto;padding:8px 0}
@@ -4363,22 +4366,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <div class="line"></div>
                       ${tbl ? `<div class="center" style="font-size:11px;margin-bottom:2px">Table: ${tbl}</div>` : ''}
                       <div class="center" style="font-size:10px">${dateStr} ${timeStr}</div>
-                      ${(() => {
-                        // For a multi-order running bill: print the bill id +
-                        // order count. For single-order: keep the existing
-                        // "Order #5" / fallback-to-id-slice format so prints
-                        // for legacy / takeaway orders look unchanged.
-                        if (bill.isBill && currentBillId) {
-                          return `<div class="center" style="font-size:10px;margin-top:2px">Bill #${currentBillId.slice(-6).toUpperCase()} · ${bill.orderCount} order${bill.orderCount === 1 ? '' : 's'}</div>`;
-                        }
-                        if (typeof placedOrder?.orderNumber === 'number' && placedOrder.orderNumber > 0) {
-                          return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderNumber}</div>`;
-                        }
-                        if (placedOrder?.orderId) {
-                          return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>`;
-                        }
-                        return '';
-                      })()}
+                      ${orderRefHtml}
                       <div class="line"></div>
                       <table>${itemsHtml}</table>
                       <div class="line"></div>
@@ -4394,9 +4382,76 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       ${rFssai ? `<div class="center" style="margin-top:6px;font-size:10px">FSSAI Lic. No. ${rFssai}</div>` : ''}
                       <div class="center" style="margin-top:8px;font-size:10px">${rFooter}</div>
                       <div class="center" style="margin-top:4px;font-size:9px">Powered by Advert Radical</div>
-                    </body></html>`);
-                    w.document.close();
-                    setTimeout(() => { w.print(); }, 300);
+                    </body></html>`;
+
+                    // ── Print via hidden iframe — no popup, no blocker friction ──
+                    // Previously we used `window.open('', '_blank', 'width=...')`
+                    // which mobile browsers and strict desktop blockers refuse
+                    // to open. The blocked-popup toast was making the button
+                    // feel broken even though popups were the right idea
+                    // semantically.
+                    //
+                    // The iframe approach: append a hidden iframe to the page,
+                    // write the bill HTML into it, fire its print(), then clean
+                    // up. No external window means no popup blocker. Works
+                    // identically on Chrome desktop, Safari iOS, Chrome Android.
+                    try {
+                      const iframe = document.createElement('iframe');
+                      iframe.setAttribute('aria-hidden', 'true');
+                      // 0×0 visually + offscreen so it never affects layout.
+                      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+                      document.body.appendChild(iframe);
+
+                      let cleaned = false;
+                      const cleanup = () => {
+                        if (cleaned) return;
+                        cleaned = true;
+                        try { iframe.contentWindow?.removeEventListener('afterprint', cleanup); } catch {}
+                        // Slight delay so the print dialog doesn't tear out from
+                        // under the iframe before the browser's actually done.
+                        setTimeout(() => { try { iframe.remove(); } catch {} }, 100);
+                      };
+
+                      const triggerPrint = () => {
+                        try {
+                          const w = iframe.contentWindow;
+                          if (!w) { cleanup(); return; }
+                          // afterprint fires once the dialog closes (Cancel or
+                          // Print). Safety timeout if it never fires (some
+                          // mobile browsers don't emit afterprint reliably).
+                          w.addEventListener('afterprint', cleanup);
+                          setTimeout(cleanup, 60_000);
+                          w.focus();
+                          w.print();
+                        } catch (err) {
+                          console.error('print failed:', err);
+                          cleanup();
+                          toast.error('Could not open print dialog. Please try again.');
+                        }
+                      };
+
+                      // Write the HTML and trigger print on load. Some browsers
+                      // need both the load event + a tiny tick to settle the
+                      // page before print() opens the dialog.
+                      const idoc = iframe.contentDocument || iframe.contentWindow?.document;
+                      if (!idoc) {
+                        cleanup();
+                        toast.error('Could not open print dialog. Please try again.');
+                        return;
+                      }
+                      idoc.open();
+                      idoc.write(printHtml);
+                      idoc.close();
+                      // Most browsers fire load synchronously after close()
+                      // for an in-document write, but a microtask deferral is
+                      // safer for Firefox / Safari edge cases.
+                      iframe.addEventListener('load', () => setTimeout(triggerPrint, 50), { once: true });
+                      // Fallback in case load already fired before listener attached.
+                      setTimeout(() => { if (!cleaned) triggerPrint(); }, 250);
+                    } catch (err) {
+                      console.error('print failed:', err);
+                      toast.error('Could not open print dialog. Please try again.');
+                    }
                   }}
                   style={{
                     width: '100%', padding: '14px', borderRadius: 14, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`,
