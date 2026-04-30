@@ -1,6 +1,8 @@
 // pages/_app.js
 import '../styles/globals.css';
 import React, { useEffect } from 'react';
+import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { AdminAuthProvider, SuperAdminAuthProvider } from '../hooks/useAuth';
 import { StaffAuthProvider } from '../hooks/useStaffAuth';
 import { Toaster } from 'react-hot-toast';
@@ -34,6 +36,15 @@ class ErrorBoundary extends React.Component {
 
 export default function App({ Component, pageProps }) {
   const getLayout = Component.getLayout || ((page) => page);
+  const router = useRouter();
+  // Phase L — only inject the static admin manifest on routes that
+  // AREN'T the customer-facing /restaurant/{subdomain} (which provides
+  // its own per-restaurant dynamic manifest in its page <Head>).
+  // Browsers use the FIRST <link rel="manifest"> they see, so we
+  // can't have both — placing the static one in _document would
+  // always win and clobber the customer page's per-restaurant
+  // manifest with the admin-focused one.
+  const isCustomerPage = router.pathname.startsWith('/restaurant/') || router.pathname.startsWith('/r/');
 
   // Register the service worker once the app has mounted. Only runs in the
   // browser and only once per page load. Next.js hot-reload in dev sometimes
@@ -58,6 +69,11 @@ export default function App({ Component, pageProps }) {
     // All three providers are completely independent — different Firebase
     // app instances, different localStorage keys, no shared state.
     <ErrorBoundary>
+    {!isCustomerPage && (
+      <Head>
+        <link rel="manifest" href="/manifest.json" />
+      </Head>
+    )}
     <AdminAuthProvider>
       <SuperAdminAuthProvider>
         <StaffAuthProvider>

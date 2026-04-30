@@ -23,8 +23,13 @@ export default function Document() {
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        {/* PWA — manifest + iOS home-screen support (iOS uses apple-touch-icon.png specifically) */}
-        <link rel="manifest" href="/manifest.json" />
+        {/* PWA — iOS home-screen support (iOS uses apple-touch-icon.png specifically).
+            NOTE: <link rel="manifest"> is intentionally NOT here. The
+            customer page injects a per-restaurant dynamic manifest via
+            its own <Head> (see Phase L). pages/_app.js fills in the
+            static admin manifest for everything OUTSIDE /restaurant/*.
+            Browsers use the FIRST manifest link they see; placing one
+            in _document would always win and override the per-page one. */}
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
