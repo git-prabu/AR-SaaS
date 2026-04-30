@@ -108,10 +108,26 @@ export default function Signup() {
         restaurantId: ref.id,
       });
 
+      // 4. Phase M — Fire-and-forget welcome email. We don't block the
+      //    redirect on this: signup itself already succeeded, the email
+      //    is ancillary. The endpoint is idempotent (stamps welcomeEmailSentAt
+      //    on the restaurant doc) so a retry during a flaky network
+      //    doesn't double-mail. We log failures to the console only.
+      try {
+        const idToken = await cred.user.getIdToken();
+        fetch('/api/email/send-welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        }).catch(err => console.warn('welcome email POST failed:', err?.message));
+      } catch (err) {
+        console.warn('idToken fetch for welcome email failed:', err?.message);
+      }
+
       setStep('done');
       toast.success('Restaurant created!');
 
-      // 4. Redirect to admin dashboard
+      // 5. Redirect to admin dashboard
       setTimeout(() => {
         router.push('/admin');
       }, 1500);
