@@ -1,12 +1,14 @@
 // public/sw.js — service worker for PWA shell + customer-side offline menu.
 //
 // Strategy:
-//   - /restaurant/* (customer pages)             → stale-while-revalidate
-//       Returning customer sees menu instantly from cache, fresh HTML
-//       fetched in background and stored for next time. Real-time data
-//       (sold-out flags, prices) overwrites stale on hydration via
-//       Firestore onSnapshot listeners, so a stale cache only flashes for
-//       a moment before the live data takes over.
+//   - /restaurant/* (customer pages)             → network-first, cache fallback
+//       Always reflects the latest deploy + the latest table-session
+//       state when the customer is online. Cache is the offline-only
+//       fallback (e.g. customer's WiFi drops mid-meal). v2 used
+//       stale-while-revalidate, but that served stale HTML even when
+//       online — bypassing the table-session expiry check baked into
+//       the JS, and serving menus from before the latest deploy on
+//       no-table preview URLs. Network-first fixes both.
 //   - firebasestorage.googleapis.com images      → cache-first, soft cap
 //       Menu photos cached on first download, served instantly forever
 //       after. Bounded to ~150 entries so a popular menu can't fill disk.
@@ -22,7 +24,7 @@
 // Cache versioning: bump CACHE_VERSION whenever this strategy changes so the
 // activate handler purges old entries from previous worker versions.
 
-const CACHE_VERSION  = 'ar-v2';
+const CACHE_VERSION  = 'ar-v3';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
@@ -87,10 +89,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ─── Customer pages → stale-while-revalidate ─────────────────────────
+  // ─── Customer pages → network-first, cache fallback ──────────────────
   // /restaurant/{subdomain} and any nested page under it.
+  // The previous SWR strategy served the cached HTML even when the
+  // network was reachable, which (a) let table sessions appear valid
+  // long after expiry/sid-rotation because the cached JS bundle was
+  // referenced by the cached HTML, and (b) hid menu/JS updates from
+  // anyone hitting the no-?table preview URL until they manually
+  // refreshed twice. Network-first keeps the offline fallback while
+  // making the online path always-fresh.
   if (url.pathname.startsWith('/restaurant/')) {
-    event.respondWith(staleWhileRevalidate(RUNTIME_CACHE, request));
+    event.respondWith(networkFirst(RUNTIME_CACHE, request));
     return;
   }
 

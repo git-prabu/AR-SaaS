@@ -622,21 +622,77 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const tableNumber = router.query?.table || null; // from QR URL param e.g. ?table=4
   const urlSid      = router.query?.sid   || null;  // unguessable session ID in QR URL
 
+  // ── Table-session enforcement ─────────────────────────────────────────
+  // The customer's QR URL has the form `?table=N&sid=...`. We must reject:
+  //   1. A guessed table number (no sid)               → no urlSid
+  //   2. A stale sid (admin rotated it)                → snapshot doesn't match
+  //   3. A session that's been deactivated by admin    → isActive=false
+  //   4. A session whose expiresAt clock has passed    → wall-clock expiry
+  //
+  // Bug fix (2026-04-30): the previous implementation did a single
+  // `getDoc` once on mount. Once the user passed validation, the page
+  // kept working forever — even after the admin rotated the sid or the
+  // expiresAt timestamp passed. The customer could keep ordering past
+  // expiry just by leaving the tab open.
+  //
+  // The fix has three pieces:
+  //   a) `onSnapshot` listener on the tableSession doc — any admin
+  //      action (rotate sid / deactivate / advance expiresAt) instantly
+  //      flips us to blocked.
+  //   b) 30-second interval re-validates against current Date — handles
+  //      the passive expiry case where Firestore won't fire a snapshot
+  //      because nothing on the doc actually changed, only the wall
+  //      clock.
+  //   c) Window 'focus' + 'visibilitychange' re-validate immediately
+  //      when a backgrounded tab comes back — covers the case where
+  //      both the listener and the interval haven't fired yet because
+  //      the tab was suspended.
+  //
+  // Default-deny on error: if Firestore is unreachable AND there's a
+  // tableNumber+sid in the URL, we now BLOCK (the previous code allowed
+  // access "gracefully", which let attackers bypass with a forced
+  // network error). For the no-table marketing URL we still allow
+  // through so the restaurant's public menu page works offline.
   useEffect(() => {
     if (!restaurant?.id) return;
-    if (!tableNumber) { setSessionChecked(true); return; } // no table param = no restriction
-    // Auto-fill table number fields from URL param
+    if (!tableNumber) { setSessionChecked(true); return; } // no table param = public menu
+
     setOrderTableInput(tableNumber);
     setWaiterTable(tableNumber);
-    getTableSession(restaurant.id, tableNumber).then(session => {
-      // sid is always required when ?table is in the URL.
-      // Without a valid sid the menu is blocked — prevents guessing table numbers.
-      const valid = urlSid
-        ? isSessionValidWithSid(session, urlSid)
-        : false; // no sid = blocked, even if a session exists
-      if (!valid) setSessionBlocked(true);
+
+    let latestSession = null;
+
+    const validateNow = () => {
+      const valid = urlSid ? isSessionValidWithSid(latestSession, urlSid) : false;
+      setSessionBlocked(!valid);
       setSessionChecked(true);
-    }).catch(() => setSessionChecked(true)); // on error, allow access gracefully
+    };
+
+    const sessionRef = doc(db, 'restaurants', restaurant.id, 'tableSessions', String(tableNumber));
+    const unsub = onSnapshot(
+      sessionRef,
+      (snap) => {
+        latestSession = snap.exists() ? snap.data() : null;
+        validateNow();
+      },
+      // On listener error (rules block, network gone) treat as blocked —
+      // safer than letting a malformed token through. Public menu (no
+      // table) returned earlier so this only blocks QR-scoped pages.
+      () => { latestSession = null; validateNow(); }
+    );
+
+    // Tick every 30s so passive clock-based expiry boots the customer.
+    const interval = setInterval(validateNow, 30_000);
+    const onFocusOrVisible = () => { if (!document.hidden) validateNow(); };
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+    window.addEventListener('focus', onFocusOrVisible);
+
+    return () => {
+      unsub();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+      window.removeEventListener('focus', onFocusOrVisible);
+    };
   }, [restaurant?.id, tableNumber, urlSid]);
 
   // Dark mode
