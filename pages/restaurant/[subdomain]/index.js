@@ -4088,12 +4088,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>How would you like to pay?</div>
 
-                    {/* Payment methods — professional vertical list */}
+                    {/* Payment methods — professional vertical list.
+                        Phase H — UPI is shown if EITHER the restaurant has a
+                        manual UPI ID set OR they've configured a payment
+                        gateway (Paytm Business). Gateway-routed UPI auto-
+                        confirms via webhook; manual UPI still requires the
+                        "I've paid" tap. */}
+                    {(() => { /* gatewayActive flag, scoped to this block */ return null; })()}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                       {[
                         { id: 'cash', icon: '💵', label: 'Cash', sub: 'Waiter will collect at your table', bg: darkMode ? 'rgba(45,139,78,0.15)' : 'rgba(45,139,78,0.08)' },
                         { id: 'card', icon: '💳', label: 'Card', sub: 'Waiter will bring the card machine', bg: darkMode ? 'rgba(74,128,192,0.15)' : 'rgba(74,128,192,0.08)' },
-                        ...(restaurant?.upiId ? [{ id: 'upi', icon: '📱', label: 'UPI', sub: 'GPay, PhonePe, Paytm & more', bg: darkMode ? 'rgba(138,112,176,0.15)' : 'rgba(138,112,176,0.08)' }] : []),
+                        ...((restaurant?.upiId || (liveRestaurant?.gatewayActive && liveRestaurant?.gatewayProvider && liveRestaurant?.gatewayProvider !== 'none'))
+                          ? [{
+                              id: 'upi',
+                              icon: '📱',
+                              label: 'UPI',
+                              sub: (liveRestaurant?.gatewayActive
+                                ? 'Pay via secure gateway, auto-confirms'
+                                : 'GPay, PhonePe, Paytm & more'),
+                              bg: darkMode ? 'rgba(138,112,176,0.15)' : 'rgba(138,112,176,0.08)',
+                            }]
+                          : []),
                       ].map(m => {
                         const sel = paymentMethod === m.id;
                         return (
@@ -4118,8 +4134,62 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       })}
                     </div>
 
-                    {/* UPI: Step-by-step flow */}
-                    {paymentMethod === 'upi' && restaurant?.upiId && (() => {
+                    {/* Phase H/I/J — UPI via configured gateway (Paytm).
+                        Replaces the manual upi:// flow entirely when the
+                        restaurant has gatewayConfig.isActive=true. Customer
+                        opens the gateway URL in a new window/tab; gateway
+                        sends a webhook to /api/payment/webhook which marks
+                        all orders on the bill paid_online. The Firestore
+                        listener then flips the modal to "Payment Confirmed"
+                        — no "I've paid" tap needed. */}
+                    {paymentMethod === 'upi'
+                      && liveRestaurant?.gatewayActive
+                      && liveRestaurant?.gatewayProvider
+                      && liveRestaurant?.gatewayProvider !== 'none'
+                      && (() => {
+                        const onTapPay = async () => {
+                          if (!restaurant?.id || !bill?.orderIds?.length) return;
+                          try {
+                            const r = await fetch('/api/payment/intent', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ restaurantId: restaurant.id, orderIds: bill.orderIds }),
+                            });
+                            const j = await r.json();
+                            if (!r.ok || !j.paymentUrl) {
+                              toast.error('Could not start UPI payment. Please try the manual UPI flow or pay at counter.');
+                              return;
+                            }
+                            // Open the gateway page. New tab so the customer
+                            // can come back to the bill modal afterwards.
+                            window.open(j.paymentUrl, '_blank', 'noopener,noreferrer');
+                          } catch (e) {
+                            console.error('UPI intent failed:', e);
+                            toast.error('Could not start UPI payment. Try again.');
+                          }
+                        };
+                        return (
+                          <div style={{ marginBottom: 14 }}>
+                            <button onClick={onTapPay}
+                              style={{
+                                width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                                background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
+                                fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                                boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
+                              }}>
+                              Pay ₹{bill.total} via UPI
+                            </button>
+                            <div style={{ marginTop: 10, fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', textAlign: 'center' }}>
+                              We'll auto-confirm once your bank releases the payment — no extra tap needed.
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                    {/* UPI: Step-by-step flow (manual — no gateway configured) */}
+                    {paymentMethod === 'upi'
+                      && !(liveRestaurant?.gatewayActive && liveRestaurant?.gatewayProvider && liveRestaurant?.gatewayProvider !== 'none')
+                      && restaurant?.upiId && (() => {
                       // Phase A — UPI URL uses the BILL total (sum of all orders
                       // in the running tab), not the latest order's total. The
                       // tn= reference shows the bill / order id so the receipt

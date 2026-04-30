@@ -230,6 +230,20 @@ service cloud.firestore {
         allow read: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
+
+      // ── Private (gateway credentials, future secrets) ─────────
+      // Phase H — restaurants/{rid}/private/{docId}
+      // Holds the Paytm Business merchantId + merchantKey that the
+      // restaurant admin pasted into /admin/gateway. Server-side reads
+      // happen via the Admin SDK (which bypasses these rules), so
+      // /api/payment/intent + /api/payment/webhook can still reach
+      // the doc. Customer client SDK + restaurant admin client SDK
+      // are both blocked — they only see the public stub fields
+      // (gatewayActive + gatewayProvider) on the parent restaurant
+      // doc, NEVER the merchantKey.
+      match /private/{docId} {
+        allow read, write: if false;
+      }
     }
 
     // ── Users ────────────────────────────────────────────────────

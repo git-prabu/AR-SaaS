@@ -43,6 +43,7 @@ const navSections = [
   {
     label: 'SETUP', items: [
       { href: '/admin/qrcode',       label: 'QR & Tables',  icon: 'qr' },
+      { href: '/admin/gateway',      label: 'Payment Gateway', icon: 'card' },
       { href: '/admin/settings',     label: 'Settings',     icon: 'gear' },
       { href: '/admin/subscription', label: 'Subscription', icon: 'crown' },
     ]
