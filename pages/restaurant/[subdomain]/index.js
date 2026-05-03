@@ -608,6 +608,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // recent (current placedOrder) when the modal opens; sticks to the
   // user's last choice while the modal stays open. Reset on close.
   const [selectedBillOrderId, setSelectedBillOrderId] = useState(null);
+  // May 3 — same idea, for the success-view kitchen timeline. Lets the
+  // customer flip between "where is order #9 in the kitchen?" and "where
+  // is order #10?". Without this the success-view's 4-step timeline
+  // (Order Placed → Preparing → Ready → Served) only ever showed the
+  // most recent order, so the customer had no way to confirm an earlier
+  // order had reached "Ready" without opening the bill.
+  const [selectedSuccessOrderId, setSelectedSuccessOrderId] = useState(null);
   // ── Phase A — Running bill (dine-in tab) ─────────────────────────────
   // currentBillId points at the active tab for this table. Set when an
   // order is placed at a table; restored from sessionStorage on reload
@@ -1476,6 +1483,101 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     }
     return viewingBillOrder.status || null;
   }, [currentBillId, billOrders.length, viewingBillOrder, placedOrder, liveOrderStatus]);
+
+  // ── May 3 — Session-wide order list + aggregate FAB status ───────────
+  // Used by both:
+  //   - The order-status FAB (so the FAB surfaces the most actionable
+  //     state across ALL session orders, not just the latest. Without
+  //     this, an earlier order going Ready would be hidden behind a
+  //     newer order's "Preparing…" — the customer would walk past their
+  //     ready food.)
+  //   - The success-view tab strip (one tab per session order, each
+  //     showing its own kitchen timeline).
+  // Each entry carries a `liveStatus` field that's the freshest status
+  // we have — liveOrderStatus for the current placedOrder, the listener-
+  // updated po.status for past orders.
+  const sessionOrders = useMemo(() => {
+    const all = [];
+    for (const po of pastOrders) {
+      if (!po || !po.orderId) continue;
+      all.push({
+        orderId: po.orderId,
+        orderNumber: po.orderNumber,
+        total: po.total,
+        liveStatus: po.status,
+        paymentStatus: po.paymentStatus,
+        orderType: po.orderType,
+        items: po.items,
+        isCurrent: false,
+      });
+    }
+    if (placedOrder?.orderId) {
+      all.push({
+        orderId: placedOrder.orderId,
+        orderNumber: placedOrder.orderNumber,
+        total: placedOrder.total,
+        liveStatus: liveOrderStatus,
+        paymentStatus: placedOrder.paymentStatus,
+        orderType: placedOrder.orderType,
+        items: placedOrder.items,
+        isCurrent: true,
+      });
+    }
+    return all;
+  }, [pastOrders, placedOrder, liveOrderStatus]);
+
+  // Highest-priority status across non-finished orders. Drives FAB label.
+  // Order: ready (action needed) > preparing > pending > awaiting_payment.
+  // Returns null if every order is served / cancelled / has no live state.
+  const fabAggregateStatus = useMemo(() => {
+    const live = sessionOrders.filter(o =>
+      o.liveStatus && o.liveStatus !== 'served' && o.liveStatus !== 'cancelled'
+    );
+    if (live.length === 0) return null;
+    const priority = ['ready', 'preparing', 'pending', 'awaiting_payment'];
+    for (const s of priority) {
+      if (live.some(o => o.liveStatus === s)) return s;
+    }
+    return live[0].liveStatus;
+  }, [sessionOrders]);
+
+  // Count of orders the customer is actively tracking (not served, not
+  // cancelled). Used by the FAB to show a "+1" badge when there's more
+  // than one in flight, hinting that the success-view tabs exist.
+  const fabActiveOrderCount = useMemo(() =>
+    sessionOrders.filter(o =>
+      o.liveStatus && o.liveStatus !== 'served' && o.liveStatus !== 'cancelled'
+    ).length,
+  [sessionOrders]);
+
+  // Order whose timeline is currently being shown in the success view.
+  // Defaults to the latest placedOrder; switchable via tabs.
+  const viewingSuccessOrder = useMemo(() => {
+    if (selectedSuccessOrderId) {
+      const found = sessionOrders.find(o => o.orderId === selectedSuccessOrderId);
+      if (found) return found;
+    }
+    if (placedOrder?.orderId) {
+      return sessionOrders.find(o => o.orderId === placedOrder.orderId) || null;
+    }
+    return null;
+  }, [selectedSuccessOrderId, placedOrder, sessionOrders]);
+
+  const viewingSuccessOrderStatus = viewingSuccessOrder?.liveStatus || null;
+
+  // Default the success-view tab to the latest order each time the
+  // success view opens, mirroring the bill-modal pattern. Reset on close
+  // so the next open re-defaults instead of remembering a tab from a
+  // session ago.
+  useEffect(() => {
+    if (orderStep !== 'success' || !cartOpen) {
+      setSelectedSuccessOrderId(null);
+      return;
+    }
+    if (placedOrder?.orderId) {
+      setSelectedSuccessOrderId(prev => prev || placedOrder.orderId);
+    }
+  }, [orderStep, cartOpen, placedOrder?.orderId]);
 
   // ── Phase A — Aggregated bill view model ─────────────────────────────
   // Unified shape compatible with both:
@@ -3812,38 +3914,55 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   </button>
                 )}
 
-                {placedOrder && !cartOpen && liveOrderStatus !== 'awaiting_payment' && liveOrderStatus !== 'cancelled' && (
-                  <button
-                    className={`bill-fab status-fab${liveOrderStatus === 'ready' ? ' status-fab-ready' : ''}`}
-                    onClick={() => { setCartOpen(true); setOrderStep('success'); }}
-                    style={{ background: liveOrderStatus === 'ready' ? '#2D8B4E' : undefined, borderColor: liveOrderStatus === 'ready' ? '#2D8B4E' : undefined }}>
-                    {/* Phase B.3 — live status dot. Color matches the current
-                        kitchen state so the customer can glance and know.
-                        Hidden once the order is served (no live state to track). */}
-                    {liveOrderStatus && liveOrderStatus !== 'served' && (
+                {/* Order Status FAB — May 3.
+                    Aggregates status across ALL session orders, not just
+                    the latest. Surfacing the most actionable state means
+                    that if order #9 is Ready while a newer #10 is still
+                    Preparing, the FAB says "Order Ready!" so the
+                    customer doesn't walk past their food. The +N badge
+                    hints there's more than one order being tracked, so
+                    the customer knows tabs exist on the success view. */}
+                {placedOrder && !cartOpen && fabAggregateStatus && fabAggregateStatus !== 'awaiting_payment' && (() => {
+                  const s = fabAggregateStatus;
+                  const extra = Math.max(0, fabActiveOrderCount - 1);
+                  return (
+                    <button
+                      className={`bill-fab status-fab${s === 'ready' ? ' status-fab-ready' : ''}`}
+                      onClick={() => { setCartOpen(true); setOrderStep('success'); }}
+                      style={{ background: s === 'ready' ? '#2D8B4E' : undefined, borderColor: s === 'ready' ? '#2D8B4E' : undefined, position: 'relative' }}>
                       <span style={{
                         width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                        background: liveOrderStatus === 'ready'     ? '#FFFFFF'
-                                   : liveOrderStatus === 'preparing' ? '#4A80C0'
-                                   :                                   '#F79B3D',
+                        background: s === 'ready'     ? '#FFFFFF'
+                                   : s === 'preparing' ? '#4A80C0'
+                                   :                     '#F79B3D',
                         animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
-                        boxShadow: liveOrderStatus === 'ready'
+                        boxShadow: s === 'ready'
                           ? '0 0 0 0 rgba(255,255,255,0.5)'
                           : '0 0 0 0 rgba(247,155,61,0.5)',
                       }} />
-                    )}
-                    <span style={{ fontSize: 16 }}>
-                      {liveOrderStatus === 'ready' ? '🎉' : liveOrderStatus === 'preparing' ? '🍳' : liveOrderStatus === 'served' ? '✅' : '⏳'}
-                    </span>
-                    <span>{liveOrderStatus === 'ready' ? 'Order Ready!' : liveOrderStatus === 'preparing' ? 'Preparing…' : liveOrderStatus === 'served' ? 'Served!' : 'Order Status'}</span>
-                  </button>
-                )}
+                      <span style={{ fontSize: 16 }}>
+                        {s === 'ready' ? '🎉' : s === 'preparing' ? '🍳' : '⏳'}
+                      </span>
+                      <span>
+                        {s === 'ready'
+                          ? (extra > 0 ? `Order Ready! +${extra}` : 'Order Ready!')
+                          : s === 'preparing'
+                            ? (extra > 0 ? `Preparing… +${extra}` : 'Preparing…')
+                            : (extra > 0 ? `Order Status (${fabActiveOrderCount})` : 'Order Status')}
+                      </span>
+                    </button>
+                  );
+                })()}
 
-                {/* My Bill: only useful for dine-in (running tab) and
-                    once payment is confirmed. Hide for takeaway-
-                    awaiting-payment because there's nothing to bill yet
-                    — payment IS the bill. */}
-                {placedOrder && !cartOpen && liveOrderStatus !== 'awaiting_payment' && liveOrderStatus !== 'cancelled' && (
+                {/* My Bill: only useful once at least one order on the
+                    bill is past awaiting_payment. May 3 — also show
+                    when past orders are paid but the LATEST is still
+                    in awaiting_payment, because the customer should
+                    still be able to view the bill of an earlier paid
+                    order while a new one is being checked out. */}
+                {placedOrder && !cartOpen && sessionOrders.some(o =>
+                  o.liveStatus && o.liveStatus !== 'awaiting_payment' && o.liveStatus !== 'cancelled'
+                ) && (
                   <button className="bill-fab" onClick={() => setBillOpen(true)}>
                     <span style={{ fontSize: 16 }}>🧾</span>
                     <span>My Bill</span>
@@ -4847,24 +4966,150 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 const successMsg = isTakeawaySuccess
                   ? "Payment confirmed and your order is in the kitchen. We'll have it ready for pickup soon."
                   : t.orderSentMsg;
+                // May 3 — When the customer has placed >1 order this
+                // session, switch the headline copy. "Order placed!" is
+                // misleading when they're flipping through earlier orders
+                // — they're tracking, not just-placed.
+                const hasMultiOrders = sessionOrders.length > 1;
+                const headlineText = hasMultiOrders ? 'Your orders' : t.orderPlaced;
+                const subMsg = hasMultiOrders
+                  ? 'Tap any order below to track its kitchen status.'
+                  : successMsg;
                 return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 0', gap: 16, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
                   <div style={{ fontSize: 56 }}>🎉</div>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{t.orderPlaced}</div>
-                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{successMsg}</div>
-                  {/* Prompt to open bill tab */}
-                  {/* Live order status tracker */}
-                  {placedOrder && (() => {
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{headlineText}</div>
+                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{subMsg}</div>
+
+                  {/* May 3 — Multi-order tab strip.
+                      One tab per session order with a live status dot.
+                      Tap to switch which order's kitchen timeline shows
+                      below. Hidden when there's only one order — no need
+                      to "switch" between a single timeline. */}
+                  {hasMultiOrders && (() => {
+                    const TAB_STATUS_LABEL = {
+                      awaiting_payment: 'Awaiting payment',
+                      pending: 'Order placed',
+                      preparing: 'Preparing',
+                      ready: 'Ready',
+                      served: 'Picked up',
+                      cancelled: 'Cancelled',
+                    };
+                    const TAB_STATUS_COLOR = {
+                      awaiting_payment: '#D9534F',
+                      pending: '#F79B3D',
+                      preparing: '#F79B3D',
+                      ready: '#2D8B4E',
+                      served: '#7AA88E',
+                      cancelled: 'rgba(0,0,0,0.4)',
+                    };
+                    return (
+                      <div style={{ width: '100%', maxWidth: 380 }}>
+                        <div style={{
+                          display: 'flex', gap: 8, overflowX: 'auto',
+                          WebkitOverflowScrolling: 'touch',
+                          paddingBottom: 4,
+                          scrollbarWidth: 'none',
+                          msOverflowStyle: 'none',
+                          justifyContent: sessionOrders.length <= 3 ? 'center' : 'flex-start',
+                        }}>
+                          {sessionOrders.map((so, idx) => {
+                            const isSel = so.orderId === selectedSuccessOrderId;
+                            const status = so.liveStatus || 'pending';
+                            const dotColor = TAB_STATUS_COLOR[status] || '#F79B3D';
+                            const label = TAB_STATUS_LABEL[status] || status;
+                            const ref = so.orderNumber
+                              ? `#${so.orderNumber}${idx > 0 && sessionOrders.some((t, i) => i < idx && t.orderNumber === so.orderNumber) ? `[${idx + 1}]` : ''}`
+                              : `#${(so.orderId || '').slice(-4).toUpperCase()}`;
+                            const isFinished = status === 'served' || status === 'cancelled';
+                            return (
+                              <button
+                                key={so.orderId}
+                                onClick={() => setSelectedSuccessOrderId(so.orderId)}
+                                style={{
+                                  flexShrink: 0,
+                                  padding: '10px 14px',
+                                  borderRadius: 14,
+                                  border: `1.5px solid ${isSel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
+                                  background: isSel
+                                    ? (darkMode ? 'rgba(247,155,61,0.14)' : 'rgba(247,155,61,0.08)')
+                                    : 'transparent',
+                                  cursor: 'pointer',
+                                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+                                  fontFamily: 'Inter,sans-serif',
+                                  textAlign: 'left',
+                                  transition: 'all 0.15s',
+                                  opacity: isFinished && !isSel ? 0.65 : 1,
+                                }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{
+                                    width: 8, height: 8, borderRadius: '50%',
+                                    background: dotColor, flexShrink: 0,
+                                    boxShadow: status === 'preparing' || status === 'pending'
+                                      ? `0 0 0 2px ${dotColor}30` : 'none',
+                                  }} />
+                                  <span style={{
+                                    fontSize: 13, fontWeight: 700,
+                                    color: isSel
+                                      ? (darkMode ? '#FFF5E8' : '#1E1B18')
+                                      : (darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.7)'),
+                                    whiteSpace: 'nowrap',
+                                  }}>
+                                    {ref}
+                                  </span>
+                                </div>
+                                <span style={{
+                                  fontSize: 10, fontWeight: 700,
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                  color: dotColor,
+                                  whiteSpace: 'nowrap',
+                                }}>
+                                  {label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Live order status tracker — drives off the order
+                      currently selected in the tab strip (or placedOrder
+                      if no tabs / single order). When the selected order
+                      is awaiting_payment we hide the kitchen timeline —
+                      it's misleading because the kitchen hasn't started
+                      yet — and show a payment-pending callout instead. */}
+                  {viewingSuccessOrder && (() => {
+                    const status = viewingSuccessOrderStatus || 'pending';
+                    if (status === 'cancelled') {
+                      return (
+                        <div style={{ width: '100%', padding: '14px 18px', borderRadius: 16, background: darkMode ? 'rgba(217,83,79,0.12)' : 'rgba(217,83,79,0.08)', border: '1.5px solid rgba(217,83,79,0.3)', fontSize: 13, color: '#D9534F', fontWeight: 600, textAlign: 'center' }}>
+                          ✖️ This order was cancelled.
+                        </div>
+                      );
+                    }
+                    if (status === 'awaiting_payment') {
+                      return (
+                        <div style={{ width: '100%', padding: '14px 18px', borderRadius: 16, background: darkMode ? 'rgba(217,83,79,0.10)' : 'rgba(217,83,79,0.06)', border: '1.5px solid rgba(217,83,79,0.25)', fontSize: 13, color: darkMode ? '#FF9B8E' : '#A93D38', fontWeight: 600, textAlign: 'center' }}>
+                          💳 Payment pending — kitchen hasn't started yet.
+                        </div>
+                      );
+                    }
                     const STATUS_STEPS = [
                       { key: 'pending',   label: 'Order Placed',   icon: '✓', color: '#F79B3D' },
                       { key: 'preparing', label: 'Preparing',      icon: '🍳', color: '#F79B3D' },
                       { key: 'ready',     label: 'Ready!',         icon: '🎉', color: '#2D8B4E' },
                       { key: 'served',    label: 'Served',         icon: '✅', color: '#2D8B4E' },
                     ];
-                    const curIdx = STATUS_STEPS.findIndex(s => s.key === (liveOrderStatus || 'pending'));
+                    const curIdx = STATUS_STEPS.findIndex(s => s.key === status);
+                    const headerLabel = hasMultiOrders
+                      ? `Order ${viewingSuccessOrder.orderNumber ? `#${viewingSuccessOrder.orderNumber}` : ''} status`.trim()
+                      : 'Order Status';
                     return (
                       <div style={{ width: '100%', padding: '16px 18px', borderRadius: 16, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(42,31,16,0.03)', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>Order Status</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>{headerLabel}</div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
                           {/* Progress line */}
                           <div style={{ position: 'absolute', top: 14, left: '10%', right: '10%', height: 3, background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)', borderRadius: 99, zIndex: 0 }}>
@@ -4890,7 +5135,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     🧾 Your bill is ready — tap the green "My Bill" button below
                   </div>
 
-                  {pastOrdersBlock}
+                  {/* Past-orders block kept ONLY for the single-order
+                      case as a no-op (it renders null when pastOrders is
+                      empty). When tabs are visible they fully replace it. */}
+                  {!hasMultiOrders && pastOrdersBlock}
                   {/* Phase B.2 — Add more items / View Bill CTAs.
                       Replaces the in-flow rating block (rating happens AFTER
                       the meal in a later phase, not when the order is just

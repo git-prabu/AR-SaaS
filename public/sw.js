@@ -43,7 +43,15 @@
 // at the top, sees the live status of the selected order, and the
 // itemised breakdown reflects whichever bill they tapped instead of
 // always showing the latest.
-const CACHE_VERSION  = 'ar-v9';
+// ar-v10 (May 3, late) — multi-order tabbed STATUS view + aggregate FAB.
+// The success view now has the same kind of tab strip the bill modal
+// got, so the kitchen progress timeline is per-order and switchable.
+// The FAB surfaces the most actionable status across all session
+// orders (so an earlier order going Ready can't hide behind a newer
+// "Preparing…" label) and shows a +N badge when more than one is in
+// flight. My Bill FAB now also shows when past orders are paid even
+// while the latest is still in awaiting_payment.
+const CACHE_VERSION  = 'ar-v10';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
