@@ -535,6 +535,8 @@ function SwipeableSheet({ onClose, children, darkMode }) {
 function CoachMarkTour({ steps, onDone, darkMode }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [target, setTarget] = useState(null);
+  const tooltipRef = useRef(null);
+  const [tooltipH, setTooltipH] = useState(220);  // measured after first render
   const step = steps[stepIdx];
   const isLast = stepIdx >= steps.length - 1;
 
@@ -559,8 +561,8 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       }
       setTarget({ x: r.left, y: r.top, w: r.width, h: r.height });
     };
-    // First measurement: wait one frame so any pending layout settles
-    // (e.g. a category filter that just animated in).
+    // First measurement: wait a couple frames so any pending layout
+    // settles (e.g. demo FABs that just rendered when the tour opened).
     const tryScroll = () => {
       const el = document.querySelector(step.selector);
       if (el && typeof el.scrollIntoView === 'function') {
@@ -568,7 +570,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       }
     };
     tryScroll();
-    const t = setTimeout(measure, 350);
+    const t = setTimeout(measure, 380);
     const onChange = () => measure();
     window.addEventListener('resize', onChange);
     window.addEventListener('scroll', onChange, true);
@@ -579,42 +581,77 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
     };
   }, [stepIdx, step?.selector]);
 
+  // Measure the tooltip's actual height so the placement math accounts
+  // for variable copy length (some steps are short, some long).
+  useEffect(() => {
+    if (!tooltipRef.current) return;
+    const h = tooltipRef.current.getBoundingClientRect().height;
+    if (h > 0 && Math.abs(h - tooltipH) > 4) setTooltipH(h);
+  }, [stepIdx, target, tooltipH]);
+
   const handleNext = () => { if (isLast) onDone(); else setStepIdx(s => s + 1); };
   const handlePrev = () => { if (stepIdx > 0) setStepIdx(s => s - 1); };
 
-  // Tooltip placement — below target if room, otherwise above. Centered
-  // when there's no target (intro/outro steps).
+  // ── Tooltip placement ─────────────────────────────────────────────
+  // - No target → centered on screen
+  // - Target → place above OR below depending on which side has more
+  //   room. Falls back to centered if neither side has at least
+  //   tooltipH+margin available (e.g. very tall target on a short
+  //   viewport). Top is clamped so the tooltip never goes above the
+  //   safe-area top, and the implicit bottom is clamped via vh too.
   const tooltipStyle = (() => {
+    const SAFE_TOP = 16;
+    const SAFE_BOTTOM = 16;
+    const MARGIN = 14;
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+    const vw = (typeof window !== 'undefined' && window.innerWidth) || 360;
+    // Tooltip width: min(360, vw - 32). Smaller on narrow phones so it
+    // never touches the edges.
+    const tooltipW = Math.min(360, Math.max(280, vw - 32));
     const base = {
       position: 'absolute',
-      maxWidth: 340,
-      width: 'calc(100% - 32px)',
+      width: tooltipW,
+      maxWidth: 'none',
       background: darkMode ? '#1A1612' : '#FFFFFF',
       borderRadius: 18,
       padding: '20px 22px',
+      boxSizing: 'border-box',
       boxShadow: '0 16px 50px rgba(0,0,0,0.45), 0 4px 14px rgba(0,0,0,0.20)',
       border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
       animation: 'cmFade 0.25s cubic-bezier(0.32,0.72,0,1) both',
       zIndex: 1001,
     };
     if (!target) {
+      // Centered: vertical centering via top:50%/translate handles
+      // any height, but clamp the top so it's never above SAFE_TOP.
       return {
         ...base,
-        top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
+        top: Math.max(SAFE_TOP, (vh - tooltipH) / 2),
+        left: Math.max(16, (vw - tooltipW) / 2),
       };
     }
-    const margin = 16;
-    const tooltipH = 200;
-    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
-    const spaceBelow = vh - (target.y + target.h);
-    const placeBelow = spaceBelow >= tooltipH + margin;
-    return {
-      ...base,
-      top: placeBelow ? target.y + target.h + margin : target.y - tooltipH - margin,
-      left: '50%',
-      transform: 'translateX(-50%)',
-    };
+    const spaceBelow = vh - (target.y + target.h) - SAFE_BOTTOM;
+    const spaceAbove = target.y - SAFE_TOP;
+    let top;
+    if (spaceBelow >= tooltipH + MARGIN) {
+      // Place below.
+      top = target.y + target.h + MARGIN;
+    } else if (spaceAbove >= tooltipH + MARGIN) {
+      // Place above.
+      top = target.y - tooltipH - MARGIN;
+    } else {
+      // Neither side has room — center vertically, which means the
+      // tooltip overlaps the target. Acceptable trade-off because a
+      // tooltip cut off by the viewport edge is worse.
+      top = Math.max(SAFE_TOP, (vh - tooltipH) / 2);
+    }
+    // Clamp top into the safe area regardless of placement choice.
+    top = Math.min(Math.max(SAFE_TOP, top), vh - tooltipH - SAFE_BOTTOM);
+    // Horizontal: center over target on wider screens; clamp into
+    // viewport on narrow ones so the tooltip never overflows.
+    const idealLeft = target.x + target.w / 2 - tooltipW / 2;
+    const left = Math.min(Math.max(16, idealLeft), vw - tooltipW - 16);
+    return { ...base, top, left };
   })();
 
   return (
@@ -662,7 +699,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       )}
 
       {/* Tooltip card */}
-      <div style={tooltipStyle} onClick={e => e.stopPropagation()}>
+      <div ref={tooltipRef} style={tooltipStyle} onClick={e => e.stopPropagation()}>
         <div style={{
           fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
           color: '#F79B3D', textTransform: 'uppercase',
@@ -4511,8 +4548,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         {/* ─── FABs: stacked layout ─── */}
         {!selectedItem && !smaOpen && (
           <div className="fab-wrap">
-            {/* Top row: My Bill (only after order placed) + Cart */}
-            {(placedOrder || cartTotal > 0) && (
+            {/* Top row: My Bill (only after order placed) + Cart.
+                May 3 — during the welcome coach-mark tour we also
+                render this row with demo FABs even when the customer
+                has no order or items, so the tour can spotlight where
+                each button will appear. After the tour ends the row
+                snaps back to its normal conditional rendering. */}
+            {(placedOrder || cartTotal > 0 || welcomeOpen) && (
               <div className="fab-row">
                 {/* Phase F redesign — when a takeaway order is still in
                     awaiting_payment, the FAB swaps from "Order Status"
@@ -4543,7 +4585,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     Preparing, the FAB says "Order Ready!" so the
                     customer doesn't walk past their food. The +N badge
                     hints there's more than one order being tracked, so
-                    the customer knows tabs exist on the success view. */}
+                    the customer knows tabs exist on the success view.
+                    Tour mode: when the welcome tour is active and the
+                    customer has no live order, we render a demo "Order
+                    Status · Preparing…" version so the tour can spotlight
+                    it. The demo button is non-interactive (just a
+                    visual). */}
                 {placedOrder && !cartOpen && fabAggregateStatus && fabAggregateStatus !== 'awaiting_payment' && (() => {
                   const s = fabAggregateStatus;
                   const extra = Math.max(0, fabActiveOrderCount - 1);
@@ -4575,6 +4622,25 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     </button>
                   );
                 })()}
+                {/* Tour-mode demo Status FAB — only visible during the
+                    welcome tour, only when the real one above isn't
+                    rendering. Static "Preparing…" copy so the tour
+                    spotlight has a target that looks real. */}
+                {welcomeOpen && !placedOrder && (
+                  <button
+                    className="bill-fab status-fab"
+                    onClick={(e) => e.preventDefault()}
+                    aria-hidden="true"
+                    style={{ position: 'relative' }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: '#F79B3D',
+                      animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
+                    }} />
+                    <span style={{ fontSize: 16 }}>🍳</span>
+                    <span>Order Status</span>
+                  </button>
+                )}
 
                 {/* My Bill: only useful once at least one order on the
                     bill is past awaiting_payment. May 3 — also show
@@ -4590,11 +4656,32 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <span>My Bill</span>
                   </button>
                 )}
+                {/* Tour-mode demo Bill FAB. */}
+                {welcomeOpen && !placedOrder && (
+                  <button
+                    className="bill-fab"
+                    onClick={(e) => e.preventDefault()}
+                    aria-hidden="true">
+                    <span style={{ fontSize: 16 }}>🧾</span>
+                    <span>My Bill</span>
+                  </button>
+                )}
                 {cartTotal > 0 && (
                   <button className="cart-fab" onClick={() => setCartOpen(true)}>
                     <span style={{ fontSize: 16 }}>🛒</span>
                     <span>View Order · {cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
                     <div className="cart-badge">{cartTotal}</div>
+                  </button>
+                )}
+                {/* Tour-mode demo Cart FAB. */}
+                {welcomeOpen && cartTotal === 0 && (
+                  <button
+                    className="cart-fab"
+                    onClick={(e) => e.preventDefault()}
+                    aria-hidden="true">
+                    <span style={{ fontSize: 16 }}>🛒</span>
+                    <span>View Order · 2 items</span>
+                    <div className="cart-badge">2</div>
                   </button>
                 )}
               </div>
@@ -6755,52 +6842,64 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             spotlights the real UI rather than describing it. */}
         {welcomeOpen && (() => {
           const isDinein = !!tableNumber;  // QR scan with ?table= param
-          const allSteps = isDinein ? [
+          const tourCommonHead = [
             {
               selector: null,
               title: `Welcome to ${restaurant?.name || 'our menu'}!`,
-              body: tableNumber
+              body: isDinein && tableNumber
                 ? `You're at Table ${tableNumber}. Quick tour to get you ordering in seconds.`
-                : "Quick tour to get you ordering in seconds.",
+                : isDinein
+                  ? "Quick tour to get you ordering in seconds."
+                  : "Order ahead and pick up at the counter. Quick tour:",
             },
             {
               selector: '.card',  // first menu item card
               title: 'Tap any dish for details',
               body: 'See photos, ingredients, and try the AR view if available — works right in your browser, no app needed.',
             },
-            // Waiter step is dropped if the restaurant has waiter calls disabled.
-            waiterCallsEnabled ? {
-              selector: '.waiter-fab',
-              title: 'Need help? Tap your waiter',
-              body: "Call your waiter for water, the bill, or anything else — we'll come right over.",
-            } : null,
             {
-              selector: null,
-              title: 'Order, eat, then pay',
-              body: "Add items with the + button. A 'View Order' button appears at the bottom — tap to place. We bring food to your table; pay anytime via My Bill (Cash, Card, or UPI).",
-            },
-          ] : [
-            {
-              selector: null,
-              title: `Welcome to ${restaurant?.name || 'our menu'}!`,
-              body: 'Order ahead and pick up at the counter. Quick tour:',
+              selector: '.cart-fab',  // demo View Order button (rendered during tour)
+              title: "Add items, then tap 'View Order'",
+              body: "Once you've added a dish, this button appears here. Tap it to checkout — review your items, enter your details, and choose how to pay.",
             },
             {
-              selector: '.card',
-              title: 'Tap any dish for details',
-              body: 'See photos, ingredients, and try the AR view if available — works right in your browser, no app needed.',
+              selector: '.bill-fab.status-fab',  // demo Order Status button
+              title: 'Track your order live',
+              body: isDinein
+                ? "After you order, this button shows live progress: Preparing → Ready → Served. Tap any time."
+                : "After you pay, this shows: Preparing → Ready → Picked up. So you know exactly when to come collect.",
             },
             {
-              selector: null,
-              title: 'Pay first, then we cook',
-              body: "Add items, tap 'View Order' (appears at the bottom), then choose Cash, Card, or UPI. The kitchen starts only after payment confirms — no surprises.",
-            },
-            {
-              selector: null,
-              title: 'Track live + save your bill',
-              body: 'Watch your order: Preparing → Ready → Picked up. Your receipt opens automatically once payment is confirmed.',
+              selector: '.bill-fab:not(.status-fab)',  // demo My Bill button
+              title: 'See your bill anytime',
+              body: isDinein
+                ? "Tap My Bill to view your running tab + pay when you're ready. Cash, Card, or UPI."
+                : "Tap My Bill to view your itemised receipt anytime after payment.",
             },
           ];
+          const allSteps = isDinein
+            ? [
+                ...tourCommonHead,
+                // Waiter step is dropped if the restaurant has waiter calls disabled.
+                waiterCallsEnabled ? {
+                  selector: '.waiter-fab',
+                  title: 'Need help? Call your waiter',
+                  body: "For water, the bill, or anything else — we'll come right over.",
+                } : null,
+                {
+                  selector: null,
+                  title: "You're all set",
+                  body: "Add items, place your order, eat — pay any time. Tap 'Got it' to start exploring.",
+                },
+              ]
+            : [
+                ...tourCommonHead,
+                {
+                  selector: null,
+                  title: 'Pay first, then we cook',
+                  body: "The kitchen starts only AFTER payment confirms — so no surprises with timing.",
+                },
+              ];
           // Drop nulls so disabled features don't leave gaps in the tour.
           const steps = allSteps.filter(Boolean);
           return (

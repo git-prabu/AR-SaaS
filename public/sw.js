@@ -105,7 +105,16 @@
 // "actual application images" guidance and this points at the live UI
 // rather than describing it. Same per-device per-restaurant flag so
 // returning customers never see it twice.
-const CACHE_VERSION  = 'ar-v19';
+// ar-v20 (May 3, even later) — coach-mark tour now also spotlights
+// the View Order / Order Status / My Bill FABs by rendering DEMO
+// versions while the tour is active (welcomeOpen=true), even though
+// the customer has no live order or items yet. Demo FABs disappear
+// the moment the tour ends, so the customer sees real placeholder
+// guidance for buttons that wouldn't normally be on screen yet.
+// Tooltip placement also hardened for mobile: viewport clamps on
+// every edge, real measured tooltip height, and horizontal centering
+// over the target (not just the screen).
+const CACHE_VERSION  = 'ar-v20';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
