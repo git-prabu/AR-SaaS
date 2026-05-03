@@ -1,14 +1,19 @@
 // pages/api/cron/petpooja-menu-sync.js
 //
-// Vercel cron endpoint — runs every 6 hours and pulls the latest menu
-// from Petpooja for every restaurant in petpooja_hybrid mode. Schedule
-// lives in vercel.json (`0 */6 * * *`).
+// Vercel cron endpoint — runs daily at 04:00 UTC (~09:30 IST) and
+// pulls the latest menu from Petpooja for every restaurant in
+// petpooja_hybrid mode. Schedule lives in vercel.json (`0 4 * * *`).
 //
 // This is a fallback safety net. The PRIMARY menu-sync path is the
 // inbound /api/petpooja/pushmenu webhook, which Petpooja calls
-// whenever a restaurant edits anything in their dashboard. The 6-hour
-// pull catches drift if a webhook delivery is dropped or the
+// whenever a restaurant edits anything in their dashboard. The
+// daily pull catches drift if a webhook delivery is dropped or the
 // restaurant's network has been flapping.
+//
+// Daily was chosen (vs hourly / 6-hourly) because Vercel's Hobby
+// plan caps crons to one-per-day. When the project upgrades to Pro,
+// the schedule can be tightened to `0 */6 * * *` for faster drift
+// recovery.
 //
 // Auth: protected by CRON_SECRET env var. Same pattern as
 // /api/cron/daily-summary.
