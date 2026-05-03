@@ -86,7 +86,13 @@
 // initialization" only at minified-prerender time on Vercel. Moved
 // the effect to live AFTER all three so the const TDZ no longer
 // trips during prerender.
-const CACHE_VERSION  = 'ar-v16';
+// ar-v17 (May 3, latest) — Print Bill button now gated on
+// billPaymentState === 'paid'. Customer reported the button was
+// visible on the payment-method picker AND on the "Cash Payment
+// Requested" state, which let them print a receipt for an unpaid
+// order. Now only renders once payment is actually confirmed —
+// same bar as the auto-deliver flow.
+const CACHE_VERSION  = 'ar-v17';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

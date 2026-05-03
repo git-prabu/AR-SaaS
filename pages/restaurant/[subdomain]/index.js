@@ -6192,13 +6192,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   </>
                 )}
 
-                {/* Print Bill */}
+                {/* Print Bill — May 3.
+                    Gated on billPaymentState === 'paid' so it only
+                    appears after admin marks the order paid (or the
+                    gateway webhook fires for UPI). Customer-reported
+                    issue: previously the button was always visible
+                    (including on the payment-method picker BEFORE the
+                    customer had even chosen a method, and on the
+                    "Cash Payment Requested" state where money hadn't
+                    actually changed hands), which let them print a
+                    "receipt" for an unpaid order. Same bar as the
+                    auto-deliver flow. */}
+                {billPaymentState === 'paid' && (
                 <button
                   onClick={() => {
                     // May 3 — bill HTML now comes from buildBillHtml so
                     // both this print flow and the post-payment auto-open
-                    // flow generate identical receipts.
-                    const printHtml = buildBillHtml(bill, paymentMethod);
+                    // flow generate identical receipts. paymentMethod
+                    // here is whichever the customer last chose; for the
+                    // Print path we prefer the derived billPaymentMethod
+                    // since by the time this button is visible the
+                    // payment is confirmed and that's the source of truth.
+                    const printHtml = buildBillHtml(bill, billPaymentMethod);
                     if (!printHtml) {
                       toast.error('Bill not ready yet — try again in a moment.');
                       return;
@@ -6283,6 +6298,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   }}>
                   <span style={{ fontSize: 18 }}>🖨</span> Print Bill
                 </button>
+                )}
               </div>
             </div>
           </SheetOverlay>
