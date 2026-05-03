@@ -120,6 +120,29 @@ async function fireReceiptEmail(rid, orderId, user) {
   }
 }
 
+// Phase B (Petpooja hybrid) — fire-and-forget payment status sync.
+// Same pattern as fireReceiptEmail. The /api/petpooja/payment-sync
+// endpoint internally checks plan + posMode, so calling it for a
+// standalone restaurant is a no-op (returns skipped). We don't even
+// pre-check here — server is the source of truth.
+//
+// Best-effort: Petpooja V2.1.0 doesn't expose a real update-payment
+// endpoint, so the sync may quietly fail. That's expected and logged
+// to petpoojaLogs subcollection for the admin to review later.
+async function firePetpoojaPaymentSync(rid, orderId, user) {
+  if (!user || !rid || !orderId) return;
+  try {
+    const idToken = await user.getIdToken();
+    fetch('/api/petpooja/payment-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ restaurantId: rid, orderId }),
+    }).catch(err => console.warn('[petpooja-sync] fire failed:', err?.message));
+  } catch (err) {
+    console.warn('[petpooja-sync] could not get idToken:', err?.message);
+  }
+}
+
 export default function AdminPayments() {
   const { user, userData } = useAuth();
   const rid = userData?.restaurantId;
@@ -357,6 +380,9 @@ export default function AdminPayments() {
       // Phase M — fire customer receipt email if they shared one.
       // Fire-and-forget; idempotent server-side.
       fireReceiptEmail(rid, order.id, user);
+      // Phase B — fire Petpooja payment-status sync. No-op for
+      // standalone restaurants (server-side check).
+      firePetpoojaPaymentSync(rid, order.id, user);
       // Clear any selected method for this order (row is now paid, will disappear from pending filter)
       setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
       // Show undo banner for 60 seconds
@@ -386,6 +412,8 @@ export default function AdminPayments() {
       await markOrderPaid(rid, order.id, 'paid_cash', { cashReceived: received, changeGiven: change });
       // Phase M — receipt email (fire-and-forget, see helper at top).
       fireReceiptEmail(rid, order.id, user);
+      // Phase B — Petpooja payment-status sync (no-op for standalone).
+      firePetpoojaPaymentSync(rid, order.id, user);
       setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
       showUndoBanner(order.id, previousStatus);
       toast.success(change > 0 ? `Paid · Change ₹${change}` : 'Paid · Exact cash');

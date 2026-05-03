@@ -4,7 +4,8 @@
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { adminDb } from '../../../lib/firebaseAdmin';
-import { getPlan, BILLING_PERIOD_DAYS } from '../../../lib/plans';
+import { getPlan, BILLING_PERIOD_DAYS, canUsePetpoojaIntegration } from '../../../lib/plans';
+import { disconnect as petpoojaDisconnect } from '../../../lib/petpoojaSync';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -43,6 +44,17 @@ export default async function handler(req, res) {
     const now = new Date();
     const expiry = new Date(now.getTime() + BILLING_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
+    // Phase B (Petpooja hybrid) — pre-update read of the restaurant
+    // doc so we can detect a downgrade FROM Pro and auto-disconnect
+    // Petpooja. Otherwise the restaurant gets stuck in
+    // petpooja_hybrid mode without an eligible plan, which means
+    // every order push silently fails the plan-gate at runtime.
+    let oldDoc = null;
+    try {
+      const snap = await adminDb.collection('restaurants').doc(restaurantId).get();
+      if (snap.exists) oldDoc = snap.data();
+    } catch { /* non-fatal — proceed without downgrade-detection */ }
+
     await adminDb.collection('restaurants').doc(restaurantId).update({
       plan:              plan.id,
       maxItems:          plan.maxItems,
@@ -53,6 +65,22 @@ export default async function handler(req, res) {
       paymentStatus:     'active',
       lastPaymentId:     razorpay_payment_id,
     });
+
+    // After the plan write succeeds, check if the new plan is no
+    // longer Petpooja-eligible AND the restaurant was in hybrid mode.
+    // If so, auto-disconnect so the integration stops cleanly.
+    // (Restaurant can reconnect if they upgrade back to Pro.)
+    if (oldDoc?.posMode === 'petpooja_hybrid'
+        && !canUsePetpoojaIntegration({ plan: plan.id })) {
+      try {
+        await petpoojaDisconnect(restaurantId, 'plan-downgrade');
+      } catch (err) {
+        console.warn('[verify] auto-disconnect Petpooja failed:', err?.message);
+        // Non-fatal — plan change still succeeded, just leaves a
+        // stale petpoojaConfig that the runtime gate will refuse to
+        // use. Worth logging but not failing the payment verification.
+      }
+    }
 
     return res.status(200).json({ success: true });
   } catch (err) {

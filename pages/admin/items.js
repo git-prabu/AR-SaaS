@@ -1,5 +1,6 @@
 // pages/admin/items.js
 import Head from 'next/head';
+import Link from 'next/link';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -7,6 +8,8 @@ import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
 import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey } from '../../lib/db';
 import { uploadFile, uploadImage, buildImagePath, fileSizeMB, optimizeOneImage, deleteFile } from '../../lib/storage';
+import { db } from '../../lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import useBulkSelection from '../../hooks/useBulkSelection';
 import BulkActionBar from '../../components/admin/BulkActionBar';
@@ -118,6 +121,24 @@ export default function AdminItems() {
   const [combos, setCombos] = useState([]);
   const [offers, setOffers] = useState([]);
   const [loaded, setLoaded] = useState(false);
+
+  // Phase B (Petpooja hybrid) — when the restaurant is in
+  // petpooja_hybrid mode the menu is owned by Petpooja. We render a
+  // banner + disable item create/edit/delete actions to prevent the
+  // two systems from drifting. AR upload + Help-Me-Choose tags + image
+  // upload are still allowed per the user's product spec (those live
+  // on the overlay fields, not on Petpooja's side).
+  // ZERO impact on standalone restaurants — isHybrid stays false.
+  const [isHybrid, setIsHybrid] = useState(false);
+  useEffect(() => {
+    if (!rid) return;
+    const unsub = onSnapshot(doc(db, 'restaurants', rid), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setIsHybrid(data.posMode === 'petpooja_hybrid');
+    }, () => { /* listener errors are non-fatal — keep last known state */ });
+    return unsub;
+  }, [rid]);
 
   // Filter UI
   const [search, setSearch] = useState('');
@@ -303,6 +324,13 @@ export default function AdminItems() {
 
   // ═══ Save drawer form ═══
   const handleSave = async () => {
+    // Phase B — block menu edits in hybrid mode (Petpooja owns the menu).
+    // Image / AR / discovery-tag uploads are separate inline flows on
+    // each row and stay available — only the full drawer-edit is gated.
+    if (isHybrid) {
+      toast.error('Menu is managed in Petpooja. Edit names, prices, categories there, then sync from /admin/petpooja-connect.');
+      return;
+    }
     if (!form.name?.trim()) return toast.error('Item name is required');
     if (!form.category?.trim()) return toast.error('Category is required');
     if (form.isVeg === undefined || form.isVeg === null || form.isVeg === '') return toast.error('Please mark item as Veg or Non-Veg');
@@ -351,6 +379,11 @@ export default function AdminItems() {
 
   // ═══ Delete with cross-ref warning ═══
   const handleDelete = async (item) => {
+    // Phase B — block delete in hybrid mode (Petpooja owns the menu).
+    if (isHybrid) {
+      toast.error('Menu is managed in Petpooja. Delete this item in your Petpooja dashboard, then sync.');
+      return;
+    }
     const refs = itemRefs[item.id];
     let confirmMsg = `Delete "${item.name}"? This cannot be undone.`;
     if (refs) {
@@ -694,6 +727,26 @@ export default function AdminItems() {
               <div style={{ fontSize: 13, color: A.mutedText, marginTop: 4 }}>
                 Edit, translate, and order every dish shown on your live menu
               </div>
+              {/* Phase B — hybrid-mode banner. Inline so it's
+                  visually attached to the page header rather than
+                  floating. Only renders when restaurant is in
+                  petpooja_hybrid mode. */}
+              {isHybrid && (
+                <div style={{
+                  marginTop: 14, padding: '12px 14px',
+                  background: 'rgba(196,168,109,0.10)',
+                  border: '1px solid rgba(196,168,109,0.30)',
+                  borderRadius: 9,
+                  fontSize: 12.5, color: A.ink,
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                }}>
+                  <span style={{ fontSize: 16 }}>🔌</span>
+                  <span><strong>Menu is managed in Petpooja.</strong> Item names, prices, categories, and stock are read-only here — edit them in your Petpooja dashboard, then sync. You can still upload images, AR models, and discovery tags from this page.</span>
+                  <Link href="/admin/petpooja-connect" style={{ marginLeft: 'auto', fontSize: 12, color: A.warningDim, fontWeight: 600, textDecoration: 'none' }}>
+                    Manage integration →
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Export / Import CSV — Petpooja-compatible columns. Import

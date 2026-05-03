@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore';
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
 import { playOrderSound, playCallSound, playPaymentSound } from '../../lib/sounds';
+import { canUsePetpoojaIntegration } from '../../lib/plans';
 
 const navSections = [
   {
@@ -45,6 +46,11 @@ const navSections = [
     label: 'SETUP', items: [
       { href: '/admin/qrcode',       label: 'QR & Tables',  icon: 'qr' },
       { href: '/admin/gateway',      label: 'Payment Gateway', icon: 'card' },
+      // Phase B (Petpooja hybrid) — Pro-only nav entry. Filtered out
+      // at render time by canUsePetpoojaIntegration() so non-Pro
+      // plans never see it. Server still enforces, this is the
+      // cosmetic gate.
+      { href: '/admin/petpooja-connect', label: 'Petpooja',  icon: 'plug', proOnly: true },
       { href: '/admin/settings',     label: 'Settings',     icon: 'gear' },
       { href: '/admin/subscription', label: 'Subscription', icon: 'crown' },
     ]
@@ -72,6 +78,7 @@ const NavIcon = ({ name }) => {
     case 'qr':        return <svg {...props}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v3M14 20h3v1M21 20v1" /></svg>;
     case 'gear':      return <svg {...props}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>;
     case 'crown':     return <svg {...props}><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" /><path d="M5 20h14" /></svg>;
+    case 'plug':      return <svg {...props}><path d="M9 2v4M15 2v4M7 8h10v4a5 5 0 0 1-10 0z" /><path d="M12 17v5" /></svg>;
     default:          return <svg {...props}><circle cx="12" cy="12" r="3" /></svg>;
   }
 };
@@ -80,6 +87,20 @@ export default function AdminLayout({ children }) {
   const { user, userData, loading, signOut } = useAuth();
   const router = useRouter();
   const rid = userData?.restaurantId;
+
+  // Phase B (Petpooja hybrid) — restaurant plan, used to decide which
+  // sidebar items render (proOnly items are hidden from non-Pro
+  // restaurants). Subscribed live so an upgrade unlocks the Petpooja
+  // link instantly without a refresh. Only `plan` is needed here so
+  // we keep the listener cheap.
+  const [restaurantPlan, setRestaurantPlan] = useState(null);
+  useEffect(() => {
+    if (!rid) { setRestaurantPlan(null); return; }
+    const unsub = onSnapshot(doc(db, 'restaurants', rid), (snap) => {
+      if (snap.exists()) setRestaurantPlan(snap.data().plan || null);
+    }, () => { /* ignore — sidebar still renders, proOnly items just stay hidden */ });
+    return unsub;
+  }, [rid]);
 
   // ─── RESPONSIVE SIDEBAR STATE ────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -336,23 +357,33 @@ export default function AdminLayout({ children }) {
           </div>
         </div>
 
-        {/* Nav */}
+        {/* Nav — filtered per plan. Items flagged proOnly are hidden
+            unless the restaurant is on a plan that allows them. The
+            filter is cosmetic; server endpoints + page guards still
+            enforce eligibility independently. */}
         <nav ref={navRef} style={{ flex: 1, padding: '4px 12px 12px', overflowY: 'auto' }}>
-          {navSections.map((section) => (
-            <div key={section.label} style={{ marginBottom: 14 }}>
-              <div style={{ fontFamily: INTER, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: A_FAINT, padding: '6px 14px 8px', textTransform: 'uppercase' }}>
-                {section.label}
+          {navSections.map((section) => {
+            const visibleItems = section.items.filter(item => {
+              if (!item.proOnly) return true;
+              return canUsePetpoojaIntegration(restaurantPlan);
+            });
+            if (visibleItems.length === 0) return null;
+            return (
+              <div key={section.label} style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: INTER, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: A_FAINT, padding: '6px 14px 8px', textTransform: 'uppercase' }}>
+                  {section.label}
+                </div>
+                {visibleItems.map(item => (
+                  <Link key={item.href} href={item.href}
+                    className={`nlnk${isActive(item.href) ? ' on' : ''}`}
+                    onClick={isMobile ? closeSidebar : undefined}>
+                    <span className="nav-icon"><NavIcon name={item.icon} /></span>
+                    {item.label}
+                  </Link>
+                ))}
               </div>
-              {section.items.map(item => (
-                <Link key={item.href} href={item.href}
-                  className={`nlnk${isActive(item.href) ? ' on' : ''}`}
-                  onClick={isMobile ? closeSidebar : undefined}>
-                  <span className="nav-icon"><NavIcon name={item.icon} /></span>
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* User card */}

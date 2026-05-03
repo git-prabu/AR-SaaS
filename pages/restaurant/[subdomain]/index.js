@@ -2346,6 +2346,38 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     deliverBill(html, `bill-${restaurant?.subdomain || 'order'}-${safeKey}`);
   }, [billPaymentState, currentBillId, billOrders.length, viewingBillOrder?.orderId, bill, billPaymentMethod, restaurant?.subdomain, deliverBill, buildBillHtml]);
 
+  // Phase B (Petpooja hybrid) — push TAKEAWAY orders to Petpooja
+  // POS only AFTER payment confirms. The save_order API takes
+  // payment_type at order-create time and has no update-payment
+  // endpoint, so for the pay-first takeaway flow we wait until we
+  // know the customer actually paid (CASH/CARD/ONLINE), then push.
+  //
+  // Dine-in pushes happen in placeOrder() right after createOrder
+  // succeeds (see that function for the matching call).
+  //
+  // Dedup'd via the same billDeliveredRef set as auto-deliver above
+  // — we use a different prefix in the key so the two paths don't
+  // collide.
+  //
+  // ZERO impact on standalone / non-Pro restaurants — exits early
+  // when posMode !== 'petpooja_hybrid'.
+  const petpoojaPushedRef = useRef(new Set());
+  useEffect(() => {
+    if (restaurant?.posMode !== 'petpooja_hybrid') return;
+    if (billPaymentState !== 'paid') return;
+    if (!placedOrder?.orderId) return;
+    if (placedOrder.orderType !== 'takeaway') return;
+    if (placedOrder.petpoojaPushedAt) return;
+    const key = placedOrder.orderId;
+    if (petpoojaPushedRef.current.has(key)) return;
+    petpoojaPushedRef.current.add(key);
+    fetch('/api/petpooja/order-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId: restaurant.id, orderId: key }),
+    }).catch(err => console.warn('[petpooja] order-push (takeaway-paid) fire failed:', err?.message));
+  }, [billPaymentState, restaurant?.posMode, restaurant?.id, placedOrder?.orderId, placedOrder?.orderType, placedOrder?.petpoojaPushedAt]);
+
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
     const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
@@ -2665,6 +2697,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       // whole experience.
       setOrderStep(isTakeaway ? 'payment' : 'success');
       clearCart();
+
+      // Phase B (Petpooja hybrid) — push DINE-IN orders to Petpooja
+      // POS immediately. Takeaway orders are pushed AFTER payment
+      // confirms (see the billPaymentState='paid' useEffect) because
+      // Petpooja's API takes payment_type at order-create time and
+      // there's no after-the-fact way to update it. Dine-in pushes
+      // with payment_type=COD; cashier reconciles later in Petpooja's
+      // own UI when the customer pays.
+      //
+      // ZERO impact on standalone / non-Pro restaurants — this whole
+      // branch is no-op when posMode !== 'petpooja_hybrid'.
+      if (
+        !isTakeaway
+        && restaurant?.posMode === 'petpooja_hybrid'
+      ) {
+        // Fire-and-forget; never blocks the customer's UX.
+        fetch('/api/petpooja/order-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurantId: restaurant.id, orderId }),
+        }).catch(err => console.warn('[petpooja] order-push fire failed:', err?.message));
+      }
     } catch (err) {
       console.error('Order failed:', err);
       toast.error(`Order failed: ${err?.code || err?.message || 'Unknown error'}`);

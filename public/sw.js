@@ -136,7 +136,12 @@
 // .sma-fab button. Slots in right after the item-card step so
 // customers see the manual + assisted ordering paths together. No
 // other behavior changes.
-const CACHE_VERSION  = 'ar-v23';
+// ar-v24 (May 4) — Phase B Petpooja hybrid integration scaffolding
+// shipped. Pro-only. Adds two fire-and-forget POSTs to /api/petpooja/*
+// from the customer page (order-push for dine-in at place time, takeaway
+// at payment-confirmed time). Both no-op when restaurant.posMode !==
+// 'petpooja_hybrid'. Standalone customer flow is byte-identical to v23.
+const CACHE_VERSION  = 'ar-v24';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
