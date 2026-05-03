@@ -11,6 +11,7 @@ import {
   announcePayment, unlockSound,
   isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
 } from '../../lib/sounds';
+import ConfirmModal from '../../components/ConfirmModal';
 
 // ═══ Aspire palette — same tokens as analytics/orders/kitchen/waiter ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -113,6 +114,9 @@ export default function AdminPayments() {
   const [customRange, setCustomRange] = useState({ active: false, start: '', end: '' });
   const [search, setSearch] = useState('');
   const [updating, setUpdating] = useState(null);  // order id currently being updated
+  // Card-style confirmation dialog (replaces native confirm() for the
+  // cancel-order action). Single state slot per page.
+  const [confirmDialog, setConfirmDialog] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   // Map<orderId, 'cash'|'card'|'online'> — which method the admin has PICKED for each unpaid
   // order (not yet committed). Separate from the actual paymentStatus so the two-step flow works:
@@ -212,6 +216,14 @@ export default function AdminPayments() {
   // irrelevant — the customer hasn't asked to pay yet.
   const relevantOrders = useMemo(() => {
     return allOrders.filter(o => {
+      // Cancelled orders never appear on payments — they're a terminal
+      // state with no action available. Without this guard, an order
+      // that was in cash_requested when the customer cancelled would
+      // STILL match the requested-paymentStatus branch below (because
+      // we never wipe paymentStatus when cancelling — it's kept for
+      // the audit trail). User-reported bug May 1.
+      if (o.status === 'cancelled') return false;
+
       const hasPaymentActivity = o.paymentStatus && o.paymentStatus !== 'inactive';
       if (!hasPaymentActivity) return false;
       if (o.status === 'awaiting_payment') return true;  // Phase F — pay-first takeaway
@@ -364,36 +376,46 @@ export default function AdminPayments() {
   // never confirmed (cash/card/online_requested) — those are the rows
   // a cashier might want to cancel from this page.
   // For paid_* orders, cancel doesn't appear (refund flow is out of scope).
-  const cancelFromPayments = async (order) => {
-    console.info('[cancel] start', { orderId: order.id, status: order.status, paymentStatus: order.paymentStatus, rid });
+  const cancelFromPayments = (order) => {
+    console.info('[cancel] open dialog', { orderId: order.id, status: order.status, paymentStatus: order.paymentStatus, rid });
     const cancellable = order.status === 'awaiting_payment'
       || ['cash_requested', 'card_requested', 'online_requested'].includes(order.paymentStatus);
     if (!cancellable) {
       toast.error('Cannot cancel — order is past the cancellable window.');
       return;
     }
-    if (!confirm(`Cancel order ${order.orderNumber ? '#' + order.orderNumber : ''}? This cannot be undone.`)) return;
-    setUpdating(order.id);
-    try {
-      await cancelOrder(rid, order.id, 'cancelled-by-admin');
-      console.info('[cancel] success', { orderId: order.id });
-      toast.success('Order cancelled');
-    } catch (e) {
-      // Loud + helpful logging so any future failure has a paper trail.
-      console.error('[cancel] failed', {
-        orderId: order.id,
-        status: order.status,
-        paymentStatus: order.paymentStatus,
-        code: e?.code,
-        message: e?.message,
-        full: e,
-      });
-      const codeNote = e?.code === 'permission-denied'
-        ? ' (permission denied — Firestore rule rejection; try refreshing the page)'
-        : e?.code ? ` (${e.code})` : '';
-      toast.error('Could not cancel.' + codeNote);
-    }
-    setUpdating(null);
+    const ref = order.orderNumber ? `#${order.orderNumber}` : `for table ${order.tableNumber || '—'}`;
+    setConfirmDialog({
+      title: `Cancel order ${ref}?`,
+      body: order.status === 'awaiting_payment'
+        ? "The customer's order is parked waiting for payment. Cancelling removes it cleanly — they haven't been charged yet."
+        : "Payment was requested but never confirmed. Cancelling marks the order cancelled and removes it from this list.",
+      confirmLabel: 'Yes, cancel order',
+      cancelLabel: 'Keep order',
+      destructive: true,
+      onConfirm: async () => {
+        setUpdating(order.id);
+        try {
+          await cancelOrder(rid, order.id, 'cancelled-by-admin');
+          console.info('[cancel] success', { orderId: order.id });
+          toast.success('Order cancelled');
+        } catch (e) {
+          console.error('[cancel] failed', {
+            orderId: order.id,
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+            code: e?.code,
+            message: e?.message,
+            full: e,
+          });
+          const codeNote = e?.code === 'permission-denied'
+            ? ' (permission denied — Firestore rule rejection; try refreshing the page)'
+            : e?.code ? ` (${e.code})` : '';
+          toast.error('Could not cancel.' + codeNote);
+        }
+        setUpdating(null);
+      },
+    });
   };
 
   // ═══ Undo — restores previous payment status ═══
@@ -1158,6 +1180,13 @@ export default function AdminPayments() {
           );
         })()}
       </div>
+
+      {/* Card-style confirmation dialog (cancel order, etc.) */}
+      <ConfirmModal
+        open={!!confirmDialog}
+        {...(confirmDialog || {})}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </AdminLayout>
   );
 }

@@ -7,6 +7,7 @@ import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(m => m.ARViewerEmbed), { ssr: false });
+import ConfirmModal from '../../../components/ConfirmModal';
 
 function getSessionId() {
   if (typeof window === 'undefined') return 'ssr';
@@ -626,6 +627,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [sessionBlocked, setSessionBlocked] = useState(false);
   const tableNumber = router.query?.table || null; // from QR URL param e.g. ?table=4
   const urlSid      = router.query?.sid   || null;  // unguessable session ID in QR URL
+
+  // Confirmation modal state — replaces the browser's native confirm()
+  // dialogs (cancel order, etc.) with a styled card. Pass the entire
+  // config object as state so a single modal definition serves every
+  // confirm point on the page.
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   // Phase L — PWA install prompt state.
   // Browser fires `beforeinstallprompt` only after its own engagement
@@ -4085,27 +4092,33 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     toast.error('Could not switch method. Try again.');
                   }
                 };
-                const onCancelOrder = async () => {
-                  if (!confirm('Cancel this order? You can place it again later.')) return;
-                  if (!restaurant?.id || !placedOrder?.orderId) return;
-                  try {
-                    // Actually flip the Firestore order to status='cancelled'
-                    // so admin sees the cancellation too. Firestore rules
-                    // restrict customer cancellation to status==='awaiting_payment'
-                    // — once the order has been paid (status='pending'+) the
-                    // rule rejects it and we surface the error to the user.
-                    await cancelOrder(restaurant.id, placedOrder.orderId, 'cancelled-by-customer');
-                    setPlacedOrder(null);
-                    setOrderStep('cart');
-                    setCartOpen(false);
-                    try { sessionStorage.removeItem('ar_placed_order'); } catch {}
-                    toast.success('Order cancelled');
-                  } catch (e) {
-                    console.error(e);
-                    // Most likely cause: payment already cleared on the server
-                    // (rule rejection) — order is no longer cancellable.
-                    toast.error('Could not cancel — payment may have already been confirmed. Please ask the counter staff.');
-                  }
+                const onCancelOrder = () => {
+                  // Open the styled confirm card (replaces browser confirm()).
+                  // The actual write happens in the modal's onConfirm callback.
+                  setConfirmDialog({
+                    title: 'Cancel this order?',
+                    body: "We'll release your saved order. The kitchen hasn't started anything yet, so there's no charge — but the order will be removed.",
+                    confirmLabel: 'Yes, cancel order',
+                    cancelLabel: 'Keep order',
+                    destructive: true,
+                    onConfirm: async () => {
+                      if (!restaurant?.id || !placedOrder?.orderId) return;
+                      try {
+                        // Firestore rule restricts customer cancellation to
+                        // status==='awaiting_payment'. Once payment has cleared
+                        // server-side (status flips to pending), the rule rejects.
+                        await cancelOrder(restaurant.id, placedOrder.orderId, 'cancelled-by-customer');
+                        setPlacedOrder(null);
+                        setOrderStep('cart');
+                        setCartOpen(false);
+                        try { sessionStorage.removeItem('ar_placed_order'); } catch {}
+                        toast.success('Order cancelled');
+                      } catch (e) {
+                        console.error('[cancel] customer cancel failed:', e);
+                        toast.error('Could not cancel — payment may have already been confirmed. Please ask the counter staff.');
+                      }
+                    },
+                  });
                 };
 
                 return (
@@ -4128,6 +4141,64 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     }}>
                       📦 Your order is saved but <u>not yet sent to the kitchen</u>. We'll start preparing once your payment is confirmed.
                     </div>
+
+                    {/* Order summary — shows the items the customer is paying
+                        for, so they can verify their order on the payment
+                        screen without going back. Items pulled from
+                        placedOrder.items (snapshot taken at the moment the
+                        order was placed, doesn't drift if the cart is
+                        modified afterwards). May 1 — added in response to
+                        user feedback that the payment screen had no way to
+                        see what was being paid for. */}
+                    {(placedOrder?.items?.length || 0) > 0 && (
+                      <div style={{
+                        padding: '14px 16px 12px', borderRadius: 14, marginBottom: 10,
+                        background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)',
+                        border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`,
+                      }}>
+                        <div style={{
+                          fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)',
+                          marginBottom: 8,
+                        }}>
+                          Your order ({placedOrder.items.reduce((s, it) => s + (Number(it.qty) || 1), 0)} item{placedOrder.items.reduce((s, it) => s + (Number(it.qty) || 1), 0) === 1 ? '' : 's'})
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {placedOrder.items.map((it, i) => {
+                            const lineTotal = Math.round((Number(it.price) || 0) * (Number(it.qty) || 1));
+                            return (
+                              <div key={i} style={{
+                                display: 'grid', gridTemplateColumns: 'auto 1fr auto',
+                                gap: 10, alignItems: 'baseline',
+                              }}>
+                                <span style={{
+                                  fontFamily: "'JetBrains Mono', monospace",
+                                  fontWeight: 700, fontSize: 12,
+                                  color: '#F79B3D', minWidth: 24,
+                                }}>
+                                  {it.qty || 1}×
+                                </span>
+                                <span style={{
+                                  fontSize: 13, fontWeight: 500,
+                                  color: darkMode ? '#FFF5E8' : '#1E1B18',
+                                  overflow: 'hidden', textOverflow: 'ellipsis',
+                                }}>
+                                  {it.name}{it.modNote ? ` — ${it.modNote}` : ''}
+                                </span>
+                                <span style={{
+                                  fontSize: 12, fontWeight: 600,
+                                  color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.65)',
+                                  fontVariantNumeric: 'tabular-nums',
+                                }}>
+                                  ₹{lineTotal.toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Order total */}
                     <div style={{
@@ -5200,6 +5271,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             </div>
           </SheetOverlay>
         )}
+
+        {/* Card-style confirmation dialog. Replaces native confirm()
+            calls (cancel order, etc.) so the prompt matches the rest
+            of the app's visual language. */}
+        <ConfirmModal
+          open={!!confirmDialog}
+          {...(confirmDialog || {})}
+          darkMode={darkMode}
+          onCancel={() => setConfirmDialog(null)}
+        />
       </div>
     </>
   );

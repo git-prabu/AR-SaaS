@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { timeAgo } from '../../lib/utils';
 import DateRangePicker from '../../components/DateRangePicker';
 import { playOrderSound, unlockSound } from '../../lib/sounds';
+import ConfirmModal from '../../components/ConfirmModal';
 
 // ─────────────────────────────────────────────────────────────
 // Aspire palette — matches analytics/reports for brand consistency.
@@ -141,6 +142,10 @@ export default function AdminOrders() {
   const [customRange, setCustomRange] = useState({ active: false, start: '', end: '' });
   const [searchQ, setSearchQ] = useState('');
   const [updating, setUpdating] = useState(null);
+  // Card-style confirmation dialog state — replaces browser confirm()
+  // for destructive actions (cancel order, etc.). One state slot serves
+  // every confirm point on the page.
+  const [confirmDialog, setConfirmDialog] = useState(null);
   const [, setTick] = useState(0);
   // Tracks which order row is currently expanded. Only one at a time for focus.
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -213,30 +218,41 @@ export default function AdminOrders() {
   // pending only — once the kitchen has started prep we want a refund
   // flow instead of a silent cancel. Confirm dialog because this is
   // destructive from the diner's perspective.
-  const cancel = async (order) => {
-    console.info('[cancel/orders] start', { orderId: order.id, status: order.status, paymentStatus: order.paymentStatus });
+  const cancel = (order) => {
+    console.info('[cancel/orders] open dialog', { orderId: order.id, status: order.status, paymentStatus: order.paymentStatus });
     const cancellable = ['awaiting_payment', 'pending'].includes(order.status);
     if (!cancellable) {
       toast.error('Cannot cancel — kitchen has already started this order.');
       return;
     }
-    if (!confirm(`Cancel order ${order.orderNumber ? '#' + order.orderNumber : ''}? This cannot be undone.`)) return;
-    setUpdating(order.id);
-    try {
-      await cancelOrder(rid, order.id, 'cancelled-by-admin');
-      console.info('[cancel/orders] success', { orderId: order.id });
-      toast.success('Order cancelled');
-    } catch (e) {
-      console.error('[cancel/orders] failed', {
-        orderId: order.id, status: order.status, paymentStatus: order.paymentStatus,
-        code: e?.code, message: e?.message,
-      });
-      const codeNote = e?.code === 'permission-denied'
-        ? ' (permission denied — try refreshing the page)'
-        : e?.code ? ` (${e.code})` : '';
-      toast.error('Could not cancel.' + codeNote);
-    }
-    setUpdating(null);
+    const ref = order.orderNumber ? `#${order.orderNumber}` : `for table ${order.tableNumber || '—'}`;
+    setConfirmDialog({
+      title: `Cancel order ${ref}?`,
+      body: order.status === 'awaiting_payment'
+        ? "The customer hasn't been charged yet. The order will be removed from the payment list and the kitchen will never see it."
+        : "The kitchen has this order but hasn't started cooking yet. Cancelling will remove it from the kitchen queue. The customer will be notified.",
+      confirmLabel: 'Yes, cancel order',
+      cancelLabel: 'Keep order',
+      destructive: true,
+      onConfirm: async () => {
+        setUpdating(order.id);
+        try {
+          await cancelOrder(rid, order.id, 'cancelled-by-admin');
+          console.info('[cancel/orders] success', { orderId: order.id });
+          toast.success('Order cancelled');
+        } catch (e) {
+          console.error('[cancel/orders] failed', {
+            orderId: order.id, status: order.status, paymentStatus: order.paymentStatus,
+            code: e?.code, message: e?.message,
+          });
+          const codeNote = e?.code === 'permission-denied'
+            ? ' (permission denied — try refreshing the page)'
+            : e?.code ? ` (${e.code})` : '';
+          toast.error('Could not cancel.' + codeNote);
+        }
+        setUpdating(null);
+      },
+    });
   };
 
   // Verify payment action (from requested → paid).
@@ -1048,6 +1064,13 @@ export default function AdminOrders() {
           )}
         </div>
       </div>
+
+      {/* Card-style confirmation dialog (cancel order, etc.) */}
+      <ConfirmModal
+        open={!!confirmDialog}
+        {...(confirmDialog || {})}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </AdminLayout>
   );
 }
