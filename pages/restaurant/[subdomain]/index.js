@@ -1514,47 +1514,6 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return paymentMethod;
   }, [currentBillId, billOrders, viewingBillOrder, paymentMethod]);
 
-  // ── May 3 — Auto-deliver bill ONLY after payment is confirmed ────────
-  // Previously deliverBill ran on the "Confirm Cash/Card/UPI" tap, which
-  // gave the customer a receipt before money had actually changed hands.
-  // Customer-reported issue: "shouldn't appear until payment is
-  // confirmed." Now we watch billPaymentState — flips to 'paid' only
-  // when admin marks paid (cash/card) OR the gateway webhook fires
-  // (UPI). At that moment we generate the receipt HTML and call
-  // deliverBill (popup-or-download fallback).
-  //
-  // Caveat: the listener fires WITHOUT a fresh user gesture, so
-  // window.open will likely be blocked by the browser; deliverBill's
-  // download path takes over. Customer either gets a new tab (if
-  // browser allows) or an HTML download. The "Open or Save Bill" CTA
-  // inside the Payment Confirmed card stays as a manual fallback for
-  // the rare case both auto-paths fail.
-  //
-  // Dedup: we track delivered keys in a ref so a noisy listener
-  // (Firestore can double-fire) doesn't double-deliver. Key is
-  // currentBillId for dine-in running tabs, orderId for single-order
-  // takeaway. A new order in the same session uses a different key,
-  // so the next paid transition delivers fresh.
-  const billDeliveredRef = useRef(new Set());
-  useEffect(() => {
-    if (billPaymentState !== 'paid') return;
-    const key = (currentBillId && billOrders.length > 0)
-      ? currentBillId
-      : viewingBillOrder?.orderId;
-    if (!key) return;
-    if (billDeliveredRef.current.has(key)) return;
-    billDeliveredRef.current.add(key);
-    const html = buildBillHtml(bill, billPaymentMethod);
-    if (!html) {
-      // Bill object hasn't caught up yet — release the dedup so the
-      // next render attempt can retry once data is ready.
-      billDeliveredRef.current.delete(key);
-      return;
-    }
-    const safeKey = String(key).slice(-6);
-    deliverBill(html, `bill-${restaurant?.subdomain || 'order'}-${safeKey}`);
-  }, [billPaymentState, currentBillId, billOrders.length, viewingBillOrder?.orderId, bill, billPaymentMethod, restaurant?.subdomain, deliverBill, buildBillHtml]);
-
   // Live kitchen status for the order currently being viewed in the bill
   // modal. For the most recent (placedOrder) we trust the dedicated
   // liveOrderStatus subscription; for past orders we trust the per-order
@@ -1973,6 +1932,52 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       return { popup: null, downloaded: false };
     }
   }, []);
+
+  // ── May 3 — Auto-deliver bill ONLY after payment is confirmed ────────
+  // Previously deliverBill ran on the "Confirm Cash/Card/UPI" tap, which
+  // gave the customer a receipt before money had actually changed hands.
+  // Customer-reported issue: "shouldn't appear until payment is
+  // confirmed." Now we watch billPaymentState — flips to 'paid' only
+  // when admin marks paid (cash/card) OR the gateway webhook fires
+  // (UPI). At that moment we generate the receipt HTML and call
+  // deliverBill (popup-or-download fallback).
+  //
+  // Caveat: the listener fires WITHOUT a fresh user gesture, so
+  // window.open will likely be blocked by the browser; deliverBill's
+  // download path takes over. Customer either gets a new tab (if
+  // browser allows) or an HTML download. The "Open or Save Bill" CTA
+  // inside the Payment Confirmed card stays as a manual fallback for
+  // the rare case both auto-paths fail.
+  //
+  // Dedup: we track delivered keys in a ref so a noisy listener
+  // (Firestore can double-fire) doesn't double-deliver. Key is
+  // currentBillId for dine-in running tabs, orderId for single-order
+  // takeaway. A new order in the same session uses a different key,
+  // so the next paid transition delivers fresh.
+  //
+  // Placement: this MUST live AFTER bill, buildBillHtml and deliverBill
+  // are all declared — JS Temporal Dead Zone otherwise. The build
+  // failed once with "Cannot access 'dg' before initialization" when
+  // this lived above bill's useMemo.
+  const billDeliveredRef = useRef(new Set());
+  useEffect(() => {
+    if (billPaymentState !== 'paid') return;
+    const key = (currentBillId && billOrders.length > 0)
+      ? currentBillId
+      : viewingBillOrder?.orderId;
+    if (!key) return;
+    if (billDeliveredRef.current.has(key)) return;
+    billDeliveredRef.current.add(key);
+    const html = buildBillHtml(bill, billPaymentMethod);
+    if (!html) {
+      // Bill object hasn't caught up yet — release the dedup so the
+      // next render attempt can retry once data is ready.
+      billDeliveredRef.current.delete(key);
+      return;
+    }
+    const safeKey = String(key).slice(-6);
+    deliverBill(html, `bill-${restaurant?.subdomain || 'order'}-${safeKey}`);
+  }, [billPaymentState, currentBillId, billOrders.length, viewingBillOrder?.orderId, bill, billPaymentMethod, restaurant?.subdomain, deliverBill, buildBillHtml]);
 
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
