@@ -602,6 +602,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   });
   const [billOpen, setBillOpen] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
+  // May 1 — multi-order bill view. When the customer has placed several
+  // takeaway orders this session, the bill modal renders ONE of them at
+  // a time and a tab strip switches between them. Defaults to the most
+  // recent (current placedOrder) when the modal opens; sticks to the
+  // user's last choice while the modal stays open. Reset on close.
+  const [selectedBillOrderId, setSelectedBillOrderId] = useState(null);
   // ── Phase A — Running bill (dine-in tab) ─────────────────────────────
   // currentBillId points at the active tab for this table. Set when an
   // order is placed at a table; restored from sessionStorage on reload
@@ -1366,10 +1372,68 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const PAID_STATUSES = useMemo(() => new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']), []);
   const REQUESTED_STATUSES = useMemo(() => new Set(['cash_requested', 'card_requested', 'online_requested']), []);
 
+  // May 1 — viewingOrder + billTabs power the multi-order bill view.
+  // viewingOrder is the order whose bill is currently displayed in the
+  // bill modal — defaults to placedOrder, switchable to a past order
+  // via the tab strip. For dine-in running bill (currentBillId set),
+  // there's nothing to switch between — the bill aggregates billOrders
+  // by billId and viewingOrder is unused.
+  const viewingBillOrder = useMemo(() => {
+    if (currentBillId && billOrders.length > 0) return null;  // aggregate mode
+    if (selectedBillOrderId) {
+      if (placedOrder?.orderId === selectedBillOrderId) return placedOrder;
+      const past = pastOrders.find(po => po.orderId === selectedBillOrderId);
+      if (past) return past;
+    }
+    return placedOrder;
+  }, [selectedBillOrderId, placedOrder, pastOrders, currentBillId, billOrders.length]);
+
+  // Tabs source: every order the customer can switch between.
+  // Past orders first (oldest), current placedOrder last (newest).
+  // Empty array → no tab strip rendered (single-bill view).
+  const billTabs = useMemo(() => {
+    if (currentBillId && billOrders.length > 0) return [];  // dine-in aggregate, no tabs
+    const tabs = [];
+    for (const po of pastOrders) {
+      if (po && po.orderId) tabs.push({
+        orderId: po.orderId,
+        orderNumber: po.orderNumber,
+        total: po.total,
+        status: po.status,
+        paymentStatus: po.paymentStatus,
+      });
+    }
+    if (placedOrder?.orderId) {
+      tabs.push({
+        orderId: placedOrder.orderId,
+        orderNumber: placedOrder.orderNumber,
+        total: placedOrder.total,
+        status: liveOrderStatus,
+        paymentStatus: placedOrder.paymentStatus,
+      });
+    }
+    return tabs;
+  }, [pastOrders, placedOrder, liveOrderStatus, currentBillId, billOrders.length]);
+
+  // Default selection when bill opens — newest order (current placedOrder).
+  // We do this in an effect so it only fires when billOpen flips true,
+  // not on every re-render.
+  useEffect(() => {
+    if (!billOpen) {
+      // Reset on close so next open picks up the latest order automatically.
+      setSelectedBillOrderId(null);
+      return;
+    }
+    if (placedOrder?.orderId) {
+      setSelectedBillOrderId(prev => prev || placedOrder.orderId);
+    }
+  }, [billOpen, placedOrder?.orderId]);
+
   const billPaymentState = useMemo(() => {
+    // Dine-in: aggregate across billOrders. Otherwise: just the viewing order.
     const sourceOrders = (currentBillId && billOrders.length > 0)
       ? billOrders
-      : (placedOrder ? [placedOrder] : []);
+      : (viewingBillOrder ? [viewingBillOrder] : []);
     if (sourceOrders.length === 0) return 'unpaid';
 
     const allPaid = sourceOrders.every(o => PAID_STATUSES.has(o.paymentStatus));
@@ -1379,7 +1443,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     if (anyRequested || paymentDone) return 'requested';
 
     return 'unpaid';
-  }, [currentBillId, billOrders, placedOrder, paymentDone, PAID_STATUSES, REQUESTED_STATUSES]);
+  }, [currentBillId, billOrders, viewingBillOrder, paymentDone, PAID_STATUSES, REQUESTED_STATUSES]);
 
   // Derive method from the most-progressed paymentStatus across orders.
   // Falls back to the local paymentMethod state for the brief window
@@ -1387,7 +1451,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const billPaymentMethod = useMemo(() => {
     const sourceOrders = (currentBillId && billOrders.length > 0)
       ? billOrders
-      : (placedOrder ? [placedOrder] : []);
+      : (viewingBillOrder ? [viewingBillOrder] : []);
     for (const o of sourceOrders) {
       const ps = o.paymentStatus;
       if (ps === 'paid_cash' || ps === 'cash_requested') return 'cash';
@@ -1396,7 +1460,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       if (ps === 'paid') return 'cash'; // legacy bucket
     }
     return paymentMethod;
-  }, [currentBillId, billOrders, placedOrder, paymentMethod]);
+  }, [currentBillId, billOrders, viewingBillOrder, paymentMethod]);
+
+  // Live kitchen status for the order currently being viewed in the bill
+  // modal. For the most recent (placedOrder) we trust the dedicated
+  // liveOrderStatus subscription; for past orders we trust the per-order
+  // listener installed by the pastOrders effect — both are kept fresh.
+  // null when in dine-in aggregate mode (status doesn't apply across
+  // multiple kitchen orders on a single bill).
+  const viewingBillOrderStatus = useMemo(() => {
+    if (currentBillId && billOrders.length > 0) return null;
+    if (!viewingBillOrder) return null;
+    if (placedOrder && viewingBillOrder.orderId === placedOrder.orderId) {
+      return liveOrderStatus || viewingBillOrder.status || null;
+    }
+    return viewingBillOrder.status || null;
+  }, [currentBillId, billOrders.length, viewingBillOrder, placedOrder, liveOrderStatus]);
 
   // ── Phase A — Aggregated bill view model ─────────────────────────────
   // Unified shape compatible with both:
@@ -1407,9 +1486,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // The bill modal renders from this so the same JSX handles both cases.
   const bill = useMemo(() => {
     const useBill = currentBillId && billOrders.length > 0;
+    // Single-order view: use the order the customer has tabbed to
+    // (viewingBillOrder), not always the latest placedOrder. Falls back
+    // to placedOrder when no tab is selected (initial open / no past
+    // orders), so behaviour is unchanged for single-order sessions.
+    const singleOrder = viewingBillOrder || placedOrder;
     const orders = useBill
       ? billOrders
-      : (placedOrder ? [{ id: placedOrder.orderId, ...placedOrder }] : []);
+      : (singleOrder ? [{ id: singleOrder.orderId, ...singleOrder }] : []);
     if (orders.length === 0) return null;
 
     const items = orders.flatMap(o => o.items || []);
@@ -1456,7 +1540,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       multipleOrders:       orders.length > 1,
       paidAtMs:             paidAtMs || null,
     };
-  }, [currentBillId, billOrders, placedOrder]);
+  }, [currentBillId, billOrders, placedOrder, viewingBillOrder]);
 
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
@@ -4988,11 +5072,157 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
               <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', flexShrink: 0, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
               </div>
+
+              {/* Multi-order tab strip — May 1.
+                  Customer placed >1 order this session; let them switch
+                  between bills without losing visibility on prior orders.
+                  Sticky above the scrollable body so it stays reachable
+                  while the customer scrolls a long itemised bill.
+                  Only shown for non-aggregate bills (takeaway / no
+                  running-bill grouping) and only when there are 2+
+                  orders to switch between. */}
+              {billTabs.length > 1 && (() => {
+                const TAB_STATUS_LABEL = {
+                  awaiting_payment: 'Awaiting payment',
+                  pending: 'Order placed',
+                  preparing: 'Preparing',
+                  ready: 'Ready',
+                  served: 'Picked up',
+                  cancelled: 'Cancelled',
+                };
+                const TAB_STATUS_COLOR = {
+                  awaiting_payment: '#D9534F',
+                  pending: '#F79B3D',
+                  preparing: '#F79B3D',
+                  ready: '#2D8B4E',
+                  served: '#7AA88E',
+                  cancelled: 'rgba(0,0,0,0.4)',
+                };
+                return (
+                  <div style={{
+                    flexShrink: 0,
+                    padding: '0 16px 12px',
+                    background: darkMode ? '#1A1612' : '#FEFCF8',
+                    borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(42,31,16,0.06)'}`,
+                  }}>
+                    <div style={{
+                      display: 'flex', gap: 8, overflowX: 'auto',
+                      WebkitOverflowScrolling: 'touch',
+                      paddingBottom: 4,
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                    }}>
+                      {billTabs.map((tab, idx) => {
+                        const isSel = tab.orderId === selectedBillOrderId;
+                        const isCurrent = placedOrder?.orderId === tab.orderId;
+                        // Use liveOrderStatus for the current order so the
+                        // tab badge keeps up with admin transitions
+                        // (preparing → ready → served) without remount.
+                        const liveStatus = isCurrent ? liveOrderStatus : tab.status;
+                        const dotColor = TAB_STATUS_COLOR[liveStatus] || '#F79B3D';
+                        const ref = tab.orderNumber
+                          ? `#${tab.orderNumber}${idx > 0 && billTabs.some((t, i) => i < idx && t.orderNumber === tab.orderNumber) ? `[${idx + 1}]` : ''}`
+                          : `#${(tab.orderId || '').slice(-4).toUpperCase()}`;
+                        return (
+                          <button
+                            key={tab.orderId}
+                            onClick={() => setSelectedBillOrderId(tab.orderId)}
+                            style={{
+                              flexShrink: 0,
+                              padding: '8px 14px',
+                              borderRadius: 999,
+                              border: `1.5px solid ${isSel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
+                              background: isSel
+                                ? (darkMode ? 'rgba(247,155,61,0.14)' : 'rgba(247,155,61,0.08)')
+                                : 'transparent',
+                              cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              fontFamily: 'Inter,sans-serif',
+                              transition: 'all 0.15s',
+                            }}>
+                            <span style={{
+                              width: 8, height: 8, borderRadius: '50%',
+                              background: dotColor, flexShrink: 0,
+                              boxShadow: liveStatus === 'preparing' || liveStatus === 'pending'
+                                ? `0 0 0 2px ${dotColor}30` : 'none',
+                            }} />
+                            <span style={{
+                              fontSize: 13, fontWeight: 700,
+                              color: isSel
+                                ? (darkMode ? '#FFF5E8' : '#1E1B18')
+                                : (darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.65)'),
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {ref}
+                            </span>
+                            <span style={{
+                              fontSize: 11, fontWeight: 600,
+                              color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              ₹{Math.round(Number(tab.total) || 0).toLocaleString('en-IN')}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {viewingBillOrderStatus && (
+                      <div style={{
+                        marginTop: 8,
+                        fontSize: 11, fontWeight: 600,
+                        color: TAB_STATUS_COLOR[viewingBillOrderStatus] || (darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)'),
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        paddingLeft: 4,
+                      }}>
+                        Status: {TAB_STATUS_LABEL[viewingBillOrderStatus] || viewingBillOrderStatus}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div style={{ padding: '0 22px calc(env(safe-area-inset-bottom, 20px) + 24px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', flex: 1 }}>
                 {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingTop: billTabs.length > 1 ? 14 : 0 }}>
                   <div>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Your Bill</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>Your Bill</div>
+                      {/* Single-order status pill in the header.
+                          Only shown when there's no tab strip (single-order
+                          session) — the tab strip surfaces this info
+                          itself, so showing it twice would be noisy. */}
+                      {billTabs.length <= 1 && viewingBillOrderStatus && (() => {
+                        const HDR_LABEL = {
+                          awaiting_payment: 'Awaiting payment',
+                          pending: 'Order placed',
+                          preparing: 'Preparing',
+                          ready: 'Ready',
+                          served: 'Picked up',
+                          cancelled: 'Cancelled',
+                        };
+                        const HDR_COLOR = {
+                          awaiting_payment: '#D9534F',
+                          pending: '#F79B3D',
+                          preparing: '#F79B3D',
+                          ready: '#2D8B4E',
+                          served: '#7AA88E',
+                          cancelled: 'rgba(0,0,0,0.4)',
+                        };
+                        const c = HDR_COLOR[viewingBillOrderStatus] || '#F79B3D';
+                        return (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+                            textTransform: 'uppercase', padding: '4px 10px',
+                            borderRadius: 999,
+                            background: `${c}1A`, color: c,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {HDR_LABEL[viewingBillOrderStatus] || viewingBillOrderStatus}
+                          </span>
+                        );
+                      })()}
+                    </div>
                     {bill.tableNumber && bill.tableNumber !== 'Not specified' && (
                       <div style={{ fontSize: 12, color: 'rgba(45,139,78,0.8)', fontWeight: 600, marginTop: 3 }}>
                         Table {bill.tableNumber}

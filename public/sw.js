@@ -38,7 +38,12 @@
 // (earlier orders stay visible after a new one is placed instead of
 // being replaced), parallelized markOrderPaid post-payment helpers
 // (Mark Paid feels half as slow), better add-items error logging.
-const CACHE_VERSION  = 'ar-v8';
+// ar-v9 (May 3) — multi-order tabbed bill view: customer can now switch
+// between current and past orders inside the bill modal via a tab strip
+// at the top, sees the live status of the selected order, and the
+// itemised breakdown reflects whichever bill they tapped instead of
+// always showing the latest.
+const CACHE_VERSION  = 'ar-v9';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
