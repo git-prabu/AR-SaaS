@@ -27,6 +27,7 @@
 import { adminDb } from '../../../lib/firebaseAdmin';
 import admin from 'firebase-admin';
 import { verifyWebhookAndExtractEvent } from '../../../lib/gateway';
+import { sendReceiptForOrder } from '../../../lib/email';
 
 export const config = { api: { bodyParser: false } };
 
@@ -115,6 +116,18 @@ export default async function handler(req, res) {
       // Auto-close runs once per unique billId since they all share
       // the same bill. Pass any one of the orders.
       await autoCloseBillIfAllPaid(restaurantId, updates[0].id);
+
+      // Phase M — fire payment-confirmation receipt emails for each
+      // just-paid order whose customer shared an email. Idempotent
+      // (sendReceiptForOrder skips if already-sent / no-email), so a
+      // gateway retry doesn't double-send. Best-effort: a Gmail SMTP
+      // outage shouldn't fail the webhook + cause Paytm to retry.
+      // Run in parallel since each is independent.
+      Promise.all(updates.map(d =>
+        sendReceiptForOrder(restaurantId, d.id).catch(err => {
+          console.warn('[webhook] receipt email failed for', d.id, ':', err?.message);
+        })
+      )).catch(() => { /* swallowed — see per-order .catch above */ });
     }
 
     return res.status(200).send('OK');

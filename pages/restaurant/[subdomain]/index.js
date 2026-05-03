@@ -598,9 +598,32 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // pastOrders before overwriting placedOrder. Each past order keeps
   // its own Firestore listener so its kitchen status updates live.
   // Cancelled orders are pruned out so they don't clutter the UI.
+  // pastOrders TTL — prune entries older than 24h on init. Without this,
+  // a customer who keeps the PWA tab open across days accumulates dead
+  // orderIds in sessionStorage AND attaches a Firestore listener to each
+  // (see the per-order listener effect below). 24h covers a normal day's
+  // visit + any reasonable revisit pattern (lunch + dinner same day);
+  // anything older is genuinely stale.
+  const PAST_ORDERS_TTL_MS = 24 * 60 * 60 * 1000;
   const [pastOrders, setPastOrders] = useState(() => {
     if (typeof window === 'undefined') return [];
-    try { return JSON.parse(sessionStorage.getItem('ar_past_orders') || '[]'); } catch { return []; }
+    try {
+      const raw = JSON.parse(sessionStorage.getItem('ar_past_orders') || '[]');
+      const cutoff = Date.now() - PAST_ORDERS_TTL_MS;
+      const fresh = raw.filter(o => {
+        const t = Number(o?.createdAtMs) || 0;
+        // Keep only orders with a known createdAt within the TTL.
+        // Entries missing createdAtMs are pre-TTL legacy data — drop
+        // them too rather than letting them linger forever.
+        return t > cutoff;
+      });
+      // Persist the pruned list back so we don't pay the filter cost
+      // on every reload + the orphaned listeners stay torn down.
+      if (fresh.length !== raw.length) {
+        try { sessionStorage.setItem('ar_past_orders', JSON.stringify(fresh)); } catch {}
+      }
+      return fresh;
+    } catch { return []; }
   });
   const [paymentDone, setPaymentDone] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -5767,7 +5790,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 19, color: '#2D8B4E', marginBottom: 8, letterSpacing: '-0.2px' }}>
                       Payment Confirmed!
                     </div>
-                    <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.6)', lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.65)' : 'rgba(42,31,16,0.6)', lineHeight: 1.6, marginBottom: 14 }}>
                       {billPaymentMethod === 'cash'
                         ? `Cash payment of ₹${bill.total} received. Thank you!`
                         : billPaymentMethod === 'card'
@@ -5776,6 +5799,47 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         ? `UPI payment of ₹${bill.total} received. Thank you!`
                         : `Payment of ₹${bill.total} received. Thank you!`}
                     </div>
+                    {/* May 3 — Open Bill CTA inside the Payment Confirmed
+                        state. Catches the gateway-UPI flow where there's
+                        no user gesture available at the moment payment
+                        confirms (the webhook flips paymentStatus
+                        server-side, the customer is on the gateway
+                        return page or watching the listener update). One
+                        tap here is the equivalent of the auto-open we do
+                        for cash/card/manual UPI. Also acts as a fallback
+                        for those flows when the popup was blocked. */}
+                    <button
+                      onClick={() => {
+                        const html = buildBillHtml(bill, billPaymentMethod);
+                        if (!html) {
+                          toast.error('Bill not ready yet. Try again in a moment.');
+                          return;
+                        }
+                        const popup = window.open('', '_blank');
+                        if (!popup) {
+                          toast.error('Popup blocked. Please allow popups for this site, then tap again.');
+                          return;
+                        }
+                        try {
+                          popup.document.open();
+                          popup.document.write(html);
+                          popup.document.close();
+                        } catch {
+                          popup.close?.();
+                          toast.error('Could not open bill. Try the Print Bill button below.');
+                        }
+                      }}
+                      style={{
+                        width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none',
+                        background: '#2D8B4E', color: '#fff',
+                        fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                        cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        boxShadow: '0 4px 14px rgba(45,139,78,0.3)',
+                      }}>
+                      <span style={{ fontSize: 16 }}>🧾</span>
+                      Open Bill in New Tab
+                    </button>
                   </div>
                 ) : billPaymentState === 'requested' ? (
                   <div style={{ textAlign: 'center', padding: '22px 16px', borderRadius: 16, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.06)', border: '1.5px solid rgba(45,139,78,0.25)' }}>

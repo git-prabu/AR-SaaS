@@ -62,7 +62,13 @@
 // Phase M email triggers will pick it up. Bill HTML generation
 // extracted into a single source of truth (buildBillHtml) shared by
 // the print-bill iframe flow and the new auto-open flow.
-const CACHE_VERSION  = 'ar-v12';
+// ar-v13 (May 3, evening 2) — pastOrders TTL prune (24h) so dead
+// orderIds don't accumulate in sessionStorage with attached Firestore
+// listeners; Open Bill CTA inside the Payment Confirmed state so the
+// gateway-UPI flow has a one-tap path to save the receipt; Phase M
+// customer payment-receipt emails now ship — sent automatically when
+// an order goes paid_* IFF the customer shared an email.
+const CACHE_VERSION  = 'ar-v13';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

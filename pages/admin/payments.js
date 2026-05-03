@@ -97,8 +97,31 @@ function fmtTime(seconds) {
   return new Date(seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+// Fire-and-forget customer receipt email trigger. Called after a
+// successful markOrderPaid — Phase M. We deliberately don't await
+// this (don't block the admin's UI on Gmail SMTP latency) and we
+// don't surface failures: the sendReceiptForOrder helper is
+// idempotent and skips silently if the customer didn't share an
+// email, so the only failure mode worth surfacing is "SMTP down" —
+// which the admin can't fix from this page anyway. Logged to console
+// for diagnostic purposes; the gateway-webhook path is the source of
+// truth for receipt emails on UPI orders.
+async function fireReceiptEmail(rid, orderId, user) {
+  if (!user || !rid || !orderId) return;
+  try {
+    const idToken = await user.getIdToken();
+    fetch('/api/email/send-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ restaurantId: rid, orderId }),
+    }).catch(err => console.warn('[receipt-email] fire failed:', err?.message));
+  } catch (err) {
+    console.warn('[receipt-email] could not get idToken:', err?.message);
+  }
+}
+
 export default function AdminPayments() {
-  const { userData } = useAuth();
+  const { user, userData } = useAuth();
   const rid = userData?.restaurantId;
 
   const [allOrders, setAllOrders] = useState([]);
@@ -331,6 +354,9 @@ export default function AdminPayments() {
       // opens a FRESH bill at that table. Required so the customer
       // doesn't keep seeing the closed bill on subsequent visits.
       await markOrderPaid(rid, order.id, newStatus);
+      // Phase M — fire customer receipt email if they shared one.
+      // Fire-and-forget; idempotent server-side.
+      fireReceiptEmail(rid, order.id, user);
       // Clear any selected method for this order (row is now paid, will disappear from pending filter)
       setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
       // Show undo banner for 60 seconds
@@ -358,6 +384,8 @@ export default function AdminPayments() {
     setUpdating(order.id);
     try {
       await markOrderPaid(rid, order.id, 'paid_cash', { cashReceived: received, changeGiven: change });
+      // Phase M — receipt email (fire-and-forget, see helper at top).
+      fireReceiptEmail(rid, order.id, user);
       setSelectedMethods(prev => { const n = { ...prev }; delete n[order.id]; return n; });
       showUndoBanner(order.id, previousStatus);
       toast.success(change > 0 ? `Paid · Change ₹${change}` : 'Paid · Exact cash');
