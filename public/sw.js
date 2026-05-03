@@ -114,7 +114,14 @@
 // Tooltip placement also hardened for mobile: viewport clamps on
 // every edge, real measured tooltip height, and horizontal centering
 // over the target (not just the screen).
-const CACHE_VERSION  = 'ar-v20';
+// ar-v21 (May 3, debugging) — tour tooltip was rendering off-screen-
+// left on narrow phones because the cmFade entrance animation still
+// had translate(-50%, -50%) left over from the previous centering
+// approach. With the new numeric top/left placement, that translate
+// shifted the tooltip half its width to the left and clipped it.
+// Animation now scales + fades around transform-origin: center, no
+// translate.
+const CACHE_VERSION  = 'ar-v21';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

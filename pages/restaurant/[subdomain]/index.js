@@ -618,6 +618,11 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       boxSizing: 'border-box',
       boxShadow: '0 16px 50px rgba(0,0,0,0.45), 0 4px 14px rgba(0,0,0,0.20)',
       border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+      // The cmFade animation does NOT translate — it just scales +
+      // fades. Setting transform-origin explicitly so the soft pop-in
+      // happens around the tooltip's middle regardless of where it's
+      // positioned in the viewport.
+      transformOrigin: 'center center',
       animation: 'cmFade 0.25s cubic-bezier(0.32,0.72,0,1) both',
       zIndex: 1001,
     };
@@ -657,7 +662,13 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, fontFamily: 'Inter,sans-serif' }}>
       <style>{`
-        @keyframes cmFade { from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        /* Pure opacity/scale entrance — NO translate (the old version used
+           translate(-50%, -50%) for centering, but the placement math is
+           now numeric top/left, so a translate left over from the keyframe
+           shifts the tooltip half its width off-screen on narrow phones).
+           transform-origin centers the scale around the tooltip's middle
+           so the entrance reads as a soft pop-in. */
+        @keyframes cmFade { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
         @keyframes cmFadeT { from { opacity: 0; } to { opacity: 1; } }
         @keyframes cmRingPulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(247,155,61,0.30); } 50% { box-shadow: 0 0 0 10px rgba(247,155,61,0.12); } }
       `}</style>
