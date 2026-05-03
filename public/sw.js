@@ -131,7 +131,12 @@
 // name) — most visually meaningful — and the rest fades into the
 // dark backdrop. Also clip rect to viewport bounds so off-screen
 // targets don't render phantom dark space.
-const CACHE_VERSION  = 'ar-v22';
+// ar-v23 (May 3, last call) — added a Help Me Choose step to the
+// coach-mark tour ("Can't decide? Let us pick"), spotlighting the
+// .sma-fab button. Slots in right after the item-card step so
+// customers see the manual + assisted ordering paths together. No
+// other behavior changes.
+const CACHE_VERSION  = 'ar-v23';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

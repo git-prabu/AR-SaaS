@@ -6911,6 +6911,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
               body: 'See photos, ingredients, and try the AR view if available — works right in your browser, no app needed.',
             },
             {
+              // Help Me Choose — the smart-menu-assistant FAB. Always
+              // visible (not gated on order state) so the selector
+              // works even outside tour mode. Sits in the bottom row
+              // alongside the Waiter button.
+              selector: '.sma-fab',
+              title: "Can't decide? Let us pick",
+              body: "Tap Help Me Choose to answer a couple of quick questions about your mood, group size, and what you feel like — we'll recommend dishes that match.",
+            },
+            {
               selector: '.cart-fab',  // demo View Order button (rendered during tour)
               title: "Add items, then tap 'View Order'",
               body: "Once you've added a dish, this button appears here. Tap it to checkout — review your items, enter your details, and choose how to pay.",
