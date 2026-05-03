@@ -74,7 +74,13 @@
 // saved bill (either as a new tab when popups are allowed, or as a
 // downloaded HTML file). Bill HTML is now generated synchronously
 // upfront so the gesture context never expires before the popup opens.
-const CACHE_VERSION  = 'ar-v14';
+// ar-v15 (May 3, late night) — bill auto-delivery now triggers ONLY
+// when paymentStatus actually flips to paid_* (admin marks paid /
+// gateway webhook fires), NOT when the customer first taps "Confirm
+// Cash/Card/UPI" (which is just a request, money hasn't changed
+// hands yet). Listener-driven; dedup'd per bill/order key so a
+// double-firing snapshot doesn't double-deliver.
+const CACHE_VERSION  = 'ar-v15';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
