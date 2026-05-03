@@ -1412,10 +1412,113 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     });
   }, [menuItems]);
 
+  // May 1 — add items to an existing awaiting-payment order. Used when
+  // the customer was on the payment screen, tapped "Add more items",
+  // added stuff to the (now-empty) cart, then confirmed. Without this
+  // branch placeOrder would have CREATED a new order and the original
+  // would have been orphaned in Firestore (the user-reported "old order
+  // gets replaced" bug).
+  //
+  // Server-side endpoint validates prices + recalculates totals so a
+  // tampered cart can't undercharge. Resets paymentStatus to 'unpaid'
+  // if it was *_requested — customer needs to re-confirm the new
+  // total before the cashier collects.
+  const addItemsToOrder = async () => {
+    if (!restaurant?.id || !placedOrder?.orderId || cart.length === 0) return;
+    if (placeOrderInFlightRef.current) return;
+    placeOrderInFlightRef.current = true;
+    setIsSubmitting(true);
+    try {
+      // Re-validate prices from live menu (same logic as placeOrder).
+      const freshCart = cart.map(c => {
+        const live = enrichedItems.find(i => i.id === c.id);
+        if (!live) return c;
+        const basePriceLive = live.offerPrice ?? live.price ?? 0;
+        const deltaSum = (c.variant?.priceDelta || 0)
+          + (c.addOns || []).reduce((s, a) => s + (a.priceDelta || 0), 0);
+        return { ...c, price: basePriceLive + deltaSum };
+      });
+      const r = await fetch('/api/orders/add-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          orderId: placedOrder.orderId,
+          newItems: freshCart.map(c => ({
+            id: c.id,
+            name: c.name,
+            price: c.price,
+            qty: c.qty,
+            note: c.note || '',
+            modNote: c.modNote || '',
+            modDelta: (c.variant?.priceDelta || 0)
+              + (c.addOns || []).reduce((s, a) => s + (a.priceDelta || 0), 0),
+            variant: c.variant || null,
+            addOns: c.addOns || [],
+          })),
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        if (j.error === 'ORDER_NOT_EDITABLE') {
+          toast.error("Couldn't add — order is no longer editable. Try a fresh order.");
+          // Force-clear local state so the next Place Order creates a
+          // clean order rather than retrying against a now-paid one.
+          setPlacedOrder(null);
+          try { sessionStorage.removeItem('ar_placed_order'); } catch {}
+          setOrderStep('cart');
+          return;
+        }
+        throw new Error(j.error || 'add-items failed');
+      }
+      // Update the local placedOrder with the merged items + new total
+      // so the payment screen reflects the change immediately. The
+      // listener on the order doc will also pick up the changes within
+      // a beat — this is just to avoid a flicker.
+      const updated = {
+        ...placedOrder,
+        items: j.items,
+        subtotal: j.subtotal,
+        cgst: j.cgst, sgst: j.sgst, serviceCharge: j.serviceCharge,
+        discount: j.discount, roundOff: j.roundOff, total: j.total,
+        // If the server reset paymentStatus, mirror that locally too
+        // so the payment-step "isWaiting" check evaluates correctly.
+        paymentStatus: j.paymentStatusReset ? 'unpaid' : placedOrder.paymentStatus,
+      };
+      setPlacedOrder(updated);
+      try { sessionStorage.setItem('ar_placed_order', JSON.stringify(updated)); } catch {}
+      clearCart();
+      setOrderStep('payment');
+      setCartOpen(true);
+      const addedQty = freshCart.reduce((s, c) => s + (Number(c.qty) || 1), 0);
+      toast.success(`Added ${addedQty} item${addedQty === 1 ? '' : 's'} · New total ₹${j.total}`);
+    } catch (e) {
+      console.error('add-items failed:', e);
+      toast.error('Could not add items. Try again.');
+    } finally {
+      placeOrderInFlightRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
   const placeOrder = async () => {
     if (!restaurant?.id || cart.length === 0) return;
     // Idempotency guard — see placeOrderInFlightRef declaration above.
     if (placeOrderInFlightRef.current) return;
+
+    // May 1 — Branch: if the customer already has an awaiting-payment
+    // order, this Place-Order tap is actually "add these items to the
+    // existing order". Route through the dedicated server-side merger
+    // instead of creating a new order doc. Skips the form/phone
+    // validation because the customer already filled those when they
+    // placed the original order.
+    const isAddingToExisting = placedOrder?.orderId
+      && liveOrderStatus === 'awaiting_payment'
+      && placedOrder.orderType === 'takeaway';
+    if (isAddingToExisting) {
+      return addItemsToOrder();
+    }
+
     // Phone is required (Phase B). Validate BEFORE we touch any in-flight
     // state — a failed validation isn't a "failed attempt", it just bounces
     // the customer back to the form.
@@ -3844,6 +3947,38 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
               {/* ── STEP: cart ── */}
               {orderStep === 'cart' && (<>
+                {(() => {
+                  // May 1 — when there's an existing awaiting-payment
+                  // takeaway order, the cart isn't a fresh order — it's
+                  // additions to the existing one. Show a banner so the
+                  // customer knows what tapping "Place Order" / "Add to
+                  // order" will do.
+                  const isAddMode = placedOrder?.orderId
+                    && liveOrderStatus === 'awaiting_payment'
+                    && placedOrder.orderType === 'takeaway';
+                  if (!isAddMode) return null;
+                  const orderRef = placedOrder.orderNumber
+                    ? `#${placedOrder.orderNumber}`
+                    : `#${(placedOrder.orderId || '').slice(-6).toUpperCase()}`;
+                  return (
+                    <div style={{
+                      padding: '10px 12px', borderRadius: 12, marginBottom: 12,
+                      background: darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)',
+                      border: '1.5px solid rgba(247,155,61,0.30)',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                    }}>
+                      <span style={{ fontSize: 18, lineHeight: 1 }}>📦</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#F7A85A' : '#A06318' }}>
+                          Adding to order {orderRef}
+                        </div>
+                        <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', marginTop: 1, lineHeight: 1.35 }}>
+                          These items will be added to your existing order. The new total will need a fresh payment confirmation.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 {t.yourOrder}</div>
@@ -3920,9 +4055,33 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <button onClick={clearCart} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: 'transparent', fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.5)' }}>
                     {t.clear}
                   </button>
-                  <button onClick={() => setOrderStep('form')} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: darkMode ? '#F79B3D' : '#1E1B18', color: darkMode ? '#1E1B18' : '#FFF5E8', fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: 'pointer' }}>
-                    {t.placeOrder}
-                  </button>
+                  {(() => {
+                    // May 1 — In add-mode (existing awaiting_payment
+                    // takeaway), skip the form step (customer already
+                    // filled name/phone) and call placeOrder directly,
+                    // which will branch to addItemsToOrder. Button label
+                    // changes to make the action clear.
+                    const isAddMode = placedOrder?.orderId
+                      && liveOrderStatus === 'awaiting_payment'
+                      && placedOrder.orderType === 'takeaway';
+                    return (
+                      <button
+                        onClick={isAddMode ? placeOrder : () => setOrderStep('form')}
+                        disabled={isSubmitting}
+                        style={{
+                          flex: 2, padding: '12px', borderRadius: 12, border: 'none',
+                          background: isSubmitting
+                            ? 'rgba(42,31,16,0.3)'
+                            : darkMode ? '#F79B3D' : '#1E1B18',
+                          color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8',
+                          fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                          cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {isSubmitting ? '…' : isAddMode ? '＋ Add to order' : t.placeOrder}
+                      </button>
+                    );
+                  })()}
                 </div>
               </>)}
 
@@ -4370,6 +4529,24 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         </button>
                       </>
                     )}
+
+                    {/* Add more items — sends the customer back to the menu
+                        so they can build a new cart that gets MERGED into
+                        this order via /api/orders/add-items. The drawer
+                        closes; the Payment FAB at the bottom-right is how
+                        they'll get back to the payment screen afterwards. */}
+                    <button
+                      onClick={() => { setCartOpen(false); setOrderStep('cart'); }}
+                      style={{
+                        width: '100%', padding: '12px 14px', borderRadius: 12,
+                        background: 'transparent',
+                        border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.16)'}`,
+                        color: darkMode ? '#FFF5E8' : '#1E1B18',
+                        fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                        cursor: 'pointer', marginBottom: 10,
+                      }}>
+                      ＋ Add more items
+                    </button>
 
                     {/* Cancel order — bottom-aligned outline button so it
                         doesn't compete with the payment CTAs but is

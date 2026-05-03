@@ -34,12 +34,12 @@
 // + purge so every client re-fetches latest JS. Also catches the
 // orderSnapshot.orderType + liveOrderStatus init fixes in this
 // commit and the new "Change payment method" button.
-// ar-v6 (May 1) — bundles in: cancelled-orders are now excluded from
-// the /admin/payments filter (was leaking through when paymentStatus
-// was *_requested at cancellation time), order summary on the customer
-// payment page, and the new ConfirmModal card replacing every browser
-// confirm() dialog. Bumping forces stale clients to re-fetch the JS.
-const CACHE_VERSION  = 'ar-v6';
+// ar-v7 (May 1, evening) — bundles in the "add items to existing
+// awaiting_payment order" flow + endpoint, the cart-step add-mode
+// banner, and the "Add more items" button on the payment screen.
+// Without bumping, customers on a stale tab would still hit the old
+// placeOrder path which orphans the existing order.
+const CACHE_VERSION  = 'ar-v7';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
