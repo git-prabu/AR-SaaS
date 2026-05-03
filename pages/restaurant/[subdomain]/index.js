@@ -644,11 +644,23 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [couponLoading, setCouponLoading] = useState(false);
   // Live order status
   const [liveOrderStatus, setLiveOrderStatus] = useState(null);
-  // Customer feedback
+  // Customer feedback (Phase N) — May 3.
+  // We prompt for a star rating + comment after an order transitions to
+  // 'served' (which means "picked up" for takeaway, "served" for
+  // dine-in). The prompt is per-order: a customer who places 3 orders
+  // gets up to 3 prompts (one per served order). Skipping a prompt
+  // counts the same as submitting — we record the orderId so we don't
+  // bug them again on reload. Persisted to sessionStorage so a tab
+  // reload mid-session doesn't re-prompt for an order they already
+  // rated or skipped.
+  const [feedbackForOrderId, setFeedbackForOrderId] = useState(null);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState('');
-  const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackSending, setFeedbackSending] = useState(false);
+  const [ratedOrderIds, setRatedOrderIds] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(sessionStorage.getItem('ar_rated_orders') || '[]'); } catch { return []; }
+  });
   // Table session validation
   const router = useRouter();
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -882,7 +894,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
   // Lock body scroll when any sheet/modal is open
   useEffect(() => {
-    const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal);
+    const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal || feedbackForOrderId);
     if (isOpen) {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
@@ -894,7 +906,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
-  }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal]);
+  }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal, feedbackForOrderId]);
 
 
   // ── Enrich menu items with active offer data (memoized) ──────────────────
@@ -1578,6 +1590,80 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       setSelectedSuccessOrderId(prev => prev || placedOrder.orderId);
     }
   }, [orderStep, cartOpen, placedOrder?.orderId]);
+
+  // ── Phase N — Feedback prompt trigger ────────────────────────────────
+  // When ANY session order transitions to 'served' (= picked up for
+  // takeaway, cleared for dine-in) and we haven't yet asked the customer
+  // about it, open the rating prompt for that order. We pick the first
+  // such unrated order so multi-order sessions get rated in chronological
+  // order — the customer rates #9 first, #10 second.
+  // Skipping counts the same as submitting (the orderId goes into
+  // ratedOrderIds either way) so we never bug the customer twice for
+  // the same order.
+  useEffect(() => {
+    if (feedbackForOrderId) return;  // already prompting for one
+    const candidate = sessionOrders.find(so =>
+      so.liveStatus === 'served' && !ratedOrderIds.includes(so.orderId)
+    );
+    if (candidate) {
+      setFeedbackForOrderId(candidate.orderId);
+      setFeedbackRating(0);
+      setFeedbackComment('');
+    }
+  }, [sessionOrders, ratedOrderIds, feedbackForOrderId]);
+
+  // Mark an order as "we've asked about this" — used on both submit
+  // and skip paths, plus persisted to sessionStorage so reload doesn't
+  // re-prompt for an already-rated/skipped order.
+  const dismissFeedbackPrompt = useCallback((orderId) => {
+    setFeedbackForOrderId(null);
+    setFeedbackRating(0);
+    setFeedbackComment('');
+    setRatedOrderIds(prev => {
+      if (prev.includes(orderId)) return prev;
+      const next = [...prev, orderId];
+      try { sessionStorage.setItem('ar_rated_orders', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleFeedbackSubmit = useCallback(async () => {
+    if (!feedbackForOrderId || !restaurant?.id) return;
+    if (!feedbackRating) {
+      toast.error('Tap a star to rate first.');
+      return;
+    }
+    if (feedbackSending) return;
+    setFeedbackSending(true);
+    try {
+      // Find the order being rated. Could be the current placedOrder or
+      // a past order — pull metadata from whichever source has it so
+      // the admin/feedback page sees full context (items, total, table).
+      const fromCurrent = placedOrder?.orderId === feedbackForOrderId ? placedOrder : null;
+      const fromPast = pastOrders.find(po => po.orderId === feedbackForOrderId);
+      const orderInfo = fromCurrent || fromPast || {};
+      const orderItems = (orderInfo.items || []).map(it => ({
+        id: it.id || null,
+        name: String(it.name || ''),
+        qty: Number(it.qty) || 1,
+      }));
+      await submitFeedback(restaurant.id, {
+        rating: Number(feedbackRating),
+        comment: String(feedbackComment || '').slice(0, 500),
+        orderItems,
+        tableNumber: orderInfo.tableNumber || placedOrder?.tableNumber || null,
+        orderId: feedbackForOrderId,
+        orderTotal: Number(orderInfo.total) || 0,
+        isRead: false,
+      });
+      toast.success('Thanks for your feedback!');
+      dismissFeedbackPrompt(feedbackForOrderId);
+    } catch (e) {
+      toast.error('Could not submit feedback. Please try again.');
+    } finally {
+      setFeedbackSending(false);
+    }
+  }, [feedbackForOrderId, restaurant?.id, feedbackRating, feedbackComment, feedbackSending, placedOrder, pastOrders, dismissFeedbackPrompt]);
 
   // ── Phase A — Aggregated bill view model ─────────────────────────────
   // Unified shape compatible with both:
@@ -6111,6 +6197,123 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             </div>
           </SheetOverlay>
         )}
+
+        {/* ─── Phase N — FEEDBACK PROMPT SHEET ───
+            Triggered after an order goes 'served' (picked up for
+            takeaway, served for dine-in). Stars + optional comment +
+            Submit / Maybe later. Both the submit and dismiss paths mark
+            the orderId in ratedOrderIds so we don't bug the customer
+            twice. Shown as a slide-up sheet for consistency with the
+            cart/bill sheets — same SheetOverlay component. */}
+        {feedbackForOrderId && (() => {
+          const ratingOrder = sessionOrders.find(o => o.orderId === feedbackForOrderId);
+          const ref = ratingOrder?.orderNumber
+            ? `#${ratingOrder.orderNumber}`
+            : `#${(feedbackForOrderId || '').slice(-4).toUpperCase()}`;
+          return (
+            <SheetOverlay onClose={() => dismissFeedbackPrompt(feedbackForOrderId)} darkMode={darkMode}>
+              <div onClick={e => e.stopPropagation()} style={{
+                width: '100%', maxWidth: 540, margin: '0 auto',
+                background: darkMode ? '#1A1612' : '#FEFCF8',
+                borderRadius: '24px 24px 0 0',
+                padding: '0 0 calc(env(safe-area-inset-bottom, 20px) + 28px)',
+                animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)',
+              }}>
+                {/* Handle */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
+                  <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
+                </div>
+                <div style={{ padding: '0 22px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: 18 }}>
+                    <div style={{ fontSize: 44, marginBottom: 8 }}>🍽️</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 4 }}>
+                      How was your experience?
+                    </div>
+                    <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)' }}>
+                      Order {ref} · Tap a star to rate
+                    </div>
+                  </div>
+
+                  {/* Stars */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
+                    {[1, 2, 3, 4, 5].map(n => {
+                      const filled = n <= feedbackRating;
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => setFeedbackRating(n)}
+                          aria-label={`Rate ${n} star${n === 1 ? '' : 's'}`}
+                          style={{
+                            background: 'transparent', border: 'none',
+                            cursor: 'pointer', padding: 4,
+                            fontSize: 38, lineHeight: 1,
+                            color: filled ? '#F79B3D' : (darkMode ? 'rgba(255,245,232,0.2)' : 'rgba(42,31,16,0.18)'),
+                            transition: 'transform 0.15s, color 0.15s',
+                            transform: filled ? 'scale(1.05)' : 'scale(1)',
+                          }}>
+                          {filled ? '★' : '☆'}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Optional comment */}
+                  <textarea
+                    placeholder="Tell us what you liked, or how we could improve… (optional)"
+                    value={feedbackComment}
+                    onChange={e => setFeedbackComment(e.target.value.slice(0, 500))}
+                    rows={3}
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`,
+                      background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.02)',
+                      color: darkMode ? '#FFF5E8' : '#1E1B18',
+                      fontSize: 14, fontFamily: 'Inter,sans-serif',
+                      resize: 'none',
+                      outline: 'none',
+                      marginBottom: 14,
+                    }}
+                  />
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      onClick={() => dismissFeedbackPrompt(feedbackForOrderId)}
+                      disabled={feedbackSending}
+                      style={{
+                        flex: 1, padding: '13px 16px', borderRadius: 12,
+                        border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.16)'}`,
+                        background: 'transparent',
+                        color: darkMode ? '#FFF5E8' : '#1E1B18',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                        cursor: feedbackSending ? 'not-allowed' : 'pointer',
+                        opacity: feedbackSending ? 0.5 : 1,
+                      }}>
+                      Maybe later
+                    </button>
+                    <button
+                      onClick={handleFeedbackSubmit}
+                      disabled={feedbackSending || !feedbackRating}
+                      style={{
+                        flex: 1, padding: '13px 16px', borderRadius: 12, border: 'none',
+                        background: feedbackRating
+                          ? 'linear-gradient(135deg,#F79B3D,#F48A1E)'
+                          : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'),
+                        color: feedbackRating ? '#fff' : (darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)'),
+                        fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                        cursor: feedbackRating && !feedbackSending ? 'pointer' : 'not-allowed',
+                        boxShadow: feedbackRating ? '0 4px 16px rgba(247,155,61,0.30)' : 'none',
+                      }}>
+                      {feedbackSending ? 'Sending…' : 'Submit'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </SheetOverlay>
+          );
+        })()}
 
         {/* Card-style confirmation dialog. Replaces native confirm()
             calls (cancel order, etc.) so the prompt matches the rest

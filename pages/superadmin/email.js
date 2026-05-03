@@ -11,6 +11,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { useSuperAdminAuth } from '../../hooks/useAuth';
 import { saDb } from '../../lib/saDb';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -76,6 +77,10 @@ export default function SuperAdminEmail() {
   const [triggering, setTriggering] = useState(false);
   const [triggerResult, setTriggerResult] = useState(null);
   const [triggerDate, setTriggerDate] = useState(() => yesterdayISO());
+  // May 3 — confirm dialog state (replaces native confirm()). Holds a
+  // config object — title/body/onConfirm — when set; null when closed.
+  // Used for the non-Gmail sender warning and the daily-summary trigger.
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -96,7 +101,7 @@ export default function SuperAdminEmail() {
           setInitial(EMPTY);
         }
       } catch (e) {
-        console.error('email config load:', e);
+        // Surface to the toast only; do not console.error in production.
         toast.error('Could not load email config — check Firestore rules.');
       } finally { setLoading(false); }
     })();
@@ -108,18 +113,9 @@ export default function SuperAdminEmail() {
   // state, so the user can always rescue themselves by typing + saving.
   const isDirty = JSON.stringify(form) !== JSON.stringify(initial || EMPTY);
 
-  const handleSave = async () => {
-    if (!form.senderEmail.trim()) return toast.error('Sender email is required');
-    if (!/^[^\s@]+@gmail\.com$/i.test(form.senderEmail.trim())) {
-      // Soft warning — Gmail SMTP only works for @gmail.com / @googlemail.com
-      // accounts. If they're using Workspace, the address may be a custom
-      // domain. We accept it but flag the gotcha.
-      const proceed = confirm('Sender doesn\'t look like a @gmail.com address. Gmail SMTP only works for Gmail/Workspace accounts. Continue anyway?');
-      if (!proceed) return;
-    }
-    if (!form.appPassword.trim() || form.appPassword.replace(/\s/g, '').length < 16) {
-      return toast.error('App Password is required (16 characters from Google).');
-    }
+  // Inner save — actually performs the Firestore write. Split out so the
+  // non-Gmail confirm path can call this from its onConfirm handler.
+  const doSave = async () => {
     setSaving(true);
     try {
       const payload = {
@@ -149,16 +145,32 @@ export default function SuperAdminEmail() {
     } finally { setSaving(false); }
   };
 
-  const handleTrigger = async () => {
-    if (!user) return toast.error('Not signed in.');
-    if (!initial?.senderEmail) return toast.error('Configure sender email first.');
-    if (!triggerDate) return toast.error('Pick a date first.');
-    if (!confirm(
-      `Trigger daily summary for ${triggerDate}?\n\n` +
-      `This sends a real email to every active restaurant's notifications email ` +
-      `(or the admin's signup email as fallback). Same pipeline the nightly ` +
-      `cron uses — just on demand.`
-    )) return;
+  const handleSave = () => {
+    if (!form.senderEmail.trim()) return toast.error('Sender email is required');
+    // Pre-confirm field validation so we don't bother the user with a modal
+    // for an obviously invalid form.
+    if (!form.appPassword.trim() || form.appPassword.replace(/\s/g, '').length < 16) {
+      return toast.error('App Password is required (16 characters from Google).');
+    }
+    if (!/^[^\s@]+@gmail\.com$/i.test(form.senderEmail.trim())) {
+      // Soft warning — Gmail SMTP only works for @gmail.com / @googlemail.com
+      // accounts. If they're using Workspace, the address may be a custom
+      // domain. We accept it but flag the gotcha via a styled modal.
+      setConfirmDialog({
+        title: 'Non-Gmail sender address?',
+        body: "This doesn't look like a @gmail.com address. Gmail SMTP only works for Gmail/Workspace accounts — using anything else will fail at send time. Continue anyway?",
+        confirmLabel: 'Continue anyway',
+        cancelLabel: 'Cancel',
+        onConfirm: () => doSave(),
+      });
+      return;
+    }
+    doSave();
+  };
+
+  // Inner trigger — actually fires the daily-summary cron. Split out so
+  // the confirm modal's onConfirm can call it.
+  const doTrigger = async () => {
     setTriggering(true);
     setTriggerResult(null);
     try {
@@ -184,6 +196,19 @@ export default function SuperAdminEmail() {
     } catch (e) {
       toast.error('Trigger failed: ' + e.message);
     } finally { setTriggering(false); }
+  };
+
+  const handleTrigger = () => {
+    if (!user) return toast.error('Not signed in.');
+    if (!initial?.senderEmail) return toast.error('Configure sender email first.');
+    if (!triggerDate) return toast.error('Pick a date first.');
+    setConfirmDialog({
+      title: `Trigger daily summary for ${triggerDate}?`,
+      body: "This sends a real email to every active restaurant's notifications inbox (or the admin's signup email as fallback). Same pipeline the nightly cron uses — just on demand.",
+      confirmLabel: 'Send now',
+      cancelLabel: 'Cancel',
+      onConfirm: () => doTrigger(),
+    });
   };
 
   const handleTest = async () => {
@@ -487,6 +512,21 @@ export default function SuperAdminEmail() {
           )}
         </div>
       </div>
+
+      {/* Card-style confirmation modal — replaces native browser
+          confirm() for the "non-Gmail sender" warning and the
+          "trigger daily summary" sanity check. Same pattern used
+          across the admin pages. */}
+      <ConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        body={confirmDialog?.body}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        destructive={confirmDialog?.destructive}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </SuperAdminLayout>
   );
 }

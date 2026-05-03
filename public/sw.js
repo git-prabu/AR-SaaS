@@ -51,7 +51,11 @@
 // "Preparing…" label) and shows a +N badge when more than one is in
 // flight. My Bill FAB now also shows when past orders are paid even
 // while the latest is still in awaiting_payment.
-const CACHE_VERSION  = 'ar-v10';
+// ar-v11 (May 3, evening) — Phase N feedback prompt: a slide-up sheet
+// asks the customer for a 1-5 star rating + optional comment when their
+// order transitions to 'served'. One prompt per order, persisted via
+// sessionStorage so reload doesn't re-prompt.
+const CACHE_VERSION  = 'ar-v11';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import {
   getAnalytics, getTodayAnalytics, getAllMenuItems,
-  getWaiterCallsCount, getOrders, todayKey,
+  getWaiterCallsCount, getOrders, getFeedback, todayKey,
 } from '../../lib/db';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -196,6 +196,10 @@ export default function AdminAnalytics() {
   const [todayStat, setTodayStat] = useState(null);
   const [waiterStat, setWaiterStat] = useState(null);
   const [orders, setOrders] = useState([]);
+  // Phase O — May 3 — customer feedback (rating + comment per order),
+  // pulled from restaurants/{rid}/feedback. Used by the new "Customer
+  // Reviews" KPI tile + period-comparison delta in Restaurant Health.
+  const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   // Period pill state — 'today' | 'week' | 'month' | 'all'. Defaults to 'week'
   // (last 7 days) since that's the most common at-a-glance range for ops.
@@ -251,18 +255,25 @@ export default function AdminAnalytics() {
     const priorEnd   = new Date(bounds.start); priorEnd.setDate(priorEnd.getDate() - 1);
     const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-    const [anal, prev, items, today, waiter, allOrders] = await Promise.all([
+    const [anal, prev, items, today, waiter, allOrders, allFeedback] = await Promise.all([
       getAnalytics(rid, spanDays, startKey, endKey),
       getAnalytics(rid, spanDays, ymd(priorStart), ymd(priorEnd)),
       getAllMenuItems(rid),
       getTodayAnalytics(rid),
       getWaiterCallsCount(rid, spanDays),
       getOrders(rid),
+      // getFeedback returns the latest 200 across all time. We filter
+      // by createdAt against bounds in-memory (same pattern as orders)
+      // so the same query covers any date range without server-side
+      // changes.
+      getFeedback(rid).catch(() => []),
     ]);
     setAnalytics(anal);
     setPrevAnal(prev);
     setMenuItems(items); setTodayStat(today); setWaiterStat(waiter);
-    setOrders(allOrders || []); setLoading(false);
+    setOrders(allOrders || []);
+    setFeedback(allFeedback || []);
+    setLoading(false);
     setCommittedBounds(bounds.key);
     initialLoadDone.current = true;
   }, [rid, period, customRange]);
@@ -307,6 +318,46 @@ export default function AdminAnalytics() {
     // from after the selected window into every stat.
     return d >= rangeStart && d <= rangeEnd;
   });
+
+  // Phase O — May 3 — period-filtered customer feedback derivations.
+  // Mirrors the orders-in-range logic above. Prior-window slice lets us
+  // show "+N this week" delta in the KPI tile.
+  const priorStartDate = (() => { const d = new Date(rangeStart); d.setDate(d.getDate() - bounds.spanDays); return d; })();
+  const priorEndDate   = (() => { const d = new Date(rangeStart); d.setDate(d.getDate() - 1); return d; })();
+  const feedbackInRange = useMemo(() => {
+    return feedback.filter(f => {
+      const t = f.createdAt;
+      if (!t) return false;
+      const d = t.toDate ? t.toDate() : (t.seconds ? new Date(t.seconds * 1000) : new Date(t));
+      return d >= rangeStart && d <= rangeEnd;
+    });
+  }, [feedback, rangeStart, rangeEnd]);
+  const feedbackPrev = useMemo(() => {
+    return feedback.filter(f => {
+      const t = f.createdAt;
+      if (!t) return false;
+      const d = t.toDate ? t.toDate() : (t.seconds ? new Date(t.seconds * 1000) : new Date(t));
+      return d >= priorStartDate && d <= priorEndDate;
+    });
+  // priorStart/End are derived from rangeStart + spanDays so the
+  // existing deps are sufficient; ESLint can't see through that. The
+  // recompute fires whenever the user changes period or custom range.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedback, rangeStart, bounds.spanDays]);
+
+  // Average customer experience rating across feedback within the
+  // selected period. Falls back to null when no feedback yet — the
+  // KPI tile renders an em-dash placeholder so admins know the data
+  // is genuinely empty rather than zero.
+  const customerRatingAvg = feedbackInRange.length > 0
+    ? (feedbackInRange.reduce((s, f) => s + (Number(f.rating) || 0), 0) / feedbackInRange.length)
+    : null;
+  const customerRatingPrevAvg = feedbackPrev.length > 0
+    ? (feedbackPrev.reduce((s, f) => s + (Number(f.rating) || 0), 0) / feedbackPrev.length)
+    : null;
+  const positiveFeedbackPct = feedbackInRange.length > 0
+    ? Math.round((feedbackInRange.filter(f => (Number(f.rating) || 0) >= 4).length / feedbackInRange.length) * 100)
+    : null;
 
   // ─── Bounds for the chart specifically ──────────────────────────────
   // The chart data is built from these bounds (NOT live `bounds`). This
@@ -2271,7 +2322,25 @@ export default function AdminAnalytics() {
                           { label: 'VISITS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
                           { label: 'AR ITEM ORDERS', value: arToOrderRate + '%', sub: 'of all orders' },
                           { label: 'AR ENGAGEMENT', value: arRate + '%', sub: `${totalARViews} launches` },
-                          { label: 'AVG RATING', value: avgRating > 0 ? `★ ${avgRating}` : '—', sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} rated` },
+                          // Phase O — Customer experience rating from
+                          // feedback collection, period-filtered. Falls back
+                          // to menu-item average when no feedback exists in
+                          // the period (so a fresh restaurant with menu
+                          // ratings still has a number to show).
+                          (() => {
+                            if (customerRatingAvg !== null) {
+                              return {
+                                label: 'CUSTOMER RATING',
+                                value: `★ ${customerRatingAvg.toFixed(1)}`,
+                                sub: `${feedbackInRange.length} review${feedbackInRange.length === 1 ? '' : 's'}${positiveFeedbackPct !== null ? ` · ${positiveFeedbackPct}% positive` : ''}`,
+                              };
+                            }
+                            return {
+                              label: 'MENU AVG RATING',
+                              value: avgRating > 0 ? `★ ${avgRating}` : '—',
+                              sub: `${activeItems.filter(i => (i.ratingCount || 0) > 0).length} item${activeItems.filter(i => (i.ratingCount || 0) > 0).length === 1 ? '' : 's'} rated`,
+                            };
+                          })(),
                         ].map(s => (
                           <div key={s.label} style={{ padding: '11px 13px', background: A.forestSubtleBg, borderRadius: 10, border: A.forestBorder }}>
                             <div style={{ fontFamily: A.font, fontSize: 9, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 5 }}>{s.label}</div>
