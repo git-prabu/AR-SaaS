@@ -577,6 +577,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     if (typeof window === 'undefined') return null;
     try { const s = sessionStorage.getItem('ar_placed_order'); return s ? JSON.parse(s) : null; } catch { return null; }
   });
+
+  // May 1 — pastOrders keeps EARLIER orders visible across the session.
+  // Without this, when a customer placed Order #9 (paid + in kitchen)
+  // and then placed Order #10, the local placedOrder got overwritten
+  // and #9 disappeared from the customer's view even though it was
+  // still being prepared. Now: when a new order is placed and the
+  // current placedOrder is past awaiting_payment (i.e., has been paid
+  // and the kitchen has it), we ARCHIVE the current order into
+  // pastOrders before overwriting placedOrder. Each past order keeps
+  // its own Firestore listener so its kitchen status updates live.
+  // Cancelled orders are pruned out so they don't clutter the UI.
+  const [pastOrders, setPastOrders] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(sessionStorage.getItem('ar_past_orders') || '[]'); } catch { return []; }
+  });
   const [paymentDone, setPaymentDone] = useState(() => {
     if (typeof window === 'undefined') return false;
     try { return !!sessionStorage.getItem('ar_payment_done'); } catch { return false; }
@@ -1145,6 +1160,48 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // Confirmed!" the moment the admin marks the order paid in
   // /admin/payments. Without this the customer would just stay on the
   // requested screen forever.
+  // Past-orders listener — keeps each archived order's kitchen status
+  // live so the "Your earlier orders" UI can show "Preparing → Ready →
+  // Served" transitions without a refresh. Cancelled orders are pruned
+  // so they don't sit in the list forever after admin cancels.
+  useEffect(() => {
+    if (!restaurant?.id || pastOrders.length === 0) return;
+    const unsubs = pastOrders.map((o) =>
+      onSnapshot(doc(db, 'restaurants', restaurant.id, 'orders', o.orderId), snap => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        setPastOrders(prev => {
+          // Prune cancelled orders from the visible list.
+          if (data.status === 'cancelled') {
+            const filtered = prev.filter(po => po.orderId !== o.orderId);
+            try { sessionStorage.setItem('ar_past_orders', JSON.stringify(filtered)); } catch {}
+            return filtered;
+          }
+          const updated = prev.map(po =>
+            po.orderId === o.orderId
+              ? {
+                  ...po,
+                  status: data.status || po.status,
+                  paymentStatus: data.paymentStatus || po.paymentStatus,
+                  total: data.total ?? po.total,
+                  items: data.items || po.items,
+                  orderNumber: typeof data.orderNumber === 'number' ? data.orderNumber : po.orderNumber,
+                }
+              : po
+          );
+          try { sessionStorage.setItem('ar_past_orders', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }, () => { /* listener errors are non-fatal — keep cached values */ })
+    );
+    return () => unsubs.forEach(u => u());
+  // We rebuild listeners only when the SET of order IDs changes, not on
+  // every internal status update — that would tear down + reattach
+  // listeners on every snapshot. The id-list join is stable when the
+  // underlying ids are.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurant?.id, pastOrders.map(o => o.orderId).join(',')]);
+
   useEffect(() => {
     if (!placedOrder?.orderId || !restaurant?.id) return;
     const unsub = onSnapshot(doc(db, 'restaurants', restaurant.id, 'orders', placedOrder.orderId), snap => {
@@ -1458,18 +1515,36 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           })),
         }),
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) {
+        // Loud + structured logging so future failures have a paper
+        // trail in the console — previously the catch block ate the
+        // server response and the customer saw a generic "Try again".
+        console.error('[add-items] server returned non-OK', {
+          status: r.status,
+          orderId: placedOrder.orderId,
+          error: j.error,
+          message: j.message,
+          itemCount: freshCart.length,
+          fullResponse: j,
+        });
         if (j.error === 'ORDER_NOT_EDITABLE') {
-          toast.error("Couldn't add — order is no longer editable. Try a fresh order.");
-          // Force-clear local state so the next Place Order creates a
-          // clean order rather than retrying against a now-paid one.
-          setPlacedOrder(null);
-          try { sessionStorage.removeItem('ar_placed_order'); } catch {}
+          // The order is past awaiting_payment (most common: customer's
+          // FIRST order was already paid + sent to the kitchen). Don't
+          // wipe placedOrder — the user may want to keep tracking the
+          // old order's kitchen status. Just dump back to the cart so
+          // tapping Place Order creates a fresh, separate order. The
+          // multi-order tracking added in this commit means both orders
+          // remain visible to the customer.
+          toast("This order is already in the kitchen. Placing a new order for these items.", { icon: 'ℹ️', duration: 4000 });
           setOrderStep('cart');
           return;
         }
-        throw new Error(j.error || 'add-items failed');
+        if (j.error === 'No valid items to add') {
+          toast.error('None of those items could be added — they may have been removed from the menu. Refresh and try again.');
+          return;
+        }
+        throw new Error(j.message || j.error || `Add-items failed (HTTP ${r.status})`);
       }
       // Update the local placedOrder with the merged items + new total
       // so the payment screen reflects the change immediately. The
@@ -1493,8 +1568,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       const addedQty = freshCart.reduce((s, c) => s + (Number(c.qty) || 1), 0);
       toast.success(`Added ${addedQty} item${addedQty === 1 ? '' : 's'} · New total ₹${j.total}`);
     } catch (e) {
-      console.error('add-items failed:', e);
-      toast.error('Could not add items. Try again.');
+      console.error('[add-items] threw', { message: e?.message, code: e?.code, stack: e?.stack });
+      // Surface the actual error message instead of a generic toast —
+      // the customer can read it (network down, item missing, etc.)
+      // and decide whether to retry or change something.
+      const msg = e?.message && e.message !== 'add-items failed'
+        ? `Couldn't add: ${e.message}`
+        : 'Could not add items. Check your connection and try again.';
+      toast.error(msg);
     } finally {
       placeOrderInFlightRef.current = false;
       setIsSubmitting(false);
@@ -1649,7 +1730,26 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         paymentStatus: 'unpaid',
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
         customerName: isTakeaway ? (customerName.trim() || '') : '',
+        createdAtMs: Date.now(),
       };
+      // May 1 — archive the previous placedOrder before overwriting.
+      // Only archive if it was past awaiting_payment (i.e., the customer
+      // had paid + the kitchen had it / was past kitchen). Awaiting +
+      // unpaid orders are abandoned-cart scenarios; archiving those
+      // would leave dead entries the customer never wanted to track.
+      // Cancelled orders are filtered out of the archive too.
+      if (placedOrder?.orderId && placedOrder.orderId !== orderId) {
+        const carryStatuses = ['pending', 'preparing', 'ready', 'served'];
+        if (carryStatuses.includes(liveOrderStatus)) {
+          setPastOrders(prev => {
+            const already = prev.some(p => p.orderId === placedOrder.orderId);
+            if (already) return prev;
+            const next = [...prev, { ...placedOrder, status: liveOrderStatus }];
+            try { sessionStorage.setItem('ar_past_orders', JSON.stringify(next)); } catch {}
+            return next;
+          });
+        }
+      }
       setPlacedOrder(orderSnapshot);
       setPaymentDone(false);
       setPaymentMethod(null);
@@ -1698,6 +1798,83 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     if (smaStep < activeQs.length - 1) setSmaStep(smaStep + 1);
     else { setSmaResults(filterItems(menuItems || [], ans, groupSize)); setSmaStep(activeQs.length); }
   };
+
+  // May 1 — Reusable past-orders JSX. Built once per render, dropped
+  // into both the success view and the payment view so the customer
+  // can see all session orders from either screen.
+  const pastOrdersBlock = pastOrders.length === 0 ? null : (() => {
+    const STATUS_LABEL = {
+      awaiting_payment: 'Awaiting payment',
+      pending: 'Order placed',
+      preparing: 'Preparing',
+      ready: 'Ready for pickup',
+      served: 'Picked up',
+      cancelled: 'Cancelled',
+    };
+    const STATUS_COLOR = {
+      awaiting_payment: '#D9534F',
+      pending: '#F79B3D',
+      preparing: '#F79B3D',
+      ready: '#2D8B4E',
+      served: '#7AA88E',
+      cancelled: 'rgba(0,0,0,0.4)',
+    };
+    return (
+      <div style={{ width: '100%', maxWidth: 380, marginTop: 8 }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)',
+          marginBottom: 8, textAlign: 'left', paddingLeft: 4,
+        }}>
+          Your earlier orders this visit
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {pastOrders.map(po => {
+            const label = STATUS_LABEL[po.status] || po.status;
+            const color = STATUS_COLOR[po.status] || '#F79B3D';
+            const ref = po.orderNumber
+              ? `#${po.orderNumber}`
+              : `#${(po.orderId || '').slice(-6).toUpperCase()}`;
+            const itemCount = (po.items || []).reduce((s, it) => s + (Number(it.qty) || 1), 0);
+            return (
+              <div key={po.orderId} style={{
+                padding: '10px 14px', borderRadius: 12,
+                background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)',
+                border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`,
+                display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
+                textAlign: 'left',
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: darkMode ? '#FFF5E8' : '#1E1B18',
+                  }}>
+                    Order {ref} · ₹{Math.round(Number(po.total) || 0).toLocaleString('en-IN')}
+                  </div>
+                  <div style={{
+                    fontSize: 11,
+                    color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)',
+                    marginTop: 2,
+                  }}>
+                    {itemCount} item{itemCount === 1 ? '' : 's'}
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                  padding: '4px 10px', borderRadius: 999,
+                  background: `${color}1A`, color,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  })();
 
   // ── Real-time: restaurant toggled off by admin → instant block ──
   if (restaurantGone) return (
@@ -4548,6 +4725,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       ＋ Add more items
                     </button>
 
+                    {/* Past orders, also visible from the payment screen
+                        so the customer knows their earlier orders are
+                        still in the kitchen even while paying for a
+                        new one. */}
+                    {pastOrdersBlock}
+
                     {/* Cancel order — bottom-aligned outline button so it
                         doesn't compete with the payment CTAs but is
                         clearly reachable. Used to be a tiny underlined
@@ -4622,6 +4805,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <div style={{ marginTop: 4, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)', fontSize: 13, color: darkMode ? '#6EC98A' : '#1A6B38', fontWeight: 600 }}>
                     🧾 Your bill is ready — tap the green "My Bill" button below
                   </div>
+
+                  {pastOrdersBlock}
                   {/* Phase B.2 — Add more items / View Bill CTAs.
                       Replaces the in-flow rating block (rating happens AFTER
                       the meal in a later phase, not when the order is just

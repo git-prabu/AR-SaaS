@@ -34,12 +34,11 @@
 // + purge so every client re-fetches latest JS. Also catches the
 // orderSnapshot.orderType + liveOrderStatus init fixes in this
 // commit and the new "Change payment method" button.
-// ar-v7 (May 1, evening) — bundles in the "add items to existing
-// awaiting_payment order" flow + endpoint, the cart-step add-mode
-// banner, and the "Add more items" button on the payment screen.
-// Without bumping, customers on a stale tab would still hit the old
-// placeOrder path which orphans the existing order.
-const CACHE_VERSION  = 'ar-v7';
+// ar-v8 (May 1, late) — bundles in: pastOrders multi-order tracking
+// (earlier orders stay visible after a new one is placed instead of
+// being replaced), parallelized markOrderPaid post-payment helpers
+// (Mark Paid feels half as slow), better add-items error logging.
+const CACHE_VERSION  = 'ar-v8';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
