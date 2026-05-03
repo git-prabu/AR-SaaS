@@ -516,6 +516,243 @@ function SwipeableSheet({ onClose, children, darkMode }) {
   );
 }
 
+// ── May 3 — Coach-mark tour overlay ──────────────────────────────────────
+// Visual onboarding: full-screen dark backdrop with an SVG-mask cutout
+// that "spotlights" a real DOM element (queried by CSS selector), plus
+// a tooltip card explaining the step. Tour advances Next → Next → Got
+// it. Skip dismisses immediately.
+//
+// Step shape: { selector: '.cart-fab' | null, title: string, body: string }
+//   - selector === null → centered tooltip, no spotlight (intro / outro)
+//   - selector matches → spotlight on first match, tooltip positioned
+//                        next to it (above or below depending on space)
+//   - selector set but doesn't match the page (e.g. a step targeting
+//     a feature the restaurant has disabled) → falls back to centered
+//
+// Resize handling: re-measures on window resize/scroll so the spotlight
+// stays glued to its target if the page reflows. Body scroll is locked
+// by the parent (welcomeOpen flag adds to the lock effect).
+function CoachMarkTour({ steps, onDone, darkMode }) {
+  const [stepIdx, setStepIdx] = useState(0);
+  const [target, setTarget] = useState(null);
+  const step = steps[stepIdx];
+  const isLast = stepIdx >= steps.length - 1;
+
+  // Measure the target element. Re-runs on step change + on resize/
+  // scroll so the spotlight tracks the element through reflows.
+  useEffect(() => {
+    if (!step?.selector) {
+      setTarget(null);
+      return;
+    }
+    const measure = () => {
+      const el = document.querySelector(step.selector);
+      if (!el) {
+        setTarget(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      // Off-screen / collapsed → treat as "no target", show centered.
+      if (r.width < 4 || r.height < 4) {
+        setTarget(null);
+        return;
+      }
+      setTarget({ x: r.left, y: r.top, w: r.width, h: r.height });
+    };
+    // First measurement: wait one frame so any pending layout settles
+    // (e.g. a category filter that just animated in).
+    const tryScroll = () => {
+      const el = document.querySelector(step.selector);
+      if (el && typeof el.scrollIntoView === 'function') {
+        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {}
+      }
+    };
+    tryScroll();
+    const t = setTimeout(measure, 350);
+    const onChange = () => measure();
+    window.addEventListener('resize', onChange);
+    window.addEventListener('scroll', onChange, true);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', onChange);
+      window.removeEventListener('scroll', onChange, true);
+    };
+  }, [stepIdx, step?.selector]);
+
+  const handleNext = () => { if (isLast) onDone(); else setStepIdx(s => s + 1); };
+  const handlePrev = () => { if (stepIdx > 0) setStepIdx(s => s - 1); };
+
+  // Tooltip placement — below target if room, otherwise above. Centered
+  // when there's no target (intro/outro steps).
+  const tooltipStyle = (() => {
+    const base = {
+      position: 'absolute',
+      maxWidth: 340,
+      width: 'calc(100% - 32px)',
+      background: darkMode ? '#1A1612' : '#FFFFFF',
+      borderRadius: 18,
+      padding: '20px 22px',
+      boxShadow: '0 16px 50px rgba(0,0,0,0.45), 0 4px 14px rgba(0,0,0,0.20)',
+      border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+      animation: 'cmFade 0.25s cubic-bezier(0.32,0.72,0,1) both',
+      zIndex: 1001,
+    };
+    if (!target) {
+      return {
+        ...base,
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+      };
+    }
+    const margin = 16;
+    const tooltipH = 200;
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+    const spaceBelow = vh - (target.y + target.h);
+    const placeBelow = spaceBelow >= tooltipH + margin;
+    return {
+      ...base,
+      top: placeBelow ? target.y + target.h + margin : target.y - tooltipH - margin,
+      left: '50%',
+      transform: 'translateX(-50%)',
+    };
+  })();
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, fontFamily: 'Inter,sans-serif' }}>
+      <style>{`
+        @keyframes cmFade { from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        @keyframes cmFadeT { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes cmRingPulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(247,155,61,0.30); } 50% { box-shadow: 0 0 0 10px rgba(247,155,61,0.12); } }
+      `}</style>
+
+      {/* Dark backdrop with cutout (or solid backdrop when no target) */}
+      <svg
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', animation: 'cmFadeT 0.25s ease' }}
+        onClick={onDone}
+        aria-hidden="true"
+      >
+        <defs>
+          <mask id="cm-tour-mask">
+            <rect width="100%" height="100%" fill="white" />
+            {target && (
+              <rect
+                x={target.x - 6} y={target.y - 6}
+                width={target.w + 12} height={target.h + 12}
+                rx={14} ry={14}
+                fill="black"
+              />
+            )}
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.74)" mask="url(#cm-tour-mask)" />
+      </svg>
+
+      {/* Spotlight ring (decorative — pulses around the target) */}
+      {target && (
+        <div style={{
+          position: 'absolute',
+          top: target.y - 6, left: target.x - 6,
+          width: target.w + 12, height: target.h + 12,
+          borderRadius: 14,
+          border: '2px solid #F79B3D',
+          boxShadow: '0 0 0 4px rgba(247,155,61,0.30)',
+          pointerEvents: 'none',
+          animation: 'cmRingPulse 2.4s ease-in-out infinite',
+        }} />
+      )}
+
+      {/* Tooltip card */}
+      <div style={tooltipStyle} onClick={e => e.stopPropagation()}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+          color: '#F79B3D', textTransform: 'uppercase',
+          marginBottom: 8,
+        }}>
+          Step {stepIdx + 1} of {steps.length}
+        </div>
+        <div style={{
+          fontFamily: 'Poppins,sans-serif',
+          fontSize: 18, fontWeight: 800,
+          color: darkMode ? '#FFF5E8' : '#1E1B18',
+          letterSpacing: '-0.3px',
+          marginBottom: 8,
+          lineHeight: 1.25,
+        }}>
+          {step.title}
+        </div>
+        <div style={{
+          fontSize: 13.5,
+          color: darkMode ? 'rgba(255,245,232,0.62)' : 'rgba(42,31,16,0.62)',
+          lineHeight: 1.55,
+          marginBottom: 18,
+        }}>
+          {step.body}
+        </div>
+
+        {/* Progress dots */}
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: 6,
+          marginBottom: 16,
+        }}>
+          {steps.map((_, i) => (
+            <div key={i} style={{
+              width: i === stepIdx ? 22 : 6, height: 6, borderRadius: 3,
+              background: i === stepIdx
+                ? '#F79B3D'
+                : (darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.16)'),
+              transition: 'all 0.22s',
+            }} />
+          ))}
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={onDone}
+            style={{
+              padding: '10px 14px', background: 'transparent',
+              border: 'none', cursor: 'pointer',
+              color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)',
+              fontSize: 12.5, fontWeight: 600,
+              fontFamily: 'inherit',
+            }}>
+            {isLast ? '' : 'Skip tour'}
+          </button>
+          <div style={{ flex: 1 }} />
+          {stepIdx > 0 && (
+            <button
+              onClick={handlePrev}
+              style={{
+                padding: '10px 14px', background: 'transparent',
+                border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.14)'}`,
+                borderRadius: 10, cursor: 'pointer',
+                color: darkMode ? '#FFF5E8' : '#1E1B18',
+                fontSize: 13, fontWeight: 600,
+                fontFamily: 'inherit',
+              }}>
+              ← Back
+            </button>
+          )}
+          <button
+            onClick={handleNext}
+            style={{
+              padding: '10px 22px', borderRadius: 10, border: 'none',
+              background: 'linear-gradient(135deg,#F79B3D,#F48A1E)',
+              color: '#FFFFFF',
+              fontSize: 13, fontWeight: 700,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(247,155,61,0.40)',
+              letterSpacing: '0.01em',
+            }}>
+            {isLast ? 'Got it — let’s order' : 'Next →'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RestaurantMenu({ restaurant: initialRestaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error }) {
   // ── Live data state — seeded from ISR cache, updated in real-time via onSnapshot ──
   const [liveRestaurant, setLiveRestaurant] = useState(initialRestaurant);
@@ -6504,104 +6741,74 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           </SheetOverlay>
         )}
 
-        {/* ─── May 3 — FIRST-VISIT WELCOME SHEET ───
-            Slide-up onboarding for new customers. Per-device per-
-            restaurant via localStorage flag (ar_welcome_seen_{rid}).
-            Two flavours of copy: dine-in (QR scan with table param)
-            vs takeaway (no table). Customer can dismiss with the Got
-            it button or by tapping outside the sheet — either path
-            sets the localStorage flag so we never show it twice. */}
+        {/* ─── May 3 — FIRST-VISIT COACH-MARK TOUR ───
+            Visual onboarding overlay: dark backdrop with a "spotlight"
+            cutout around real DOM elements (item card, waiter button,
+            etc.) and a tooltip card explaining each step. Two tour
+            tracks — dine-in (QR scan with table param) vs takeaway —
+            with steps filtered down to elements actually visible on
+            this customer's page (e.g. waiter step is dropped when
+            waiterCallsEnabled is false). Per-device per-restaurant
+            via localStorage flag (ar_welcome_seen_{rid}).
+            Replaces the previous text-only welcome sheet — the user
+            asked for "actual application images" guidance, and this
+            spotlights the real UI rather than describing it. */}
         {welcomeOpen && (() => {
           const isDinein = !!tableNumber;  // QR scan with ?table= param
-          const tips = isDinein ? [
-            { icon: '🍽️', title: 'Browse the menu', body: 'Tap any dish to see photos, ingredients, and try the AR view if available.' },
-            { icon: '🛒', title: 'Add what you like', body: 'Use the + button on each item, then open your cart with the View Order button at the bottom.' },
-            { icon: '👨‍🍳', title: 'Order goes to the kitchen', body: 'Place your order — we bring it to your table. Add more anytime; it joins the same bill.' },
-            { icon: '💳', title: 'Pay when ready', body: 'Tap My Bill at any point. Choose Cash, Card, or UPI. Your receipt opens automatically once payment is confirmed.' },
+          const allSteps = isDinein ? [
+            {
+              selector: null,
+              title: `Welcome to ${restaurant?.name || 'our menu'}!`,
+              body: tableNumber
+                ? `You're at Table ${tableNumber}. Quick tour to get you ordering in seconds.`
+                : "Quick tour to get you ordering in seconds.",
+            },
+            {
+              selector: '.card',  // first menu item card
+              title: 'Tap any dish for details',
+              body: 'See photos, ingredients, and try the AR view if available — works right in your browser, no app needed.',
+            },
+            // Waiter step is dropped if the restaurant has waiter calls disabled.
+            waiterCallsEnabled ? {
+              selector: '.waiter-fab',
+              title: 'Need help? Tap your waiter',
+              body: "Call your waiter for water, the bill, or anything else — we'll come right over.",
+            } : null,
+            {
+              selector: null,
+              title: 'Order, eat, then pay',
+              body: "Add items with the + button. A 'View Order' button appears at the bottom — tap to place. We bring food to your table; pay anytime via My Bill (Cash, Card, or UPI).",
+            },
           ] : [
-            { icon: '🍽️', title: 'Browse the menu', body: 'Tap any dish to see photos, ingredients, and try the AR view if available.' },
-            { icon: '🛒', title: 'Build your order', body: 'Use the + button on each item, then open your cart with the View Order button at the bottom.' },
-            { icon: '💳', title: 'Pay first, then pick up', body: 'Choose Cash, Card, or UPI on checkout — the kitchen starts only after payment confirms.' },
-            { icon: '🔔', title: 'Track your order', body: 'Watch live status — Preparing → Ready → Picked up. Your bill saves automatically once paid.' },
+            {
+              selector: null,
+              title: `Welcome to ${restaurant?.name || 'our menu'}!`,
+              body: 'Order ahead and pick up at the counter. Quick tour:',
+            },
+            {
+              selector: '.card',
+              title: 'Tap any dish for details',
+              body: 'See photos, ingredients, and try the AR view if available — works right in your browser, no app needed.',
+            },
+            {
+              selector: null,
+              title: 'Pay first, then we cook',
+              body: "Add items, tap 'View Order' (appears at the bottom), then choose Cash, Card, or UPI. The kitchen starts only after payment confirms — no surprises.",
+            },
+            {
+              selector: null,
+              title: 'Track live + save your bill',
+              body: 'Watch your order: Preparing → Ready → Picked up. Your receipt opens automatically once payment is confirmed.',
+            },
           ];
+          // Drop nulls so disabled features don't leave gaps in the tour.
+          const steps = allSteps.filter(Boolean);
           return (
-            <SheetOverlay onClose={dismissWelcome} darkMode={darkMode}>
-              <div onClick={e => e.stopPropagation()} style={{
-                width: '100%', maxWidth: 540, margin: '0 auto',
-                background: darkMode ? '#1A1612' : '#FEFCF8',
-                borderRadius: '24px 24px 0 0',
-                padding: '0 0 calc(env(safe-area-inset-bottom, 20px) + 28px)',
-                animation: 'slideUp 0.32s cubic-bezier(0.32,0.72,0,1)',
-                maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
-              }}>
-                {/* Handle */}
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
-                  <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
-                </div>
-                <div style={{ padding: '0 22px' }}>
-                  {/* Hero */}
-                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <div style={{ fontSize: 48, marginBottom: 8, lineHeight: 1 }}>👋</div>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: darkMode ? '#FFF5E8' : '#1E1B18', letterSpacing: '-0.3px', marginBottom: 4 }}>
-                      Welcome to {restaurant?.name || 'our menu'}
-                    </div>
-                    <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.5 }}>
-                      {isDinein
-                        ? `You're at Table ${tableNumber} · Here's how to order.`
-                        : "Order ahead and pick up from the counter. Quick tour:"}
-                    </div>
-                  </div>
-
-                  {/* Tips */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
-                    {tips.map((tip, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 14,
-                        padding: '14px 16px',
-                        borderRadius: 14,
-                        background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.03)',
-                        border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`,
-                      }}>
-                        <div style={{
-                          width: 38, height: 38, borderRadius: 10,
-                          background: darkMode ? 'rgba(247,155,61,0.16)' : 'rgba(247,155,61,0.10)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 20, flexShrink: 0,
-                        }}>
-                          {tip.icon}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2 }}>
-                            {i + 1}. {tip.title}
-                          </div>
-                          <div style={{ fontSize: 12.5, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.6)', lineHeight: 1.5 }}>
-                            {tip.body}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Dismiss */}
-                  <button
-                    onClick={dismissWelcome}
-                    style={{
-                      width: '100%', padding: '14px', borderRadius: 14, border: 'none',
-                      background: 'linear-gradient(135deg,#F79B3D,#F48A1E)',
-                      color: '#fff',
-                      fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 16px rgba(247,155,61,0.35)',
-                      letterSpacing: '0.01em',
-                    }}>
-                    Got it — let's order
-                  </button>
-                  <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>
-                    You won't see this again on this device.
-                  </div>
-                </div>
-              </div>
-            </SheetOverlay>
+            <CoachMarkTour
+              steps={steps}
+              onDone={dismissWelcome}
+              darkMode={darkMode}
+            />
           );
         })()}
 

@@ -98,7 +98,14 @@
 // localStorage flag so returning customers never see it twice. Two
 // flavours of copy: dine-in (QR scan with table param, "we bring it
 // to your table") vs takeaway ("pay first then pick up").
-const CACHE_VERSION  = 'ar-v18';
+// ar-v19 (May 3, after-hours) — the welcome sheet became a real coach-
+// mark tour: dark backdrop with an SVG-mask cutout that spotlights
+// real DOM elements (item card, waiter button) plus a tooltip card
+// at each step. Replaces the text-only sheet — customer requested
+// "actual application images" guidance and this points at the live UI
+// rather than describing it. Same per-device per-restaurant flag so
+// returning customers never see it twice.
+const CACHE_VERSION  = 'ar-v19';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
