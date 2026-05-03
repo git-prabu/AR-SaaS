@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { getAllRestaurants, createRestaurant, updateRestaurant, setUserDoc } from '../../lib/saDb';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 // auth (adminAuth) is correct here — new restaurant admins authenticate via adminAuth
@@ -59,6 +60,11 @@ export default function SuperAdminRestaurants() {
   const [search,   setSearch]   = useState('');
   const [editId,   setEditId]   = useState(null);
   const [editData, setEditData] = useState({});
+  // Card-style confirm dialog. Used to guard the inline-edit save when
+  // it includes flipping isActive — silently changing the active status
+  // through the row editor was a HIGH-severity audit finding because
+  // one stray click suspended a paying restaurant.
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   const load = () => { getAllRestaurants().then(r => { setRestaurants(r); setLoading(false); }); };
   useEffect(() => { load(); }, []);
@@ -68,19 +74,60 @@ export default function SuperAdminRestaurants() {
     if (!form.name || !form.subdomain || !form.email || !form.password) { toast.error('All fields required'); return; }
     if (!/^[a-z0-9-]+$/.test(form.subdomain)) { toast.error('Subdomain: lowercase letters, numbers, hyphens only'); return; }
     setSaving(true);
+    // Each step is awaited inline — partial failures (e.g. auth user
+    // created but restaurant doc fails) leave orphans that need manual
+    // cleanup. Surface which step failed so the super admin can recover
+    // surgically rather than guessing.
     try {
-      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      const restaurantRef = await createRestaurant({ name: form.name, subdomain: form.subdomain.toLowerCase(), isActive: true });
-      await setUserDoc(cred.user.uid, { email: form.email, role: 'restaurant', restaurantId: restaurantRef.id, restaurantName: form.name });
+      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password)
+        .catch(err => { throw new Error(`Auth user creation failed — ${err?.message || 'unknown error'}`); });
+      const restaurantRef = await createRestaurant({ name: form.name, subdomain: form.subdomain.toLowerCase(), isActive: true })
+        .catch(err => { throw new Error(`Auth user created but restaurant doc failed — delete auth user "${form.email}" before retrying. (${err?.message || 'unknown error'})`); });
+      await setUserDoc(cred.user.uid, { email: form.email, role: 'restaurant', restaurantId: restaurantRef.id, restaurantName: form.name })
+        .catch(err => { throw new Error(`Restaurant created but user→restaurant link failed — restaurant "${form.name}" exists, but admin "${form.email}" can't log in. Manually link the user doc. (${err?.message || 'unknown error'})`); });
       toast.success(`Restaurant "${form.name}" created!`);
       setForm(BLANK); setShowForm(false); load();
-    } catch (err) { toast.error(err.message || 'Failed to create restaurant'); }
-    finally { setSaving(false); }
+    } catch (err) {
+      toast.error(err?.message || 'Failed to create restaurant', { duration: 8000 });
+    } finally { setSaving(false); }
   };
 
-  const saveEdit = async (id) => {
-    await updateRestaurant(id, editData);
-    toast.success('Updated!'); setEditId(null); load();
+  // Inner save — performs the Firestore write. Split out so the confirm
+  // modal's onConfirm can call it when isActive flipped.
+  const doSaveEdit = async (id) => {
+    try {
+      await updateRestaurant(id, editData);
+      toast.success('Updated!');
+      // Only clear edit state AFTER write succeeded — previously we
+      // reset before confirming, so a failed save silently dropped
+      // the super admin's typed changes.
+      setEditId(null);
+      load();
+    } catch (e) {
+      toast.error(`Save failed: ${e?.message || 'unknown error'}`);
+    }
+  };
+
+  const saveEdit = (id) => {
+    // If the edit changed isActive, ask before persisting.
+    const original = restaurants.find(r => r.id === id);
+    const isActiveChanged = original && typeof editData.isActive === 'boolean'
+      && !!original.isActive !== !!editData.isActive;
+    if (isActiveChanged) {
+      const willActivate = !!editData.isActive;
+      setConfirmDialog({
+        title: willActivate ? `Activate ${original.name}?` : `Deactivate ${original.name}?`,
+        body: willActivate
+          ? "The restaurant's customer-facing menu will go live again and admin/staff will regain access."
+          : "The customer-facing menu will go offline immediately and admin/staff users will be locked out until reactivated. Past data is preserved.",
+        confirmLabel: willActivate ? 'Activate' : 'Deactivate',
+        cancelLabel: 'Cancel',
+        destructive: !willActivate,
+        onConfirm: () => doSaveEdit(id),
+      });
+      return;
+    }
+    doSaveEdit(id);
   };
 
   const filtered = restaurants.filter(r =>
@@ -290,6 +337,17 @@ export default function SuperAdminRestaurants() {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        body={confirmDialog?.body}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        destructive={confirmDialog?.destructive}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </SuperAdminLayout>
   );
 }

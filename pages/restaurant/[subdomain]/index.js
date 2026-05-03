@@ -566,6 +566,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [orderStep, setOrderStep] = useState('cart'); // 'cart' | 'form' | 'payment' | 'success'
   const [orderTableInput, setOrderTableInput] = useState(''); // what customer types in the form
   const [orderPhone, setOrderPhone] = useState(() => getSavedPhone());
+  // May 3 — Optional customer email. Saved if filled (used by future
+  // Phase M email triggers — payment confirmation receipt, "order ready"
+  // email). Empty is fine: the bill auto-opens in a new tab as the
+  // primary keep-a-copy mechanism, email is just bonus for those who
+  // want it. Persisted to localStorage like phone so a returning
+  // customer doesn't have to retype.
+  const [customerEmail, setCustomerEmail] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    try { return localStorage.getItem('ar_customer_email') || ''; } catch { return ''; }
+  });
   const [specialNote, setSpecialNote] = useState('');
   // Order type — dine-in (at a table) or takeaway (pickup). Default dine-in
   // because most customers here scan a QR at a table. If they reach the
@@ -1730,6 +1740,107 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     };
   }, [currentBillId, billOrders, placedOrder, viewingBillOrder]);
 
+  // ── May 3 — Reusable thermal-receipt HTML builder ────────────────────
+  // Single source of truth for the printable bill: previously this was
+  // inline inside the Print Bill onClick, which meant the auto-open
+  // flow couldn't reuse it. Pulled out here so both:
+  //   - the Print Bill button (existing iframe-print flow)
+  //   - the post-payment auto-open-in-new-tab flow (Phase M-lite)
+  // generate identical HTML. Takes an explicit billArg so the
+  // post-payment flow can pass a fresh bill object even if the bill
+  // memo hasn't yet caught up to the listener-driven update that
+  // payment confirmation triggers.
+  const buildBillHtml = useCallback((billArg, paymentMethodArg) => {
+    const b = billArg || bill;
+    if (!b) return null;
+    const rName = restaurant?.name || 'Restaurant';
+    const rAddress = restaurant?.address || '';
+    const rPhone = restaurant?.phone || '';
+    const rGstin = restaurant?.gstNumber || '';
+    const rFssai = restaurant?.fssaiNo || '';
+    const rHsn = restaurant?.hsnCode || '';
+    const rFooter = (restaurant?.billFooter && restaurant.billFooter.trim()) || 'Thank you! Visit again';
+    const tbl = b.tableNumber && b.tableNumber !== 'Not specified' ? b.tableNumber : '';
+    const stampDate = b.paidAtMs ? new Date(b.paidAtMs) : new Date();
+    const dateStr = stampDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = stampDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const itemsHtml = (b.items || []).map(it =>
+      `<tr><td style="text-align:left">${it.name} x${it.qty}</td><td style="text-align:right">Rs.${(it.price * it.qty).toFixed(0)}</td></tr>`
+    ).join('');
+    const sub = b.subtotal || b.total;
+    const gstPct = b.gstPercent;
+    const scPct = b.serviceChargePercent;
+    const sc = b.serviceCharge;
+    const cgst = b.cgst;
+    const sgst = b.sgst;
+    const disc = b.discount;
+    const ro = b.roundOff;
+    const grand = b.total;
+    const scRow = sc > 0 ? `<tr><td>Service Charge (${scPct}%)</td><td style="text-align:right">Rs.${sc.toFixed(2)}</td></tr>` : '';
+    const cgstRow = cgst > 0 ? `<tr><td>C.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${cgst.toFixed(2)}</td></tr>` : '';
+    const sgstRow = sgst > 0 ? `<tr><td>S.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${sgst.toFixed(2)}</td></tr>` : '';
+    const discRow = disc > 0 ? `<tr><td>Discount${b.couponCode ? ' ('+b.couponCode+')' : ''}</td><td style="text-align:right">-Rs.${disc.toFixed(0)}</td></tr>` : '';
+    const roRow = ro !== 0 ? `<tr><td>Round off</td><td style="text-align:right">${ro > 0 ? '+' : ''}Rs.${ro.toFixed(2)}</td></tr>` : '';
+    const pmLabel = paymentMethodArg === 'cash' ? 'Cash'
+                  : paymentMethodArg === 'card' ? 'Card'
+                  : paymentMethodArg === 'upi' ? 'UPI' : '';
+    const orderRefHtml = (() => {
+      if (b.isBill && currentBillId) {
+        return `<div class="center" style="font-size:10px;margin-top:2px">Bill #${currentBillId.slice(-6).toUpperCase()} · ${b.orderCount} order${b.orderCount === 1 ? '' : 's'}</div>`;
+      }
+      if (typeof placedOrder?.orderNumber === 'number' && placedOrder.orderNumber > 0) {
+        return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderNumber}</div>`;
+      }
+      if (placedOrder?.orderId) {
+        return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>`;
+      }
+      return '';
+    })();
+    return `<!DOCTYPE html><html><head><title>Bill — ${rName}</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+      @page{size:80mm auto;margin:4mm}
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'Courier New',monospace;font-size:12px;width:72mm;margin:0 auto;padding:8px 0}
+      @media (min-width:600px) { body { width: 320px; padding: 16px 0; } }
+      .center{text-align:center}
+      .bold{font-weight:bold}
+      .line{border-top:1px dashed #000;margin:6px 0}
+      table{width:100%;border-collapse:collapse}
+      td{padding:2px 0;vertical-align:top}
+      .total td{font-weight:bold;font-size:14px;padding-top:6px}
+      .actions{margin:14px auto 0;text-align:center}
+      .actions button{padding:8px 16px;border-radius:6px;border:1px solid #000;background:#fff;font-family:inherit;cursor:pointer;font-size:11px;margin:0 4px}
+      @media print { .actions { display: none; } }
+    </style></head><body>
+      <div class="center bold" style="font-size:15px;margin-bottom:2px">${rName}</div>
+      ${rAddress ? `<div class="center" style="font-size:10px;margin-bottom:2px">${rAddress}</div>` : ''}
+      ${rPhone ? `<div class="center" style="font-size:10px">Phone: ${rPhone}</div>` : ''}
+      ${rGstin ? `<div class="center" style="font-size:10px">GSTIN: ${rGstin}</div>` : ''}
+      <div class="line"></div>
+      ${tbl ? `<div class="center" style="font-size:11px;margin-bottom:2px">Table: ${tbl}</div>` : ''}
+      <div class="center" style="font-size:10px">${dateStr} ${timeStr}</div>
+      ${orderRefHtml}
+      <div class="line"></div>
+      <table>${itemsHtml}</table>
+      <div class="line"></div>
+      ${rHsn ? `<div class="center" style="font-size:9px;color:#555;margin-bottom:4px">HSN/SAC: ${rHsn}</div>` : ''}
+      <table>
+        <tr><td>Subtotal</td><td style="text-align:right">Rs.${sub.toFixed(2)}</td></tr>
+        ${scRow}${cgstRow}${sgstRow}${discRow}${roRow}
+      </table>
+      <div class="line"></div>
+      <table><tr class="total"><td>GRAND TOTAL</td><td style="text-align:right">Rs.${grand}</td></tr></table>
+      <div class="line"></div>
+      ${pmLabel ? `<div class="center" style="margin-top:4px;font-size:11px">Payment: ${pmLabel}</div>` : ''}
+      ${rFssai ? `<div class="center" style="margin-top:6px;font-size:10px">FSSAI Lic. No. ${rFssai}</div>` : ''}
+      <div class="center" style="margin-top:8px;font-size:10px">${rFooter}</div>
+      <div class="center" style="margin-top:4px;font-size:9px">Powered by Advert Radical</div>
+      <div class="actions">
+        <button onclick="window.print()">Print</button>
+        <button onclick="window.close()">Close</button>
+      </div>
+    </body></html>`;
+  }, [bill, restaurant, currentBillId, placedOrder]);
+
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
     const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
@@ -1947,12 +2058,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
       }
 
+      // Persist optional email if filled — used by future Phase M
+      // email triggers (payment-confirmation + order-ready receipts).
+      // Validated lightly (must contain @) so we don't store obvious
+      // typos; full RFC validation happens server-side at send time.
+      const emailRaw = (customerEmail || '').trim();
+      const emailValid = emailRaw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw);
+      const finalEmail = emailValid ? emailRaw : null;
+
       const orderId = await createOrder(restaurant.id, {
         tableNumber: finalTable,
         orderType: finalOrderType,
         billId: billIdForOrder, // null for takeaway / non-QR — preserves single-order behaviour
         customerName: finalOrderType === 'takeaway' ? (customerName.trim() || '') : '',
         customerPhone: phone || null,
+        customerEmail: finalEmail,
         items: freshCart.map(c => ({
           id: c.id, name: c.name || '',
           price: c.price ?? 0, qty: c.qty || 1, note: c.note || '',
@@ -2002,6 +2122,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         paymentStatus: 'unpaid',
         tableNumber: orderTableInput.trim() || tableNumber || 'Not specified',
         customerName: isTakeaway ? (customerName.trim() || '') : '',
+        customerEmail: finalEmail,
         createdAtMs: Date.now(),
       };
       // May 1 — archive the previous placedOrder before overwriting.
@@ -4636,6 +4757,29 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${orderPhone ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: orderPhone ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box' }}
                 />
                 {orderPhone && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginBottom: 10 }}>✓ Saved for faster ordering next time</div>}
+                {/* Email — optional. May 3.
+                    Customers who provide their email will receive a
+                    payment-confirmation + "order ready for pickup" mail
+                    once Phase M email triggers go live. Customers who
+                    skip still get their bill auto-opened in a new tab
+                    after payment, so we never gate the order on email. */}
+                <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>EMAIL <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional — for receipt)</span></label>
+                <input
+                  type="email" inputMode="email" placeholder="you@example.com"
+                  value={customerEmail}
+                  onChange={e => setCustomerEmail(e.target.value.slice(0, 80))}
+                  onBlur={() => {
+                    const v = customerEmail.trim();
+                    if (!v) { try { localStorage.removeItem('ar_customer_email'); } catch {} return; }
+                    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+                      try { localStorage.setItem('ar_customer_email', v); } catch {}
+                    }
+                  }}
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${customerEmail ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: customerEmail ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box' }}
+                />
+                <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.5)', marginBottom: 10, lineHeight: 1.4 }}>
+                  Skip this if you'd rather not — your bill will still open in a new tab once payment is confirmed.
+                </div>
                 {/* Special instructions */}
                 <label style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>{t.specialInst} <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
                 <textarea
@@ -5788,6 +5932,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                               <button
                                 onClick={async () => {
                                   if (!restaurant?.id || !bill?.orderIds?.length) return;
+                                  // ── May 3 — auto-open bill in a new tab ──
+                                  // Pre-open a blank popup INSIDE the user
+                                  // gesture (synchronously) so popup blockers
+                                  // don't reject it. We populate it with the
+                                  // bill HTML after the async payment write
+                                  // succeeds. If blocked (popup === null), we
+                                  // skip silently — the customer still has the
+                                  // bill modal + Print Bill button as backup.
+                                  const billPopup = window.open('', '_blank');
+                                  if (billPopup) {
+                                    try { billPopup.document.write('<title>Saving bill…</title><div style="font-family:sans-serif;padding:24px;text-align:center;color:#666">Confirming payment, please wait…</div>'); } catch {}
+                                  }
                                   try {
                                     // Phase A — mark every order in the running
                                     // bill as awaiting UPI confirmation (not just
@@ -5801,7 +5957,25 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                     setPaymentDone(true);
                                     setUpiOpened(false);
                                     try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
-                                  } catch (e) { console.error(e); }
+                                    // Write the receipt HTML to the popup we
+                                    // pre-opened. Customer keeps it as their
+                                    // saved bill; can print/close from there.
+                                    if (billPopup) {
+                                      const html = buildBillHtml(bill, 'upi');
+                                      if (html) {
+                                        try {
+                                          billPopup.document.open();
+                                          billPopup.document.write(html);
+                                          billPopup.document.close();
+                                        } catch { billPopup.close?.(); }
+                                      } else {
+                                        billPopup.close?.();
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (billPopup) billPopup.close?.();
+                                    toast.error('Could not confirm payment. Try again.');
+                                  }
                                 }}
                                 style={{
                                   width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
@@ -5832,6 +6006,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <button
                         onClick={async () => {
                           if (!paymentMethod || !restaurant?.id || !bill?.orderIds?.length) return;
+                          // Pre-open the bill popup in the user gesture
+                          // (see UPI handler above for rationale).
+                          const billPopup = window.open('', '_blank');
+                          if (billPopup) {
+                            try { billPopup.document.write('<title>Saving bill…</title><div style="font-family:sans-serif;padding:24px;text-align:center;color:#666">Confirming payment, please wait…</div>'); } catch {}
+                          }
                           try {
                             // Phase A — mark every order in the running bill
                             // (not just the latest) as awaiting cash/card
@@ -5845,7 +6025,24 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             );
                             setPaymentDone(true);
                             try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: bill.orderIds })); } catch {}
-                          } catch (e) { console.error(e); }
+                            // Write the receipt HTML so the customer keeps
+                            // a copy regardless of email collection.
+                            if (billPopup) {
+                              const html = buildBillHtml(bill, paymentMethod);
+                              if (html) {
+                                try {
+                                  billPopup.document.open();
+                                  billPopup.document.write(html);
+                                  billPopup.document.close();
+                                } catch { billPopup.close?.(); }
+                              } else {
+                                billPopup.close?.();
+                              }
+                            }
+                          } catch (e) {
+                            if (billPopup) billPopup.close?.();
+                            toast.error('Could not confirm payment. Try again.');
+                          }
                         }}
                         disabled={!paymentMethod}
                         style={{
@@ -5867,92 +6064,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 {/* Print Bill */}
                 <button
                   onClick={() => {
-                    // Build the printable HTML (thermal-printer 80mm receipt).
-                    // Phase A — Print uses the aggregated bill (sum across all
-                    // orders in the running tab) so multi-order tabs print one
-                    // combined receipt instead of just the latest.
-                    const rName = restaurant?.name || 'Restaurant';
-                    const rAddress = restaurant?.address || '';
-                    const rPhone = restaurant?.phone || '';
-                    const rGstin = restaurant?.gstNumber || '';
-                    const rFssai = restaurant?.fssaiNo || '';
-                    const rHsn = restaurant?.hsnCode || '';
-                    const rFooter = (restaurant?.billFooter && restaurant.billFooter.trim()) || 'Thank you! Visit again';
-                    const tbl = bill.tableNumber && bill.tableNumber !== 'Not specified' ? bill.tableNumber : '';
-                    // Bill timestamp = moment payment was confirmed (paidAtMs from
-                    // the bill memo, derived from the latest paymentUpdatedAt across
-                    // all paid orders on the bill). Falls back to "now" only when
-                    // no order on the bill is paid yet — printing an unpaid bill is
-                    // unusual but possible (customer wants a copy before paying).
-                    const stampDate = bill.paidAtMs ? new Date(bill.paidAtMs) : new Date();
-                    const dateStr = stampDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                    const timeStr = stampDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-                    const itemsHtml = bill.items.map(it =>
-                      `<tr><td style="text-align:left">${it.name} x${it.qty}</td><td style="text-align:right">Rs.${(it.price * it.qty).toFixed(0)}</td></tr>`
-                    ).join('');
-                    // Bill breakdown
-                    const sub = bill.subtotal || bill.total;
-                    const gstPct = bill.gstPercent;
-                    const scPct = bill.serviceChargePercent;
-                    const sc = bill.serviceCharge;
-                    const cgst = bill.cgst;
-                    const sgst = bill.sgst;
-                    const disc = bill.discount;
-                    const ro = bill.roundOff;
-                    const grand = bill.total;
-                    const scRow = sc > 0 ? `<tr><td>Service Charge (${scPct}%)</td><td style="text-align:right">Rs.${sc.toFixed(2)}</td></tr>` : '';
-                    const cgstRow = cgst > 0 ? `<tr><td>C.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${cgst.toFixed(2)}</td></tr>` : '';
-                    const sgstRow = sgst > 0 ? `<tr><td>S.G.S.T ${(gstPct/2).toFixed(1)}%</td><td style="text-align:right">Rs.${sgst.toFixed(2)}</td></tr>` : '';
-                    const discRow = disc > 0 ? `<tr><td>Discount${bill.couponCode ? ' ('+bill.couponCode+')' : ''}</td><td style="text-align:right">-Rs.${disc.toFixed(0)}</td></tr>` : '';
-                    const roRow = ro !== 0 ? `<tr><td>Round off</td><td style="text-align:right">${ro > 0 ? '+' : ''}Rs.${ro.toFixed(2)}</td></tr>` : '';
-                    const pmLabel = paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'card' ? 'Card' : paymentMethod === 'upi' ? 'UPI' : '';
-                    const orderRefHtml = (() => {
-                      if (bill.isBill && currentBillId) {
-                        return `<div class="center" style="font-size:10px;margin-top:2px">Bill #${currentBillId.slice(-6).toUpperCase()} · ${bill.orderCount} order${bill.orderCount === 1 ? '' : 's'}</div>`;
-                      }
-                      if (typeof placedOrder?.orderNumber === 'number' && placedOrder.orderNumber > 0) {
-                        return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderNumber}</div>`;
-                      }
-                      if (placedOrder?.orderId) {
-                        return `<div class="center" style="font-size:10px;margin-top:2px">Order #${placedOrder.orderId.slice(-6).toUpperCase()}</div>`;
-                      }
-                      return '';
-                    })();
-                    const printHtml = `<!DOCTYPE html><html><head><title>Bill</title><style>
-                      @page{size:80mm auto;margin:4mm}
-                      *{margin:0;padding:0;box-sizing:border-box}
-                      body{font-family:'Courier New',monospace;font-size:12px;width:72mm;margin:0 auto;padding:8px 0}
-                      .center{text-align:center}
-                      .bold{font-weight:bold}
-                      .line{border-top:1px dashed #000;margin:6px 0}
-                      table{width:100%;border-collapse:collapse}
-                      td{padding:2px 0;vertical-align:top}
-                      .total td{font-weight:bold;font-size:14px;padding-top:6px}
-                    </style></head><body>
-                      <div class="center bold" style="font-size:15px;margin-bottom:2px">${rName}</div>
-                      ${rAddress ? `<div class="center" style="font-size:10px;margin-bottom:2px">${rAddress}</div>` : ''}
-                      ${rPhone ? `<div class="center" style="font-size:10px">Phone: ${rPhone}</div>` : ''}
-                      ${rGstin ? `<div class="center" style="font-size:10px">GSTIN: ${rGstin}</div>` : ''}
-                      <div class="line"></div>
-                      ${tbl ? `<div class="center" style="font-size:11px;margin-bottom:2px">Table: ${tbl}</div>` : ''}
-                      <div class="center" style="font-size:10px">${dateStr} ${timeStr}</div>
-                      ${orderRefHtml}
-                      <div class="line"></div>
-                      <table>${itemsHtml}</table>
-                      <div class="line"></div>
-                      ${rHsn ? `<div class="center" style="font-size:9px;color:#555;margin-bottom:4px">HSN/SAC: ${rHsn}</div>` : ''}
-                      <table>
-                        <tr><td>Subtotal</td><td style="text-align:right">Rs.${sub.toFixed(2)}</td></tr>
-                        ${scRow}${cgstRow}${sgstRow}${discRow}${roRow}
-                      </table>
-                      <div class="line"></div>
-                      <table><tr class="total"><td>GRAND TOTAL</td><td style="text-align:right">Rs.${grand}</td></tr></table>
-                      <div class="line"></div>
-                      ${pmLabel ? `<div class="center" style="margin-top:4px;font-size:11px">Payment: ${pmLabel}</div>` : ''}
-                      ${rFssai ? `<div class="center" style="margin-top:6px;font-size:10px">FSSAI Lic. No. ${rFssai}</div>` : ''}
-                      <div class="center" style="margin-top:8px;font-size:10px">${rFooter}</div>
-                      <div class="center" style="margin-top:4px;font-size:9px">Powered by Advert Radical</div>
-                    </body></html>`;
+                    // May 3 — bill HTML now comes from buildBillHtml so
+                    // both this print flow and the post-payment auto-open
+                    // flow generate identical receipts.
+                    const printHtml = buildBillHtml(bill, paymentMethod);
+                    if (!printHtml) {
+                      toast.error('Bill not ready yet — try again in a moment.');
+                      return;
+                    }
 
                     // ── Print via hidden iframe — no popup, no blocker friction ──
                     // Previously we used `window.open('', '_blank', 'width=...')`

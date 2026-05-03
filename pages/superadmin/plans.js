@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { getAllRestaurants, updateRestaurant } from '../../lib/saDb';
 import toast from 'react-hot-toast';
 
@@ -84,6 +85,11 @@ export default function SuperAdminPlans() {
   const [edits, setEdits]             = useState({});
   const [search, setSearch]           = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  // Card-style confirm dialog. Used as a guard before flipping a
+  // restaurant's active state — silently toggling it (the previous
+  // behaviour) made one stray click capable of suspending an entire
+  // paying customer's account with no recovery prompt.
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   const load = async () => {
     const r = await getAllRestaurants();
@@ -135,20 +141,42 @@ export default function SuperAdminPlans() {
         isActive:          edit.isActive,
       });
       toast.success(`${r.name} updated`);
+      // Only clear edit state AFTER the write succeeded — previously
+      // we cleared it before the write was confirmed, so a failed save
+      // silently dropped the user's typed-in changes.
       setEdits(prev => { const n = { ...prev }; delete n[r.id]; return n; });
       await load();
-    } catch (e) { toast.error('Save failed: ' + e.message); }
-    finally { setSaving(null); }
+    } catch (e) {
+      // Surface the underlying error message + which restaurant it
+      // failed for, so the super admin can decide whether to retry
+      // or rollback. Bare 'Save failed' previously gave no context.
+      toast.error(`Save failed for ${r.name}: ${e?.message || 'unknown error'}`);
+    } finally { setSaving(null); }
   };
 
-  const quickToggleActive = async (r) => {
-    setSaving(r.id);
-    try {
-      await updateRestaurant(r.id, { isActive: !r.isActive });
-      toast.success(r.isActive ? `${r.name} deactivated` : `${r.name} activated`);
-      await load();
-    } catch { toast.error('Failed'); }
-    finally { setSaving(null); }
+  const quickToggleActive = (r) => {
+    // Guard with a confirm modal — silent toggling was one mis-click
+    // away from suspending a paying restaurant's account.
+    const willActivate = !r.isActive;
+    setConfirmDialog({
+      title: willActivate ? `Activate ${r.name}?` : `Deactivate ${r.name}?`,
+      body: willActivate
+        ? 'The restaurant will become visible to customers again and staff will regain admin access.'
+        : 'The customer-facing menu will go offline immediately and admin/staff users will be locked out until reactivated. Past data is preserved.',
+      confirmLabel: willActivate ? 'Activate' : 'Deactivate',
+      cancelLabel: 'Cancel',
+      destructive: !willActivate,
+      onConfirm: async () => {
+        setSaving(r.id);
+        try {
+          await updateRestaurant(r.id, { isActive: !r.isActive });
+          toast.success(r.isActive ? `${r.name} deactivated` : `${r.name} activated`);
+          await load();
+        } catch (e) {
+          toast.error(`Toggle failed for ${r.name}: ${e?.message || 'unknown error'}`);
+        } finally { setSaving(null); }
+      },
+    });
   };
 
   const filtered = restaurants.filter(r => {
@@ -439,6 +467,17 @@ export default function SuperAdminPlans() {
           })}
         </div>
       </div>
+
+      <ConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        body={confirmDialog?.body}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        destructive={confirmDialog?.destructive}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </SuperAdminLayout>
   );
 }

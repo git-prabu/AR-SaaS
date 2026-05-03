@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import SuperAdminLayout from '../../../components/layout/SuperAdminLayout';
+import ConfirmModal from '../../../components/ConfirmModal';
 import {
   getRestaurantById, updateRestaurant,
   getAllMenuItems, updateMenuItem, deleteMenuItem,
@@ -88,6 +89,13 @@ export default function RestaurantDetail() {
   const [requests,   setRequests]   = useState([]);
   const [reqFilter,  setReqFilter]  = useState('all');
   const [reqLoaded,  setReqLoaded]  = useState(false);
+
+  // Card-style confirm dialog (replaces native confirm() for the
+  // AR-model delete + menu-item delete actions). Both are destructive
+  // — picking the styled modal makes that visually clearer than the
+  // browser's native dialog, which renders identically for any prompt
+  // regardless of severity.
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   // Load restaurant
   useEffect(() => {
@@ -229,18 +237,42 @@ export default function RestaurantDetail() {
     finally { setArUpload(u => ({ ...u, [item.id]: { uploading:false, progress:0 } })); }
   };
 
-  const handleARDelete = async (item) => {
-    if (!confirm('Remove AR model from this item?')) return;
-    await updateMenuItem(id, item.id, { modelURL: null });
-    setItems(prev => prev.map(i => i.id === item.id ? { ...i, modelURL: null } : i));
-    toast.success('AR model removed');
+  const handleARDelete = (item) => {
+    setConfirmDialog({
+      title: 'Remove AR model from this item?',
+      body: `The 3D model on "${item.name}" will be detached. Customers will no longer see the AR view button. This doesn't delete the menu item itself.`,
+      confirmLabel: 'Remove AR',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await updateMenuItem(id, item.id, { modelURL: null });
+          setItems(prev => prev.map(i => i.id === item.id ? { ...i, modelURL: null } : i));
+          toast.success('AR model removed');
+        } catch (e) {
+          toast.error('Remove failed: ' + (e?.message || 'unknown error'));
+        }
+      },
+    });
   };
 
-  const deleteItem = async (item) => {
-    if (!confirm(`Delete "${item.name}"?`)) return;
-    await deleteMenuItem(id, item.id);
-    toast.success('Deleted');
-    setItems(prev => prev.filter(i => i.id !== item.id));
+  const deleteItem = (item) => {
+    setConfirmDialog({
+      title: `Delete "${item.name}"?`,
+      body: 'This permanently removes the menu item from the restaurant. Past orders that reference it stay intact, but the item disappears from the customer menu and admin lists.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteMenuItem(id, item.id);
+          toast.success('Deleted');
+          setItems(prev => prev.filter(i => i.id !== item.id));
+        } catch (e) {
+          toast.error('Delete failed: ' + (e?.message || 'unknown error'));
+        }
+      },
+    });
   };
 
   const toggleItemActive = async (item) => {
@@ -859,6 +891,17 @@ export default function RestaurantDetail() {
 
         </div>
       </div>
+
+      <ConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        body={confirmDialog?.body}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        destructive={confirmDialog?.destructive}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </SuperAdminLayout>
   );
 }

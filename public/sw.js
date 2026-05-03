@@ -55,7 +55,14 @@
 // asks the customer for a 1-5 star rating + optional comment when their
 // order transitions to 'served'. One prompt per order, persisted via
 // sessionStorage so reload doesn't re-prompt.
-const CACHE_VERSION  = 'ar-v11';
+// ar-v12 (May 3, late) — Auto-open bill in a new tab on payment
+// confirmation: the customer always gets a saved copy regardless of
+// whether they shared an email. Optional email field added to the
+// order form (persisted to localStorage + the order doc); future
+// Phase M email triggers will pick it up. Bill HTML generation
+// extracted into a single source of truth (buildBillHtml) shared by
+// the print-bill iframe flow and the new auto-open flow.
+const CACHE_VERSION  = 'ar-v12';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

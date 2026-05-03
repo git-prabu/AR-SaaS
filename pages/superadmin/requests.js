@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
+import ConfirmModal from '../../components/ConfirmModal';
 import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants, saDb } from '../../lib/saDb';
 import { withActor } from '../../lib/db';
 import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/saStorage';
@@ -49,6 +50,10 @@ export default function SuperAdminRequests() {
   const [progress,   setProgress]   = useState(0);
   const [generating, setGenerating] = useState(null); // reqId of AR being generated
   const [genStatus,  setGenStatus]  = useState({});   // { [reqId]: 'generating'|'done'|'error' }
+  // Card-style confirm dialog (replaces native confirm() for the
+  // reject-request action — see handleReject below). Same pattern used
+  // across the admin / super admin pages.
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -131,10 +136,23 @@ export default function SuperAdminRequests() {
     } finally { setGenerating(null); }
   };
 
-  const handleReject = async (req) => {
-    if (!confirm(`Reject "${req.name}"?`)) return;
-    await updateRequestStatus(req.restaurantId, req.id, 'rejected');
-    toast.success('Request rejected'); load();
+  const handleReject = (req) => {
+    setConfirmDialog({
+      title: `Reject "${req.name}"?`,
+      body: 'The restaurant will see this request marked as rejected. They can resubmit if they want to try again later.',
+      confirmLabel: 'Reject request',
+      cancelLabel: 'Keep pending',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await updateRequestStatus(req.restaurantId, req.id, 'rejected');
+          toast.success('Request rejected');
+          await load();
+        } catch (e) {
+          toast.error('Reject failed: ' + (e?.message || 'unknown error'));
+        }
+      },
+    });
   };
 
   const pendingArCount = menuItems.filter(i => !i.arReady && !i.modelURL).length;
@@ -477,6 +495,17 @@ export default function SuperAdminRequests() {
           })()}
         </div>
       </div>
+
+      <ConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        body={confirmDialog?.body}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        destructive={confirmDialog?.destructive}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </SuperAdminLayout>
   );
 }
