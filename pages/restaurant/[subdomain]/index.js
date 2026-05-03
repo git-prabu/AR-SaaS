@@ -592,19 +592,51 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
   const handleNext = () => { if (isLast) onDone(); else setStepIdx(s => s + 1); };
   const handlePrev = () => { if (stepIdx > 0) setStepIdx(s => s - 1); };
 
+  // ── Spotlight rect: capped target so the tooltip always fits ─────
+  // Menu item cards can be 500-600px tall (image + name + description
+  // + price + tags). When the customer's viewport centers a card that
+  // tall, neither space-above nor space-below has room for the tooltip,
+  // and we'd fall back to centered placement WHICH OVERLAPS the card —
+  // the user reported "menu item content is getting hidden" because of
+  // this. Fix: cap the spotlight rect to ~220px (or 35% of viewport,
+  // whichever's smaller), so the tooltip below it always fits. The
+  // cutout shows the top portion of the target (image + name) — the
+  // most visually meaningful slice — and the rest of the card stays
+  // dark with the customer understanding the dotted area is "this
+  // entire card". Also clip if target overflows viewport vertically.
+  const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+  const vw = (typeof window !== 'undefined' && window.innerWidth) || 360;
+  const spotRect = (() => {
+    if (!target) return null;
+    const SAFE_TOP_CLIP = 8;
+    const SAFE_BOTTOM_CLIP = 8;
+    // Clip vertically into viewport bounds so we never spotlight
+    // off-screen pixels (a target whose top is above the viewport
+    // would otherwise have a negative `y` and a phantom rect above the
+    // visible area).
+    const clipTop = Math.max(target.y, SAFE_TOP_CLIP);
+    const clipBottom = Math.min(target.y + target.h, vh - SAFE_BOTTOM_CLIP);
+    const clipH = Math.max(40, clipBottom - clipTop);
+    const MAX_SPOT_H = Math.min(220, Math.max(140, vh * 0.35));
+    return {
+      x: target.x,
+      y: clipTop,
+      w: target.w,
+      h: Math.min(clipH, MAX_SPOT_H),
+    };
+  })();
+
   // ── Tooltip placement ─────────────────────────────────────────────
   // - No target → centered on screen
   // - Target → place above OR below depending on which side has more
-  //   room. Falls back to centered if neither side has at least
-  //   tooltipH+margin available (e.g. very tall target on a short
-  //   viewport). Top is clamped so the tooltip never goes above the
+  //   room (measured from the CAPPED spotRect, not the full target).
+  //   Falls back to centered if neither side has at least tooltipH+margin
+  //   available. Top is clamped so the tooltip never goes above the
   //   safe-area top, and the implicit bottom is clamped via vh too.
   const tooltipStyle = (() => {
     const SAFE_TOP = 16;
     const SAFE_BOTTOM = 16;
     const MARGIN = 14;
-    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
-    const vw = (typeof window !== 'undefined' && window.innerWidth) || 360;
     // Tooltip width: min(360, vw - 32). Smaller on narrow phones so it
     // never touches the edges.
     const tooltipW = Math.min(360, Math.max(280, vw - 32));
@@ -626,7 +658,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       animation: 'cmFade 0.25s cubic-bezier(0.32,0.72,0,1) both',
       zIndex: 1001,
     };
-    if (!target) {
+    if (!spotRect) {
       // Centered: vertical centering via top:50%/translate handles
       // any height, but clamp the top so it's never above SAFE_TOP.
       return {
@@ -635,26 +667,31 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
         left: Math.max(16, (vw - tooltipW) / 2),
       };
     }
-    const spaceBelow = vh - (target.y + target.h) - SAFE_BOTTOM;
-    const spaceAbove = target.y - SAFE_TOP;
+    // Use spotRect (capped) instead of target — guarantees there's
+    // always room below or above for the tooltip, even when the
+    // underlying target is taller than the viewport can fit alongside
+    // the tooltip.
+    const spotBottom = spotRect.y + spotRect.h;
+    const spaceBelow = vh - spotBottom - SAFE_BOTTOM;
+    const spaceAbove = spotRect.y - SAFE_TOP;
     let top;
     if (spaceBelow >= tooltipH + MARGIN) {
-      // Place below.
-      top = target.y + target.h + MARGIN;
+      // Place below the capped spotlight.
+      top = spotBottom + MARGIN;
     } else if (spaceAbove >= tooltipH + MARGIN) {
-      // Place above.
-      top = target.y - tooltipH - MARGIN;
+      // Place above the capped spotlight.
+      top = spotRect.y - tooltipH - MARGIN;
     } else {
-      // Neither side has room — center vertically, which means the
-      // tooltip overlaps the target. Acceptable trade-off because a
-      // tooltip cut off by the viewport edge is worse.
+      // Neither side has room — center vertically. With the capped
+      // spotRect this should be a rare edge case (very short
+      // viewport with a tall tooltip).
       top = Math.max(SAFE_TOP, (vh - tooltipH) / 2);
     }
     // Clamp top into the safe area regardless of placement choice.
     top = Math.min(Math.max(SAFE_TOP, top), vh - tooltipH - SAFE_BOTTOM);
     // Horizontal: center over target on wider screens; clamp into
     // viewport on narrow ones so the tooltip never overflows.
-    const idealLeft = target.x + target.w / 2 - tooltipW / 2;
+    const idealLeft = spotRect.x + spotRect.w / 2 - tooltipW / 2;
     const left = Math.min(Math.max(16, idealLeft), vw - tooltipW - 16);
     return { ...base, top, left };
   })();
@@ -673,7 +710,10 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
         @keyframes cmRingPulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(247,155,61,0.30); } 50% { box-shadow: 0 0 0 10px rgba(247,155,61,0.12); } }
       `}</style>
 
-      {/* Dark backdrop with cutout (or solid backdrop when no target) */}
+      {/* Dark backdrop with cutout (or solid backdrop when no target).
+          The cutout uses spotRect (capped target) — see spotRect calc
+          above — so a tall menu card gets only its top portion
+          spotlighted and the tooltip below has room to render. */}
       <svg
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', animation: 'cmFadeT 0.25s ease' }}
         onClick={onDone}
@@ -682,10 +722,10 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
         <defs>
           <mask id="cm-tour-mask">
             <rect width="100%" height="100%" fill="white" />
-            {target && (
+            {spotRect && (
               <rect
-                x={target.x - 6} y={target.y - 6}
-                width={target.w + 12} height={target.h + 12}
+                x={spotRect.x - 6} y={spotRect.y - 6}
+                width={spotRect.w + 12} height={spotRect.h + 12}
                 rx={14} ry={14}
                 fill="black"
               />
@@ -695,12 +735,14 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
         <rect width="100%" height="100%" fill="rgba(0,0,0,0.74)" mask="url(#cm-tour-mask)" />
       </svg>
 
-      {/* Spotlight ring (decorative — pulses around the target) */}
-      {target && (
+      {/* Spotlight ring (decorative — pulses around the spotRect, not
+          the full target, so the visible highlight matches the
+          cutout). */}
+      {spotRect && (
         <div style={{
           position: 'absolute',
-          top: target.y - 6, left: target.x - 6,
-          width: target.w + 12, height: target.h + 12,
+          top: spotRect.y - 6, left: spotRect.x - 6,
+          width: spotRect.w + 12, height: spotRect.h + 12,
           borderRadius: 14,
           border: '2px solid #F79B3D',
           boxShadow: '0 0 0 4px rgba(247,155,61,0.30)',

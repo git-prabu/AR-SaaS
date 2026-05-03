@@ -121,7 +121,17 @@
 // shifted the tooltip half its width to the left and clipped it.
 // Animation now scales + fades around transform-origin: center, no
 // translate.
-const CACHE_VERSION  = 'ar-v21';
+// ar-v22 (May 3, even more debugging) — coach-mark tooltip was
+// covering the lower portion of tall menu cards because both the
+// "place below" and "place above" branches failed (target taller
+// than viewport - tooltipH) and we fell back to centered placement
+// which overlapped the target. Fix: cap the spotlight rect to ~220px
+// (or 35% of viewport, whichever's smaller) so the tooltip below it
+// always fits. The cutout shows the top portion of the card (image +
+// name) — most visually meaningful — and the rest fades into the
+// dark backdrop. Also clip rect to viewport bounds so off-screen
+// targets don't render phantom dark space.
+const CACHE_VERSION  = 'ar-v22';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
