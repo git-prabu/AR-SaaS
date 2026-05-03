@@ -720,6 +720,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [installDeferred, setInstallDeferred] = useState(null);
   const [installDismissed, setInstallDismissed] = useState(false);
 
+  // ── May 3 — First-visit welcome sheet ────────────────────────────────
+  // Slide-up onboarding for new customers explaining the order flow:
+  // browse → add → place → pay → track. Per-device localStorage flag so
+  // a returning customer never sees it again. Two flavours of copy
+  // depending on how they arrived:
+  //   - QR scan with ?table= → dine-in tips (waiter brings food, pay
+  //     anytime, etc.)
+  //   - No table param → takeaway tips (pay-first, pickup at counter)
+  // The state opens lazily once the restaurant data has loaded, so the
+  // welcome doesn't flash over a loading skeleton on slow networks.
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+
   // ── Table-session enforcement ─────────────────────────────────────────
   // The customer's QR URL has the form `?table=N&sid=...`. We must reject:
   //   1. A guessed table number (no sid)               → no urlSid
@@ -792,6 +804,34 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       window.removeEventListener('focus', onFocusOrVisible);
     };
   }, [restaurant?.id, tableNumber, urlSid]);
+
+  // ── May 3 — First-visit welcome trigger ──────────────────────────────
+  // Show the onboarding sheet once per device per restaurant. Keyed by
+  // restaurant.id so a customer who orders at multiple Advert-Radical
+  // restaurants gets a fresh welcome at each (different layouts /
+  // available items / takeaway-vs-dine-in are restaurant-specific).
+  // Skipped when the customer reaches the page through a session-blocked
+  // state (we'd be welcoming them onto a screen they can't use).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!restaurant?.id) return;
+    if (sessionBlocked || restaurantGone) return;
+    let seen = false;
+    try {
+      seen = localStorage.getItem(`ar_welcome_seen_${restaurant.id}`) === '1';
+    } catch { /* localStorage might be disabled — fall through and show */ }
+    if (seen) return;
+    // Small delay so the page renders before the sheet animates in —
+    // less jarring than slamming over an empty / loading screen.
+    const t = setTimeout(() => setWelcomeOpen(true), 700);
+    return () => clearTimeout(t);
+  }, [restaurant?.id, sessionBlocked, restaurantGone]);
+
+  const dismissWelcome = useCallback(() => {
+    setWelcomeOpen(false);
+    if (!restaurant?.id) return;
+    try { localStorage.setItem(`ar_welcome_seen_${restaurant.id}`, '1'); } catch {}
+  }, [restaurant?.id]);
 
   // Phase L — listen for the browser's beforeinstallprompt + appinstalled.
   // Both events are no-ops when the page isn't installable (HTTP, missing
@@ -927,7 +967,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
   // Lock body scroll when any sheet/modal is open
   useEffect(() => {
-    const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal || feedbackForOrderId);
+    const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal || feedbackForOrderId || welcomeOpen);
     if (isOpen) {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
@@ -939,7 +979,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
-  }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal, feedbackForOrderId]);
+  }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal, feedbackForOrderId, welcomeOpen]);
 
 
   // ── Enrich menu items with active offer data (memoized) ──────────────────
@@ -6463,6 +6503,107 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             </div>
           </SheetOverlay>
         )}
+
+        {/* ─── May 3 — FIRST-VISIT WELCOME SHEET ───
+            Slide-up onboarding for new customers. Per-device per-
+            restaurant via localStorage flag (ar_welcome_seen_{rid}).
+            Two flavours of copy: dine-in (QR scan with table param)
+            vs takeaway (no table). Customer can dismiss with the Got
+            it button or by tapping outside the sheet — either path
+            sets the localStorage flag so we never show it twice. */}
+        {welcomeOpen && (() => {
+          const isDinein = !!tableNumber;  // QR scan with ?table= param
+          const tips = isDinein ? [
+            { icon: '🍽️', title: 'Browse the menu', body: 'Tap any dish to see photos, ingredients, and try the AR view if available.' },
+            { icon: '🛒', title: 'Add what you like', body: 'Use the + button on each item, then open your cart with the View Order button at the bottom.' },
+            { icon: '👨‍🍳', title: 'Order goes to the kitchen', body: 'Place your order — we bring it to your table. Add more anytime; it joins the same bill.' },
+            { icon: '💳', title: 'Pay when ready', body: 'Tap My Bill at any point. Choose Cash, Card, or UPI. Your receipt opens automatically once payment is confirmed.' },
+          ] : [
+            { icon: '🍽️', title: 'Browse the menu', body: 'Tap any dish to see photos, ingredients, and try the AR view if available.' },
+            { icon: '🛒', title: 'Build your order', body: 'Use the + button on each item, then open your cart with the View Order button at the bottom.' },
+            { icon: '💳', title: 'Pay first, then pick up', body: 'Choose Cash, Card, or UPI on checkout — the kitchen starts only after payment confirms.' },
+            { icon: '🔔', title: 'Track your order', body: 'Watch live status — Preparing → Ready → Picked up. Your bill saves automatically once paid.' },
+          ];
+          return (
+            <SheetOverlay onClose={dismissWelcome} darkMode={darkMode}>
+              <div onClick={e => e.stopPropagation()} style={{
+                width: '100%', maxWidth: 540, margin: '0 auto',
+                background: darkMode ? '#1A1612' : '#FEFCF8',
+                borderRadius: '24px 24px 0 0',
+                padding: '0 0 calc(env(safe-area-inset-bottom, 20px) + 28px)',
+                animation: 'slideUp 0.32s cubic-bezier(0.32,0.72,0,1)',
+                maxHeight: '88vh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
+              }}>
+                {/* Handle */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
+                  <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
+                </div>
+                <div style={{ padding: '0 22px' }}>
+                  {/* Hero */}
+                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                    <div style={{ fontSize: 48, marginBottom: 8, lineHeight: 1 }}>👋</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: darkMode ? '#FFF5E8' : '#1E1B18', letterSpacing: '-0.3px', marginBottom: 4 }}>
+                      Welcome to {restaurant?.name || 'our menu'}
+                    </div>
+                    <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.5 }}>
+                      {isDinein
+                        ? `You're at Table ${tableNumber} · Here's how to order.`
+                        : "Order ahead and pick up from the counter. Quick tour:"}
+                    </div>
+                  </div>
+
+                  {/* Tips */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
+                    {tips.map((tip, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 14,
+                        padding: '14px 16px',
+                        borderRadius: 14,
+                        background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.03)',
+                        border: `1px solid ${darkMode ? 'rgba(255,245,232,0.07)' : 'rgba(42,31,16,0.07)'}`,
+                      }}>
+                        <div style={{
+                          width: 38, height: 38, borderRadius: 10,
+                          background: darkMode ? 'rgba(247,155,61,0.16)' : 'rgba(247,155,61,0.10)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 20, flexShrink: 0,
+                        }}>
+                          {tip.icon}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2 }}>
+                            {i + 1}. {tip.title}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.6)', lineHeight: 1.5 }}>
+                            {tip.body}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Dismiss */}
+                  <button
+                    onClick={dismissWelcome}
+                    style={{
+                      width: '100%', padding: '14px', borderRadius: 14, border: 'none',
+                      background: 'linear-gradient(135deg,#F79B3D,#F48A1E)',
+                      color: '#fff',
+                      fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 16px rgba(247,155,61,0.35)',
+                      letterSpacing: '0.01em',
+                    }}>
+                    Got it — let's order
+                  </button>
+                  <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)' }}>
+                    You won't see this again on this device.
+                  </div>
+                </div>
+              </div>
+            </SheetOverlay>
+          );
+        })()}
 
         {/* ─── Phase N — FEEDBACK PROMPT SHEET ───
             Triggered after an order goes 'served' (picked up for

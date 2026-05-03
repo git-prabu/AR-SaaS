@@ -92,7 +92,13 @@
 // Requested" state, which let them print a receipt for an unpaid
 // order. Now only renders once payment is actually confirmed —
 // same bar as the auto-deliver flow.
-const CACHE_VERSION  = 'ar-v17';
+// ar-v18 (May 3, end-of-day) — first-visit welcome sheet. Slide-up
+// onboarding for new customers showing 4 quick tips for the order
+// flow (browse → add → place/pay → track). Per-device per-restaurant
+// localStorage flag so returning customers never see it twice. Two
+// flavours of copy: dine-in (QR scan with table param, "we bring it
+// to your table") vs takeaway ("pay first then pick up").
+const CACHE_VERSION  = 'ar-v18';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
