@@ -68,7 +68,13 @@
 // gateway-UPI flow has a one-tap path to save the receipt; Phase M
 // customer payment-receipt emails now ship — sent automatically when
 // an order goes paid_* IFF the customer shared an email.
-const CACHE_VERSION  = 'ar-v13';
+// ar-v14 (May 3, night) — bill auto-delivery hardened: popup-blocker
+// failures now silently fall back to a Blob-URL download instead of
+// throwing a "Popup blocked" toast. Customer always ends up with a
+// saved bill (either as a new tab when popups are allowed, or as a
+// downloaded HTML file). Bill HTML is now generated synchronously
+// upfront so the gesture context never expires before the popup opens.
+const CACHE_VERSION  = 'ar-v14';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

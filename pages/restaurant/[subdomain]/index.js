@@ -1864,6 +1864,75 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     </body></html>`;
   }, [bill, restaurant, currentBillId, placedOrder]);
 
+  // ── May 3 — Bill delivery helper (popup OR download) ──────────────────
+  // Tries window.open() first — best UX, opens the receipt as a live
+  // page. If the browser blocks the popup (mobile Safari / strict
+  // desktop blockers), silently falls back to a Blob-URL download:
+  // anchor with download="..." attribute, programmatic click. Downloads
+  // are NEVER blocked the way popups are, so the customer ALWAYS ends
+  // up with a copy of their bill — no error toasts, no "please allow
+  // popups" friction.
+  //
+  // CRITICAL — must be called synchronously inside a user-gesture
+  // handler (onClick). Browsers gate window.open + download anchor
+  // clicks on user activation; calling this from inside an `await`
+  // chain after the gesture has expired will fail. Pre-open the
+  // popup BEFORE any awaits, then write the HTML when the async
+  // work resolves. (The buildBillHtml output is generated from
+  // current state synchronously, so we don't need to wait.)
+  //
+  // Returns:
+  //   { popup: Window | null, downloaded: boolean }
+  // - popup: the new-tab handle if window.open succeeded; null if
+  //   blocked (caller should treat the bill as already-delivered via
+  //   download in that case)
+  // - downloaded: true when we fell back to download
+  const deliverBill = useCallback((html, filename) => {
+    if (!html) return { popup: null, downloaded: false };
+    // Try the popup path first — synchronous, must run in gesture.
+    let popup = null;
+    try {
+      popup = window.open('about:blank', '_blank');
+    } catch { popup = null; }
+    if (popup) {
+      try {
+        popup.document.open();
+        popup.document.write(html);
+        popup.document.close();
+        return { popup, downloaded: false };
+      } catch {
+        // document.write threw (cross-origin sandbox or similar) —
+        // close the popup and fall through to download.
+        try { popup.close(); } catch {}
+        popup = null;
+      }
+    }
+    // Popup blocked or write failed — fall back to download. Always
+    // works because anchor downloads aren't gated on user activation
+    // the way popups are.
+    try {
+      const safeName = (filename || 'bill').replace(/[^a-z0-9_\-]/gi, '_').slice(0, 64);
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}.html`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      // Defer cleanup — some browsers process the download asynchronously
+      // and revoking too early cancels it.
+      setTimeout(() => {
+        try { a.remove(); URL.revokeObjectURL(url); } catch {}
+      }, 1500);
+      toast('Bill saved to your downloads', { icon: '📥', duration: 3500 });
+      return { popup: null, downloaded: true };
+    } catch (err) {
+      console.warn('[deliverBill] download fallback failed:', err);
+      return { popup: null, downloaded: false };
+    }
+  }, []);
+
   // Add entire combo as a single cart entry at combo price
   const addComboToCart = useCallback((combo) => {
     const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
@@ -5815,19 +5884,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           toast.error('Bill not ready yet. Try again in a moment.');
                           return;
                         }
-                        const popup = window.open('', '_blank');
-                        if (!popup) {
-                          toast.error('Popup blocked. Please allow popups for this site, then tap again.');
-                          return;
-                        }
-                        try {
-                          popup.document.open();
-                          popup.document.write(html);
-                          popup.document.close();
-                        } catch {
-                          popup.close?.();
-                          toast.error('Could not open bill. Try the Print Bill button below.');
-                        }
+                        // deliverBill handles popup-or-download
+                        // transparently — no "Popup blocked" toast.
+                        deliverBill(html, `bill-${restaurant?.subdomain || 'order'}-${Date.now()}`);
                       }}
                       style={{
                         width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none',
@@ -5838,7 +5897,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         boxShadow: '0 4px 14px rgba(45,139,78,0.3)',
                       }}>
                       <span style={{ fontSize: 16 }}>🧾</span>
-                      Open Bill in New Tab
+                      Open or Save Bill
                     </button>
                   </div>
                 ) : billPaymentState === 'requested' ? (
@@ -5996,17 +6055,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                               <button
                                 onClick={async () => {
                                   if (!restaurant?.id || !bill?.orderIds?.length) return;
-                                  // ── May 3 — auto-open bill in a new tab ──
-                                  // Pre-open a blank popup INSIDE the user
-                                  // gesture (synchronously) so popup blockers
-                                  // don't reject it. We populate it with the
-                                  // bill HTML after the async payment write
-                                  // succeeds. If blocked (popup === null), we
-                                  // skip silently — the customer still has the
-                                  // bill modal + Print Bill button as backup.
-                                  const billPopup = window.open('', '_blank');
-                                  if (billPopup) {
-                                    try { billPopup.document.write('<title>Saving bill…</title><div style="font-family:sans-serif;padding:24px;text-align:center;color:#666">Confirming payment, please wait…</div>'); } catch {}
+                                  // ── May 3 — Deliver bill SYNCHRONOUSLY in the
+                                  // user gesture, BEFORE any await. Generates
+                                  // the receipt HTML from current state (items +
+                                  // total + chosen method are known at click
+                                  // time) and tries window.open; if blocked, the
+                                  // helper transparently falls back to a Blob-
+                                  // URL download. No "Popup blocked" toast — the
+                                  // customer always ends up with a saved copy.
+                                  const billHtml = buildBillHtml(bill, 'upi');
+                                  if (billHtml) {
+                                    deliverBill(billHtml, `bill-${restaurant?.subdomain || 'order'}-${Date.now()}`);
                                   }
                                   try {
                                     // Phase A — mark every order in the running
@@ -6021,23 +6080,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                     setPaymentDone(true);
                                     setUpiOpened(false);
                                     try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
-                                    // Write the receipt HTML to the popup we
-                                    // pre-opened. Customer keeps it as their
-                                    // saved bill; can print/close from there.
-                                    if (billPopup) {
-                                      const html = buildBillHtml(bill, 'upi');
-                                      if (html) {
-                                        try {
-                                          billPopup.document.open();
-                                          billPopup.document.write(html);
-                                          billPopup.document.close();
-                                        } catch { billPopup.close?.(); }
-                                      } else {
-                                        billPopup.close?.();
-                                      }
-                                    }
                                   } catch (e) {
-                                    if (billPopup) billPopup.close?.();
                                     toast.error('Could not confirm payment. Try again.');
                                   }
                                 }}
@@ -6070,11 +6113,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <button
                         onClick={async () => {
                           if (!paymentMethod || !restaurant?.id || !bill?.orderIds?.length) return;
-                          // Pre-open the bill popup in the user gesture
-                          // (see UPI handler above for rationale).
-                          const billPopup = window.open('', '_blank');
-                          if (billPopup) {
-                            try { billPopup.document.write('<title>Saving bill…</title><div style="font-family:sans-serif;padding:24px;text-align:center;color:#666">Confirming payment, please wait…</div>'); } catch {}
+                          // Deliver bill synchronously in the gesture (popup
+                          // or download fallback — see UPI handler above).
+                          const billHtml = buildBillHtml(bill, paymentMethod);
+                          if (billHtml) {
+                            deliverBill(billHtml, `bill-${restaurant?.subdomain || 'order'}-${Date.now()}`);
                           }
                           try {
                             // Phase A — mark every order in the running bill
@@ -6089,22 +6132,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             );
                             setPaymentDone(true);
                             try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: bill.orderIds })); } catch {}
-                            // Write the receipt HTML so the customer keeps
-                            // a copy regardless of email collection.
-                            if (billPopup) {
-                              const html = buildBillHtml(bill, paymentMethod);
-                              if (html) {
-                                try {
-                                  billPopup.document.open();
-                                  billPopup.document.write(html);
-                                  billPopup.document.close();
-                                } catch { billPopup.close?.(); }
-                              } else {
-                                billPopup.close?.();
-                              }
-                            }
                           } catch (e) {
-                            if (billPopup) billPopup.close?.();
                             toast.error('Could not confirm payment. Try again.');
                           }
                         }}
