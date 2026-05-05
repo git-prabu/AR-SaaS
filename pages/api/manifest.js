@@ -31,12 +31,12 @@ const FALLBACK = {
 export default async function handler(req, res) {
   // Sanitise inputs (May 5): subdomain is restricted to the same
   // character set our restaurant signup allows (lowercase letters,
-  // digits, hyphens) and capped at 32 chars; table is digits only and
-  // capped at 8. Anything else gets dropped silently — we'd rather
-  // serve the fallback manifest than echo arbitrary attacker-controlled
-  // strings into start_url / scope.
+  // digits, hyphens) and capped at 63 chars (DNS label limit); table
+  // is digits only and capped at 8. Anything else gets dropped
+  // silently — we'd rather serve the fallback manifest than echo
+  // arbitrary attacker-controlled strings into start_url / scope.
   const rawSub = String(req.query?.subdomain || '').toLowerCase().trim();
-  const subdomain = /^[a-z0-9-]{1,32}$/.test(rawSub) ? rawSub : '';
+  const subdomain = /^[a-z0-9-]{1,63}$/.test(rawSub) ? rawSub : '';
   const rawTable = req.query?.table ? String(req.query.table).trim() : '';
   const table = /^[0-9]{1,8}$/.test(rawTable) ? rawTable : '';
 
