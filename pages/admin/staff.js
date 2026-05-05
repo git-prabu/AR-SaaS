@@ -196,7 +196,16 @@ export default function StaffManagement() {
     setLoadError('');
     try {
       const list = await getStaffMembers(rid);
-      setStaff(list);
+      // Defensive: getStaffMembers should always return an array, but if
+      // a transient Firestore quirk returns null/undefined we'd crash on
+      // .map() in render. Coerce to [] and surface a banner instead.
+      if (!Array.isArray(list)) {
+        console.warn('getStaffMembers returned non-array:', list);
+        setStaff([]);
+        setLoadError('Unexpected response loading staff. Try again.');
+      } else {
+        setStaff(list);
+      }
     } catch (e) {
       console.error('getStaffMembers error:', e);
       setLoadError('Failed to load staff. Check your Firestore rules.');
