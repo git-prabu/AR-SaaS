@@ -84,11 +84,39 @@ export default async function handler(req, res) {
         ? Math.max(0, Number(it.price) || 0)
         : Math.max(0, Number(live?.offerPrice ?? live?.price ?? 0));
       if (basePrice <= 0 && !isCombo) continue;  // skip unknown ids
-      // Modifier deltas are passed through from the client (variant +
-      // addOns). Same trust model as placeOrder — they're stored on
-      // the cart entry from the item modal which already validated.
-      const modDelta = Number(it.modDelta || 0);
-      const finalPrice = Math.round(basePrice + modDelta);
+      // SECURITY (May 5) — Re-validate modDelta against the menu
+      // item's known variants + addons. Previously we trusted the
+      // client-supplied modDelta which let a tampered cart undercharge
+      // (e.g. attacker sets modDelta=-200 to subtract from the variant
+      // price). Now we reject the modifier set if it doesn't match
+      // anything in the live menu doc and recompute modDelta from the
+      // menu's known prices.
+      let safeModDelta = 0;
+      if (live) {
+        // Validate variant: must be a name that exists on this item.
+        const liveVariants = Array.isArray(live.variants) ? live.variants : [];
+        if (it.variant && it.variant.name) {
+          const matchV = liveVariants.find(v => v.name === it.variant.name);
+          if (matchV) safeModDelta += Number(matchV.priceDelta) || 0;
+          // No match → variant silently dropped (don't credit attacker
+          // for sending an unknown variant; price stays at base).
+        }
+        // Validate add-ons: each addOn entry must match a known addon
+        // by name (and optionally group). Drop unknowns.
+        const liveAddOns = Array.isArray(live.addOns) ? live.addOns : [];
+        if (Array.isArray(it.addOns)) {
+          for (const sent of it.addOns) {
+            if (!sent || !sent.name) continue;
+            const matchA = liveAddOns.find(a => a.name === sent.name);
+            if (matchA) safeModDelta += Number(matchA.priceDelta) || 0;
+          }
+        }
+      } else if (isCombo) {
+        // Combos don't carry server-side modifiers in v1; trust client
+        // modDelta but cap at +1000 to limit blast radius.
+        safeModDelta = Math.max(-200, Math.min(1000, Number(it.modDelta) || 0));
+      }
+      const finalPrice = Math.round(basePrice + safeModDelta);
       validatedNewItems.push({
         id,
         name: String(it.name || live?.name || 'Item'),

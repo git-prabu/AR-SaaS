@@ -72,7 +72,7 @@ function UsageBar({ label, used, max, unit = '' }) {
 }
 
 export default function AdminSubscription() {
-  const { userData } = useAuth();
+  const { userData, user } = useAuth();
   const rid = userData?.restaurantId;
   const restaurantName = userData?.restaurantName || 'Your Restaurant';
 
@@ -92,10 +92,15 @@ export default function AdminSubscription() {
     if (!window.Razorpay) { toast.error('Payment system not loaded. Please refresh.'); return; }
     setPaying(plan.id);
     try {
+      // May 5: create-order now requires idToken (admin ownership) and
+      // accepts an idempotencyKey so a flaky network double-click maps
+      // to a single Razorpay order on the server side.
+      const idToken = user ? await user.getIdToken() : '';
+      const idempotencyKey = `${plan.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const res = await fetch('/api/payments/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: plan.id, restaurantId: rid }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ planId: plan.id, restaurantId: rid, idempotencyKey }),
       });
       const data = await res.json();
       if (!data.orderId) throw new Error('Could not create order');

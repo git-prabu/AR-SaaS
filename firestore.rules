@@ -58,19 +58,53 @@ service cloud.firestore {
         allow read, write: if isRestaurantAdmin(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
-        // Public: allow incrementing views, arViews, and ratings (no auth needed)
+        // Public: allow incrementing views, arViews, and ratings (no auth needed).
+        // Hardened: counters monotonically increase; per-write deltas are
+        // bounded so a tampered client can't write ratingSum=999999 in one
+        // request. ratingAvg is bounded to [0, 5]. Schema is locked.
         allow update: if !isAuth() &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['views', 'arViews', 'ratingSum', 'ratingCount', 'ratingAvg']);
+            .hasOnly(['views', 'arViews', 'ratingSum', 'ratingCount', 'ratingAvg']) &&
+          request.resource.data.get('views', 0) >= resource.data.get('views', 0) &&
+          request.resource.data.get('views', 0) <= resource.data.get('views', 0) + 1 &&
+          request.resource.data.get('arViews', 0) >= resource.data.get('arViews', 0) &&
+          request.resource.data.get('arViews', 0) <= resource.data.get('arViews', 0) + 1 &&
+          request.resource.data.get('ratingCount', 0) >= resource.data.get('ratingCount', 0) &&
+          request.resource.data.get('ratingCount', 0) <= resource.data.get('ratingCount', 0) + 1 &&
+          request.resource.data.get('ratingSum', 0) >= resource.data.get('ratingSum', 0) &&
+          request.resource.data.get('ratingSum', 0) <= resource.data.get('ratingSum', 0) + 5 &&
+          request.resource.data.get('ratingAvg', 0) >= 0 &&
+          request.resource.data.get('ratingAvg', 0) <= 5;
       }
 
       // ── Analytics ─────────────────────────────────────────────
+      // Visit + item-view tracking from the (unauthenticated) customer
+      // menu page. No auth required, but tightly schema-locked so a
+      // malicious client can't spam arbitrary doc ids or fields, and
+      // counters can never decrease (increment-only).
       match /analytics/{docId} {
-        // Public read + create/update for visit tracking
         allow read: if true;
-        allow create, update: if true;
-        // Only admins can delete analytics data
-        allow delete: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        // Doc id must match the YYYY-MM-DD format used by todayKey() in
+        // lib/db.js. Only the known analytics fields may be present.
+        allow create: if docId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+          request.resource.data.keys().hasOnly([
+            'date', 'totalVisits', 'uniqueVisitors', 'repeatVisitors',
+            'sessions', 'hourlyVisits', 'itemViews', 'arViews'
+          ]);
+        allow update: if docId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'date', 'totalVisits', 'uniqueVisitors', 'repeatVisitors',
+            'sessions', 'hourlyVisits', 'itemViews', 'arViews'
+          ]) &&
+          request.resource.data.get('totalVisits', 0) >= resource.data.get('totalVisits', 0) &&
+          request.resource.data.get('uniqueVisitors', 0) >= resource.data.get('uniqueVisitors', 0) &&
+          request.resource.data.get('repeatVisitors', 0) >= resource.data.get('repeatVisitors', 0) &&
+          request.resource.data.get('itemViews', 0) >= resource.data.get('itemViews', 0) &&
+          request.resource.data.get('arViews', 0) >= resource.data.get('arViews', 0);
+        // Restaurant admin: full access (legitimate manual edits, debugging)
+        allow read, write: if isRestaurantAdmin(restaurantId);
+        // Super admin: full access
+        allow read, write: if isSuperAdmin();
       }
 
       // ── Waiter Calls ──────────────────────────────────────────
