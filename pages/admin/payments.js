@@ -335,7 +335,9 @@ export default function AdminPayments() {
     }, {});
 
     return { pending: pending.length, paidCount: paid.length, collected, avgSec, methodCounts };
-  }, [relevantOrders, period, customRange]);  // eslint-disable-line react-hooks/exhaustive-deps
+  // inPeriod closes over customBounds + periodStart; we list the
+  // memoised values directly so this stays a real dep chain.
+  }, [relevantOrders, customBounds, periodStart]);
 
   // ═══ List of orders shown — applies filter + period + search ═══
   const displayed = useMemo(() => {
@@ -352,7 +354,7 @@ export default function AdminPayments() {
       });
     }
     return list;
-  }, [relevantOrders, filter, period, search, customRange]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [relevantOrders, filter, search, customBounds, periodStart]);
 
   // ═══ Mark as paid — called with explicit method so `unpaid` orders don't silently default to cash ═══
   // Cash payments route through the cash modal first (Phase E) so we

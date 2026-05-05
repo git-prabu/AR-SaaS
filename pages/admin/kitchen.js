@@ -145,6 +145,15 @@ export default function KitchenDisplay() {
   const previousTicketIdsRef = useRef(new Set());
   // Prevents flashing all tickets on the very first snapshot
   const initialLoadDoneRef = useRef(false);
+  // Tracks live flash-clear setTimeout handles so they get cancelled on
+  // unmount (prevents the rare warning when the kitchen page is closed
+  // mid-flash). React 18 silently no-ops setState on unmounted, but the
+  // explicit cleanup is cleaner.
+  const flashTimersRef = useRef([]);
+  useEffect(() => () => {
+    flashTimersRef.current.forEach(clearTimeout);
+    flashTimersRef.current = [];
+  }, []);
 
   // ══ Auth check ══
   useEffect(() => {
@@ -378,13 +387,15 @@ export default function KitchenDisplay() {
         newlyAdded.forEach(id => next.add(id));
         return next;
       });
-      setTimeout(() => {
+      const t = setTimeout(() => {
         setFlashingIds(prev => {
           const next = new Set(prev);
           newlyAdded.forEach(id => next.delete(id));
           return next;
         });
+        flashTimersRef.current = flashTimersRef.current.filter(h => h !== t);
       }, 4000);
+      flashTimersRef.current.push(t);
     }
 
     // Clean up unseen IDs for tickets no longer active (served/removed)

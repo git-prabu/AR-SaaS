@@ -322,8 +322,6 @@ export default function AdminAnalytics() {
   // Phase O — May 3 — period-filtered customer feedback derivations.
   // Mirrors the orders-in-range logic above. Prior-window slice lets us
   // show "+N this week" delta in the KPI tile.
-  const priorStartDate = (() => { const d = new Date(rangeStart); d.setDate(d.getDate() - bounds.spanDays); return d; })();
-  const priorEndDate   = (() => { const d = new Date(rangeStart); d.setDate(d.getDate() - 1); return d; })();
   const feedbackInRange = useMemo(() => {
     return feedback.filter(f => {
       const t = f.createdAt;
@@ -333,16 +331,17 @@ export default function AdminAnalytics() {
     });
   }, [feedback, rangeStart, rangeEnd]);
   const feedbackPrev = useMemo(() => {
+    // Derive prior window inside the memo so spanDays is a real dep
+    // (no eslint-disable needed). priorStart = rangeStart - spanDays;
+    // priorEnd = rangeStart - 1 day.
+    const priorStartDate = new Date(rangeStart); priorStartDate.setDate(priorStartDate.getDate() - bounds.spanDays);
+    const priorEndDate   = new Date(rangeStart); priorEndDate.setDate(priorEndDate.getDate() - 1);
     return feedback.filter(f => {
       const t = f.createdAt;
       if (!t) return false;
       const d = t.toDate ? t.toDate() : (t.seconds ? new Date(t.seconds * 1000) : new Date(t));
       return d >= priorStartDate && d <= priorEndDate;
     });
-  // priorStart/End are derived from rangeStart + spanDays so the
-  // existing deps are sufficient; ESLint can't see through that. The
-  // recompute fires whenever the user changes period or custom range.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedback, rangeStart, bounds.spanDays]);
 
   // Average customer experience rating across feedback within the

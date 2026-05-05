@@ -128,6 +128,8 @@ export default function WaiterDashboard() {
   const initialLoadDoneRef = useRef(false);
   const [flashingIds, setFlashingIds] = useState(new Set());
   const [unseenIds, setUnseenIds] = useState(new Set());
+  // Tracks live flash-clear setTimeout handles for cleanup on unmount.
+  const flashTimersRef = useRef([]);
 
   // ── Auth check ──
   useEffect(() => {
@@ -169,6 +171,12 @@ export default function WaiterDashboard() {
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  // Cancel any in-flight flash-clear timers when the page unmounts.
+  useEffect(() => () => {
+    flashTimersRef.current.forEach(clearTimeout);
+    flashTimersRef.current = [];
   }, []);
 
   // ── Firestore listeners ──
@@ -291,9 +299,11 @@ export default function WaiterDashboard() {
       const newlyAddedIds = newlyAddedItems.map(i => i.id);
       setFlashingIds(prev => { const n = new Set(prev); newlyAddedIds.forEach(id => n.add(id)); return n; });
       setUnseenIds(prev => { const n = new Set(prev); newlyAddedIds.forEach(id => n.add(id)); return n; });
-      setTimeout(() => {
+      const t = setTimeout(() => {
         setFlashingIds(prev => { const n = new Set(prev); newlyAddedIds.forEach(id => n.delete(id)); return n; });
+        flashTimersRef.current = flashTimersRef.current.filter(h => h !== t);
       }, 4000);
+      flashTimersRef.current.push(t);
 
       // Sound + voice: announce the highest-priority new item.
       // Priority order: payment > call > serve. Payments are highest

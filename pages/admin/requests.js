@@ -69,11 +69,21 @@ function smartDefault(name) {
   return 60;
 }
 
+// External-fetch timeout helper (May 5). USDA + MyMemory occasionally
+// hang for tens of seconds during outages; without a hard cap the
+// nutrition calc / translation buttons in this page would spin forever.
+// 8s is generous: real responses come back inside ~2s.
+function fetchWithTimeout(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
 async function fetchIngredientNutrition(ingredientRaw) {
   const { name, grams: specifiedGrams } = parseIngredient(ingredientRaw);
   const portionGrams = specifiedGrams ?? smartDefault(name);
   try {
-    const searchRes = await fetch(
+    const searchRes = await fetchWithTimeout(
       `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(name)}&pageSize=1&api_key=${USDA_KEY}`
     );
     const searchData = await searchRes.json();
@@ -104,7 +114,7 @@ async function fetchIngredientNutrition(ingredientRaw) {
 async function autoTranslate(text, targetLang) {
   if (!text?.trim()) return '';
   try {
-    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.trim())}&langpair=en|${targetLang}`);
+    const res = await fetchWithTimeout(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.trim())}&langpair=en|${targetLang}`, 5000);
     const data = await res.json();
     if (data?.responseStatus === 200 && data?.responseData?.translatedText) {
       const result = data.responseData.translatedText;
