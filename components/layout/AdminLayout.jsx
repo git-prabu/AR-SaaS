@@ -357,30 +357,43 @@ export default function AdminLayout({ children }) {
           </div>
         </div>
 
-        {/* Nav — filtered per plan. Items flagged proOnly are hidden
-            unless the restaurant is on a plan that allows them. The
-            filter is cosmetic; server endpoints + page guards still
+        {/* Nav — proOnly items stay VISIBLE for all plans so users can
+            discover them. The page itself shows a "Pro plan required"
+            screen with an upgrade CTA when a non-Pro user clicks. We
+            mark proOnly items with a small "PRO" badge so the gate is
+            clear before clicking. Server endpoints + page guards still
             enforce eligibility independently. */}
         <nav ref={navRef} style={{ flex: 1, padding: '4px 12px 12px', overflowY: 'auto' }}>
           {navSections.map((section) => {
-            const visibleItems = section.items.filter(item => {
-              if (!item.proOnly) return true;
-              return canUsePetpoojaIntegration(restaurantPlan);
-            });
-            if (visibleItems.length === 0) return null;
+            if (section.items.length === 0) return null;
             return (
               <div key={section.label} style={{ marginBottom: 14 }}>
                 <div style={{ fontFamily: INTER, fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', color: A_FAINT, padding: '6px 14px 8px', textTransform: 'uppercase' }}>
                   {section.label}
                 </div>
-                {visibleItems.map(item => (
-                  <Link key={item.href} href={item.href}
-                    className={`nlnk${isActive(item.href) ? ' on' : ''}`}
-                    onClick={isMobile ? closeSidebar : undefined}>
-                    <span className="nav-icon"><NavIcon name={item.icon} /></span>
-                    {item.label}
-                  </Link>
-                ))}
+                {section.items.map(item => {
+                  const locked = item.proOnly && !canUsePetpoojaIntegration(restaurantPlan);
+                  return (
+                    <Link key={item.href} href={item.href}
+                      className={`nlnk${isActive(item.href) ? ' on' : ''}`}
+                      onClick={isMobile ? closeSidebar : undefined}>
+                      <span className="nav-icon"><NavIcon name={item.icon} /></span>
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {locked && (
+                        <span style={{
+                          marginLeft: 'auto',
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: '0.08em',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(196,168,109,0.15)',
+                          color: '#A08656',
+                        }}>PRO</span>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             );
           })}

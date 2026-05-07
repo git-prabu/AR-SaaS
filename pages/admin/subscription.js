@@ -72,7 +72,7 @@ function UsageBar({ label, used, max, unit = '' }) {
 }
 
 export default function AdminSubscription() {
-  const { userData, user } = useAuth();
+  const { userData } = useAuth();
   const rid = userData?.restaurantId;
   const restaurantName = userData?.restaurantName || 'Your Restaurant';
 
@@ -92,18 +92,20 @@ export default function AdminSubscription() {
     if (!window.Razorpay) { toast.error('Payment system not loaded. Please refresh.'); return; }
     setPaying(plan.id);
     try {
-      // May 5: create-order now requires idToken (admin ownership) and
-      // accepts an idempotencyKey so a flaky network double-click maps
-      // to a single Razorpay order on the server side.
-      const idToken = user ? await user.getIdToken() : '';
+      // May 5: idempotencyKey makes flaky-network double-clicks map to
+      // a single Razorpay receipt. (The auth-gate attempt was reverted
+      // — the gate is on /api/payments/verify via Razorpay's signature.)
       const idempotencyKey = `${plan.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const res = await fetch('/api/payments/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: plan.id, restaurantId: rid, idempotencyKey }),
       });
       const data = await res.json();
-      if (!data.orderId) throw new Error('Could not create order');
+      if (!data.orderId) {
+        console.error('[upgrade] create-order failed', { status: res.status, data });
+        throw new Error(data?.error || 'Could not create order');
+      }
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: plan.priceInPaise,
@@ -124,7 +126,10 @@ export default function AdminSubscription() {
         theme: { color: '#1A1A1A' },  // matches Aspire ink color
       };
       new window.Razorpay(options).open();
-    } catch { toast.error('Payment failed. Try again.'); }
+    } catch (err) {
+      console.error('[upgrade] error', err);
+      toast.error(err?.message ? `Payment failed: ${err.message}` : 'Payment failed. Try again.');
+    }
     finally { setPaying(null); }
   };
 
