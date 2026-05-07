@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AR Viewer</title>
+  <!-- Preload hint: starts the model-viewer JS download in parallel
+       with HTML parse, so the script tag below resolves faster on
+       first-time load. Same URL = same cache key, so this is a free
+       win. STAY ON 3.4.0 — it's the most CDN-cache-warm version.
+       DO NOT bump without a specific bug-fix reason; cold-fetching a
+       newer version costs 300-500ms on mobile data. -->
+  <link rel="preload" as="script" crossorigin
+        href="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js" />
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -13,6 +21,11 @@
       width: 100%;
       height: 100%;
       --poster-color: transparent;
+      /* Brighter reticle (the placement dot in WebXR) — much more
+         visible than the default white against typical restaurant
+         surfaces (wood, fabric, dark tile). Pure CSS variable change,
+         no extra JS, no permission handshake. */
+      --ar-mode-prompt-color: rgba(255, 107, 53, 0.95);
     }
 
     #overlay {
@@ -76,9 +89,98 @@
       text-align: center;
       white-space: nowrap;
     }
+
+    /* ── AR scan-help & failure overlays ────────────────────────
+       Children of <model-viewer>, hidden by default. model-viewer
+       auto-overlays its own children on top of the WebXR camera feed
+       during AR mode (DOM-overlay), so children render correctly;
+       siblings would NOT. CSS-only visibility — no JS event listeners,
+       no permission handshakes (that's what made the previous attempt
+       slow). Pattern is exactly what's documented in the official
+       model-viewer "Hand prompt" example. */
+    model-viewer > #scan-help {
+      position: absolute;
+      bottom: 24%;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 280px;
+      padding: 12px 16px;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff;
+      border-radius: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      text-align: center;
+      pointer-events: none;
+      box-shadow: 0 6px 28px rgba(0,0,0,0.4);
+      display: none;
+    }
+    model-viewer > #scan-help strong {
+      color: #FF8C53;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    .scan-help-icon {
+      display: inline-block;
+      font-size: 22px;
+      margin-bottom: 6px;
+      animation: scan-wiggle 1.4s ease-in-out infinite;
+    }
+    @keyframes scan-wiggle {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px) rotate(-6deg); }
+      75% { transform: translateX(10px) rotate(6deg); }
+    }
+    /* Show scan-help while AR session is alive — gets users moving
+       the phone immediately so ARCore/ARKit can find a plane. */
+    model-viewer[ar-status="session-started"] > #scan-help {
+      display: block;
+    }
+    /* Hide scan-help once the model is placed (or session ends). */
+    model-viewer[ar-status="object-placed"] > #scan-help,
+    model-viewer[ar-status="not-presenting"] > #scan-help,
+    model-viewer[ar-status="failed"] > #scan-help {
+      display: none;
+    }
+
+    /* Tracking-lost banner — separate child, separate selector.
+       Shows when WebXR drops surface tracking mid-session (engine
+       can't see enough features anymore). Tells the user to point
+       the camera back at the surface. */
+    model-viewer > #ar-tracking-lost {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 14px;
+      background: rgba(220, 60, 60, 0.92);
+      color: #fff;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      pointer-events: none;
+      display: none;
+    }
+    model-viewer[ar-tracking="not-tracking"] > #ar-tracking-lost {
+      display: block;
+    }
   </style>
 </head>
 <body>
+  <!-- AR config rationale (May 8, conservative pass after revert):
+       - ar-modes order is the documented default (webxr first); WebXR
+         is fastest on Android, no reason to change.
+       - ar-scale="auto" — model uses GLB's own real-world scale.
+       - NO xr-environment (confirmed: adds permission/handshake
+         latency to AR session start).
+       - NO interaction-prompt-style / extra prompts (cosmetic, no AR
+         speed benefit).
+       - ar-placement is left default ("floor"). -->
   <model-viewer
     id="viewer"
     ar
@@ -100,6 +202,18 @@
       </svg>
       View in AR
     </button>
+
+    <!-- Scan-help: child of model-viewer so it renders over the
+         camera feed during WebXR DOM-overlay. CSS attribute selectors
+         above control visibility based on the ar-status attribute
+         that model-viewer auto-sets on itself. -->
+    <div id="scan-help">
+      <div class="scan-help-icon">📱</div>
+      <strong>Looking for a surface…</strong>
+      Move your phone slowly across a well-lit, textured surface (wood, fabric, patterned tile). Plain or shiny surfaces take longer.
+    </div>
+
+    <div id="ar-tracking-lost">⚠ Reposition the camera</div>
   </model-viewer>
 
   <!-- Loading overlay shown until 3D model is ready -->
@@ -151,7 +265,12 @@
       errorMsg.style.display = 'block';
     });
 
-    // Notify parent frame when AR launches
+    // Notify parent frame when AR launches; alert on failure.
+    // Visibility of scan-help and tracking-lost banner is handled
+    // entirely by the CSS attribute selectors above (model-viewer
+    // auto-sets ar-status and ar-tracking attributes on itself). No JS
+    // listeners drive scan UX — that's the deliberate lesson from the
+    // last revert.
     viewer.addEventListener('ar-status', (e) => {
       if (e.detail.status === 'session-started') {
         window.parent.postMessage({ type: 'ar-launched' }, '*');
