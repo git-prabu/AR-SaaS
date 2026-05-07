@@ -324,11 +324,14 @@ export default function AdminItems() {
 
   // ═══ Save drawer form ═══
   const handleSave = async () => {
-    // Phase B — block menu edits in hybrid mode (Petpooja owns the menu).
-    // Image / AR / discovery-tag uploads are separate inline flows on
-    // each row and stay available — only the full drawer-edit is gated.
-    if (isHybrid) {
-      toast.error('Menu is managed in Petpooja. Edit names, prices, categories there, then sync from /admin/petpooja-connect.');
+    // Phase B (refined May 5) — only block edits when the SPECIFIC item
+    // is mirrored from Petpooja (has a petpoojaItemId). Local items the
+    // admin created in Advert Radical (combos, customs, items added
+    // before connecting) stay fully editable. Image / AR / discovery
+    // tags are still always editable (overlay fields).
+    const editingItem = items.find(i => i.id === editingId);
+    if (isHybrid && editingItem?.petpoojaItemId) {
+      toast.error('This item is managed in Petpooja. Edit name/price/category there, then sync from /admin/petpooja-connect.');
       return;
     }
     if (!form.name?.trim()) return toast.error('Item name is required');
@@ -379,9 +382,11 @@ export default function AdminItems() {
 
   // ═══ Delete with cross-ref warning ═══
   const handleDelete = async (item) => {
-    // Phase B — block delete in hybrid mode (Petpooja owns the menu).
-    if (isHybrid) {
-      toast.error('Menu is managed in Petpooja. Delete this item in your Petpooja dashboard, then sync.');
+    // Phase B (refined May 5) — only block delete on items that came
+    // from Petpooja. Local items stay deletable so admins can clean up
+    // pre-connect rows that don't have a petpoojaItemId.
+    if (isHybrid && item.petpoojaItemId) {
+      toast.error('This item is managed in Petpooja. Delete it in your Petpooja dashboard, then sync.');
       return;
     }
     const refs = itemRefs[item.id];
@@ -1094,6 +1099,17 @@ export default function AdminItems() {
                         )}
                         {item.nameTA && <span style={{ fontFamily: A.mono, opacity: 0.6 }}>TA</span>}
                         {item.nameHI && <span style={{ fontFamily: A.mono, opacity: 0.6 }}>HI</span>}
+                        {item.petpoojaItemId && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center',
+                            padding: '1px 7px', borderRadius: 4,
+                            background: 'rgba(255,140,66,0.10)',
+                            color: '#C26A2D', fontSize: 10, fontWeight: 700,
+                            letterSpacing: '0.04em',
+                          }} title="Mirrored from Petpooja — name, price, category are managed there.">
+                            Petpooja
+                          </span>
+                        )}
                       </div>
                     </div>
 

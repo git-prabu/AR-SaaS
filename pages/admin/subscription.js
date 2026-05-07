@@ -104,7 +104,10 @@ export default function AdminSubscription() {
       const data = await res.json();
       if (!data.orderId) {
         console.error('[upgrade] create-order failed', { status: res.status, data });
-        throw new Error(data?.error || 'Could not create order');
+        // data.detail (when present) is the underlying Razorpay error
+        // description, which is much more actionable than the generic
+        // top-level data.error.
+        throw new Error(data?.detail || data?.error || 'Could not create order');
       }
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,

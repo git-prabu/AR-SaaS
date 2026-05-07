@@ -54,7 +54,24 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ orderId: order.id });
   } catch (err) {
-    console.error('Razorpay error:', err);
-    return res.status(500).json({ error: 'Failed to create order' });
+    // Surface the underlying Razorpay error so /admin/subscription can
+    // show a useful toast instead of an opaque "Failed to create order".
+    // Razorpay SDK errors expose `error.error.description` (e.g. "key
+    // does not exist", "Authentication failed") — that's what we want
+    // to bubble up. The HTTP status from Razorpay (401/400) goes into
+    // razorpayStatus so we can hint at env-var problems vs request bugs.
+    const description = err?.error?.description || err?.description || err?.message || 'Unknown';
+    const status = err?.statusCode || err?.status || null;
+    console.error('[create-order] Razorpay error:', { status, description, raw: err });
+    const hint = !process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET
+      ? ' (RAZORPAY env vars missing on the server — check Vercel project settings)'
+      : status === 401
+      ? ' (Razorpay rejected credentials — check RAZORPAY_KEY_ID/SECRET in Vercel env vars)'
+      : '';
+    return res.status(500).json({
+      error: 'Failed to create order',
+      detail: description + hint,
+      razorpayStatus: status,
+    });
   }
 }
