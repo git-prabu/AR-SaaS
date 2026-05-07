@@ -13,6 +13,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import useBulkSelection from '../../hooks/useBulkSelection';
 import BulkActionBar from '../../components/admin/BulkActionBar';
+import ConfirmModal from '../../components/ConfirmModal';
 
 // ═══ Aspire palette ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -156,6 +157,10 @@ export default function AdminItems() {
   const [deleting, setDeleting] = useState(null);
   const [imgUpload, setImgUpload] = useState({}); // { [itemId]: { uploading, progress } }
   const imgInputRef = useRef({});
+  // ConfirmModal state — replaces the native browser confirm() for
+  // delete prompts. Shape: { title, body, confirmLabel, destructive,
+  // onConfirm } | null (closed).
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   // Drag and drop
   const dragItem = useRef(null);
@@ -381,7 +386,9 @@ export default function AdminItems() {
   };
 
   // ═══ Delete with cross-ref warning ═══
-  const handleDelete = async (item) => {
+  // Uses ConfirmModal (the styled card dialog) instead of the native
+  // browser confirm() popup so the prompt feels in-app.
+  const handleDelete = (item) => {
     // Phase B (refined May 5) — only block delete on items that came
     // from Petpooja. Local items stay deletable so admins can clean up
     // pre-connect rows that don't have a petpoojaItemId.
@@ -390,23 +397,31 @@ export default function AdminItems() {
       return;
     }
     const refs = itemRefs[item.id];
-    let confirmMsg = `Delete "${item.name}"? This cannot be undone.`;
+    let body = 'This cannot be undone.';
     if (refs) {
       const parts = [];
       if (refs.combos.length) parts.push(`${refs.combos.length} combo${refs.combos.length === 1 ? '' : 's'} (${refs.combos.slice(0, 3).join(', ')}${refs.combos.length > 3 ? '…' : ''})`);
       if (refs.offers.length) parts.push(`${refs.offers.length} offer${refs.offers.length === 1 ? '' : 's'} (${refs.offers.slice(0, 3).join(', ')}${refs.offers.length > 3 ? '…' : ''})`);
       if (parts.length) {
-        confirmMsg = `"${item.name}" is linked in ${parts.join(' and ')}.\n\nDeleting will break those references. Continue?`;
+        body = `"${item.name}" is linked in ${parts.join(' and ')}. Deleting will break those references. Continue?`;
       }
     }
-    if (!confirm(confirmMsg)) return;
-    setDeleting(item.id);
-    try {
-      await deleteMenuItem(rid, item.id);
-      toast.success(`"${item.name}" deleted`);
-      await load();
-    } catch { toast.error('Delete failed'); }
-    finally { setDeleting(null); }
+    setConfirmDialog({
+      title: `Delete "${item.name}"?`,
+      body,
+      confirmLabel: 'Yes, delete',
+      cancelLabel: 'Keep item',
+      destructive: true,
+      onConfirm: async () => {
+        setDeleting(item.id);
+        try {
+          await deleteMenuItem(rid, item.id);
+          toast.success(`"${item.name}" deleted`);
+          await load();
+        } catch { toast.error('Delete failed'); }
+        finally { setDeleting(null); }
+      },
+    });
   };
 
   // ═══ Drag reorder ═══
@@ -513,18 +528,26 @@ export default function AdminItems() {
     } finally { setBulkBusy(null); }
   };
 
-  const bulkDelete = async () => {
+  const bulkDelete = () => {
     if (selectedItems.length === 0) return;
-    if (!confirm(`Delete ${selectedItems.length} item${selectedItems.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
-    setBulkBusy('delete');
-    try {
-      await Promise.all(selectedItems.map(i => deleteMenuItem(rid, i.id)));
-      toast.success(`${selectedItems.length} deleted.`);
-      sel.clear();
-      await load();
-    } catch (e) {
-      console.error(e); toast.error('Bulk delete failed.');
-    } finally { setBulkBusy(null); }
+    setConfirmDialog({
+      title: `Delete ${selectedItems.length} item${selectedItems.length === 1 ? '' : 's'}?`,
+      body: 'This cannot be undone.',
+      confirmLabel: 'Yes, delete all',
+      cancelLabel: 'Keep items',
+      destructive: true,
+      onConfirm: async () => {
+        setBulkBusy('delete');
+        try {
+          await Promise.all(selectedItems.map(i => deleteMenuItem(rid, i.id)));
+          toast.success(`${selectedItems.length} deleted.`);
+          sel.clear();
+          await load();
+        } catch (e) {
+          console.error(e); toast.error('Bulk delete failed.');
+        } finally { setBulkBusy(null); }
+      },
+    });
   };
 
   // ═══ Bulk image optimization ═══
@@ -1552,6 +1575,14 @@ export default function AdminItems() {
           ]}
         />
       </div>
+
+      {/* Card-style confirmation dialog (replaces native confirm()
+          for delete prompts). */}
+      <ConfirmModal
+        open={!!confirmDialog}
+        {...(confirmDialog || {})}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </AdminLayout>
   );
 }
