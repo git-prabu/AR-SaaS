@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AR Viewer</title>
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #111113; overflow: hidden; }
@@ -13,8 +13,6 @@
       width: 100%;
       height: 100%;
       --poster-color: transparent;
-      /* Reticle (the placement dot) — make it more visible */
-      --ar-mode-prompt-color: rgba(255, 107, 53, 0.95);
     }
 
     #overlay {
@@ -78,84 +76,21 @@
       text-align: center;
       white-space: nowrap;
     }
-
-    /* In-AR scan helper — shown while the AR engine is hunting for a
-       surface. Overlays the camera feed so the user knows they need to
-       move the phone, not stand still. The model-viewer "ar-tracking"
-       event drives display state. */
-    #ar-scan-help {
-      display: none;
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 1000;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      padding-bottom: 32%;
-    }
-    #ar-scan-help.active { display: flex; }
-    .scan-card {
-      background: rgba(0,0,0,0.78);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      color: #fff;
-      padding: 14px 18px;
-      border-radius: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 13px;
-      line-height: 1.45;
-      max-width: 280px;
-      text-align: center;
-      box-shadow: 0 6px 28px rgba(0,0,0,0.4);
-    }
-    .scan-card strong { color: #FF8C53; display: block; margin-bottom: 4px; }
-    .scan-icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-      animation: scan-wiggle 1.4s ease-in-out infinite;
-      display: inline-block;
-    }
-    @keyframes scan-wiggle {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-12px) rotate(-8deg); }
-      75% { transform: translateX(12px) rotate(8deg); }
-    }
   </style>
 </head>
 <body>
-  <!-- AR config (May 8 tuning):
-       - ar-placement="floor" — explicit so Scene Viewer / WebXR know
-         to look for horizontal planes (table tops + floor). Default
-         is "floor" but explicit is clearer.
-       - ar-scale="auto" — model uses its own real-world scale from
-         the GLB. If a dish appears giant or tiny in AR, the GLB was
-         exported in metres-incorrect units; fix at export time.
-       - interaction-prompt="auto" + interaction-prompt-style="basic" —
-         shows a hand-rotation hint after 1s idle so users know they
-         can spin the model in the preview.
-       - xr-environment — uses lighting estimation from the camera in
-         WebXR for more realistic AR look (Android Chrome only). -->
   <model-viewer
     id="viewer"
     ar
     ar-modes="webxr scene-viewer quick-look"
-    ar-placement="floor"
     ar-scale="auto"
-    xr-environment
     camera-controls
-    interaction-prompt="auto"
-    interaction-prompt-style="basic"
-    interaction-prompt-threshold="1500"
     auto-rotate
     auto-rotate-delay="1500"
-    shadow-intensity="1.2"
-    shadow-softness="0.8"
+    shadow-intensity="1"
     environment-image="neutral"
-    exposure="1.1"
     loading="eager"
     reveal="auto"
-    quick-look-browsers="safari chrome"
   >
     <button slot="ar-button" id="ar-btn">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -175,24 +110,12 @@
 
   <div id="error-msg">⚠ Could not load 3D model</div>
 
-  <!-- In-AR scan-help overlay. Renders on top of model-viewer's WebXR
-       camera feed when the AR engine is still searching for a surface,
-       and disappears once a plane is detected. -->
-  <div id="ar-scan-help">
-    <div class="scan-card">
-      <div class="scan-icon">📱</div>
-      <strong>Looking for a surface…</strong>
-      Move your phone slowly across a well-lit table or floor. Plain or shiny surfaces take longer — point at something with texture (wood grain, fabric, patterned tile).
-    </div>
-  </div>
-
   <script>
     const viewer = document.getElementById('viewer');
     const overlay = document.getElementById('overlay');
     const arBtn = document.getElementById('ar-btn');
     const statusText = document.getElementById('status-text');
     const errorMsg = document.getElementById('error-msg');
-    const scanHelp = document.getElementById('ar-scan-help');
 
     const params = new URLSearchParams(window.location.search);
     const src = params.get('src');
@@ -228,39 +151,13 @@
       errorMsg.style.display = 'block';
     });
 
-    // AR session lifecycle:
-    //   - 'not-presenting' → user not in AR yet (or has exited)
-    //   - 'session-started' → camera feed is up, hunting for surface
-    //   - 'object-placed' → plane detected, model pinned
-    //   - 'failed' → AR couldn't start at all (no support / permission denied)
+    // Notify parent frame when AR launches
     viewer.addEventListener('ar-status', (e) => {
-      const status = e.detail.status;
-      if (status === 'session-started') {
-        scanHelp.classList.add('active');
+      if (e.detail.status === 'session-started') {
         window.parent.postMessage({ type: 'ar-launched' }, '*');
-      } else if (status === 'object-placed') {
-        scanHelp.classList.remove('active');
-      } else if (status === 'not-presenting') {
-        scanHelp.classList.remove('active');
-      } else if (status === 'failed') {
-        scanHelp.classList.remove('active');
-        alert('AR not supported on this device or browser. Use a recent Android Chrome or iOS Safari.');
       }
-    });
-
-    // 'ar-tracking' fires while WebXR is searching for / tracking a
-    // surface. We use it to keep the scan-help visible while the
-    // engine is still in 'not-tracking' or 'low-tracking' state.
-    viewer.addEventListener('ar-tracking', (e) => {
-      const ts = e.detail.status;
-      if (ts === 'tracking') {
-        // Surface found and stable — but the user still needs to TAP
-        // to place. Keep the help visible until they place; on
-        // 'object-placed' (above) we hide it.
-      } else {
-        // 'not-tracking' — engine lost the surface or is still searching.
-        // Re-show the scan help if it was hidden.
-        scanHelp.classList.add('active');
+      if (e.detail.status === 'failed') {
+        alert('AR not supported on this device or browser.');
       }
     });
   </script>

@@ -26,7 +26,7 @@ export function ARViewerEmbed({ modelURL, itemName }) {
         />
       </div>
       <p className="text-center text-xs text-text-muted pb-1">
-        Tap &quot;View in AR&quot; · Works on Android Chrome &amp; iOS Safari/Chrome · Aim at a well-lit textured surface (table top, wood grain, patterned tile)
+        Wait for model to load · Works on Android Chrome &amp; iOS Safari/Chrome
       </p>
     </div>
   );
