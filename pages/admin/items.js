@@ -329,14 +329,22 @@ export default function AdminItems() {
 
   // ═══ Save drawer form ═══
   const handleSave = async () => {
-    // Phase B (refined May 5) — only block edits when the SPECIFIC item
-    // is mirrored from Petpooja (has a petpoojaItemId). Local items the
-    // admin created in Advert Radical (combos, customs, items added
-    // before connecting) stay fully editable. Image / AR / discovery
-    // tags are still always editable (overlay fields).
+    // Phase B (refined May 5+8) — gate edits based on item provenance.
+    //   - Item from Petpooja + currently hybrid → edit in Petpooja, sync.
+    //   - Item from Petpooja + downgraded off Pro → frozen. Admin can
+    //     re-upgrade + reconnect to manage these. Without this gate, a
+    //     downgraded restaurant could edit a synced item and re-enable
+    //     it on the menu, bypassing the Pro plan paywall.
+    //   - Local item (no petpoojaItemId) → always editable.
+    // Image / AR / discovery tags use separate inline flows and stay
+    // available regardless.
     const editingItem = items.find(i => i.id === editingId);
-    if (isHybrid && editingItem?.petpoojaItemId) {
-      toast.error('This item is managed in Petpooja. Edit name/price/category there, then sync from /admin/petpooja-connect.');
+    if (editingItem?.petpoojaItemId) {
+      if (isHybrid) {
+        toast.error('This item is managed in Petpooja. Edit name/price/category there, then sync from /admin/petpooja-connect.');
+      } else {
+        toast.error('This item came from Petpooja. Re-upgrade to Pro and reconnect Petpooja to manage it.');
+      }
       return;
     }
     if (!form.name?.trim()) return toast.error('Item name is required');
@@ -453,7 +461,18 @@ export default function AdminItems() {
   };
 
   // ═══ Row-level toggles ═══
+  // Plan enforcement (May 8): Petpooja-mirrored items can only be
+  // re-activated when the restaurant is currently on a Pro plan AND
+  // connected to Petpooja (isHybrid). Otherwise a downgraded restaurant
+  // could re-show items they imported while on Pro — defeating the
+  // value of the Pro tier. Hiding them is always allowed (no harm in
+  // letting admins clean up their own menu).
   const toggleActive = async (item) => {
+    const wantToShow = item.isActive === false;  // currently hidden, click = show
+    if (wantToShow && item.petpoojaItemId && !isHybrid) {
+      toast.error('This item came from Petpooja. Re-upgrade to Pro and reconnect Petpooja to show it on your menu.');
+      return;
+    }
     try { await updateMenuItem(rid, item.id, { isActive: !item.isActive }); await load(); }
     catch { toast.error('Update failed'); }
   };
