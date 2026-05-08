@@ -3409,6 +3409,59 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           .grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
         }
 
+        /* ─────────── QUICK-ADD (May 8) ───────────
+           Floating + button in the bottom-right of every card image.
+           Tap → adds 1 to cart without opening the detail modal.
+           Once in cart, morphs into a − N + stepper for further qty
+           changes. Items with variants (Half/Full etc.) open the
+           detail modal instead so the customer picks a variant —
+           we surface that intent with the same + button but route
+           the click to openItem(). */
+        .quick-add {
+          position: absolute;
+          right: 10px; bottom: 10px;
+          z-index: 3;
+          display: inline-flex; align-items: center; justify-content: center;
+          min-width: 36px; height: 36px;
+          padding: 0 4px;
+          border-radius: 999px;
+          background: #FFFFFF;
+          color: #E05A3A;
+          font-family: 'Inter', sans-serif;
+          font-size: 16px; font-weight: 800; line-height: 1;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.18), 0 0 0 1.5px rgba(224,90,58,0.30);
+          cursor: pointer;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+        .quick-add:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(224,90,58,0.32); }
+        .quick-add:active { transform: translateY(0); }
+        .quick-add.in-cart {
+          background: linear-gradient(135deg, #F79B3D, #FFB86B);
+          color: #FFFFFF;
+          gap: 4px;
+          padding: 0 6px;
+          box-shadow: 0 4px 14px rgba(247,155,61,0.45);
+        }
+        .quick-add .qa-step {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 24px; height: 24px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.22);
+          font-size: 16px; font-weight: 800; line-height: 1;
+          transition: background 0.15s ease;
+        }
+        .quick-add .qa-step:hover { background: rgba(255,255,255,0.36); }
+        .quick-add .qa-qty {
+          min-width: 18px; text-align: center;
+          font-size: 13px; font-weight: 800;
+          letter-spacing: 0.02em;
+        }
+        .quick-add.disabled { opacity: 0.45; cursor: not-allowed; }
+        .dm .quick-add { background: #FFF5E8; color: #E05A3A; }
+        .dm .quick-add.in-cart { background: linear-gradient(135deg, #F79B3D, #FFB86B); color: #1E1B18; }
+
         /* ─────────── CATEGORY SECTIONS (May 8 menu redesign) ───────────
            Each category is a horizontal-scroll row of full-info cards.
            Mobile: ~85% width per card so the next card peeks (signals
@@ -4858,6 +4911,69 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     {!item.soldOut && item.offerBadge && item.offerLabel && (
                       <div className="c-ribbon" style={{ background: item.offerColor || '#F79B3D' }}>🏷 {item.offerLabel}</div>
                     )}
+                    {/* Quick-add (May 8). Lives inside c-img so it sits
+                        over the dish photo bottom-right. Items with
+                        variants route the tap to openItem() so the
+                        customer can pick (Half/Full etc.); plain items
+                        do an instant base-price quick-add. The card's
+                        own button gets stopPropagation so tapping +
+                        doesn't also open the modal. role="button" +
+                        tabIndex keep it accessible without nesting a
+                        real <button> inside the card's <button>. */}
+                    {!item.soldOut && !item.isOutOfStock && (() => {
+                      const hasVariants = Array.isArray(item.variants) && item.variants.length > 0;
+                      const baseEntry = cart.find(c => (c.cartKey || c.id) === item.id);
+                      const baseQty = baseEntry?.qty || 0;
+                      const handle = (e, action) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (hasVariants && action === 'add') { openItem(item); return; }
+                        if (action === 'add') addToCart(item);
+                        else if (action === 'remove') removeFromCart(item.id);
+                      };
+                      const onKey = (e, action) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handle(e, action); }
+                      };
+                      if (baseQty === 0) {
+                        return (
+                          <span
+                            className="quick-add"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={hasVariants ? `Open ${item.name} to choose options` : `Add ${item.name} to cart`}
+                            onClick={(e) => handle(e, 'add')}
+                            onKeyDown={(e) => onKey(e, 'add')}
+                          >
+                            +
+                          </span>
+                        );
+                      }
+                      return (
+                        <span
+                          className="quick-add in-cart"
+                          aria-label={`${item.name} in cart`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span
+                            className="qa-step"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Remove one ${item.name}`}
+                            onClick={(e) => handle(e, 'remove')}
+                            onKeyDown={(e) => onKey(e, 'remove')}
+                          >−</span>
+                          <span className="qa-qty">{baseQty}</span>
+                          <span
+                            className="qa-step"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Add another ${item.name}`}
+                            onClick={(e) => handle(e, 'add')}
+                            onKeyDown={(e) => onKey(e, 'add')}
+                          >+</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="c-body">
                     {(item.isPopular || item.isFeatured) && (
