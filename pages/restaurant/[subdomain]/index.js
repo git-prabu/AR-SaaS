@@ -1059,6 +1059,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // welcome doesn't flash over a loading skeleton on slow networks.
   const [welcomeOpen, setWelcomeOpen] = useState(false);
 
+  // Order-more upsell card shown ONLY on dine-in, AFTER the rating is
+  // submitted or closed. From there the customer either:
+  //   - taps "Order more" → card closes, customer is on the menu and
+  //     can place another order normally; or
+  //   - dismisses the card (X / backdrop) → we treat that as "no, get
+  //     the bill" and open the bill modal with payment method picker.
+  // Declared here (near the other modal-overlay flags) so the body-
+  // scroll-lock useEffect's deps array can reference it without a
+  // temporal-dead-zone error at render. Suppressed for takeaway since
+  // they walk away after pickup.
+  const [showOrderMoreCard, setShowOrderMoreCard] = useState(false);
+
   // ── Table-session enforcement ─────────────────────────────────────────
   // The customer's QR URL has the form `?table=N&sid=...`. We must reject:
   //   1. A guessed table number (no sid)               → no urlSid
@@ -2012,14 +2024,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     }
   }, [sessionOrders, ratedOrderIds, feedbackForOrderId]);
 
-  // Order-more upsell card shown ONLY on dine-in, AFTER the rating is
-  // submitted or closed. From there the customer either:
-  //   - taps "Order more" → card closes, customer is on the menu and
-  //     can place another order normally; or
-  //   - dismisses the card (X / backdrop) → we treat that as "no, get
-  //     the bill" and open the bill modal with payment method picker.
-  // Suppressed for takeaway since they walk away after pickup.
-  const [showOrderMoreCard, setShowOrderMoreCard] = useState(false);
+  // (showOrderMoreCard state declared earlier, near the other modal-
+  // overlay flags, so the body-scroll-lock useEffect's deps array can
+  // reference it without a TDZ error during component render.)
 
   // Mark an order as "we've asked about this" — used on both submit
   // and skip paths, plus persisted to sessionStorage so reload doesn't
