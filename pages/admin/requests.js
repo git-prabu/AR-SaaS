@@ -80,27 +80,65 @@ function fetchWithTimeout(url, ms = 8000) {
 }
 
 async function fetchIngredientNutrition(ingredientRaw) {
-  const { name, grams: specifiedGrams } = parseIngredient(ingredientRaw);
-  const portionGrams = specifiedGrams ?? smartDefault(name);
+  const { name: ingredientName, grams: specifiedGrams } = parseIngredient(ingredientRaw);
+  const portionGrams = specifiedGrams ?? smartDefault(ingredientName);
   try {
-    const searchRes = await fetchWithTimeout(
-      `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(name)}&pageSize=1&api_key=${USDA_KEY}`
-    );
+    // (May 8 fixes)
+    //   - dataType=Foundation,SR Legacy: USDA's canonical entries with
+    //     full nutrient profiles. Without this filter we'd often pull a
+    //     branded product (e.g. a frozen-meal SKU) which has incomplete
+    //     or weirdly-scaled nutrients.
+    //   - pageSize=5 + best-match selection: pageSize=1 sometimes
+    //     returned a hyper-specific subtype (e.g. "rice cake" for
+    //     "rice"). We fetch up to 5 and prefer the entry whose
+    //     description most closely matches the typed ingredient.
+    const url = 'https://api.nal.usda.gov/fdc/v1/foods/search'
+      + `?query=${encodeURIComponent(ingredientName)}`
+      + '&dataType=Foundation,SR%20Legacy'
+      + '&pageSize=5'
+      + `&api_key=${USDA_KEY}`;
+    const searchRes = await fetchWithTimeout(url);
     const searchData = await searchRes.json();
-    const food = searchData.foods?.[0];
-    if (!food) return null;
+    const candidates = searchData.foods || [];
+    if (candidates.length === 0) return null;
+
+    // Prefer the candidate whose description matches the typed name
+    // most closely (case-insensitive substring), falling back to the
+    // first result. This consistently gets "Rice, white, long-grain"
+    // for "rice" instead of "Rice cake, brown rice, plain".
+    const lowerIng = ingredientName.toLowerCase();
+    const food = candidates.find(c => (c.description || '').toLowerCase().split(',')[0].trim() === lowerIng)
+              || candidates.find(c => (c.description || '').toLowerCase().includes(lowerIng))
+              || candidates[0];
+
     const scale = portionGrams / 100;
     const nutrients = { calories: 0, protein: 0, carbs: 0, fats: 0 };
     (food.foodNutrients || []).forEach(n => {
-      const name = (n.nutrientName || '').toLowerCase();
+      const nName = (n.nutrientName || '').toLowerCase();
       const unit = (n.unitName || '').toLowerCase();
-      const val = n.value || 0;
-      if (name === 'energy' && unit === 'kcal') nutrients.calories = val;
-      if (name.startsWith('energy') && unit === 'kcal' && nutrients.calories === 0) nutrients.calories = val;
-      if (name === 'protein') nutrients.protein = val;
-      if (name.includes('carbohydrate, by difference')) nutrients.carbs = val;
-      if (name === 'total lipid (fat)') nutrients.fats = val;
+      const val = Number(n.value) || 0;
+      // Calories — only accept the kcal entry. USDA also returns
+      // "Energy (Atwater General Factors)" in kJ which we ignore.
+      if ((nName === 'energy' || nName.startsWith('energy')) && unit === 'kcal' && nutrients.calories === 0) {
+        nutrients.calories = val;
+      }
+      // Macros — must be in grams. Without the unit guard we'd
+      // occasionally pick up a percent-DRV value and produce wildly
+      // wrong totals.
+      if (unit !== 'g') return;
+      if (nName === 'protein') nutrients.protein = val;
+      else if (nName.includes('carbohydrate, by difference')) nutrients.carbs = val;
+      else if (nName === 'total lipid (fat)') nutrients.fats = val;
     });
+
+    // Sanity check — if every macro AND calories came back as zero,
+    // the entry was effectively empty (e.g. a "water" record). Treat
+    // as "not found" so the caller can flag it as missed instead of
+    // silently adding zeros to the running total.
+    if (!nutrients.calories && !nutrients.protein && !nutrients.carbs && !nutrients.fats) {
+      return null;
+    }
+
     return {
       calories: nutrients.calories * scale,
       protein:  nutrients.protein  * scale,

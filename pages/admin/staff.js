@@ -3,7 +3,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
-import { getStaffMembers } from '../../lib/db';
+import { getStaffMembers, getRestaurantById } from '../../lib/db';
+import toast from 'react-hot-toast';
 import { auth } from '../../lib/firebase';
 
 // ═══ Aspire palette — same tokens as analytics/kitchen/waiter ═══
@@ -155,6 +156,16 @@ export default function StaffManagement() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  // Restaurant subdomain — needed for the "Restaurant Code" banner so the
+  // admin can share it with new staff. userData only has restaurantId, the
+  // subdomain lives on the restaurant doc.
+  const [subdomain, setSubdomain] = useState('');
+  useEffect(() => {
+    if (!rid) return;
+    getRestaurantById(rid)
+      .then(r => setSubdomain(r?.subdomain || ''))
+      .catch(() => setSubdomain(''));
+  }, [rid]);
 
   // Modal state — add/edit form
   const [modal, setModal] = useState(null); // null | 'add' | staffObj
@@ -436,6 +447,51 @@ export default function StaffManagement() {
               </button>
             </div>
           </div>
+
+          {/* ═══ Restaurant Code banner ═══
+              Surfaces the subdomain (== "restaurant code" on /staff/login)
+              so admins can read it off and share with new staff. Without
+              this, the only places the subdomain appears in admin are the
+              settings page URL preview and the QR-code page sidebar — both
+              easy to miss when an admin lands on /admin/staff to onboard
+              someone. */}
+          {subdomain && (
+            <div style={{
+              background: A.shell, border: A.border, borderRadius: 12,
+              padding: '14px 18px', marginBottom: 14,
+              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+            }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                  Restaurant Code
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: A.ink, letterSpacing: '0.02em' }}>
+                    {subdomain}
+                  </span>
+                  <span style={{ fontSize: 12, color: A.mutedText }}>
+                    Share with staff so they can sign in at <strong>{typeof window !== 'undefined' ? window.location.host : 'advertradical.vercel.app'}/staff/login</strong>
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+                  navigator.clipboard.writeText(subdomain).then(
+                    () => toast.success('Copied!'),
+                    () => toast.error('Could not copy. Select and copy manually.'),
+                  );
+                }}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: 'none',
+                  background: A.ink, color: A.cream, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: A.font, letterSpacing: '0.04em',
+                }}
+              >
+                Copy
+              </button>
+            </div>
+          )}
 
           {/* ═══ TEAM — matte-black signature stats card (LIVE TODAY pattern) ═══ */}
           <div style={{
