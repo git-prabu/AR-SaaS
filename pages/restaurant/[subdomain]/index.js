@@ -3444,45 +3444,69 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
            phone's screen and lands on a table beside it — same idea
            the customer will see when they tap "View in AR". */
         .ar-strip {
-          /* v2 (May 8): centred copy + bigger SVG, no TRY-IT chip
-             (the chip didn't actually do anything — felt like a broken
-             button). Card content is centred horizontally so the
-             headline/subtitle reads as a focal element rather than a
-             text block competing with a pseudo-CTA. */
-          display: flex; flex-direction: column;
-          align-items: center; gap: 4px;
-          padding: 16px 20px; margin-bottom: 20px;
-          background: linear-gradient(135deg, #FFFFFF 0%, #FFF8EA 100%);
-          border: 1px solid rgba(247,155,61,0.25);
-          border-radius: 16px;
-          box-shadow: 0 2px 10px rgba(247,155,61,0.10), 0 1px 3px rgba(0,0,0,0.04);
+          /* v3 (May 8): compact horizontal layout. v2 was vertical and
+             ate too much vertical space above the menu. Now the SVG
+             sits on the left and the text sits on the right, total
+             height ~96px. Background uses a subtle gold/cream gradient
+             with a soft inner glow so it doesn't read as flat. */
+          display: flex; flex-direction: row;
+          align-items: center; gap: 16px;
+          padding: 12px 18px; margin-bottom: 18px;
+          background:
+            radial-gradient(ellipse at 12% 50%, rgba(247,155,61,0.16), transparent 55%),
+            linear-gradient(135deg, #FFFFFF 0%, #FFF6E4 100%);
+          border: 1px solid rgba(247,155,61,0.30);
+          border-radius: 18px;
+          box-shadow: 0 4px 16px rgba(247,155,61,0.10), 0 1px 3px rgba(0,0,0,0.04);
           animation: fadeUp 0.4s ease both;
           overflow: hidden;
-          text-align: center;
+          position: relative;
+        }
+        /* Subtle decorative corner sparkle so the card has texture even
+           when the dish animation is mid-fade. */
+        .ar-strip::after {
+          content: '';
+          position: absolute;
+          top: -20px; right: -20px;
+          width: 80px; height: 80px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,200,100,0.25), transparent 70%);
+          pointer-events: none;
         }
         .ar-strip-svg {
-          width: 200px; height: 120px;
-          margin-bottom: 4px;
+          width: 110px; height: 72px;
+          flex-shrink: 0;
+          z-index: 1;
         }
-        .ar-strip-text { font-size: 16px; font-weight: 700; color: #1E1B18; letter-spacing: -0.3px; line-height: 1.2; }
-        .ar-strip-sub  { font-size: 12px; color: rgba(42,31,16,0.55); margin-top: 4px; line-height: 1.4; }
+        .ar-strip-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; z-index: 1; }
+        .ar-strip-text { font-size: 15px; font-weight: 700; color: #1E1B18; letter-spacing: -0.3px; line-height: 1.2; }
+        .ar-strip-sub  { font-size: 11.5px; color: rgba(42,31,16,0.62); line-height: 1.4; }
+        .ar-strip-pill {
+          display: inline-flex; align-items: center; gap: 4px;
+          padding: 2px 8px;
+          margin-top: 4px;
+          align-self: flex-start;
+          font-size: 10px; font-weight: 700;
+          letter-spacing: 0.04em; text-transform: uppercase;
+          color: #C97A1A;
+          background: rgba(247,155,61,0.14);
+          border-radius: 999px;
+        }
+        .dm .ar-strip-pill { color: #FFC972; background: rgba(247,155,61,0.20); }
 
-        /* SVG animation v2: a fuller, layered scene.
-             - Phone on the left, screen glowing
-             - Wooden table stretching to the right
-             - Plate rising from the phone screen, drifting up, then
-               settling onto the table with a small bounce
-             - Steam-style rays + a soft AR shimmer ring on the table
-               where the plate lands */
+        /* SVG animation v3 — same arc, scaled for the smaller 200×120
+           viewBox in a compact horizontal banner. Plate launches from
+           phone screen (~52,78), drifts up + right, lands on the
+           table at ~150,96 with a soft drop, then fades and resets. */
         .ar-strip-svg .ar-dish {
           transform-box: view-box;
           transform-origin: 0 0;
           animation: ar-dish-fly 5s cubic-bezier(0.42, 0, 0.18, 1) infinite;
         }
         @keyframes ar-dish-fly {
-          0%   { transform: translate(50px, 78px) scale(0.18); opacity: 0; }
-          10%  { transform: translate(50px, 76px) scale(0.40); opacity: 1; }
-          38%  { transform: translate(50px, 50px) scale(0.85); opacity: 1; }
+          0%   { transform: translate(52px, 78px) scale(0.18); opacity: 0; }
+          10%  { transform: translate(52px, 76px) scale(0.40); opacity: 1; }
+          38%  { transform: translate(52px, 50px) scale(0.85); opacity: 1; }
           58%  { transform: translate(150px, 92px) scale(1.05); opacity: 1; }
           66%  { transform: translate(150px, 96px) scale(1); opacity: 1; }
           90%  { transform: translate(150px, 96px) scale(1); opacity: 1; }
@@ -5026,8 +5050,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <circle cx="-2" cy="-3.4" r="0.9" fill="#5DA068" />
                 </g>
               </svg>
-              <div className="ar-strip-text">See it on your table</div>
-              <div className="ar-strip-sub">{arCount} dish{arCount !== 1 ? 'es' : ''} marked AR · tap a card with the AR pill, then “View in AR”</div>
+              <div className="ar-strip-copy">
+                <div className="ar-strip-text">See it on your table</div>
+                <div className="ar-strip-sub">Tap any card with the <strong>AR</strong> pill, then “View in AR” to preview the dish in front of you.</div>
+                <span className="ar-strip-pill">★ {arCount} {arCount === 1 ? 'dish' : 'dishes'} ready</span>
+              </div>
             </div>
           )}
 
