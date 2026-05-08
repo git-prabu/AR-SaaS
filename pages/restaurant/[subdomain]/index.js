@@ -927,6 +927,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // active. Scoped to name + description match for now; can grow to
   // include category, ingredient, or dietary tags later.
   const [menuSearch, setMenuSearch] = useState('');
+  // Search expansion: tap the header icon → expand the input row.
+  // Stays open while there's a typed query; closes when the user
+  // clears + dismisses. Keeps the header compact when not searching.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const menuSearchInputRef = useRef(null);
   const [selectedItem, setSelectedItem] = useState(null);
   // Modifier selection for the currently-open item modal. Resets whenever
   // selectedItem changes. { variant: {name, priceDelta} | null, addOns: [...] }
@@ -3362,19 +3367,62 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           flex-shrink: 0;
         }
 
+        /* iOS auto-zoom guard: any input/textarea/select with a
+           font-size below 16px causes Mobile Safari to zoom in when
+           focused. Force a minimum of 16px on every text input across
+           the customer page. Desktop is unaffected (16px reads fine).
+           Where a smaller-looking input is desired, scale it down via
+           padding + line-height instead of font-size. */
+        input[type="text"], input[type="search"], input[type="number"],
+        input[type="email"], input[type="tel"], input[type="password"],
+        textarea {
+          font-size: 16px;
+        }
+
         /* ─────────── MENU SEARCH BAR (May 8) ───────────
-           Sticky search input that lives just above the category
-           strip in the header. Typing filters items across all
-           categories and the page swaps to a flat result list. */
+           Search lives in the header now — a small icon next to the
+           language picker. Tap → expands an inline pill input that
+           pushes the AR / language widgets out of view; clearing or
+           dismissing collapses back to just the icon. */
+        /* Search icon button in the header — same hit area as the
+           language picker, lives next to the AR Live badge. */
+        .hdr-search-btn {
+          width: 34px; height: 34px;
+          border-radius: 50%;
+          background: rgba(247,155,61,0.10);
+          border: 1px solid rgba(247,155,61,0.22);
+          color: #C97A1A;
+          display: inline-flex; align-items: center; justify-content: center;
+          cursor: pointer; padding: 0;
+          flex-shrink: 0;
+          transition: background 0.15s ease, transform 0.15s ease;
+        }
+        .hdr-search-btn:hover { background: rgba(247,155,61,0.18); }
+        .hdr-search-btn:active { transform: scale(0.95); }
+        .hdr-search-btn.on {
+          background: #F79B3D; color: #FFFFFF;
+          border-color: rgba(247,155,61,0.55);
+          box-shadow: 0 4px 10px rgba(247,155,61,0.30);
+        }
+        .dm .hdr-search-btn { background: rgba(247,155,61,0.18); border-color: rgba(247,155,61,0.30); color: #FFC972; }
+
+        /* When expanded the search input occupies the full second
+           row of the header — same width as the cat-tile-strip — so
+           the typed query is comfortable to read and clear. */
         .menu-search {
           display: flex; align-items: center; gap: 8px;
           padding: 8px 14px;
-          margin: 0 4px 8px;
+          margin: 8px 4px;
           background: #FFFFFF;
-          border: 1px solid rgba(42,31,16,0.08);
+          border: 1px solid rgba(247,155,61,0.30);
           border-radius: 999px;
           box-shadow: 0 1px 3px rgba(0,0,0,0.04);
           transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          animation: menuSearchSlide 0.22s ease both;
+        }
+        @keyframes menuSearchSlide {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         .menu-search:focus-within {
           border-color: rgba(247,155,61,0.55);
@@ -3385,7 +3433,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           flex: 1; min-width: 0;
           border: none; background: transparent; outline: none;
           font-family: 'Inter', sans-serif;
-          font-size: 14px; color: #1E1B18;
+          /* 16px stays — global rule above already protects against iOS
+             zoom but spelled here too so the styling is self-evident. */
+          font-size: 16px; color: #1E1B18;
           padding: 4px 0;
         }
         .menu-search input::placeholder { color: rgba(42,31,16,0.42); }
@@ -4877,8 +4927,34 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   </svg>
                 </span>
               </button>
-              {/* ── Right group: AR badge + language picker — pushed to end via margin-left:auto ── */}
+              {/* ── Right group: search + AR badge + language picker — pushed to end via margin-left:auto ── */}
               <div className="hdr-right">
+                {/* Search icon (May 8 redesign) — tap to expand the
+                    full-width search row in cats-outer below.
+                    Highlighted when active or when there's typed text. */}
+                <button
+                  type="button"
+                  className={`hdr-search-btn${searchOpen || menuSearch ? ' on' : ''}`}
+                  onClick={() => {
+                    setSearchOpen((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        // Defer focus to after the row mounts.
+                        setTimeout(() => menuSearchInputRef.current?.focus(), 30);
+                      } else {
+                        setMenuSearch('');
+                      }
+                      return next;
+                    });
+                  }}
+                  aria-label={searchOpen ? 'Close search' : 'Search dishes'}
+                  title={searchOpen ? 'Close search' : 'Search dishes'}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </button>
                 {arCount > 0 && (
                   <div className="ar-badge"><span className="ar-dot" /><span className="shiny-txt">{t.arLive}</span></div>
                 )}
@@ -4892,33 +4968,62 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </div>
               </div>
             </div>
-            {/* Menu search bar (May 8). Sticky above the category
-                tiles so customers can find an item by name or
-                description without scrolling through every category. */}
+            {/* Menu search bar (May 8). Toggled by the header search
+                icon. Has its own onSubmit so pressing Enter / Search /
+                Go on a mobile keyboard blurs the input → keyboard
+                dismisses (was hanging open before). */}
             <div className="cats-outer">
-              <div className="menu-search" role="search">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  type="search"
-                  inputMode="search"
-                  autoComplete="off"
-                  placeholder={t.searchPlaceholder || 'Search dishes…'}
-                  value={menuSearch}
-                  onChange={(e) => setMenuSearch(e.target.value)}
-                  aria-label="Search dishes"
-                />
-                {menuSearch && (
-                  <button
-                    type="button"
-                    className="menu-search-clear"
-                    onClick={() => setMenuSearch('')}
-                    aria-label="Clear search"
-                  >×</button>
-                )}
-              </div>
+              {(searchOpen || menuSearch) && (
+                <form
+                  className="menu-search" role="search"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    // Blur the input to dismiss the on-screen keyboard.
+                    menuSearchInputRef.current?.blur();
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    ref={menuSearchInputRef}
+                    type="search"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    placeholder={t.searchPlaceholder || 'Search dishes…'}
+                    value={menuSearch}
+                    onChange={(e) => setMenuSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      } else if (e.key === 'Escape') {
+                        setMenuSearch('');
+                        setSearchOpen(false);
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    aria-label="Search dishes"
+                  />
+                  {menuSearch ? (
+                    <button
+                      type="button"
+                      className="menu-search-clear"
+                      onClick={() => setMenuSearch('')}
+                      aria-label="Clear search"
+                    >×</button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="menu-search-clear"
+                      onClick={() => { setSearchOpen(false); }}
+                      aria-label="Close search"
+                    >×</button>
+                  )}
+                </form>
+              )}
             {/* Category image-tile strip (May 8 redesign).
                 Replaces the old text pills. Tapping a tile scrolls
                 the page to the matching section id rendered by the

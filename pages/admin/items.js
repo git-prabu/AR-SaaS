@@ -496,8 +496,14 @@ export default function AdminItems() {
       // for the same category are easy to find later.
       const safeName = categoryName.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
       const path = buildImagePath(rid, `category_${safeName}_${file.name}`);
+      // Category nav tiles render at 64×64 CSS pixels (=128×128 on
+      // retina). Default uploadImage cap is 1200×1200 — appropriate
+      // for menu-item hero photos, way overkill for tiny circular
+      // tile thumbnails. Pass tighter caps so a 4 MB phone photo
+      // becomes ~30 KB instead of ~150 KB.
       const url = await uploadImage(file, path, (pct) =>
-        setCatImgUploading(s => ({ ...s, [categoryName]: pct }))
+        setCatImgUploading(s => ({ ...s, [categoryName]: pct })),
+        { maxWidth: 320, maxHeight: 320, quality: 0.82 },
       );
       const nextImages = { ...savedCategoryImages, [categoryName]: url };
       setSavedCategoryImages(nextImages);
