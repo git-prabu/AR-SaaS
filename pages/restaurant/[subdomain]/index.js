@@ -357,29 +357,53 @@ function SheetOverlay({ onClose, children, zIndex = 60, darkMode }) {
   const sheetRef = useRef(null);
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
-  const isDragging = useRef(false);
+  // 'pending' = touch started but we haven't decided yet whether the
+  // gesture is a sheet-drag or a content scroll.
+  // 'dragging' = committed; we own the gesture, content scroll is blocked.
+  // 'scrolling' = native scroll; we don't touch the gesture.
+  const gestureState = useRef('idle');
   const startTime = useRef(0);
+  const scrollAncestorRef = useRef(null);
   const [dragY, setDragY] = useState(0);
 
   const DISMISS_THRESHOLD = 120;
   const VELOCITY_THRESHOLD = 0.45;
+  const COMMIT_THRESHOLD = 8;  // px of downward movement before we commit to drag
+
+  // Walk up from the touch target inside the sheet to find the first
+  // scrollable ancestor (overflow:auto/scroll with content taller than
+  // its viewport). Returns null if there's no scroll inside the sheet,
+  // in which case any pull-down is a sheet drag.
+  const findScrollAncestor = (target) => {
+    let el = target;
+    while (el && el !== sheetRef.current && el !== document.body) {
+      if (el.scrollHeight > el.clientHeight) {
+        const overflowY = window.getComputedStyle(el).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  };
 
   const onTouchStart = (e) => {
     const sheet = sheetRef.current;
     if (!sheet) return;
     const touch = e.touches[0];
-    const rect = sheet.getBoundingClientRect();
-    // Only start drag if touch is within top 60px (handle zone)
-    if (touch.clientY - rect.top > 60) return;
-    isDragging.current = true;
+    // Don't gate on the 60px handle zone any more — start the gesture
+    // anywhere; touchmove decides whether it's a sheet-drag or a
+    // content scroll based on direction + scrollTop.
+    gestureState.current = 'pending';
     startYRef.current = touch.clientY;
     startTime.current = Date.now();
     currentYRef.current = 0;
+    scrollAncestorRef.current = findScrollAncestor(e.target);
   };
 
   const onTouchEnd = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
+    const wasDragging = gestureState.current === 'dragging';
+    gestureState.current = 'idle';
+    if (!wasDragging) return;
     const delta = currentYRef.current;
     const elapsed = Math.max(1, Date.now() - startTime.current);
     const velocity = delta / elapsed;
@@ -396,9 +420,29 @@ function SheetOverlay({ onClose, children, zIndex = 60, darkMode }) {
     const sheet = sheetRef.current;
     if (!sheet) return;
     const handleTouchMove = (e) => {
-      if (!isDragging.current) return;
-      e.preventDefault();
+      if (gestureState.current === 'idle' || gestureState.current === 'scrolling') return;
       const delta = e.touches[0].clientY - startYRef.current;
+      // Decide whether to commit to a sheet drag (Swiggy-style):
+      // commit only if pulling DOWN past the threshold AND the inner
+      // scroll ancestor is at the top (or there's no scroll ancestor).
+      if (gestureState.current === 'pending') {
+        if (delta < -2) {
+          // Pulling up — this is a content scroll (or a no-op).
+          gestureState.current = 'scrolling';
+          return;
+        }
+        if (delta < COMMIT_THRESHOLD) return;
+        const scroller = scrollAncestorRef.current;
+        const scrollTop = scroller ? scroller.scrollTop : 0;
+        if (scrollTop > 0) {
+          // Inner content can scroll up — let it.
+          gestureState.current = 'scrolling';
+          return;
+        }
+        gestureState.current = 'dragging';
+      }
+      if (gestureState.current !== 'dragging') return;
+      e.preventDefault();
       if (delta <= 0) { setDragY(0); return; }
       currentYRef.current = delta;
       setDragY(delta);
@@ -424,7 +468,7 @@ function SheetOverlay({ onClose, children, zIndex = 60, darkMode }) {
       style={{ position: 'fixed', inset: 0, zIndex, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: `rgba(0,0,0,${bgAlpha.toFixed(2)})`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', animation: 'fadeIn 0.18s ease' }}
       onClick={e => { if (e.target === e.currentTarget && onClose) onClose(); }}>
       <div ref={sheetRef}
-        style={{ width: '100%', transform: `translateY(${dragY}px)`, transition: isDragging.current ? 'none' : 'transform 0.32s cubic-bezier(0.32,0.72,0,1)', willChange: 'transform', display: 'flex', justifyContent: 'center' }}
+        style={{ width: '100%', transform: `translateY(${dragY}px)`, transition: gestureState.current === 'dragging' ? 'none' : 'transform 0.32s cubic-bezier(0.32,0.72,0,1)', willChange: 'transform', display: 'flex', justifyContent: 'center' }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}>
@@ -439,29 +483,46 @@ function SwipeableSheet({ onClose, children, darkMode }) {
   const sheetRef = useRef(null);
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
-  const isDragging = useRef(false);
+  // 'idle' | 'pending' | 'dragging' | 'scrolling' — same Swiggy-style
+  // gesture machine as SheetOverlay: any pull-down anywhere can close
+  // the sheet, but we only commit if the inner scrollable content is
+  // already at the top, otherwise we let native scrolling handle it.
+  const gestureState = useRef('idle');
   const startTime = useRef(0);
+  const scrollAncestorRef = useRef(null);
   const [dragY, setDragY] = useState(0);
 
   const DISMISS_THRESHOLD = 120; // px down to dismiss
   const VELOCITY_THRESHOLD = 0.45; // px/ms fast flick
+  const COMMIT_THRESHOLD = 8;
+
+  const findScrollAncestor = (target) => {
+    let el = target;
+    while (el && el !== sheetRef.current && el !== document.body) {
+      if (el.scrollHeight > el.clientHeight) {
+        const overflowY = window.getComputedStyle(el).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  };
 
   const onTouchStart = (e) => {
     const sheet = sheetRef.current;
     if (!sheet) return;
     const touch = e.touches[0];
-    const rect = sheet.getBoundingClientRect();
-    // Only start drag if touch is within top 60px (handle zone)
-    if (touch.clientY - rect.top > 60) return;
-    isDragging.current = true;
+    gestureState.current = 'pending';
     startYRef.current = touch.clientY;
     startTime.current = Date.now();
     currentYRef.current = 0;
+    scrollAncestorRef.current = findScrollAncestor(e.target);
   };
 
   const onTouchEnd = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
+    const wasDragging = gestureState.current === 'dragging';
+    gestureState.current = 'idle';
+    if (!wasDragging) return;
     const delta = currentYRef.current;
     const elapsed = Math.max(1, Date.now() - startTime.current);
     const velocity = delta / elapsed;
@@ -479,9 +540,18 @@ function SwipeableSheet({ onClose, children, darkMode }) {
     const sheet = sheetRef.current;
     if (!sheet) return;
     const handleTouchMove = (e) => {
-      if (!isDragging.current) return;
-      e.preventDefault(); // block background scroll during drag
+      if (gestureState.current === 'idle' || gestureState.current === 'scrolling') return;
       const delta = e.touches[0].clientY - startYRef.current;
+      if (gestureState.current === 'pending') {
+        if (delta < -2) { gestureState.current = 'scrolling'; return; }
+        if (delta < COMMIT_THRESHOLD) return;
+        const scroller = scrollAncestorRef.current;
+        const scrollTop = scroller ? scroller.scrollTop : 0;
+        if (scrollTop > 0) { gestureState.current = 'scrolling'; return; }
+        gestureState.current = 'dragging';
+      }
+      if (gestureState.current !== 'dragging') return;
+      e.preventDefault();
       if (delta <= 0) { setDragY(0); return; }
       currentYRef.current = delta;
       setDragY(delta);
@@ -503,7 +573,7 @@ function SwipeableSheet({ onClose, children, darkMode }) {
         style={{
           width: '100%', maxWidth: 540,
           transform: `translateY(${dragY}px)`,
-          transition: isDragging.current ? 'none' : 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
+          transition: gestureState.current === 'dragging' ? 'none' : 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
           willChange: 'transform',
         }}
         onTouchStart={onTouchStart}
@@ -3318,10 +3388,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .cat-tile-img {
           width: 64px; height: 64px;
           border-radius: 50%;
-          background: rgba(247,155,61,0.10);
+          /* Transparent fallback so the emoji/icon "floats" without a
+             tinted circle behind it. When an image (admin-uploaded or
+             first-item fallback) is set, background-image fills the
+             circle as before. */
+          background-color: transparent;
           background-size: cover; background-position: center;
           display: flex; align-items: center; justify-content: center;
-          font-size: 28px; line-height: 1;
+          font-size: 36px; line-height: 1;
           border: 2px solid transparent;
           transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
           flex-shrink: 0;
@@ -4957,8 +5031,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             </div>
           )}
 
-          {/* ── Combos Section ───────────────────────────────────── */}
-          {(combos || []).filter(c => c.isActive !== false).length > 0 && activeCat === 'All' && (
+          {/* ── Combos Section ─────────────────────────────────────
+              No longer gated on activeCat === 'All' — that gate dated
+              from when activeCat was a filter, and post-redesign
+              activeCat is just a scroll-target hint. With the gate in
+              place, tapping any category tile would silently hide the
+              combo deals; a page refresh brought them back. */}
+          {(combos || []).filter(c => c.isActive !== false).length > 0 && (
             <div className="combos-section-wrap" style={{ marginBottom: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 18 }}>🍱</span>
