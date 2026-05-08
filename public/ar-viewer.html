@@ -168,94 +168,56 @@
     }
 
     /* ── Pre-AR tutorial overlay ────────────────────────────────
-       Shown the FIRST time a user taps "View in AR" on a given
-       device. Critically important on iOS, where Apple's AR Quick
-       Look replaces our entire UI once AR launches — so we have to
-       teach the posture BEFORE handing off to Apple. On Android,
-       it's also useful as a one-shot orientation since users land
-       in WebXR immediately. localStorage gates it to once per device.
-
-       The card itself is centered, scrollable on tiny screens, and
-       presents the same SVG phone-tilt diagram from the in-AR scan
-       help so users see the gesture they need to perform. */
+       Compact one-time card shown the first time a user taps "View
+       in AR" on a given device (gated by localStorage). Critically
+       important on iOS, where Apple's AR Quick Look replaces our
+       entire UI once AR launches — this is the only chance to teach
+       the posture. Animation does the heavy lifting; copy is kept to
+       a title and one supporting line so the card always fits on a
+       short iframe without scrolling. */
     #pre-ar-tutorial {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.82);
+      background: rgba(0, 0, 0, 0.85);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 2000;
-      animation: fade-in 0.25s ease-out;
+      /* No fade animation — appearance must feel instant after tap. */
     }
     #pre-ar-tutorial.active { display: flex; }
-    @keyframes fade-in {
-      from { opacity: 0; }
-      to   { opacity: 1; }
-    }
     .tutorial-card {
       background: #1A1A1A;
       color: #fff;
-      max-width: 320px;
+      max-width: 300px;
       width: calc(100% - 32px);
-      padding: 24px 22px 20px;
+      padding: 18px 18px 16px;
       border-radius: 16px;
       text-align: center;
-      box-shadow: 0 12px 48px rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,140,83,0.25);
+      box-shadow: 0 12px 48px rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,140,83,0.3);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     .tutorial-card .tutorial-diagram {
-      width: 160px;
-      height: 110px;
-      margin: 0 auto 14px;
+      width: 200px;
+      height: 140px;
+      margin: 0 auto 8px;
       display: block;
-    }
-    .tutorial-card .tutorial-diagram .phone-group {
-      transform-origin: 55px 55px;
-      animation: scan-sweep 3s ease-in-out infinite;
-    }
-    .tutorial-card .tutorial-diagram .vision-cone {
-      animation: cone-pulse 3s ease-in-out infinite;
     }
     .tutorial-card h2 {
       color: #FF8C53;
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
-      margin-bottom: 10px;
+      margin-bottom: 4px;
       line-height: 1.3;
     }
     .tutorial-card p {
-      font-size: 13.5px;
-      line-height: 1.5;
-      color: rgba(255,255,255,0.85);
-      margin-bottom: 18px;
-    }
-    .tutorial-card .tutorial-tips {
-      text-align: left;
       font-size: 12.5px;
-      line-height: 1.6;
-      color: rgba(255,255,255,0.7);
-      background: rgba(255,255,255,0.04);
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 18px;
-    }
-    .tutorial-card .tutorial-tips li {
-      list-style: none;
-      padding-left: 18px;
-      position: relative;
-      margin-bottom: 4px;
-    }
-    .tutorial-card .tutorial-tips li:last-child { margin-bottom: 0; }
-    .tutorial-card .tutorial-tips li::before {
-      content: '✓';
-      color: #FF8C53;
-      font-weight: 700;
-      position: absolute;
-      left: 0;
+      line-height: 1.4;
+      color: rgba(255,255,255,0.75);
+      margin-bottom: 14px;
     }
     .tutorial-card button {
       width: 100%;
@@ -263,19 +225,64 @@
       color: #fff;
       border: none;
       border-radius: 10px;
-      padding: 13px 0;
-      font-size: 15px;
+      padding: 12px 0;
+      font-size: 14px;
       font-weight: 700;
       font-family: inherit;
       cursor: pointer;
       box-shadow: 0 4px 16px rgba(255,107,53,0.35);
     }
     .tutorial-card button:active { transform: translateY(1px); }
-    .tutorial-card .skip-hint {
-      display: block;
-      margin-top: 10px;
-      font-size: 11px;
-      color: rgba(255,255,255,0.4);
+
+    /* ── Tutorial diagram animation ─────────────────────────────
+       Three concurrent motions sell the "hover above surface, look
+       down" gesture that ARCore/ARKit needs:
+         1. Phone bobs up + down slightly (vertical hover)
+         2. Phone tilts back + forth (left-right scanning sweep)
+         3. A pulsing scan ring on the surface where the camera looks
+       All CSS, all GPU-cheap, no JS animation drivers.
+
+       transform-box: fill-box is critical for Safari — without it
+       transform-origin on SVG children behaves unpredictably and the
+       phone visibly drifts off-frame on iOS. */
+    .tutorial-diagram .phone,
+    .tutorial-diagram .scan-beam,
+    .tutorial-diagram .scan-ring-1,
+    .tutorial-diagram .scan-ring-2 {
+      transform-box: fill-box;
+    }
+    .tutorial-diagram .phone {
+      transform-origin: 50% 100%;  /* pivot at bottom-center (lens) */
+      animation: phone-hover 2.4s ease-in-out infinite;
+    }
+    @keyframes phone-hover {
+      0%, 100% { transform: translateY(0)    rotate(-22deg); }
+      25%      { transform: translateY(-3px) rotate(-30deg); }
+      50%      { transform: translateY(0)    rotate(-22deg); }
+      75%      { transform: translateY(-3px) rotate(-14deg); }
+    }
+    .tutorial-diagram .scan-beam {
+      transform-origin: 50% 0;  /* apex of the triangle (camera lens) */
+      animation: beam-sweep 2.4s ease-in-out infinite;
+      opacity: 0.4;
+    }
+    @keyframes beam-sweep {
+      0%, 100% { transform: rotate(0deg);  opacity: 0.35; }
+      25%      { transform: rotate(-8deg); opacity: 0.55; }
+      50%      { transform: rotate(0deg);  opacity: 0.35; }
+      75%      { transform: rotate(8deg);  opacity: 0.55; }
+    }
+    .tutorial-diagram .scan-ring-1,
+    .tutorial-diagram .scan-ring-2 {
+      transform-origin: center;
+      animation: scan-ring 2s ease-out infinite;
+    }
+    .tutorial-diagram .scan-ring-2 {
+      animation-delay: 1s;
+    }
+    @keyframes scan-ring {
+      0%   { transform: scale(0.3); opacity: 0.8; }
+      100% { transform: scale(1.4); opacity: 0; }
     }
 
     /* Tracking-lost banner — separate child, separate selector.
@@ -388,36 +395,61 @@
   <!-- Pre-AR tutorial. Shown ONCE per device on the first AR launch
        (gated by localStorage 'ar_tutorial_shown_v1'). Critical on iOS
        where Apple's AR Quick Look replaces our UI once AR starts —
-       this is our only chance to teach posture. The SVG matches the
-       in-AR scan-help diagram so users recognize the gesture. -->
+       this is our only chance to teach posture. SVG-first design:
+       the animation does the teaching, copy is one short line. -->
   <div id="pre-ar-tutorial">
     <div class="tutorial-card">
-      <svg class="tutorial-diagram" viewBox="0 0 110 78" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <line x1="6" y1="68" x2="104" y2="68" stroke="rgba(255,255,255,0.45)"
-              stroke-width="1.6" stroke-dasharray="4 4" stroke-linecap="round" />
-        <g class="phone-group">
-          <path class="vision-cone"
-                d="M 55 47 L 38 68 L 72 68 Z"
-                fill="rgba(255,140,83,0.25)"
-                stroke="rgba(255,140,83,0.55)" stroke-width="0.6" stroke-dasharray="2 2" />
-          <g transform="rotate(-30 55 30)">
-            <rect x="46" y="10" width="18" height="36" rx="2.5"
-                  fill="#1A1A1A" stroke="#FF8C53" stroke-width="1.4" />
-            <rect x="48" y="13" width="14" height="28" rx="1.4" fill="#0A0A0A" />
-            <circle cx="55" cy="44" r="1.6" fill="#FF8C53" />
-          </g>
+      <!-- 200×140 viewBox keeps the diagram large + readable on small
+           screens. Surface is a perspective ellipse + dashed line so
+           it reads as "table top". Phone bobs and tilts above it; a
+           scan beam fans down to the surface; a pulsing ring radiates
+           outward from where the camera "lands" — together this
+           communicates the gesture without any verbal explanation. -->
+      <svg class="tutorial-diagram" viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="beamGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FF8C53" stop-opacity="0.45" />
+            <stop offset="100%" stop-color="#FF8C53" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+
+        <!-- Surface (table top): perspective ellipse + dashed edge -->
+        <ellipse cx="100" cy="118" rx="80" ry="9" fill="rgba(255,255,255,0.06)" />
+        <ellipse cx="100" cy="118" rx="80" ry="9" fill="none"
+                 stroke="rgba(255,255,255,0.4)" stroke-width="1.4" stroke-dasharray="5 4" />
+
+        <!-- Pulsing scan rings on the surface — emphasize "where the
+             camera looks". Two rings on a 1s offset for a continuous
+             pulse without feeling busy. -->
+        <ellipse class="scan-ring-1" cx="100" cy="115" rx="14" ry="3"
+                 fill="none" stroke="#FF8C53" stroke-width="1.4" />
+        <ellipse class="scan-ring-2" cx="100" cy="115" rx="14" ry="3"
+                 fill="none" stroke="#FF8C53" stroke-width="1.4" />
+
+        <!-- Scan beam fanning from camera to surface. Sits behind
+             the phone so it visually "comes from" the camera lens. -->
+        <path class="scan-beam" d="M 100 70 L 78 113 L 122 113 Z" fill="url(#beamGrad)" />
+
+        <!-- Phone — body, screen, camera lens, home indicator. The
+             whole group rocks side-to-side and bobs vertically via
+             CSS keyframes. -->
+        <g class="phone">
+          <!-- Phone body -->
+          <rect x="78" y="40" width="44" height="68" rx="7"
+                fill="#1A1A1A" stroke="#FF8C53" stroke-width="2" />
+          <!-- Screen -->
+          <rect x="82" y="46" width="36" height="50" rx="3" fill="#0A0A0A" />
+          <!-- Top speaker bar -->
+          <rect x="93" y="43.5" width="14" height="2" rx="1" fill="#3a3a3a" />
+          <!-- Camera lens at the BOTTOM edge (where it points down
+               toward the surface in this orientation) -->
+          <circle cx="100" cy="103" r="2.6" fill="#FF8C53" />
+          <circle cx="100" cy="103" r="1.2" fill="#1A1A1A" />
         </g>
       </svg>
-      <h2>Hold above the surface, looking down</h2>
-      <p>For best results, position your phone like the diagram and aim at a flat, well-lit area.</p>
-      <ul class="tutorial-tips">
-        <li>Tilt the phone over a table or floor</li>
-        <li>Move slowly in a small circle</li>
-        <li>Aim at textured surfaces (wood grain, fabric, patterned tile) — not plain white or shiny</li>
-        <li>Tap to place the dish once detected</li>
-      </ul>
-      <button id="tutorial-go" type="button">Got it — let's go</button>
-      <span class="skip-hint">Shown once. Tap anywhere to dismiss.</span>
+      <h2>Hold like this</h2>
+      <p>Tilt your phone above a flat surface, looking down.</p>
+      <button id="tutorial-go" type="button">Start AR</button>
     </div>
   </div>
 
@@ -517,18 +549,22 @@
     }, true);
 
     function dismissAndLaunch() {
-      hideTutorial();
+      // Mark as shown FIRST so the re-click below skips the tutorial.
       markTutorialShown();
-      // activateAR() returns a Promise; if AR fails (unsupported
-      // browser, denied permission) the error bubbles via the
-      // ar-status='failed' event we already listen to above.
-      try { viewer.activateAR(); } catch (err) {
-        console.warn('activateAR failed:', err);
-      }
+      hideTutorial();
+      // Re-trigger the original AR button click instead of calling
+      // viewer.activateAR(). This preserves model-viewer's internal
+      // path: it creates a hidden <a rel="ar"> anchor and clicks it,
+      // which is what iOS Safari requires for AR Quick Look to launch
+      // reliably. activateAR() goes through a different code path
+      // that's flakier on iOS because the user-gesture context can
+      // get lost between the original tap and the AR handoff.
+      // Our capture-phase interceptor will see shouldShowTutorial()
+      // is now false (we just set the flag) and pass through.
+      arBtn.click();
     }
     tutorialGo.addEventListener('click', dismissAndLaunch);
-    // Allow tap-anywhere-on-backdrop to dismiss + launch (matches
-    // the "Tap anywhere to dismiss" hint in the card).
+    // Allow tap-anywhere-on-backdrop to dismiss + launch.
     tutorial.addEventListener('click', (e) => {
       if (e.target === tutorial) dismissAndLaunch();
     });
