@@ -1294,7 +1294,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
   // Lock body scroll when any sheet/modal is open
   useEffect(() => {
-    const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal || feedbackForOrderId || welcomeOpen);
+    const isOpen = !!(selectedItem || smaOpen || selectedCombo || cartOpen || billOpen || waiterModal || feedbackForOrderId || welcomeOpen || showOrderMoreCard);
     if (isOpen) {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
@@ -1306,7 +1306,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
-  }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal, feedbackForOrderId, welcomeOpen]);
+  }, [selectedItem, smaOpen, selectedCombo, cartOpen, billOpen, waiterModal, feedbackForOrderId, welcomeOpen, showOrderMoreCard]);
 
 
   // ── Enrich menu items with active offer data (memoized) ──────────────────
@@ -2012,10 +2012,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     }
   }, [sessionOrders, ratedOrderIds, feedbackForOrderId]);
 
+  // Order-more upsell card shown ONLY on dine-in, AFTER the rating is
+  // submitted or closed. From there the customer either:
+  //   - taps "Order more" → card closes, customer is on the menu and
+  //     can place another order normally; or
+  //   - dismisses the card (X / backdrop) → we treat that as "no, get
+  //     the bill" and open the bill modal with payment method picker.
+  // Suppressed for takeaway since they walk away after pickup.
+  const [showOrderMoreCard, setShowOrderMoreCard] = useState(false);
+
   // Mark an order as "we've asked about this" — used on both submit
   // and skip paths, plus persisted to sessionStorage so reload doesn't
   // re-prompt for an already-rated/skipped order.
   const dismissFeedbackPrompt = useCallback((orderId) => {
+    // Detect dine-in BEFORE clearing feedbackForOrderId so we can
+    // queue the order-more card. Look up the rated order across
+    // sessionOrders + placedOrder + pastOrders.
+    const rated = sessionOrders.find(o => o.orderId === orderId);
+    const fromCurrent = placedOrder?.orderId === orderId ? placedOrder : null;
+    const fromPast = pastOrders.find(po => po.orderId === orderId);
+    const orderType = rated?.orderType || fromCurrent?.orderType || fromPast?.orderType;
+    const isDineIn = orderType === 'dinein' || (!orderType && !!placedOrder?.tableNumber);
+
     setFeedbackForOrderId(null);
     setFeedbackRating(0);
     setFeedbackComment('');
@@ -2025,7 +2043,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       try { sessionStorage.setItem('ar_rated_orders', JSON.stringify(next)); } catch {}
       return next;
     });
-  }, []);
+    if (isDineIn) {
+      // Defer one tick so the rating sheet fully closes before the card
+      // pops in — feels less jarring on slow phones.
+      setTimeout(() => setShowOrderMoreCard(true), 200);
+    }
+  }, [sessionOrders, placedOrder, pastOrders]);
 
   const handleFeedbackSubmit = useCallback(async () => {
     if (!feedbackForOrderId || !restaurant?.id) return;
@@ -7143,6 +7166,69 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             </SheetOverlay>
           );
         })()}
+
+        {/* ─── Order-more card (DINE-IN, post-rating) ───
+            User flow (per the May 8 spec): order served → rating
+            sheet (existing) → on rating submit OR close, this card
+            appears. "Yes, order more" closes the card and the
+            customer is back on the menu. Closing via the X (or
+            backdrop) routes them to the bill modal with the payment
+            method picker — saves them from hunting for the bill
+            button after deciding they're done. Only fires on dine-in
+            (takeaway customers walk away after pickup). */}
+        {showOrderMoreCard && (
+          <SheetOverlay
+            onClose={() => {
+              setShowOrderMoreCard(false);
+              // Closing without saying "order more" → they want the bill.
+              setBillOpen(true);
+            }}
+            darkMode={darkMode}
+          >
+            <div onClick={e => e.stopPropagation()} style={{
+              width: '100%', maxWidth: 460, margin: '0 auto',
+              background: darkMode ? '#1A1612' : '#FEFCF8',
+              borderRadius: '24px 24px 0 0',
+              padding: '0 0 calc(env(safe-area-inset-bottom, 20px) + 24px)',
+              animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)',
+            }}>
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
+                <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
+              </div>
+              <div style={{ padding: '4px 22px 0' }}>
+                <div style={{ textAlign: 'center', marginBottom: 22 }}>
+                  <div style={{ fontSize: 44, marginBottom: 8 }}>🍴</div>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 6 }}>
+                    Order more?
+                  </div>
+                  <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.5 }}>
+                    Want to add more dishes to your table?
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowOrderMoreCard(false)}
+                  style={{
+                    width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none',
+                    background: 'linear-gradient(135deg, #F79B3D, #F7C45D)',
+                    color: '#1E1B18',
+                    fontSize: 15, fontWeight: 800, fontFamily: 'Inter,sans-serif',
+                    letterSpacing: '0.02em', cursor: 'pointer',
+                    boxShadow: '0 6px 18px rgba(247,155,61,0.35)',
+                  }}
+                >
+                  Yes, order more
+                </button>
+                <div style={{
+                  textAlign: 'center', marginTop: 14,
+                  fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)',
+                }}>
+                  Close to view your bill
+                </div>
+              </div>
+            </div>
+          </SheetOverlay>
+        )}
 
         {/* Card-style confirmation dialog. Replaces native confirm()
             calls (cancel order, etc.) so the prompt matches the rest
