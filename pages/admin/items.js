@@ -268,6 +268,80 @@ export default function AdminItems() {
   const catDragFrom = useRef(null);
   const catDragOver = useRef(null);
   const [catDragging, setCatDragging] = useState(null);
+
+  // Inline rename state for category chips. When set, the chip with
+  // that name swaps to a text input. Saving validates: non-empty,
+  // not equal to an existing category (other than itself), batch-
+  // updates every menu item with the old category, and updates
+  // categoryOrder + categoryImages on the restaurant doc.
+  const [renamingCat, setRenamingCat] = useState(null);   // old name | null
+  const [renameInput, setRenameInput] = useState('');
+  const [renameBusy, setRenameBusy] = useState(false);
+  const startRename = (oldName) => {
+    setRenamingCat(oldName);
+    setRenameInput(oldName);
+  };
+  const cancelRename = () => {
+    setRenamingCat(null);
+    setRenameInput('');
+  };
+  const commitRename = async () => {
+    const oldName = renamingCat;
+    const newName = renameInput.trim();
+    if (!oldName || !newName || newName === oldName) {
+      cancelRename();
+      return;
+    }
+    // Block collision with another existing category (case-insensitive).
+    const lowered = newName.toLowerCase();
+    const collision = effectiveCategoryOrder
+      .some((c) => c !== oldName && c.toLowerCase() === lowered);
+    if (collision) {
+      toast.error(`A category called "${newName}" already exists. Pick a different name.`);
+      return;
+    }
+    // Don't let admins rename a Petpooja-mirrored category — the name
+    // is owned by Petpooja and renaming here would only desync.
+    const itemsInCat = items.filter(i => (i.category || '').trim() === oldName);
+    const hybridLocked = isHybrid && itemsInCat.some(i => !!i.petpoojaItemId);
+    if (hybridLocked) {
+      toast.error('This category contains Petpooja-mirrored items. Rename it in your Petpooja dashboard first, then sync.');
+      cancelRename();
+      return;
+    }
+    setRenameBusy(true);
+    try {
+      // Batch-update every menu item with the old category. updateMenuItem
+      // already passes through withActor() for the audit fields.
+      await Promise.all(itemsInCat.map(it => updateMenuItem(rid, it.id, { category: newName })));
+      // Re-key categoryOrder + categoryImages so the customer-side
+      // saved state moves with the rename.
+      const nextOrder = savedCategoryOrder.map(c => c === oldName ? newName : c);
+      const nextImages = { ...savedCategoryImages };
+      if (oldName in nextImages) {
+        nextImages[newName] = nextImages[oldName];
+        delete nextImages[oldName];
+      }
+      await updateRestaurant(rid, {
+        categoryOrder: nextOrder,
+        categoryImages: nextImages,
+      });
+      // Optimistic local sync so the strip + table re-render before
+      // the listener fires.
+      setSavedCategoryOrder(nextOrder);
+      setSavedCategoryImages(nextImages);
+      setItems(prev => prev.map(it => (
+        (it.category || '').trim() === oldName ? { ...it, category: newName } : it
+      )));
+      toast.success(`Renamed to "${newName}"`);
+      cancelRename();
+    } catch (e) {
+      console.error('Category rename failed:', e);
+      toast.error('Rename failed. Try again.');
+    } finally {
+      setRenameBusy(false);
+    }
+  };
   const handleCatDragEnd = async () => {
     const from = catDragFrom.current;
     const to = catDragOver.current;
@@ -1134,12 +1208,12 @@ export default function AdminItems() {
                   return (
                     <div
                       key={name}
-                      draggable
+                      draggable={renamingCat !== name}
                       onDragStart={() => { catDragFrom.current = name; setCatDragging(name); }}
                       onDragEnter={() => { catDragOver.current = name; }}
                       onDragOver={(e) => e.preventDefault()}
                       onDragEnd={handleCatDragEnd}
-                      title={`Drag to reorder ${name}`}
+                      title={renamingCat === name ? 'Editing…' : `Drag to reorder ${name}`}
                       style={{
                         padding: '8px 12px 8px 8px', borderRadius: 10,
                         background: A.shell, border: A.border,
@@ -1195,7 +1269,45 @@ export default function AdminItems() {
                           }}>{uploadingPct}%</span>
                         )}
                       </button>
-                      {name}
+                      {renamingCat === name ? (
+                        <input
+                          autoFocus
+                          value={renameInput}
+                          onChange={(e) => setRenameInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+                            else if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+                          }}
+                          onBlur={commitRename}
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={renameBusy}
+                          style={{
+                            border: `1.5px solid ${A.warning}`,
+                            borderRadius: 6,
+                            padding: '3px 8px',
+                            fontSize: 13, fontWeight: 600, color: A.ink,
+                            fontFamily: A.font,
+                            outline: 'none',
+                            background: A.shell,
+                            minWidth: 80, maxWidth: 140,
+                          }}
+                        />
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {name}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); startRename(name); }}
+                            title="Rename category"
+                            style={{
+                              width: 18, height: 18, borderRadius: '50%',
+                              border: 'none', background: 'transparent',
+                              color: A.faintText, cursor: 'pointer',
+                              fontSize: 11, lineHeight: 1, padding: 0,
+                            }}
+                          >✎</button>
+                        </span>
+                      )}
                       <span style={{
                         padding: '1px 7px', borderRadius: 6,
                         background: A.subtleBg, color: A.faintText,
