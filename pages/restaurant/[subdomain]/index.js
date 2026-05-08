@@ -927,6 +927,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // active. Scoped to name + description match for now; can grow to
   // include category, ingredient, or dietary tags later.
   const [menuSearch, setMenuSearch] = useState('');
+  // Shared helper for single-line text inputs across the customer
+  // page. iOS Safari leaves the keyboard open after the user taps
+  // Done/Search/Go because nothing tells the input to lose focus.
+  // Blurring on Enter dismisses the keyboard. Skip on textareas —
+  // those need newline support.
+  const dismissKeyboardOnEnter = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.currentTarget.blur();
+    }
+  };
   // Search expansion: tap the header icon → expand the input row.
   // Stays open while there's a typed query; closes when the user
   // clears + dismisses. Keeps the header compact when not searching.
@@ -1532,61 +1543,66 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
 
 
-  useEffect(() => {
-    // Medium-style: pixel-by-pixel tracking + snap-to-complete on scroll end
-    let prevY = window.scrollY;
-    let translationY = 0;
-    let snapTimer = null;
+  // Smart header v3 (May 8) — binary state + CSS transition.
+  //
+  // Old "Medium-style" implementation set translateY pixel-by-pixel
+  // each scroll event with `transition: none`, then snapped to 0 /
+  // -height on idle. On Mobile Safari + slower Android Chrome
+  // scroll events come in coalesced bursts, so the per-pixel mapping
+  // read as "stepping" — the brake-pumping feel the user reported.
+  //
+  // New approach: a single boolean (hidden / visible) toggled on
+  // scroll direction past a small threshold. CSS transition does the
+  // animation, which the GPU runs frame-perfect regardless of
+  // scroll-event cadence. Header always visible at scrollY ≤ 8.
+  //
+  // hdrHeight is measured (and tracked via ResizeObserver) so the
+  // category-tile click handler can offset its smooth-scroll target
+  // by the full header height. Without that offset, scrolling UP to
+  // a category section above leaves the now-visible header covering
+  // the section title.
+  const [hdrHidden, setHdrHidden] = useState(false);
+  const [hdrHeight, setHdrHeight] = useState(0);
 
-    const snapComplete = (hdr, height) => {
-      // Snap to nearest boundary — never leave half-hidden
-      const target = translationY < -height / 2 ? -height : 0;
-      if (translationY !== target) {
-        hdr.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
-        hdr.style.transform = `translateY(${target}px)`;
-        translationY = target;
-        // Clear transition after animation so finger-tracking resumes cleanly
-        setTimeout(() => { if (hdrRef.current) hdrRef.current.style.transition = 'none'; }, 320);
-      }
-    };
+  useEffect(() => {
+    if (!hdrRef.current) return;
+    setHdrHeight(hdrRef.current.getBoundingClientRect().height);
+    const ro = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+          if (hdrRef.current) setHdrHeight(hdrRef.current.getBoundingClientRect().height);
+        })
+      : null;
+    if (ro) ro.observe(hdrRef.current);
+    return () => { if (ro) ro.disconnect(); };
+  }, []);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+    const SCROLL_DELTA_THRESHOLD = 8;  // px before reacting — eats micro-jitter
+    const TOP_LOCK = 8;                // stay visible within 8px of the top
 
     const onScroll = () => {
-      if (scrollTicking.current) return;
-      scrollTicking.current = true;
+      if (ticking) return;
+      ticking = true;
       requestAnimationFrame(() => {
         const currentY = window.scrollY;
-        const hdr = hdrRef.current;
-        if (hdr) {
-          const height = hdr.getBoundingClientRect().height;
-          const diff = currentY - prevY;
-
-          // At very top: always fully visible
-          if (currentY <= 0) {
-            translationY = 0;
-            hdr.style.transition = 'none';
-            hdr.style.transform = 'translateY(0)';
-          } else {
-            hdr.style.transition = 'none';
-            translationY = Math.min(Math.max(translationY - diff, -height), 0);
-            hdr.style.transform = `translateY(${translationY}px)`;
-          }
-
-          prevY = currentY;
-          lastScrollY.current = currentY;
-
-          // Snap to complete after 180ms of no scrolling
-          clearTimeout(snapTimer);
-          snapTimer = setTimeout(() => snapComplete(hdr, height), 180);
+        const diff = currentY - lastY;
+        if (currentY <= TOP_LOCK) {
+          setHdrHidden(false);
+          lastY = currentY;
+        } else if (Math.abs(diff) >= SCROLL_DELTA_THRESHOLD) {
+          if (diff > 0) setHdrHidden(true);   // scrolling down → hide
+          else          setHdrHidden(false);  // scrolling up   → show
+          lastY = currentY;
         }
-        scrollTicking.current = false;
+        lastScrollY.current = currentY;
+        ticking = false;
       });
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      clearTimeout(snapTimer);
-    };
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   // IntersectionObserver: activate shine border only on visible cards
@@ -3224,10 +3240,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           border-bottom: 1px solid rgba(255,255,255,0.35);
           box-shadow: 0 2px 24px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.6) inset;
           transform: translateY(0);
-          transition: background 0.4s ease, border-color 0.4s ease;
+          /* Smooth GPU-accelerated transform when hidden state flips.
+             0.28s feels snappy without being jarring; ease-out eases
+             into rest position which reads as polished. */
+          transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                      background 0.4s ease, border-color 0.4s ease;
           will-change: transform;
         }
-        /* hdr-hidden removed — handled via inline style for smooth transition */
+        .hdr.hidden { transform: translateY(-100%); }
         .hdr-inner { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
 
         .hdr-top {
@@ -3370,13 +3390,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         /* iOS auto-zoom guard: any input/textarea/select with a
            font-size below 16px causes Mobile Safari to zoom in when
            focused. Force a minimum of 16px on every text input across
-           the customer page. Desktop is unaffected (16px reads fine).
-           Where a smaller-looking input is desired, scale it down via
-           padding + line-height instead of font-size. */
+           the customer page. !important is needed because several
+           inputs (coupon code, table number, customer name, email,
+           phone, special instructions) carry inline fontSize styles
+           that would otherwise win on cascade. */
         input[type="text"], input[type="search"], input[type="number"],
         input[type="email"], input[type="tel"], input[type="password"],
-        textarea {
-          font-size: 16px;
+        input:not([type]), textarea {
+          font-size: 16px !important;
         }
 
         /* ─────────── MENU SEARCH BAR (May 8) ───────────
@@ -4880,7 +4901,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       `}</style>
 
         {/* ─── HEADER ─── */}
-        <header className="hdr" ref={hdrRef}>
+        <header className={`hdr${hdrHidden ? ' hidden' : ''}`} ref={hdrRef}>
           <div className="hdr-inner">
             <div className="hdr-top">
               {/* CircularText around restaurant logo */}
@@ -5038,9 +5059,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   const handleClick = () => {
                     const el = typeof document !== 'undefined' ? document.getElementById(targetId) : null;
                     if (el) {
-                      // 80px header offset so the section title isn't
-                      // hidden behind the sticky header.
-                      const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                      // Offset by the actual header height plus a 16px
+                      // breathing gap so the section title is visible
+                      // below the header — even if the user is
+                      // scrolling UP and the smart-header logic is about
+                      // to re-show the bar. Falls back to 120 if the
+                      // ResizeObserver hasn't measured yet.
+                      const offset = (hdrHeight || 120) + 16;
+                      const top = el.getBoundingClientRect().top + window.scrollY - offset;
                       window.scrollTo({ top, behavior: 'smooth' });
                     }
                     // We still update activeCat so any downstream
@@ -6134,6 +6160,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <div>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <input value={couponCode} onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                              if (couponCode.trim() && !couponLoading) applyCoupon();
+                            }
+                          }}
+                          enterKeyHint="done"
                           placeholder="Coupon code"
                           style={{ flex: 1, padding: '10px 13px', borderRadius: 10, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 13, fontFamily: 'monospace', letterSpacing: '0.06em', outline: 'none', textTransform: 'uppercase' }} />
                         <button onClick={applyCoupon} disabled={!couponCode.trim() || couponLoading}
@@ -6239,6 +6273,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <input
                       type="text" inputMode="numeric" placeholder={t.tablePlaceholder}
                       value={orderTableInput} onChange={e => !tableNumber && setOrderTableInput(e.target.value)}
+                      onKeyDown={dismissKeyboardOnEnter}
+                      enterKeyHint="done"
                       readOnly={!!tableNumber}
                       style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${tableNumber ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: tableNumber ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box', cursor: tableNumber ? 'default' : 'text' }}
                     />
@@ -6253,6 +6289,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <input
                       type="text" placeholder="e.g. Priya"
                       value={customerName} onChange={e => setCustomerName(e.target.value)}
+                      onKeyDown={dismissKeyboardOnEnter}
+                      enterKeyHint="next"
+                      autoComplete="given-name"
                       style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${customerName ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: customerName ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 10, boxSizing: 'border-box' }}
                     />
                   </>
@@ -6262,6 +6301,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 <input
                   type="tel" inputMode="tel" placeholder="e.g. 9876543210"
                   value={orderPhone} onChange={e => setOrderPhone(e.target.value.replace(/[^0-9+\- ]/g, '').slice(0, 15))}
+                  onKeyDown={dismissKeyboardOnEnter}
+                  enterKeyHint="done"
+                  autoComplete="tel"
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${orderPhone ? 'rgba(90,154,120,0.4)' : darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: orderPhone ? (darkMode ? 'rgba(90,154,120,0.1)' : 'rgba(90,154,120,0.07)') : darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 15, fontFamily: 'Inter,sans-serif', outline: 'none', marginBottom: 6, boxSizing: 'border-box' }}
                 />
                 {orderPhone && <div style={{ fontSize: 11, color: '#5A9A78', fontWeight: 600, marginBottom: 10 }}>✓ Saved for faster ordering next time</div>}
@@ -6276,6 +6318,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   type="email" inputMode="email" placeholder="you@example.com"
                   value={customerEmail}
                   onChange={e => setCustomerEmail(e.target.value.slice(0, 80))}
+                  onKeyDown={dismissKeyboardOnEnter}
+                  enterKeyHint="done"
+                  autoComplete="email"
                   onBlur={() => {
                     const v = customerEmail.trim();
                     if (!v) { try { localStorage.removeItem('ar_customer_email'); } catch {} return; }
