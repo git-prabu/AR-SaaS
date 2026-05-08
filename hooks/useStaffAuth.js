@@ -16,6 +16,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import {
   onAuthStateChanged,
+  onIdTokenChanged,
   signInWithCustomToken,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
@@ -57,6 +58,28 @@ export function StaffAuthProvider({ children }) {
         setClaims(null);
       } finally {
         setLoading(false);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // ── Token-refresh fallback (May 8) ──
+  // Backstop for the per-page Firestore listener: if the admin disables
+  // a staff and the listener somehow misses it, the next ID token
+  // refresh (~1h) will fail because revokeRefreshTokens() was called.
+  // onIdTokenChanged fires on refresh attempts; if it fires with a
+  // null user mid-session we treat it as a forced logout.
+  useEffect(() => {
+    let prevUid = null;
+    const unsub = onIdTokenChanged(staffAuth, (fbUser) => {
+      if (fbUser) {
+        prevUid = fbUser.uid;
+      } else if (prevUid) {
+        // We previously had a user, now we don't — token was revoked.
+        prevUid = null;
+        try { localStorage.removeItem('ar_staff_session'); } catch {}
+        // Allow the per-page listener to handle the redirect/toast if
+        // it's already on it. We just clean the local flag.
       }
     });
     return unsub;

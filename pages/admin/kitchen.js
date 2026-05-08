@@ -3,9 +3,14 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { updateOrderStatus, updateOrderStatusAs } from '../../lib/db';
+import {
+  updateOrderStatus, updateOrderStatusAs,
+  markOrderItemReadyAs, markOrderItemServedAs,
+} from '../../lib/db';
 import { db, staffDb } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { staffAuth } from '../../lib/firebase';
 import toast from 'react-hot-toast';
 import {
   announceOrder, unlockSound, speak,
@@ -171,6 +176,40 @@ export default function KitchenDisplay() {
     if (staffSession?.role === 'waiter') { router.replace('/admin/waiter'); return; }
     router.replace('/staff/login');
   }, [authChecked, adminLoading, user, userData, staffSession]);
+
+  // ══ Staff session invalidation (May 8) ══
+  // When a logged-in kitchen staff is disabled or deleted by the admin,
+  // the server already revokes their Firebase refresh token — but the
+  // current ID token stays valid for up to an hour, and the localStorage
+  // "ar_staff_session" flag persists for 12h, so the staff would keep
+  // using this dashboard despite being kicked.
+  // Subscribing to their own staff doc and reacting in real time closes
+  // that gap: doc deleted OR isActive flipped to false → force logout
+  // immediately. Only runs for staff sessions; admins (real Firebase
+  // accounts) don't have a staff doc to watch.
+  useEffect(() => {
+    if (!staffSession?.staffId || !staffSession?.restaurantId) return;
+    if (userData?.restaurantId) return;  // admin path, no need
+    const staffRef = doc(staffDb, 'restaurants', staffSession.restaurantId, 'staff', staffSession.staffId);
+    const unsub = onSnapshot(staffRef, async (snap) => {
+      const stillValid = snap.exists() && snap.data()?.isActive !== false;
+      if (stillValid) return;
+      try { localStorage.removeItem('ar_staff_session'); } catch {}
+      try { await signOut(staffAuth); } catch {}
+      toast.error('Your session was ended by your manager.', { duration: 4000 });
+      router.replace('/staff/login');
+    }, (err) => {
+      // permission-denied here means the staff's auth was revoked and
+      // the rules can no longer match the doc. Treat as logout signal.
+      if (err?.code === 'permission-denied') {
+        try { localStorage.removeItem('ar_staff_session'); } catch {}
+        signOut(staffAuth).catch(() => {});
+        toast.error('Session expired. Please sign in again.', { duration: 4000 });
+        router.replace('/staff/login');
+      }
+    });
+    return unsub;
+  }, [staffSession?.staffId, staffSession?.restaurantId, userData?.restaurantId, router]);
 
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
@@ -340,6 +379,34 @@ export default function KitchenDisplay() {
     } catch (e) {
       console.error('Recall failed:', e);
       toast.error('Could not recall to New. Retry in a moment.');
+    }
+    setUpdating(null);
+  };
+
+  // Per-item ready/served (May 8). Items in an order arrive at different
+  // times in real kitchens — the helper transactionally stamps the item
+  // and auto-flips order.status to 'ready' / 'served' once every item
+  // has the corresponding timestamp. We use staffDb when a staff
+  // session is present so Firestore rules see the staff custom claims.
+  const markItemReady = async (order, itemIdx) => {
+    setUpdating(`${order.id}:item:${itemIdx}`);
+    try {
+      const fs = staffSession ? staffDb : db;
+      await markOrderItemReadyAs(fs, rid, order.id, itemIdx);
+    } catch (e) {
+      console.error('Mark item ready failed:', e);
+      toast.error('Could not mark item ready. Retry in a moment.');
+    }
+    setUpdating(null);
+  };
+  const markItemServed = async (order, itemIdx) => {
+    setUpdating(`${order.id}:item:${itemIdx}`);
+    try {
+      const fs = staffSession ? staffDb : db;
+      await markOrderItemServedAs(fs, rid, order.id, itemIdx);
+    } catch (e) {
+      console.error('Mark item served failed:', e);
+      toast.error('Could not mark item served. Retry in a moment.');
     }
     setUpdating(null);
   };
@@ -989,6 +1056,65 @@ export default function KitchenDisplay() {
                                 <b style={{ fontWeight: 700 }}>Note:</b> {item.note}
                               </div>
                             )}
+                            {/* Per-item Ready / Served pills (May 8).
+                                Once all items have servedAt, the order
+                                auto-flips to status='served'. Pills show
+                                their current state inline so staff can
+                                see at a glance which items are still
+                                cooking vs ready vs delivered. The whole
+                                row is only meaningful while the order is
+                                in preparing/ready — pending orders use
+                                the order-level Start button instead. */}
+                            {(order.status === 'preparing' || order.status === 'ready') && (
+                              <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {item.readyAt ? (
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                                    padding: '3px 8px', borderRadius: 999,
+                                    background: 'rgba(63,158,90,0.12)', color: '#2E7E45',
+                                    textTransform: 'uppercase',
+                                  }}>✓ Ready</span>
+                                ) : (
+                                  <button
+                                    onClick={() => markItemReady(order, i)}
+                                    disabled={updating === `${order.id}:item:${i}`}
+                                    style={{
+                                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                                      padding: '3px 10px', borderRadius: 999,
+                                      background: A.warning, color: A.shell, border: 'none',
+                                      textTransform: 'uppercase', cursor: 'pointer',
+                                      fontFamily: A.font,
+                                      opacity: updating === `${order.id}:item:${i}` ? 0.55 : 1,
+                                    }}
+                                  >
+                                    Mark ready
+                                  </button>
+                                )}
+                                {item.servedAt ? (
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                                    padding: '3px 8px', borderRadius: 999,
+                                    background: 'rgba(0,0,0,0.06)', color: A.mutedText,
+                                    textTransform: 'uppercase',
+                                  }}>✓ Served</span>
+                                ) : item.readyAt ? (
+                                  <button
+                                    onClick={() => markItemServed(order, i)}
+                                    disabled={updating === `${order.id}:item:${i}`}
+                                    style={{
+                                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                                      padding: '3px 10px', borderRadius: 999,
+                                      background: A.ink, color: A.cream, border: 'none',
+                                      textTransform: 'uppercase', cursor: 'pointer',
+                                      fontFamily: A.font,
+                                      opacity: updating === `${order.id}:item:${i}` ? 0.55 : 1,
+                                    }}
+                                  >
+                                    Mark served
+                                  </button>
+                                ) : null}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -1012,7 +1138,15 @@ export default function KitchenDisplay() {
                     background: 'rgba(0,0,0,0.015)',
                     display: 'flex', gap: 6,
                   }}>
-                    {meta.next ? (
+                    {/* Order-level advance button is shown for `pending`
+                        only ("Start"). For preparing/ready, per-item
+                        Ready/Served pills above drive the transition;
+                        order.status auto-flips when all items reach the
+                        threshold (markOrderItemReadyAs / *ServedAs in
+                        lib/db.js). This keeps the user's rule "served
+                        should only happen once all items are marked
+                        served" — there's no order-level shortcut. */}
+                    {meta.next && order.status === 'pending' ? (
                       <>
                         <button className="kds-bump-btn"
                           onClick={() => advance(order)}
@@ -1030,7 +1164,22 @@ export default function KitchenDisplay() {
                             ? <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                             : meta.nextLabel}
                         </button>
-                        {/* Recall button on preparing tickets (un-bump to New) */}
+                      </>
+                    ) : (order.status === 'preparing' || order.status === 'ready') ? (
+                      // Per-item flow drives the transition out of these
+                      // two states. Show a guidance hint + the recall
+                      // shortcut for preparing tickets so staff can still
+                      // un-bump to New if needed.
+                      <>
+                        <div style={{
+                          flex: 1, textAlign: 'center', color: A.faintText,
+                          fontSize: 11, fontWeight: 600, padding: '6px 4px',
+                          letterSpacing: '0.04em', textTransform: 'uppercase',
+                        }}>
+                          {order.status === 'preparing'
+                            ? 'Mark each item ready ↑'
+                            : 'Mark each item served ↑'}
+                        </div>
                         {order.status === 'preparing' && (
                           <button className="kds-recall-btn"
                             onClick={() => recallToNew(order)}

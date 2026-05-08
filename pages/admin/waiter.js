@@ -8,8 +8,9 @@ import {
   announceCall, announceReady, announcePayment,
   unlockSound, isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
 } from '../../lib/sounds';
-import { db, staffDb } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db, staffDb, staffAuth } from '../../lib/firebase';
+import { collection, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import DateRangePicker from '../../components/DateRangePicker';
 
@@ -146,6 +147,33 @@ export default function WaiterDashboard() {
     if (staffSession?.role === 'kitchen') { router.replace('/admin/kitchen'); return; }
     router.replace('/staff/login');
   }, [authChecked, adminLoading, user, userData, staffSession]);
+
+  // ── Staff session invalidation (May 8) ──
+  // Mirror of the kitchen.js listener. Subscribes to the staff's own
+  // doc; if it gets deleted or isActive flips to false, force logout.
+  // Closes the gap where Firebase token + localStorage flag would
+  // otherwise let a deactivated waiter keep using this dashboard.
+  useEffect(() => {
+    if (!staffSession?.staffId || !staffSession?.restaurantId) return;
+    if (userData?.restaurantId) return;
+    const staffRef = doc(staffDb, 'restaurants', staffSession.restaurantId, 'staff', staffSession.staffId);
+    const unsub = onSnapshot(staffRef, async (snap) => {
+      const stillValid = snap.exists() && snap.data()?.isActive !== false;
+      if (stillValid) return;
+      try { localStorage.removeItem('ar_staff_session'); } catch {}
+      try { await signOut(staffAuth); } catch {}
+      toast.error('Your session was ended by your manager.', { duration: 4000 });
+      router.replace('/staff/login');
+    }, (err) => {
+      if (err?.code === 'permission-denied') {
+        try { localStorage.removeItem('ar_staff_session'); } catch {}
+        signOut(staffAuth).catch(() => {});
+        toast.error('Session expired. Please sign in again.', { duration: 4000 });
+        router.replace('/staff/login');
+      }
+    });
+    return unsub;
+  }, [staffSession?.staffId, staffSession?.restaurantId, userData?.restaurantId, router]);
 
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
