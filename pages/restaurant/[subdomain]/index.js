@@ -3612,11 +3612,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         /* Card body */
         .c-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; }
 
-        /* Badges */
+        /* Badges (May 8 hierarchy: Chef's Special > Featured > Popular >
+           offer label). Max 2 shown per card to avoid badge soup —
+           buildCardBadges() in the component does the priority sort. */
         .c-badges { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
-        .c-badge  { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 6px; }
-        .c-badge-pop  { background: #FFF0EB; color: #E07020; }
-        .c-badge-feat { background: #F0EBF8; color: #6030A0; }
+        .c-badge  {
+          font-size: 10px; font-weight: 700;
+          padding: 3px 9px; border-radius: 6px;
+          letter-spacing: 0.02em;
+          display: inline-flex; align-items: center; gap: 4px;
+          white-space: nowrap;
+        }
+        .c-badge-chef { background: linear-gradient(135deg, #FFE0A8, #FFC972); color: #7A4A0A; box-shadow: 0 1px 4px rgba(196,140,40,0.25); }
+        .c-badge-feat { background: #FFE6CF; color: #B85A0A; }
+        .c-badge-pop  { background: #FFE0DD; color: #C9341A; }
+        .c-badge-offer { background: #EFEBE3; color: #6A5530; }
 
         .c-name {
           font-size: 15px; font-weight: 700; color: #1E1B18;
@@ -4982,9 +4992,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       </span>
                     )}
                     {typeof item.isVeg === 'boolean' && <span className={`veg-ind ${item.isVeg ? 'v' : 'nv'}`} />}
-                    {!item.soldOut && item.offerBadge && item.offerLabel && (
-                      <div className="c-ribbon" style={{ background: item.offerColor || '#F79B3D' }}>🏷 {item.offerLabel}</div>
-                    )}
+                    {/* offerLabel ribbon removed (May 8). The same label
+                        now renders as a badge in c-badges with the
+                        proper hierarchy (Chef's Special > Featured >
+                        Popular > offer label) — duplicating it as a
+                        ribbon here would clutter the image. */}
                     {/* Quick-add (May 8). Lives inside c-img so it sits
                         over the dish photo bottom-right. Items with
                         variants route the tap to openItem() so the
@@ -5050,12 +5062,31 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     })()}
                   </div>
                   <div className="c-body">
-                    {(item.isPopular || item.isFeatured) && (
-                      <div className="c-badges">
-                        {item.isFeatured && <span className="c-badge c-badge-feat">{t.featured}</span>}
-                        {item.isPopular && <span className="c-badge c-badge-pop">{t.popular}</span>}
-                      </div>
-                    )}
+                    {/* Badge hierarchy (May 8): Chef's Special > Featured >
+                        Popular > other offer labels. Cap at 2 visible so
+                        the card doesn't drown in chips. The chef-special
+                        check looks at offerLabel since that's where the
+                        admin form stores it (one of OFFER_BADGES). */}
+                    {(() => {
+                      const isChef = item.offerLabel && item.offerLabel.toLowerCase().includes("chef");
+                      const otherOffer = item.offerLabel && !isChef ? item.offerLabel : null;
+                      const badges = [];
+                      if (isChef) badges.push({ kind: 'chef', label: item.offerLabel });
+                      if (item.isFeatured) badges.push({ kind: 'feat', label: t.featured });
+                      if (item.isPopular) badges.push({ kind: 'pop', label: t.popular });
+                      if (otherOffer) badges.push({ kind: 'offer', label: otherOffer });
+                      const visible = badges.slice(0, 2);
+                      if (visible.length === 0) return null;
+                      return (
+                        <div className="c-badges">
+                          {visible.map((b, i) => (
+                            <span key={i} className={`c-badge c-badge-${b.kind}`}>
+                              {b.kind === 'chef' ? '★ ' : ''}{b.label}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div className="c-name">{iN(item)}</div>
 
                     {item.soldOut ? (
