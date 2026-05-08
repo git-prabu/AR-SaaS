@@ -167,6 +167,117 @@
       display: none;
     }
 
+    /* ── Pre-AR tutorial overlay ────────────────────────────────
+       Shown the FIRST time a user taps "View in AR" on a given
+       device. Critically important on iOS, where Apple's AR Quick
+       Look replaces our entire UI once AR launches — so we have to
+       teach the posture BEFORE handing off to Apple. On Android,
+       it's also useful as a one-shot orientation since users land
+       in WebXR immediately. localStorage gates it to once per device.
+
+       The card itself is centered, scrollable on tiny screens, and
+       presents the same SVG phone-tilt diagram from the in-AR scan
+       help so users see the gesture they need to perform. */
+    #pre-ar-tutorial {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      animation: fade-in 0.25s ease-out;
+    }
+    #pre-ar-tutorial.active { display: flex; }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .tutorial-card {
+      background: #1A1A1A;
+      color: #fff;
+      max-width: 320px;
+      width: calc(100% - 32px);
+      padding: 24px 22px 20px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,140,83,0.25);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .tutorial-card .tutorial-diagram {
+      width: 160px;
+      height: 110px;
+      margin: 0 auto 14px;
+      display: block;
+    }
+    .tutorial-card .tutorial-diagram .phone-group {
+      transform-origin: 55px 55px;
+      animation: scan-sweep 3s ease-in-out infinite;
+    }
+    .tutorial-card .tutorial-diagram .vision-cone {
+      animation: cone-pulse 3s ease-in-out infinite;
+    }
+    .tutorial-card h2 {
+      color: #FF8C53;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+    .tutorial-card p {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 18px;
+    }
+    .tutorial-card .tutorial-tips {
+      text-align: left;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.04);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 18px;
+    }
+    .tutorial-card .tutorial-tips li {
+      list-style: none;
+      padding-left: 18px;
+      position: relative;
+      margin-bottom: 4px;
+    }
+    .tutorial-card .tutorial-tips li:last-child { margin-bottom: 0; }
+    .tutorial-card .tutorial-tips li::before {
+      content: '✓';
+      color: #FF8C53;
+      font-weight: 700;
+      position: absolute;
+      left: 0;
+    }
+    .tutorial-card button {
+      width: 100%;
+      background: linear-gradient(135deg, #FF6B35, #FFB347);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 0;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(255,107,53,0.35);
+    }
+    .tutorial-card button:active { transform: translateY(1px); }
+    .tutorial-card .skip-hint {
+      display: block;
+      margin-top: 10px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+    }
+
     /* Tracking-lost banner — separate child, separate selector.
        Shows when WebXR drops surface tracking mid-session (engine
        can't see enough features anymore). Tells the user to point
@@ -274,6 +385,42 @@
 
   <div id="error-msg">⚠ Could not load 3D model</div>
 
+  <!-- Pre-AR tutorial. Shown ONCE per device on the first AR launch
+       (gated by localStorage 'ar_tutorial_shown_v1'). Critical on iOS
+       where Apple's AR Quick Look replaces our UI once AR starts —
+       this is our only chance to teach posture. The SVG matches the
+       in-AR scan-help diagram so users recognize the gesture. -->
+  <div id="pre-ar-tutorial">
+    <div class="tutorial-card">
+      <svg class="tutorial-diagram" viewBox="0 0 110 78" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="6" y1="68" x2="104" y2="68" stroke="rgba(255,255,255,0.45)"
+              stroke-width="1.6" stroke-dasharray="4 4" stroke-linecap="round" />
+        <g class="phone-group">
+          <path class="vision-cone"
+                d="M 55 47 L 38 68 L 72 68 Z"
+                fill="rgba(255,140,83,0.25)"
+                stroke="rgba(255,140,83,0.55)" stroke-width="0.6" stroke-dasharray="2 2" />
+          <g transform="rotate(-30 55 30)">
+            <rect x="46" y="10" width="18" height="36" rx="2.5"
+                  fill="#1A1A1A" stroke="#FF8C53" stroke-width="1.4" />
+            <rect x="48" y="13" width="14" height="28" rx="1.4" fill="#0A0A0A" />
+            <circle cx="55" cy="44" r="1.6" fill="#FF8C53" />
+          </g>
+        </g>
+      </svg>
+      <h2>Hold above the surface, looking down</h2>
+      <p>For best results, position your phone like the diagram and aim at a flat, well-lit area.</p>
+      <ul class="tutorial-tips">
+        <li>Tilt the phone over a table or floor</li>
+        <li>Move slowly in a small circle</li>
+        <li>Aim at textured surfaces (wood grain, fabric, patterned tile) — not plain white or shiny</li>
+        <li>Tap to place the dish once detected</li>
+      </ul>
+      <button id="tutorial-go" type="button">Got it — let's go</button>
+      <span class="skip-hint">Shown once. Tap anywhere to dismiss.</span>
+    </div>
+  </div>
+
   <script>
     const viewer = document.getElementById('viewer');
     const overlay = document.getElementById('overlay');
@@ -328,6 +475,62 @@
       if (e.detail.status === 'failed') {
         alert('AR not supported on this device or browser.');
       }
+    });
+
+    // ── Pre-AR tutorial flow ────────────────────────────────────
+    // First AR launch on a device shows a fullscreen card with the
+    // posture diagram. Subsequent launches go straight to AR. This
+    // is the iOS-friendly equivalent of our in-AR scan-help (which
+    // can't render inside Apple's Quick Look).
+    //
+    // Implementation note: model-viewer attaches its own click
+    // handler to the slot=ar-button child to fire activateAR(). We
+    // attach a CAPTURE-phase listener so we run FIRST, decide whether
+    // to short-circuit, and call activateAR() ourselves after the
+    // tutorial dismisses. localStorage gates it to once per device.
+    const TUTORIAL_KEY = 'ar_tutorial_shown_v1';
+    const tutorial = document.getElementById('pre-ar-tutorial');
+    const tutorialGo = document.getElementById('tutorial-go');
+
+    function shouldShowTutorial() {
+      try { return !localStorage.getItem(TUTORIAL_KEY); }
+      catch { return true; }  // Safari private mode → just show it
+    }
+    function markTutorialShown() {
+      try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch {}
+    }
+    function showTutorial() {
+      tutorial.classList.add('active');
+    }
+    function hideTutorial() {
+      tutorial.classList.remove('active');
+    }
+
+    // Capture-phase interceptor: runs before model-viewer's own
+    // click→activateAR handler.
+    arBtn.addEventListener('click', (e) => {
+      if (!shouldShowTutorial()) return;          // returning user → AR
+      // First-time user → block default, show tutorial, AR after dismiss.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      showTutorial();
+    }, true);
+
+    function dismissAndLaunch() {
+      hideTutorial();
+      markTutorialShown();
+      // activateAR() returns a Promise; if AR fails (unsupported
+      // browser, denied permission) the error bubbles via the
+      // ar-status='failed' event we already listen to above.
+      try { viewer.activateAR(); } catch (err) {
+        console.warn('activateAR failed:', err);
+      }
+    }
+    tutorialGo.addEventListener('click', dismissAndLaunch);
+    // Allow tap-anywhere-on-backdrop to dismiss + launch (matches
+    // the "Tap anywhere to dismiss" hint in the card).
+    tutorial.addEventListener('click', (e) => {
+      if (e.target === tutorial) dismissAndLaunch();
     });
   </script>
 </body>
