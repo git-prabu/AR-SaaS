@@ -3341,6 +3341,59 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           .grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
         }
 
+        /* ─────────── CATEGORY SECTIONS (May 8 menu redesign) ───────────
+           Each category is a horizontal-scroll row of full-info cards.
+           Mobile: ~85% width per card so the next card peeks (signals
+           horizontal scroll affordance). Larger viewports: fixed 280px
+           cards so a few fit at once. CSS scroll-snap aligns each
+           swipe to a card edge for clean pagination. */
+        .cat-section { margin-bottom: 24px; }
+        .cat-section-head {
+          display: flex; align-items: baseline; gap: 10px;
+          padding: 0 4px; margin: 0 0 10px;
+        }
+        .cat-section-title {
+          font-family: 'Poppins', sans-serif;
+          font-weight: 700; font-size: 18px;
+          letter-spacing: -0.3px;
+          margin: 0;
+        }
+        .dm .cat-section-title { color: #FFF5E8; }
+        .cat-section-count {
+          font-size: 11px; font-weight: 600;
+          color: rgba(42,31,16,0.40);
+          padding: 2px 8px; border-radius: 999px;
+          background: rgba(42,31,16,0.05);
+        }
+        .dm .cat-section-count {
+          color: rgba(255,245,232,0.45);
+          background: rgba(255,255,255,0.06);
+        }
+        .cat-section.featured .cat-section-title { color: #C97A1A; }
+        .dm .cat-section.featured .cat-section-title { color: #F7C45D; }
+
+        .cat-row {
+          display: flex; gap: 12px;
+          overflow-x: auto; overflow-y: visible;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          padding: 0 4px 8px;
+          scrollbar-width: none;
+          /* Add a touch of right padding so the last card has breathing
+             room and doesn't bump the viewport edge. */
+          padding-right: 16px;
+        }
+        .cat-row::-webkit-scrollbar { display: none; }
+        .cat-row .card {
+          flex: 0 0 auto;
+          width: 85%;
+          max-width: 340px;
+          scroll-snap-align: start;
+        }
+        @media (min-width: 600px) {
+          .cat-row .card { width: 280px; max-width: 280px; }
+        }
+
         /* ─────────── CARD — Apple App Store level ─────────── */
         .card {
           background: #FFFFFF;
@@ -4656,15 +4709,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             </div>
           )}
 
-          {/* Grid */}
-          {filtered.length === 0 ? (
-            <div className="empty">
-              <div style={{ fontSize: 44, marginBottom: 10 }}>🥢</div>
-              <p style={{ fontWeight: 600, fontSize: 14, color: '#9A9A9A' }}>No items in this category</p>
-            </div>
-          ) : (
-            <div className="grid">
-              {filtered.map((item, idx) => (
+          {/* Categorised menu (May 8 redesign).
+              IIFE wrapper holds the renderItemCard helper so we don't
+              duplicate the 80-line card JSX across sections. Render
+              order:
+                1. Featured section (if any) — Layer 1 of the 3-layer
+                   featured strategy.
+                2. Per-category sections — items inside each are
+                   featured-first (Layer 3).
+              The top image-tile strip (Layer 2, step 3) will scroll
+              the page to these sections via element ids. */}
+          {(() => {
+            // slug helper for the section id (must match what the
+            // category strip uses to scroll into view).
+            const sectionId = (name) => 'cat-section-' + String(name).replace(/\s+/g, '-').toLowerCase();
+            const renderItemCard = (item, idx) => (
                 <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s`, opacity: (item.soldOut || item.isOutOfStock) ? 0.65 : 1, cursor: (item.soldOut || item.isOutOfStock) ? 'not-allowed' : 'pointer' }} onClick={() => { if (!item.soldOut && !item.isOutOfStock) openItem(item); }}>
                   <div className="c-img" style={{ position: 'relative' }}>
                     <div className={`img-skeleton${imgLoaded[item.id] ? ' loaded' : ''}`} />
@@ -4754,9 +4813,44 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     )}
                   </div>
                 </button>
-              ))}
-            </div>
-          )}
+            );
+
+            const isEmpty = !featuredSection && categorySections.length === 0;
+            if (isEmpty) {
+              return (
+                <div className="empty">
+                  <div style={{ fontSize: 44, marginBottom: 10 }}>🥢</div>
+                  <p style={{ fontWeight: 600, fontSize: 14, color: '#9A9A9A' }}>No items on the menu yet</p>
+                </div>
+              );
+            }
+            return (
+              <>
+                {featuredSection && (
+                  <section className="cat-section featured" id={sectionId('__featured')}>
+                    <div className="cat-section-head">
+                      <h3 className="cat-section-title">✨ Featured</h3>
+                      <span className="cat-section-count">{featuredSection.items.length}</span>
+                    </div>
+                    <div className="cat-row">
+                      {featuredSection.items.map((item, idx) => renderItemCard(item, idx))}
+                    </div>
+                  </section>
+                )}
+                {categorySections.map((section) => (
+                  <section key={section.name} className="cat-section" id={sectionId(section.name)}>
+                    <div className="cat-section-head">
+                      <h3 className="cat-section-title">{section.name}</h3>
+                      <span className="cat-section-count">{section.items.length}</span>
+                    </div>
+                    <div className="cat-row">
+                      {section.items.map((item, idx) => renderItemCard(item, idx))}
+                    </div>
+                  </section>
+                ))}
+              </>
+            );
+          })()}
         </main>
 
         {/* ─── FABs: stacked layout ─── */}
