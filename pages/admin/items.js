@@ -800,63 +800,94 @@ export default function AdminItems() {
   // at 0.85 (industry standard "visually identical" level).
   const [optimizing, setOptimizing] = useState(null); // null | { index, total, name }
 
-  const runBulkOptimize = async () => {
-    const targets = items.filter(i => i.imageURL);
-    if (targets.length === 0) {
-      toast.error('No menu images to optimize.');
+  // Bulk optimize covers BOTH menu items AND admin-uploaded category
+  // images now. Category images go through the same optimizeOneImage
+  // pipeline but with a tighter 320×320 cap (they only render at
+  // 64×64 in the customer menu's category strip) and write back to
+  // restaurant.categoryImages instead of the menu-item doc.
+  const runBulkOptimize = () => {
+    const itemTargets = items.filter(i => i.imageURL);
+    const catTargets = Object.entries(savedCategoryImages || {})
+      .filter(([, url]) => !!url)
+      .map(([name, url]) => ({ name, url }));
+    const total = itemTargets.length + catTargets.length;
+    if (total === 0) {
+      toast.error('No images to optimize.');
       return;
     }
-    if (!confirm(
-      `Optimize ${targets.length} menu image${targets.length === 1 ? '' : 's'}?\n\n` +
-      `Each photo is re-encoded into a smaller version. Quality is preserved ` +
-      `(PNGs stay PNG, JPEGs stay JPEG at standard quality). Images already ` +
-      `under 200 KB are skipped automatically.`
-    )) return;
 
-    setOptimizing({ index: 0, total: targets.length, name: '' });
-    let processed = 0, skipped = 0, failed = 0, savedBytes = 0;
+    const summary = catTargets.length === 0
+      ? `${itemTargets.length} menu image${itemTargets.length === 1 ? '' : 's'}`
+      : itemTargets.length === 0
+        ? `${catTargets.length} category image${catTargets.length === 1 ? '' : 's'}`
+        : `${itemTargets.length} menu + ${catTargets.length} category image${total === 1 ? '' : 's'}`;
+    setConfirmDialog({
+      title: `Optimize ${summary}?`,
+      body: `Each photo is re-encoded into a smaller version. Quality is preserved (PNGs stay PNG, JPEGs stay JPEG at standard quality). Images already small enough are skipped automatically.`,
+      confirmLabel: 'Yes, optimize',
+      cancelLabel: 'Cancel',
+      destructive: false,
+      onConfirm: async () => {
+        setOptimizing({ index: 0, total, name: '' });
+        let processed = 0, skipped = 0, failed = 0, savedBytes = 0;
+        let i = 0;
 
-    for (let i = 0; i < targets.length; i++) {
-      const it = targets[i];
-      setOptimizing({ index: i + 1, total: targets.length, name: it.name || '' });
-      try {
-        const result = await optimizeOneImage(rid, it);
-        if (!result) {
-          skipped += 1;
-        } else {
-          await updateMenuItem(rid, it.id, { imageURL: result.newURL });
-          setItems(prev => prev.map(x => x.id === it.id ? { ...x, imageURL: result.newURL } : x));
-          // Best-effort cleanup of the old Storage file. An orphaned old
-          // file is harmless (just costs a few cents of storage) so we
-          // don't let a delete failure abort the whole batch.
-          if (result.oldPath) {
-            deleteFile(result.oldPath).catch(() => {});
-          }
-          processed += 1;
-          savedBytes += (result.sizeBefore - result.sizeAfter);
+        for (const it of itemTargets) {
+          i += 1;
+          setOptimizing({ index: i, total, name: it.name || '' });
+          try {
+            const result = await optimizeOneImage(rid, it);
+            if (!result) { skipped += 1; }
+            else {
+              await updateMenuItem(rid, it.id, { imageURL: result.newURL });
+              setItems(prev => prev.map(x => x.id === it.id ? { ...x, imageURL: result.newURL } : x));
+              if (result.oldPath) deleteFile(result.oldPath).catch(() => {});
+              processed += 1;
+              savedBytes += (result.sizeBefore - result.sizeAfter);
+            }
+          } catch (e) { failed += 1; console.error('[optimize/item]', it.name, e); }
         }
-      } catch (e) {
-        failed += 1;
-        console.error('[optimize]', it.name, e);
-      }
-    }
 
-    setOptimizing(null);
+        // Category images — use the same optimizeOneImage but mark
+        // them with a synthetic shape that the helper accepts
+        // (imageURL + a tighter resize cap). Category nav tiles
+        // render at 64×64 so 320×320 is more than enough.
+        for (const cat of catTargets) {
+          i += 1;
+          setOptimizing({ index: i, total, name: cat.name });
+          try {
+            const synthetic = { id: `cat:${cat.name}`, name: cat.name, imageURL: cat.url };
+            const result = await optimizeOneImage(rid, synthetic, { maxWidth: 320, maxHeight: 320, quality: 0.82 });
+            if (!result) { skipped += 1; }
+            else {
+              const nextImages = { ...savedCategoryImages, [cat.name]: result.newURL };
+              setSavedCategoryImages(nextImages);
+              await updateRestaurant(rid, { categoryImages: nextImages });
+              if (result.oldPath) deleteFile(result.oldPath).catch(() => {});
+              processed += 1;
+              savedBytes += (result.sizeBefore - result.sizeAfter);
+            }
+          } catch (e) { failed += 1; console.error('[optimize/cat]', cat.name, e); }
+        }
 
-    const savedStr = savedBytes > 1024 * 1024
-      ? `${(savedBytes / 1024 / 1024).toFixed(1)} MB`
-      : `${Math.round(savedBytes / 1024)} KB`;
-    if (processed > 0) {
-      toast.success(
-        `Optimized ${processed} image${processed === 1 ? '' : 's'} · saved ${savedStr}` +
-        (skipped ? ` · ${skipped} already small` : '') +
-        (failed  ? ` · ${failed} failed`        : '')
-      );
-    } else if (failed === 0) {
-      toast.success(`All ${skipped} image${skipped === 1 ? '' : 's'} already optimized — no changes needed.`);
-    } else {
-      toast.error(`Couldn't optimize any images — ${failed} failed (see browser console).`);
-    }
+        setOptimizing(null);
+
+        const savedStr = savedBytes > 1024 * 1024
+          ? `${(savedBytes / 1024 / 1024).toFixed(1)} MB`
+          : `${Math.round(savedBytes / 1024)} KB`;
+        if (processed > 0) {
+          toast.success(
+            `Optimized ${processed} image${processed === 1 ? '' : 's'} · saved ${savedStr}` +
+            (skipped ? ` · ${skipped} already small` : '') +
+            (failed  ? ` · ${failed} failed`        : '')
+          );
+        } else if (failed === 0) {
+          toast.success(`All ${skipped} image${skipped === 1 ? '' : 's'} already optimized — no changes needed.`);
+        } else {
+          toast.error(`Couldn't optimize any images — ${failed} failed (see browser console).`);
+        }
+      },
+    });
   };
 
   // ═══ CSV import / export — Petpooja-compatible columns ═══
