@@ -1543,25 +1543,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
 
 
-  // Smart header v3 (May 8) — binary state + CSS transition.
+  // Smart header — Medium-style pixel-by-pixel tracking + snap on
+  // idle. v3 (binary state + CSS transition) felt jumpy to the user;
+  // the per-pixel finger-track from before is smoother in practice
+  // because each scroll frame produces a continuous translation
+  // rather than a binary "fully shown / fully hidden" snap.
   //
-  // Old "Medium-style" implementation set translateY pixel-by-pixel
-  // each scroll event with `transition: none`, then snapped to 0 /
-  // -height on idle. On Mobile Safari + slower Android Chrome
-  // scroll events come in coalesced bursts, so the per-pixel mapping
-  // read as "stepping" — the brake-pumping feel the user reported.
-  //
-  // New approach: a single boolean (hidden / visible) toggled on
-  // scroll direction past a small threshold. CSS transition does the
-  // animation, which the GPU runs frame-perfect regardless of
-  // scroll-event cadence. Header always visible at scrollY ≤ 8.
-  //
-  // hdrHeight is measured (and tracked via ResizeObserver) so the
+  // hdrHeight is still tracked (via ResizeObserver) so the
   // category-tile click handler can offset its smooth-scroll target
-  // by the full header height. Without that offset, scrolling UP to
-  // a category section above leaves the now-visible header covering
-  // the section title.
-  const [hdrHidden, setHdrHidden] = useState(false);
+  // by the full header height — fixes the bug where scrolling UP to
+  // a category section above leaves the header covering the title.
+  const scrollTicking = useRef(false);
   const [hdrHeight, setHdrHeight] = useState(0);
 
   useEffect(() => {
@@ -1577,32 +1569,54 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   }, []);
 
   useEffect(() => {
-    let lastY = window.scrollY;
-    let ticking = false;
-    const SCROLL_DELTA_THRESHOLD = 8;  // px before reacting — eats micro-jitter
-    const TOP_LOCK = 8;                // stay visible within 8px of the top
+    let prevY = window.scrollY;
+    let translationY = 0;
+    let snapTimer = null;
+
+    const snapComplete = (hdr, height) => {
+      // Snap to the nearest boundary on idle so the header never
+      // rests half-hidden.
+      const target = translationY < -height / 2 ? -height : 0;
+      if (translationY !== target) {
+        hdr.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+        hdr.style.transform = `translateY(${target}px)`;
+        translationY = target;
+        setTimeout(() => { if (hdrRef.current) hdrRef.current.style.transition = 'none'; }, 320);
+      }
+    };
 
     const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
+      if (scrollTicking.current) return;
+      scrollTicking.current = true;
       requestAnimationFrame(() => {
         const currentY = window.scrollY;
-        const diff = currentY - lastY;
-        if (currentY <= TOP_LOCK) {
-          setHdrHidden(false);
-          lastY = currentY;
-        } else if (Math.abs(diff) >= SCROLL_DELTA_THRESHOLD) {
-          if (diff > 0) setHdrHidden(true);   // scrolling down → hide
-          else          setHdrHidden(false);  // scrolling up   → show
-          lastY = currentY;
+        const hdr = hdrRef.current;
+        if (hdr) {
+          const height = hdr.getBoundingClientRect().height;
+          const diff = currentY - prevY;
+          if (currentY <= 0) {
+            translationY = 0;
+            hdr.style.transition = 'none';
+            hdr.style.transform = 'translateY(0)';
+          } else {
+            hdr.style.transition = 'none';
+            translationY = Math.min(Math.max(translationY - diff, -height), 0);
+            hdr.style.transform = `translateY(${translationY}px)`;
+          }
+          prevY = currentY;
+          lastScrollY.current = currentY;
+          clearTimeout(snapTimer);
+          snapTimer = setTimeout(() => snapComplete(hdr, height), 180);
         }
-        lastScrollY.current = currentY;
-        ticking = false;
+        scrollTicking.current = false;
       });
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      clearTimeout(snapTimer);
+    };
   }, []);
 
   // IntersectionObserver: activate shine border only on visible cards
@@ -3240,14 +3254,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           border-bottom: 1px solid rgba(255,255,255,0.35);
           box-shadow: 0 2px 24px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.6) inset;
           transform: translateY(0);
-          /* Smooth GPU-accelerated transform when hidden state flips.
-             0.28s feels snappy without being jarring; ease-out eases
-             into rest position which reads as polished. */
-          transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-                      background 0.4s ease, border-color 0.4s ease;
+          /* No transform transition — JS sets transition:none and
+             updates transform per-frame (Medium-style finger-track).
+             Only the snap animation toggles a brief 0.3s transition
+             via inline style. */
+          transition: background 0.4s ease, border-color 0.4s ease;
           will-change: transform;
         }
-        .hdr.hidden { transform: translateY(-100%); }
         .hdr-inner { max-width: 1080px; margin: 0 auto; padding: 0 18px; }
 
         .hdr-top {
@@ -4905,7 +4918,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       `}</style>
 
         {/* ─── HEADER ─── */}
-        <header className={`hdr${hdrHidden ? ' hidden' : ''}`} ref={hdrRef}>
+        <header className="hdr" ref={hdrRef}>
           <div className="hdr-inner">
             <div className="hdr-top">
               {/* CircularText around restaurant logo */}
