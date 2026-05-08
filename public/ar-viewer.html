@@ -235,54 +235,28 @@
     .tutorial-card button:active { transform: translateY(1px); }
 
     /* ── Tutorial diagram animation ─────────────────────────────
-       Three concurrent motions sell the "hover above surface, look
-       down" gesture that ARCore/ARKit needs:
-         1. Phone bobs up + down slightly (vertical hover)
-         2. Phone tilts back + forth (left-right scanning sweep)
-         3. A pulsing scan ring on the surface where the camera looks
-       All CSS, all GPU-cheap, no JS animation drivers.
+       Side-view animation showing the user's intended gesture:
+       phone starts LOW + upright with a small narrow beam reaching
+       the table, then rises HIGH + tilts toward horizontal so the
+       beam fans wide across the surface. Mirrors the user's
+       photoshop reference 1:1.
 
-       transform-box: fill-box is critical for Safari — without it
-       transform-origin on SVG children behaves unpredictably and the
-       phone visibly drifts off-frame on iOS. */
-    .tutorial-diagram .phone,
-    .tutorial-diagram .scan-beam,
-    .tutorial-diagram .scan-ring-1,
-    .tutorial-diagram .scan-ring-2 {
-      transform-box: fill-box;
-    }
+       Phone position+rotation animates via CSS keyframes; the beam
+       path animates via inline SMIL <animate> (reliable in Safari
+       even where CSS d-property animation isn't). The two motions
+       use matching timing so they look like a single coordinated
+       motion. */
     .tutorial-diagram .phone {
-      transform-origin: 50% 100%;  /* pivot at bottom-center (lens) */
-      animation: phone-hover 2.4s ease-in-out infinite;
+      /* transform-origin (0,0) lands on the phone's own center
+         because the phone is drawn symmetrically around (0,0) in
+         the SVG. rotate() then pivots about the phone's middle and
+         translate() drops it into world position. */
+      transform-origin: 0 0;
+      animation: phone-arc 3s ease-in-out infinite;
     }
-    @keyframes phone-hover {
-      0%, 100% { transform: translateY(0)    rotate(-22deg); }
-      25%      { transform: translateY(-3px) rotate(-30deg); }
-      50%      { transform: translateY(0)    rotate(-22deg); }
-      75%      { transform: translateY(-3px) rotate(-14deg); }
-    }
-    .tutorial-diagram .scan-beam {
-      transform-origin: 50% 0;  /* apex of the triangle (camera lens) */
-      animation: beam-sweep 2.4s ease-in-out infinite;
-      opacity: 0.4;
-    }
-    @keyframes beam-sweep {
-      0%, 100% { transform: rotate(0deg);  opacity: 0.35; }
-      25%      { transform: rotate(-8deg); opacity: 0.55; }
-      50%      { transform: rotate(0deg);  opacity: 0.35; }
-      75%      { transform: rotate(8deg);  opacity: 0.55; }
-    }
-    .tutorial-diagram .scan-ring-1,
-    .tutorial-diagram .scan-ring-2 {
-      transform-origin: center;
-      animation: scan-ring 2s ease-out infinite;
-    }
-    .tutorial-diagram .scan-ring-2 {
-      animation-delay: 1s;
-    }
-    @keyframes scan-ring {
-      0%   { transform: scale(0.3); opacity: 0.8; }
-      100% { transform: scale(1.4); opacity: 0; }
+    @keyframes phone-arc {
+      0%, 100% { transform: translate(60px,  65px) rotate(30deg); }
+      50%      { transform: translate(140px, 30px) rotate(80deg); }
     }
 
     /* Tracking-lost banner — separate child, separate selector.
@@ -399,56 +373,70 @@
        the animation does the teaching, copy is one short line. -->
   <div id="pre-ar-tutorial">
     <div class="tutorial-card">
-      <!-- 200×140 viewBox keeps the diagram large + readable on small
-           screens. Surface is a perspective ellipse + dashed line so
-           it reads as "table top". Phone bobs and tilts above it; a
-           scan beam fans down to the surface; a pulsing ring radiates
-           outward from where the camera "lands" — together this
-           communicates the gesture without any verbal explanation. -->
+      <!-- Side-view diagram, matches the user's photoshop reference.
+           Animation loop:
+             0%   START — phone low (y=65) + mostly upright (30° tilt)
+                          + narrow beam reaching just the table
+             50%  END   — phone high (y=30) + nearly flat (80° tilt)
+                          + beam fans wide across the table
+             100% returns to START via ease-in-out
+           The phone tilting past 45° is the key gesture because that's
+           when ARCore/ARKit can fill the camera frame with the surface
+           and lock onto a plane in 1-2s. -->
       <svg class="tutorial-diagram" viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
           <linearGradient id="beamGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#FF8C53" stop-opacity="0.45" />
-            <stop offset="100%" stop-color="#FF8C53" stop-opacity="0" />
+            <stop offset="0%" stop-color="#FFD980" stop-opacity="0.6" />
+            <stop offset="100%" stop-color="#FFD980" stop-opacity="0.05" />
+          </linearGradient>
+          <linearGradient id="tableTop" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#A87A4A"/>
+            <stop offset="1" stop-color="#704623"/>
           </linearGradient>
         </defs>
 
-        <!-- Surface (table top): perspective ellipse + dashed edge -->
-        <ellipse cx="100" cy="118" rx="80" ry="9" fill="rgba(255,255,255,0.06)" />
-        <ellipse cx="100" cy="118" rx="80" ry="9" fill="none"
-                 stroke="rgba(255,255,255,0.4)" stroke-width="1.4" stroke-dasharray="5 4" />
+        <!-- Beam — drawn first so the phone sits on top. SMIL <animate>
+             morphs the path between START (apex 63,53; narrow base
+             53→70 on table) and END (apex 151,24; wide base 130→165
+             on table). Same 3s timing as the phone CSS animation. -->
+        <path class="scan-beam" fill="url(#beamGrad)"
+              d="M 63 53 L 53 92 L 70 92 Z">
+          <animate attributeName="d" dur="3s" repeatCount="indefinite"
+            values="M 63 53 L 53 92 L 70 92 Z;M 151 24 L 130 92 L 165 92 Z;M 63 53 L 53 92 L 70 92 Z"
+            calcMode="spline"
+            keyTimes="0; 0.5; 1"
+            keySplines="0.42 0 0.58 1; 0.42 0 0.58 1" />
+        </path>
 
-        <!-- Pulsing scan rings on the surface — emphasize "where the
-             camera looks". Two rings on a 1s offset for a continuous
-             pulse without feeling busy. -->
-        <ellipse class="scan-ring-1" cx="100" cy="115" rx="14" ry="3"
-                 fill="none" stroke="#FF8C53" stroke-width="1.4" />
-        <ellipse class="scan-ring-2" cx="100" cy="115" rx="14" ry="3"
-                 fill="none" stroke="#FF8C53" stroke-width="1.4" />
+        <!-- Table — side view: top slab with subtle highlight + shadow,
+             two stubby legs. Wood-tone gradient gives the diagram a
+             friendly "this is a real table" feel rather than abstract. -->
+        <g>
+          <rect x="15" y="92" width="170" height="8" fill="url(#tableTop)" />
+          <line x1="15" y1="92" x2="185" y2="92" stroke="#C28953"
+                stroke-width="0.6" opacity="0.55" />
+          <line x1="15" y1="100" x2="185" y2="100" stroke="#3A2510"
+                stroke-width="0.5" opacity="0.5" />
+          <rect x="28" y="100" width="6" height="32" fill="#704623" />
+          <rect x="166" y="100" width="6" height="32" fill="#704623" />
+        </g>
 
-        <!-- Scan beam fanning from camera to surface. Sits behind
-             the phone so it visually "comes from" the camera lens. -->
-        <path class="scan-beam" d="M 100 70 L 78 113 L 122 113 Z" fill="url(#beamGrad)" />
-
-        <!-- Phone — body, screen, camera lens, home indicator. The
-             whole group rocks side-to-side and bobs vertically via
-             CSS keyframes. -->
+        <!-- Phone — drawn at origin (rect spans -3..3 / -18..18) so
+             rotation about (0,0) pivots cleanly through its center.
+             CSS animation translates+rotates it from START to END.
+             Camera lens is on the LEFT long edge (the "back" of the
+             phone in this side view); as the phone tilts past 45°
+             the lens naturally ends up pointing down at the surface. -->
         <g class="phone">
-          <!-- Phone body -->
-          <rect x="78" y="40" width="44" height="68" rx="7"
-                fill="#1A1A1A" stroke="#FF8C53" stroke-width="2" />
-          <!-- Screen -->
-          <rect x="82" y="46" width="36" height="50" rx="3" fill="#0A0A0A" />
-          <!-- Top speaker bar -->
-          <rect x="93" y="43.5" width="14" height="2" rx="1" fill="#3a3a3a" />
-          <!-- Camera lens at the BOTTOM edge (where it points down
-               toward the surface in this orientation) -->
-          <circle cx="100" cy="103" r="2.6" fill="#FF8C53" />
-          <circle cx="100" cy="103" r="1.2" fill="#1A1A1A" />
+          <rect x="-3" y="-18" width="6" height="36" rx="1.2"
+                fill="#1A1A1A" stroke="#FFB347" stroke-width="1.2" />
+          <!-- Camera bump (back of phone) -->
+          <rect x="-4.4" y="-14" width="1.5" height="3.5" rx="0.4" fill="#2a2a2a" />
+          <circle cx="-3.7" cy="-12.2" r="1" fill="#FFB347" />
         </g>
       </svg>
       <h2>Hold like this</h2>
-      <p>Tilt your phone above a flat surface, looking down.</p>
+      <p>Lift the phone up and tilt it down toward a flat surface.</p>
       <button id="tutorial-go" type="button">Start AR</button>
     </div>
   </div>
