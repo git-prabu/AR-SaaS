@@ -273,8 +273,20 @@ service cloud.firestore {
       // happens server-side via /api/staff/login (bcrypt + rate limit), so
       // the staff collection is NEVER publicly readable — only the admin
       // and super-admin can read/write.
+      //
+      // May 8: a logged-in staff member ALSO needs to read their OWN
+      // staff doc so kitchen.js / waiter.js can run a Firestore
+      // listener on it — that's how we detect a manager-triggered
+      // disable / delete in real time. Without this allowance the
+      // listener fires permission-denied immediately after sign-in
+      // and the staff gets bounced back to /staff/login. We scope it
+      // tightly: staff role + matching restaurantId + matching
+      // staffId on the path. PIN-hash exposure is not a concern
+      // because the staff already authenticated with the PIN.
       match /staff/{staffId} {
         allow read: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read: if isStaff(restaurantId) &&
+          request.auth.token.staffId == staffId;
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 

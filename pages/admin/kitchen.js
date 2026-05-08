@@ -183,31 +183,45 @@ export default function KitchenDisplay() {
   // current ID token stays valid for up to an hour, and the localStorage
   // "ar_staff_session" flag persists for 12h, so the staff would keep
   // using this dashboard despite being kicked.
+  //
   // Subscribing to their own staff doc and reacting in real time closes
   // that gap: doc deleted OR isActive flipped to false → force logout
   // immediately. Only runs for staff sessions; admins (real Firebase
   // accounts) don't have a staff doc to watch.
+  //
+  // IMPORTANT: we DO NOT treat a permission-denied error as a logout
+  // signal. permission-denied can fire transiently right after sign-in
+  // before the staff Firebase auth has finished propagating, OR if the
+  // matching firestore.rules clause hasn't been deployed yet. The
+  // per-doc snapshot data is the only reliable signal — not seeing it
+  // is just "we couldn't read", not "you're disabled". The
+  // onIdTokenChanged backstop in useStaffAuth still catches the case
+  // where the token is fully revoked (within ~1h).
   useEffect(() => {
     if (!staffSession?.staffId || !staffSession?.restaurantId) return;
     if (userData?.restaurantId) return;  // admin path, no need
     const staffRef = doc(staffDb, 'restaurants', staffSession.restaurantId, 'staff', staffSession.staffId);
-    const unsub = onSnapshot(staffRef, async (snap) => {
-      const stillValid = snap.exists() && snap.data()?.isActive !== false;
-      if (stillValid) return;
-      try { localStorage.removeItem('ar_staff_session'); } catch {}
-      try { await signOut(staffAuth); } catch {}
-      toast.error('Your session was ended by your manager.', { duration: 4000 });
-      router.replace('/staff/login');
-    }, (err) => {
-      // permission-denied here means the staff's auth was revoked and
-      // the rules can no longer match the doc. Treat as logout signal.
-      if (err?.code === 'permission-denied') {
+    let hasReceivedSnapshot = false;
+    const unsub = onSnapshot(
+      staffRef,
+      async (snap) => {
+        hasReceivedSnapshot = true;
+        const stillValid = snap.exists() && snap.data()?.isActive !== false;
+        if (stillValid) return;
         try { localStorage.removeItem('ar_staff_session'); } catch {}
-        signOut(staffAuth).catch(() => {});
-        toast.error('Session expired. Please sign in again.', { duration: 4000 });
+        try { await signOut(staffAuth); } catch {}
+        toast.error('Your session was ended by your manager.', { duration: 4000 });
         router.replace('/staff/login');
+      },
+      (err) => {
+        // Log + ignore. Don't bounce the user out — see comment above.
+        // Most likely cause is a firestore.rules deploy lag or transient
+        // permission window during sign-in.
+        if (!hasReceivedSnapshot) {
+          console.warn('[kitchen] staff-self-listen failed (will rely on token-refresh fallback):', err?.code || err?.message);
+        }
       }
-    });
+    );
     return unsub;
   }, [staffSession?.staffId, staffSession?.restaurantId, userData?.restaurantId, router]);
 

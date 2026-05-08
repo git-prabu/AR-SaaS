@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs, markOrderPaid, markOrderPaidAs, todayKey } from '../../lib/db';
+import { resolveWaiterCall, updateOrderStatus, resolveWaiterCallAs, updateOrderStatusAs, markOrderPaid, markOrderPaidAs, markOrderItemServedAs, todayKey } from '../../lib/db';
 import {
   announceCall, announceReady, announcePayment,
   unlockSound, isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
@@ -151,27 +151,33 @@ export default function WaiterDashboard() {
   // ── Staff session invalidation (May 8) ──
   // Mirror of the kitchen.js listener. Subscribes to the staff's own
   // doc; if it gets deleted or isActive flips to false, force logout.
-  // Closes the gap where Firebase token + localStorage flag would
-  // otherwise let a deactivated waiter keep using this dashboard.
+  // Same caveat as kitchen.js: we don't bounce on permission-denied
+  // errors (those can fire transiently on sign-in or pre-rules-deploy),
+  // only on actual snapshot data showing the staff is disabled/deleted.
+  // The onIdTokenChanged backstop in useStaffAuth catches the
+  // hard-revoked-token case as a fallback within ~1h.
   useEffect(() => {
     if (!staffSession?.staffId || !staffSession?.restaurantId) return;
     if (userData?.restaurantId) return;
     const staffRef = doc(staffDb, 'restaurants', staffSession.restaurantId, 'staff', staffSession.staffId);
-    const unsub = onSnapshot(staffRef, async (snap) => {
-      const stillValid = snap.exists() && snap.data()?.isActive !== false;
-      if (stillValid) return;
-      try { localStorage.removeItem('ar_staff_session'); } catch {}
-      try { await signOut(staffAuth); } catch {}
-      toast.error('Your session was ended by your manager.', { duration: 4000 });
-      router.replace('/staff/login');
-    }, (err) => {
-      if (err?.code === 'permission-denied') {
+    let hasReceivedSnapshot = false;
+    const unsub = onSnapshot(
+      staffRef,
+      async (snap) => {
+        hasReceivedSnapshot = true;
+        const stillValid = snap.exists() && snap.data()?.isActive !== false;
+        if (stillValid) return;
         try { localStorage.removeItem('ar_staff_session'); } catch {}
-        signOut(staffAuth).catch(() => {});
-        toast.error('Session expired. Please sign in again.', { duration: 4000 });
+        try { await signOut(staffAuth); } catch {}
+        toast.error('Your session was ended by your manager.', { duration: 4000 });
         router.replace('/staff/login');
+      },
+      (err) => {
+        if (!hasReceivedSnapshot) {
+          console.warn('[waiter] staff-self-listen failed (will rely on token-refresh fallback):', err?.code || err?.message);
+        }
       }
-    });
+    );
     return unsub;
   }, [staffSession?.staffId, staffSession?.restaurantId, userData?.restaurantId, router]);
 
@@ -252,22 +258,62 @@ export default function WaiterDashboard() {
         seconds: c.createdAt?.seconds || 0,
         raw: c,
       }));
-    const serves = allOrders
-      .filter(o => o.status === 'ready')
-      .map(o => {
-        const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
-        return {
+    // Serves are emitted PER ITEM (May 8, kitchen-side per-item ready):
+    // each item with readyAt-but-not-servedAt is its own action so the
+    // waiter is notified the moment the kitchen marks ANY item ready,
+    // not only when the whole order is ready. Legacy orders that don't
+    // carry per-item readyAt fall back to the old order-level path so
+    // existing in-flight tickets still surface.
+    const serves = [];
+    for (const o of allOrders) {
+      if (o.status === 'cancelled' || o.status === 'served') continue;
+      const items = Array.isArray(o.items) ? o.items : [];
+      const readyItems = items
+        .map((it, idx) => ({ ...it, idx }))
+        .filter(it => it.readyAt && !it.servedAt);
+      const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
+      const tableLabel = isTakeaway ? (o.customerName || 'Pickup') : (o.tableNumber || '—');
+
+      if (readyItems.length > 0) {
+        // Per-item path
+        for (const it of readyItems) {
+          // readyAt is a Firestore Timestamp inside the items array. It
+          // exposes .seconds the same way as a top-level timestamp; if
+          // the legacy code ever stored a plain Date the fallback uses
+          // its epoch seconds.
+          const readySeconds = it.readyAt?.seconds
+            || (it.readyAt instanceof Date ? Math.floor(it.readyAt.getTime() / 1000) : 0)
+            || o.updatedAt?.seconds || o.createdAt?.seconds || 0;
+          serves.push({
+            id: `serve:${o.id}:${it.idx}`,
+            rawId: o.id,
+            itemIdx: it.idx,
+            itemName: it.name,
+            type: 'serve',
+            isTakeaway,
+            table: tableLabel,
+            subtitle: `${orderLabel(o)} · ${it.qty || 1}× ${it.name}`,
+            seconds: readySeconds,
+            raw: o,
+          });
+        }
+      } else if (o.status === 'ready') {
+        // Legacy path: status='ready' but no per-item readyAt stamps.
+        // Show the whole order as a single serve action so older
+        // tickets (or imports from before per-item shipped) still
+        // surface and can be cleared.
+        serves.push({
           id: 'serve:' + o.id,
           rawId: o.id,
           type: 'serve',
           isTakeaway,
-          table: isTakeaway ? (o.customerName || 'Pickup') : (o.tableNumber || '—'),
-          // For serves, subtitle is the order number + item count
-          subtitle: `${orderLabel(o)} · ${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}`,
+          table: tableLabel,
+          subtitle: `${orderLabel(o)} · ${items.length} item${items.length === 1 ? '' : 's'}`,
           seconds: o.updatedAt?.seconds || o.createdAt?.seconds || 0,
           raw: o,
-        };
-      });
+        });
+      }
+    }
     const payments = allOrders
       .filter(o => /_requested$/.test(o.paymentStatus || ''))
       .map(o => {
@@ -398,7 +444,15 @@ export default function WaiterDashboard() {
           await resolveWaiterCall(rid, item.rawId);
         }
       } else if (item.type === 'serve') {
-        if (staffSession) {
+        // Per-item path (May 8): if the action carries an itemIdx,
+        // mark just that item served. The helper auto-flips the
+        // order's overall status='served' once every item is
+        // stamped. Legacy entries (no itemIdx) still mark the whole
+        // order served at once.
+        if (typeof item.itemIdx === 'number') {
+          const fs = staffSession ? staffDb : db;
+          await markOrderItemServedAs(fs, rid, item.rawId, item.itemIdx);
+        } else if (staffSession) {
           await updateOrderStatusAs(staffDb, rid, item.rawId, 'served');
         } else {
           await updateOrderStatus(rid, item.rawId, 'served');
