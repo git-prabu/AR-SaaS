@@ -3291,6 +3291,74 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           flex-shrink: 0;
         }
 
+        /* ─────────── CATEGORY IMAGE-TILE STRIP (May 8) ───────────
+           Replaces the small text pills with bigger, image-led tiles
+           inspired by food-delivery app top-nav patterns. Each tile
+           is a circular dish photo with the category label below.
+           Tapping a tile smooth-scrolls the page to that category's
+           section in the menu list (no filtering — see step 2). The
+           "Featured" tile (when present) is gold-accented to stand
+           apart from regular categories. */
+        .cat-tile-strip {
+          display: flex;
+          gap: 14px;
+          overflow-x: auto;
+          overflow-y: visible;
+          padding: 6px 4px 8px;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+        }
+        .cat-tile-strip::-webkit-scrollbar { display: none; }
+
+        .cat-tile {
+          flex: 0 0 auto;
+          display: flex; flex-direction: column; align-items: center;
+          gap: 6px; padding: 0; border: none;
+          background: transparent; cursor: pointer;
+          width: 76px;
+          font-family: 'Inter', sans-serif;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .cat-tile-img {
+          width: 64px; height: 64px;
+          border-radius: 50%;
+          background: rgba(247,155,61,0.10);
+          background-size: cover; background-position: center;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 28px; line-height: 1;
+          border: 2px solid transparent;
+          transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+          flex-shrink: 0;
+        }
+        .cat-tile:hover .cat-tile-img,
+        .cat-tile:focus-visible .cat-tile-img {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 18px rgba(247,155,61,0.25);
+          border-color: rgba(247,155,61,0.45);
+        }
+        .cat-tile:active .cat-tile-img { transform: translateY(0); }
+        .cat-tile-label {
+          font-size: 12px; font-weight: 600;
+          color: #2B2B2B;
+          letter-spacing: -0.1px;
+          text-align: center;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          width: 76px; line-height: 1.2;
+        }
+        .dm .cat-tile-label { color: #FFF5E8; }
+        /* Featured tile — gold accent ring + warmer label */
+        .cat-tile.featured .cat-tile-img {
+          background: linear-gradient(135deg, #F7C45D, #F79B3D);
+          color: #1E1B18;
+          border-color: rgba(247,155,61,0.55);
+          box-shadow: 0 4px 14px rgba(247,155,61,0.35);
+        }
+        .cat-tile.featured .cat-tile-label {
+          color: #C97A1A;
+          font-weight: 700;
+        }
+        .dm .cat-tile.featured .cat-tile-label { color: #F7C45D; }
+
         /* ─────────── MAIN ─────────── */
         .main {
           max-width: 1080px; margin: 0 auto;
@@ -4558,15 +4626,48 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </div>
               </div>
             </div>
-            {/* Category tabs */}
+            {/* Category image-tile strip (May 8 redesign).
+                Replaces the old text pills. Tapping a tile scrolls
+                the page to the matching section id rendered by the
+                menu (step 2). No filtering — every section stays
+                visible, the tile is a navigation shortcut. */}
             <div className="cats-outer">
-              <div className="cats-scroll">
-                {cats.map(cat => (
-                  <button key={cat} className={`cat-pill${activeCat === cat ? ' on' : ''}`} data-label={cat} style={{ animationDelay: `${cats.indexOf(cat) * 0.04}s` }} onClick={() => setActiveCat(cat)}>
-                    <span className="cat-emoji">{catIcon(cat)}</span>
-                    {cat === 'All' ? t.all : cat}
-                  </button>
-                ))}
+              <div className="cat-tile-strip">
+                {categoryStrip.map((tile) => {
+                  const targetId = tile.isFeatured
+                    ? 'cat-section-__featured'
+                    : 'cat-section-' + tile.name.replace(/\s+/g, '-').toLowerCase();
+                  const handleClick = () => {
+                    const el = typeof document !== 'undefined' ? document.getElementById(targetId) : null;
+                    if (el) {
+                      // 80px header offset so the section title isn't
+                      // hidden behind the sticky header.
+                      const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                      window.scrollTo({ top, behavior: 'smooth' });
+                    }
+                    // We still update activeCat so any downstream
+                    // logic that reads it (FAB tour, analytics) keeps
+                    // working — but no longer filters the menu.
+                    if (typeof setActiveCat === 'function') setActiveCat(tile.isFeatured ? 'All' : tile.name);
+                  };
+                  return (
+                    <button
+                      key={tile.key}
+                      type="button"
+                      className={`cat-tile${tile.isFeatured ? ' featured' : ''}`}
+                      onClick={handleClick}
+                      aria-label={`Jump to ${tile.name}`}
+                    >
+                      <span
+                        className="cat-tile-img"
+                        style={tile.image ? { backgroundImage: `url(${tile.image})` } : undefined}
+                      >
+                        {!tile.image && (tile.isFeatured ? '★' : catIcon(tile.name))}
+                      </span>
+                      <span className="cat-tile-label">{tile.isFeatured ? 'Featured' : tile.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
