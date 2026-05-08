@@ -1,7 +1,7 @@
 // pages/admin/items.js
 import Head from 'next/head';
 import Link from 'next/link';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, Fragment } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
@@ -294,9 +294,16 @@ export default function AdminItems() {
   }, [items]);
 
   // ═══ Filtered display ═══
+  // Items are now sorted into category groups (in customer-menu
+  // order from effectiveCategoryOrder), with featured-first inside
+  // each group and sold-out-today items sinking to the bottom of
+  // their own group. The flat output keeps the existing drag /
+  // bulk-select pipeline working unchanged — render-time logic
+  // (below) injects a category-heading row between consecutive
+  // items whose category differs.
   const displayed = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let list = items.filter(item => {
+    const filtered = items.filter(item => {
       if (catFilter !== 'all' && item.category !== catFilter) return false;
       if (statusFilter === 'active' && item.isActive === false) return false;
       if (statusFilter === 'hidden' && item.isActive !== false) return false;
@@ -305,9 +312,29 @@ export default function AdminItems() {
       if (q && !(item.name || '').toLowerCase().includes(q) && !(item.description || '').toLowerCase().includes(q)) return false;
       return true;
     });
-    // Sold-out-today items sink to the bottom
-    return list.sort((a, b) => (isSoldOutToday(a) ? 1 : 0) - (isSoldOutToday(b) ? 1 : 0));
-  }, [items, search, catFilter, statusFilter, today]);
+    // Group by category preserving stable order.
+    const byCat = new Map();
+    for (const item of filtered) {
+      const c = (item.category || '').trim() || 'Other';
+      if (!byCat.has(c)) byCat.set(c, []);
+      byCat.get(c).push(item);
+    }
+    const orderIdx = (name) => {
+      const i = effectiveCategoryOrder.indexOf(name);
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    const orderedNames = [...byCat.keys()].sort((a, b) => orderIdx(a) - orderIdx(b));
+    const flat = [];
+    for (const name of orderedNames) {
+      const inCat = byCat.get(name);
+      flat.push(
+        ...inCat.filter(i => i.isFeatured && !isSoldOutToday(i)),
+        ...inCat.filter(i => !i.isFeatured && !isSoldOutToday(i)),
+        ...inCat.filter(i => isSoldOutToday(i)),
+      );
+    }
+    return flat;
+  }, [items, search, catFilter, statusFilter, today, effectiveCategoryOrder]);
 
   // ═══ Drawer open/close ═══
   const openEdit = (item) => {
@@ -1240,7 +1267,11 @@ export default function AdminItems() {
                 <div style={{ textAlign: 'right' }}>Actions</div>
               </div>
 
-              {/* Rows */}
+              {/* Rows — flat map over `displayed`, with a category
+                  heading row injected each time the category changes.
+                  Keeps the existing 100-line row JSX intact; the only
+                  change is the React.Fragment wrapper that gets a
+                  heading prepended on the first item of each group. */}
               {displayed.map((item, idx) => {
                 const soldOut = isSoldOutToday(item);
                 const oos = item.isOutOfStock;
@@ -1250,8 +1281,36 @@ export default function AdminItems() {
                 const upload = imgUpload[item.id];
 
                 const checked = sel.isSelected(item.id);
+                const myCat = (item.category || '').trim() || 'Other';
+                const prevCat = idx > 0 ? ((displayed[idx - 1].category || '').trim() || 'Other') : null;
+                const isCategoryStart = myCat !== prevCat;
+                const groupSize = displayed.filter(i => ((i.category || '').trim() || 'Other') === myCat).length;
+                const heading = isCategoryStart ? (
+                  <div key={`cat_head_${myCat}`} style={{
+                    display: 'flex', alignItems: 'baseline', gap: 10,
+                    padding: '12px 18px',
+                    background: 'rgba(196,168,109,0.06)',
+                    borderBottom: A.border,
+                    borderTop: idx > 0 ? A.border : 'none',
+                  }}>
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, color: A.warningDim,
+                      letterSpacing: '0.06em', textTransform: 'uppercase',
+                    }}>{myCat}</span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, color: A.faintText,
+                      fontFamily: A.mono,
+                    }}>{groupSize}</span>
+                    <span style={{
+                      marginLeft: 'auto', fontSize: 10, color: A.faintText,
+                      fontWeight: 500, letterSpacing: '0.04em',
+                    }}>Featured first · drag to reorder within</span>
+                  </div>
+                ) : null;
                 return (
-                  <div key={item.id} className={`it-row ${dragging === item.id ? 'dragging' : ''} ${dragOverItem.current === item.id ? 'over' : ''}`}
+                  <Fragment key={item.id}>
+                    {heading}
+                  <div className={`it-row ${dragging === item.id ? 'dragging' : ''} ${dragOverItem.current === item.id ? 'over' : ''}`}
                     draggable={canDrag}
                     onDragStart={() => { dragItem.current = item.id; setDragging(item.id); }}
                     onDragEnter={() => { dragOverItem.current = item.id; }}
@@ -1438,6 +1497,7 @@ export default function AdminItems() {
                       </IconBtn>
                     </div>
                   </div>
+                  </Fragment>
                 );
               })}
             </div>
