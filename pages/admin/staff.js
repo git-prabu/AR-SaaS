@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
+import ConfirmModal from '../../components/ConfirmModal';
 import { getStaffMembers, getRestaurantById } from '../../lib/db';
 import toast from 'react-hot-toast';
 import { auth } from '../../lib/firebase';
@@ -185,6 +186,10 @@ export default function StaffManagement() {
   // Per-row action state
   const [actionId, setActionId] = useState(null);
   const [banner, setBanner] = useState(null); // { kind: 'success'|'error', text: '…' }
+  // ConfirmModal state — replaces the native browser confirm() for
+  // delete prompts. Shape: { title, body, confirmLabel, destructive,
+  // onConfirm } | null (closed).
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   // Copy link feedback
   const [copied, setCopied] = useState(false);
@@ -379,21 +384,32 @@ export default function StaffManagement() {
   // ═══ Delete staff member ═══
   // /api/staff/update action:delete removes the Firestore doc AND the Firebase
   // Auth user — so the staff's saved session stops working immediately.
-  const handleDelete = async (s) => {
-    if (!confirm(`Permanently delete ${s.name}? They will no longer be able to log in. This cannot be undone.`)) return;
-    setActionId(s.id);
-    try {
-      await apiCall('/api/staff/update', {
-        action: 'delete',
-        staffId: s.id,
-      });
-      await reload();
-      setBanner({ kind: 'success', text: 'Staff member deleted' });
-    } catch (e) {
-      console.error('delete failed:', e);
-      setBanner({ kind: 'error', text: e.message || 'Failed to delete' });
-    }
-    setActionId(null);
+  // Uses ConfirmModal (the styled card dialog used elsewhere in the app)
+  // instead of the native browser confirm() popup so the prompt feels
+  // in-app and visually consistent.
+  const handleDelete = (s) => {
+    setConfirmDialog({
+      title: `Delete ${s.name}?`,
+      body: `${s.name} will no longer be able to sign in. Their saved sessions stop working immediately. This cannot be undone.`,
+      confirmLabel: 'Yes, delete',
+      cancelLabel: 'Keep staff member',
+      destructive: true,
+      onConfirm: async () => {
+        setActionId(s.id);
+        try {
+          await apiCall('/api/staff/update', {
+            action: 'delete',
+            staffId: s.id,
+          });
+          await reload();
+          setBanner({ kind: 'success', text: 'Staff member deleted' });
+        } catch (e) {
+          console.error('delete failed:', e);
+          setBanner({ kind: 'error', text: e.message || 'Failed to delete' });
+        }
+        setActionId(null);
+      },
+    });
   };
 
   // ═══ Copy login URL ═══
@@ -984,6 +1000,14 @@ export default function StaffManagement() {
           </div>
         </div>
       )}
+
+      {/* Card-style confirmation dialog (replaces native confirm()
+          for delete prompts — matches /admin/orders + /admin/items). */}
+      <ConfirmModal
+        open={!!confirmDialog}
+        {...(confirmDialog || {})}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </AdminLayout>
   );
 }
