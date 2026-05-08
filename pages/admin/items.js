@@ -375,6 +375,52 @@ export default function AdminItems() {
     finally { setTranslatingEdit(false); }
   };
 
+  // ═══ Category image upload (May 8) ═══
+  // Per-category hero image admins can upload to override the
+  // auto-derived "first item's image" used by the customer menu's
+  // top tile strip. Stored as a flat map on the restaurant doc:
+  //   restaurants/{rid}.categoryImages = { 'Pizza': '<url>', ... }
+  // Cleared by passing file=null (handled in the chip's "Remove"
+  // action). Upload is hidden behind a per-category file input ref
+  // so each chip has its own picker.
+  const [catImgUploading, setCatImgUploading] = useState({});  // { [catName]: progressPct }
+  const catImgInputRef = useRef({});
+  const handleCategoryImageUpload = async (categoryName, file) => {
+    if (!file) return;
+    if (fileSizeMB(file) > 5) { toast.error('Image must be under 5MB'); return; }
+    setCatImgUploading(s => ({ ...s, [categoryName]: 0 }));
+    try {
+      // Reuse the same image bucket layout as menu-item images for
+      // simplicity. The path encodes the category name so re-uploads
+      // for the same category are easy to find later.
+      const safeName = categoryName.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
+      const path = buildImagePath(rid, `category_${safeName}_${file.name}`);
+      const url = await uploadImage(file, path, (pct) =>
+        setCatImgUploading(s => ({ ...s, [categoryName]: pct }))
+      );
+      const nextImages = { ...savedCategoryImages, [categoryName]: url };
+      setSavedCategoryImages(nextImages);
+      await updateRestaurant(rid, { categoryImages: nextImages });
+      toast.success(`Updated image for ${categoryName}`);
+    } catch (e) {
+      console.error('category image upload failed:', e);
+      toast.error('Upload failed: ' + (e?.message || 'unknown'));
+    } finally {
+      setCatImgUploading(s => { const next = { ...s }; delete next[categoryName]; return next; });
+    }
+  };
+  const handleCategoryImageClear = async (categoryName) => {
+    const nextImages = { ...savedCategoryImages };
+    delete nextImages[categoryName];
+    setSavedCategoryImages(nextImages);
+    try {
+      await updateRestaurant(rid, { categoryImages: nextImages });
+    } catch (e) {
+      console.error('category image clear failed:', e);
+      toast.error('Could not clear. Refresh and retry.');
+    }
+  };
+
   // ═══ Image upload (row-level) ═══
   const handleImageUpload = async (item, file) => {
     if (!file) return;
@@ -1049,11 +1095,15 @@ export default function AdminItems() {
                   · drag to reorder how categories appear on the menu
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {effectiveCategoryOrder.map((name) => {
                   const isDragging = catDragging === name;
                   const isOver = catDragOver.current === name;
                   const count = items.filter(i => (i.category || '').trim() === name).length;
+                  const adminImage = savedCategoryImages[name] || '';
+                  const fallbackImage = items.find(i => (i.category || '').trim() === name && i.imageURL)?.imageURL || '';
+                  const previewImage = adminImage || fallbackImage;
+                  const uploadingPct = catImgUploading[name];
                   return (
                     <div
                       key={name}
@@ -1064,7 +1114,7 @@ export default function AdminItems() {
                       onDragEnd={handleCatDragEnd}
                       title={`Drag to reorder ${name}`}
                       style={{
-                        padding: '8px 14px', borderRadius: 10,
+                        padding: '8px 12px 8px 8px', borderRadius: 10,
                         background: A.shell, border: A.border,
                         boxShadow: isDragging ? '0 4px 14px rgba(0,0,0,0.10)' : A.shadowCard,
                         opacity: isDragging ? 0.55 : 1,
@@ -1079,12 +1129,65 @@ export default function AdminItems() {
                       }}
                     >
                       <span style={{ color: A.faintText, fontSize: 11 }}>⋮⋮</span>
+                      {/* Hidden file input — clicked via the image button below.
+                          Each category gets its own ref so multiple chips don't
+                          share a single picker state. */}
+                      <input
+                        ref={(el) => { catImgInputRef.current[name] = el; }}
+                        type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleCategoryImageUpload(name, file);
+                          // Reset so picking the same file again still fires.
+                          e.target.value = '';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); catImgInputRef.current[name]?.click(); }}
+                        title={previewImage ? 'Click to change category image' : 'Click to upload category image'}
+                        style={{
+                          width: 32, height: 32, borderRadius: '50%',
+                          border: previewImage ? `1.5px solid ${A.border}` : `1.5px dashed ${A.faintText}`,
+                          background: previewImage
+                            ? `center/cover no-repeat url(${previewImage})`
+                            : A.subtleBg,
+                          color: A.faintText, fontSize: 11,
+                          cursor: 'pointer', flexShrink: 0,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          padding: 0, position: 'relative', overflow: 'hidden',
+                        }}
+                      >
+                        {!previewImage && '＋'}
+                        {typeof uploadingPct === 'number' && (
+                          <span style={{
+                            position: 'absolute', inset: 0,
+                            background: 'rgba(0,0,0,0.55)', color: '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 9, fontWeight: 700,
+                          }}>{uploadingPct}%</span>
+                        )}
+                      </button>
                       {name}
                       <span style={{
                         padding: '1px 7px', borderRadius: 6,
                         background: A.subtleBg, color: A.faintText,
                         fontSize: 10, fontWeight: 700, fontFamily: A.mono,
                       }}>{count}</span>
+                      {adminImage && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleCategoryImageClear(name); }}
+                          title="Clear admin-set image (revert to first item's photo)"
+                          style={{
+                            width: 18, height: 18, borderRadius: '50%',
+                            border: 'none', background: 'transparent',
+                            color: A.faintText, cursor: 'pointer',
+                            fontSize: 14, lineHeight: 1, padding: 0,
+                            marginLeft: -2,
+                          }}
+                        >×</button>
+                      )}
                     </div>
                   );
                 })}
