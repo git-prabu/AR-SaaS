@@ -1367,6 +1367,83 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const cats = useMemo(() => ['All', ...new Set(enrichedItems.map(i => i.category).filter(Boolean))], [enrichedItems]);
   const filtered = useMemo(() => activeCat === 'All' ? enrichedItems : enrichedItems.filter(i => i.category === activeCat), [enrichedItems, activeCat]);
 
+  // ── Categorised menu structure (May 8 redesign) ─────────────────────
+  // For the "All" view we now lay items out as horizontal-scroll
+  // sections grouped by category instead of one giant vertical list.
+  // This block builds the data the new section renderer reads:
+  //
+  //   featuredSection — { items: [...isFeatured across all categories] }
+  //                     Rendered first if non-empty; serves discovery.
+  //   categorySections — [{ name, image, items[] }, ...]
+  //                      Items inside each section are sorted with
+  //                      featured-first so customers browsing one
+  //                      category still see the chef's picks first.
+  //   categoryStrip   — [{ name, image }] for the top image-tile nav.
+  //                     "Featured" tile is prepended when featured
+  //                     items exist; tap scrolls to the matching
+  //                     section (handled by IDs in step 2).
+  //
+  // visibleItems excludes sold-out (availableUntil === todayStr) only
+  // when the customer page hides them — left to the renderer.
+  // visibleEnriched is just enrichedItems with the same active-filter
+  // applied. We keep the old `filtered` derivation untouched so the
+  // category-pill filter (when activeCat !== 'All') still works as a
+  // fallback while the new section UI is being wired.
+  const categorySections = useMemo(() => {
+    // Build category → items map, preserving insertion order.
+    const byCat = new Map();
+    for (const item of enrichedItems) {
+      const c = (item.category || '').trim() || 'Other';
+      if (!byCat.has(c)) byCat.set(c, []);
+      byCat.get(c).push(item);
+    }
+    // Within each category: featured first, then everything else
+    // preserving the admin-set sort order (already applied upstream).
+    const sections = [];
+    for (const [name, items] of byCat.entries()) {
+      const featuredFirst = [
+        ...items.filter(i => i.isFeatured),
+        ...items.filter(i => !i.isFeatured),
+      ];
+      // Use the first item's image (or first featured item's image)
+      // as the category tile's hero photo. Fallback to '' so the
+      // tile renderer can substitute an emoji/placeholder.
+      const heroItem = featuredFirst[0] || null;
+      sections.push({
+        name,
+        image: heroItem?.imageURL || '',
+        items: featuredFirst,
+      });
+    }
+    return sections;
+  }, [enrichedItems]);
+
+  const featuredSection = useMemo(() => {
+    const items = enrichedItems.filter(i => i.isFeatured);
+    return items.length > 0 ? { name: 'Featured', items } : null;
+  }, [enrichedItems]);
+
+  const categoryStrip = useMemo(() => {
+    const tiles = [];
+    if (featuredSection) {
+      tiles.push({
+        key: '__featured',
+        name: 'Featured',
+        image: featuredSection.items[0]?.imageURL || '',
+        isFeatured: true,
+      });
+    }
+    for (const section of categorySections) {
+      tiles.push({
+        key: section.name,
+        name: section.name,
+        image: section.image,
+        isFeatured: false,
+      });
+    }
+    return tiles;
+  }, [featuredSection, categorySections]);
+
 
 
 
