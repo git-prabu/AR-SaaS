@@ -922,6 +922,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [combos, setCombos] = useState(initialCombos || []);
   const [restaurantGone, setRestaurantGone] = useState(initialRestaurant?.isActive === false);
   const [activeCat, setActiveCat] = useState('All');
+  // Customer-side menu search (May 8). Replaces the category strip /
+  // sections / AR banner / combo deals with a flat result list while
+  // active. Scoped to name + description match for now; can grow to
+  // include category, ingredient, or dietary tags later.
+  const [menuSearch, setMenuSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   // Modifier selection for the currently-open item modal. Resets whenever
   // selectedItem changes. { variant: {name, priceDelta} | null, addOns: [...] }
@@ -3357,6 +3362,59 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           flex-shrink: 0;
         }
 
+        /* ─────────── MENU SEARCH BAR (May 8) ───────────
+           Sticky search input that lives just above the category
+           strip in the header. Typing filters items across all
+           categories and the page swaps to a flat result list. */
+        .menu-search {
+          display: flex; align-items: center; gap: 8px;
+          padding: 8px 14px;
+          margin: 0 4px 8px;
+          background: #FFFFFF;
+          border: 1px solid rgba(42,31,16,0.08);
+          border-radius: 999px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .menu-search:focus-within {
+          border-color: rgba(247,155,61,0.55);
+          box-shadow: 0 2px 12px rgba(247,155,61,0.18);
+        }
+        .menu-search svg { flex-shrink: 0; color: rgba(42,31,16,0.4); }
+        .menu-search input {
+          flex: 1; min-width: 0;
+          border: none; background: transparent; outline: none;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px; color: #1E1B18;
+          padding: 4px 0;
+        }
+        .menu-search input::placeholder { color: rgba(42,31,16,0.42); }
+        .menu-search-clear {
+          flex-shrink: 0;
+          width: 22px; height: 22px;
+          border-radius: 50%; border: none;
+          background: rgba(42,31,16,0.07);
+          color: rgba(42,31,16,0.6);
+          font-size: 14px; line-height: 1; padding: 0;
+          cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        .menu-search-clear:hover { background: rgba(42,31,16,0.12); }
+        .dm .menu-search { background: rgba(255,255,255,0.06); border-color: rgba(255,245,232,0.12); }
+        .dm .menu-search input { color: #FFF5E8; }
+        .dm .menu-search input::placeholder { color: rgba(255,245,232,0.42); }
+        .dm .menu-search-clear { background: rgba(255,255,255,0.10); color: rgba(255,245,232,0.7); }
+
+        .search-empty {
+          padding: 36px 16px 20px;
+          text-align: center;
+          color: rgba(42,31,16,0.55);
+        }
+        .search-empty .se-icon { font-size: 36px; margin-bottom: 10px; }
+        .search-empty .se-title { font-weight: 700; color: #1E1B18; font-size: 15px; margin-bottom: 4px; }
+        .search-empty .se-sub { font-size: 12px; }
+        .dm .search-empty .se-title { color: #FFF5E8; }
+
         /* ─────────── CATEGORY IMAGE-TILE STRIP (May 8) ───────────
            Replaces the small text pills with bigger, image-led tiles
            inspired by food-delivery app top-nav patterns. Each tile
@@ -4834,12 +4892,41 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </div>
               </div>
             </div>
+            {/* Menu search bar (May 8). Sticky above the category
+                tiles so customers can find an item by name or
+                description without scrolling through every category. */}
+            <div className="cats-outer">
+              <div className="menu-search" role="search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="search"
+                  inputMode="search"
+                  autoComplete="off"
+                  placeholder={t.searchPlaceholder || 'Search dishes…'}
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                  aria-label="Search dishes"
+                />
+                {menuSearch && (
+                  <button
+                    type="button"
+                    className="menu-search-clear"
+                    onClick={() => setMenuSearch('')}
+                    aria-label="Clear search"
+                  >×</button>
+                )}
+              </div>
             {/* Category image-tile strip (May 8 redesign).
                 Replaces the old text pills. Tapping a tile scrolls
                 the page to the matching section id rendered by the
                 menu (step 2). No filtering — every section stays
-                visible, the tile is a navigation shortcut. */}
-            <div className="cats-outer">
+                visible, the tile is a navigation shortcut. Hidden
+                when a search is active so the search results take
+                centre stage. */}
+            {!menuSearch && (
               <div className="cat-tile-strip">
                 {categoryStrip.map((tile) => {
                   const targetId = 'cat-section-' + tile.name.replace(/\s+/g, '-').toLowerCase();
@@ -4875,6 +4962,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   );
                 })}
               </div>
+            )}
             </div>
           </div>
         </header>
@@ -4968,7 +5056,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
               preview of the gesture, no words needed.
               Headline tightened to "See it on your table" so the
               value is visible at a glance. */}
-          {arCount > 0 && (
+          {arCount > 0 && !menuSearch && (
             <div className="ar-strip">
               {/* AR demo SVG v2 (May 8): bigger, more readable scene.
                   Layout (200×120 viewBox):
@@ -5063,8 +5151,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
               from when activeCat was a filter, and post-redesign
               activeCat is just a scroll-target hint. With the gate in
               place, tapping any category tile would silently hide the
-              combo deals; a page refresh brought them back. */}
-          {(combos || []).filter(c => c.isActive !== false).length > 0 && (
+              combo deals; a page refresh brought them back. Hidden
+              while a search is active so the result list is the only
+              thing on screen. */}
+          {(combos || []).filter(c => c.isActive !== false).length > 0 && !menuSearch && (
             <div className="combos-section-wrap" style={{ marginBottom: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 18 }}>🍱</span>
@@ -5297,6 +5387,38 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   </div>
                 </button>
             );
+
+            // Search mode — flat result list across all items.
+            // Match against name + description (case-insensitive).
+            const q = menuSearch.trim().toLowerCase();
+            if (q) {
+              const matches = enrichedItems.filter((it) => {
+                const name = (it.name || '').toLowerCase();
+                const desc = (it.description || '').toLowerCase();
+                const cat  = (it.category || '').toLowerCase();
+                return name.includes(q) || desc.includes(q) || cat.includes(q);
+              });
+              if (matches.length === 0) {
+                return (
+                  <div className="search-empty">
+                    <div className="se-icon">🔍</div>
+                    <div className="se-title">No matches for “{menuSearch}”</div>
+                    <div className="se-sub">Try a different keyword, or clear the search to browse the full menu.</div>
+                  </div>
+                );
+              }
+              return (
+                <section className="cat-section">
+                  <div className="cat-section-head">
+                    <h3 className="cat-section-title">Results</h3>
+                    <span className="cat-section-count">{matches.length}</span>
+                  </div>
+                  <div className="cat-row">
+                    {matches.map((item, idx) => renderItemCard(item, idx))}
+                  </div>
+                </section>
+              );
+            }
 
             if (categorySections.length === 0) {
               return (
