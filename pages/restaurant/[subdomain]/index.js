@@ -703,29 +703,32 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
   //   Falls back to centered if neither side has at least tooltipH+margin
   //   available. Top is clamped so the tooltip never goes above the
   //   safe-area top, and the implicit bottom is clamped via vh too.
+  // - SAFE_BOTTOM reserves space for the bottom FABs (Cart / Bill /
+  //   etc.) so the tooltip doesn't sit on top of them.
   const tooltipStyle = (() => {
     const SAFE_TOP = 16;
-    const SAFE_BOTTOM = 16;
-    const MARGIN = 14;
-    // Tooltip width: min(360, vw - 32). Smaller on narrow phones so it
-    // never touches the edges.
-    const tooltipW = Math.min(360, Math.max(280, vw - 32));
+    const SAFE_BOTTOM = 96;       // leave room for bottom FAB stack
+    const MARGIN = 12;
+    // Tooltip width: tighter on phones so the card doesn't dominate
+    // the screen. Was min(360, vw-32); now min(340, vw-40) so the
+    // tooltip + spotlight together hide less of the page.
+    const tooltipW = Math.min(340, Math.max(280, vw - 40));
     const base = {
       position: 'absolute',
       width: tooltipW,
       maxWidth: 'none',
       background: darkMode ? '#1A1612' : '#FFFFFF',
-      borderRadius: 18,
-      padding: '20px 22px',
+      borderRadius: 16,
+      padding: '14px 18px 12px',
       boxSizing: 'border-box',
       boxShadow: '0 16px 50px rgba(0,0,0,0.45), 0 4px 14px rgba(0,0,0,0.20)',
       border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
-      // The cmFade animation does NOT translate — it just scales +
-      // fades. Setting transform-origin explicitly so the soft pop-in
-      // happens around the tooltip's middle regardless of where it's
-      // positioned in the viewport.
       transformOrigin: 'center center',
-      animation: 'cmFade 0.25s cubic-bezier(0.32,0.72,0,1) both',
+      // Step-change animation: no scale (jarring), no JS-driven mount
+      // animation. Smooth cross-step glide via CSS transition on top
+      // + left. cmFade applies once on mount via animationName below.
+      transition: 'top 0.32s cubic-bezier(0.4, 0, 0.2, 1), left 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+      animation: 'cmFade 0.18s ease-out both',
       zIndex: 1001,
     };
     if (!spotRect) {
@@ -769,15 +772,20 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, fontFamily: 'Inter,sans-serif' }}>
       <style>{`
-        /* Pure opacity/scale entrance — NO translate (the old version used
-           translate(-50%, -50%) for centering, but the placement math is
-           now numeric top/left, so a translate left over from the keyframe
-           shifts the tooltip half its width off-screen on narrow phones).
-           transform-origin centers the scale around the tooltip's middle
-           so the entrance reads as a soft pop-in. */
-        @keyframes cmFade { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+        /* Tour entrance/transition keyframes (May 8 v2):
+             cmFade   — tooltip mount animation. Pure opacity, no
+                        scale (scale on a positioned element fights
+                        the top/left transition that handles step
+                        changes). 0.18s is fast enough to feel
+                        responsive without flashing.
+             cmFadeT  — backdrop fade-in.
+             cmRingPulse — gentle pulse around the spotlight ring
+                           (slowed to 2s and reduced amplitude so it
+                           doesn't fight the smooth step-to-step
+                           geometry transition). */
+        @keyframes cmFade { from { opacity: 0; } to { opacity: 1; } }
         @keyframes cmFadeT { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes cmRingPulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(247,155,61,0.30); } 50% { box-shadow: 0 0 0 10px rgba(247,155,61,0.12); } }
+        @keyframes cmRingPulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(247,155,61,0.28); } 50% { box-shadow: 0 0 0 8px rgba(247,155,61,0.10); } }
       `}</style>
 
       {/* Dark backdrop with cutout (or solid backdrop when no target).
@@ -785,29 +793,38 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
           above — so a tall menu card gets only its top portion
           spotlighted and the tooltip below has room to render. */}
       <svg
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', animation: 'cmFadeT 0.25s ease' }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', animation: 'cmFadeT 0.18s ease' }}
         onClick={onDone}
         aria-hidden="true"
       >
         <defs>
           <mask id="cm-tour-mask">
             <rect width="100%" height="100%" fill="white" />
-            {spotRect && (
-              <rect
-                x={spotRect.x - 6} y={spotRect.y - 6}
-                width={spotRect.w + 12} height={spotRect.h + 12}
-                rx={14} ry={14}
-                fill="black"
-              />
-            )}
+            {/* Always-rendered rect so the cutout transitions x/y/w/h
+                between steps instead of remounting. When there's no
+                target we collapse it to size 0 (still rendered). SVG2
+                supports CSS transitions on x/y/width/height in modern
+                Chrome/Safari/Firefox — gives a buttery glide between
+                step targets. */}
+            <rect
+              x={(spotRect ? spotRect.x : -50) - 6}
+              y={(spotRect ? spotRect.y : -50) - 6}
+              width={spotRect ? spotRect.w + 12 : 0}
+              height={spotRect ? spotRect.h + 12 : 0}
+              rx={14} ry={14}
+              fill="black"
+              style={{
+                transition: 'x 0.32s cubic-bezier(0.4,0,0.2,1), y 0.32s cubic-bezier(0.4,0,0.2,1), width 0.32s cubic-bezier(0.4,0,0.2,1), height 0.32s cubic-bezier(0.4,0,0.2,1)',
+              }}
+            />
           </mask>
         </defs>
         <rect width="100%" height="100%" fill="rgba(0,0,0,0.74)" mask="url(#cm-tour-mask)" />
       </svg>
 
-      {/* Spotlight ring (decorative — pulses around the spotRect, not
-          the full target, so the visible highlight matches the
-          cutout). */}
+      {/* Spotlight ring — pulses around the spotRect, transitions
+          smoothly to the next step's rect via CSS top/left/w/h
+          transition. */}
       {spotRect && (
         <div style={{
           position: 'absolute',
@@ -818,33 +835,34 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
           boxShadow: '0 0 0 4px rgba(247,155,61,0.30)',
           pointerEvents: 'none',
           animation: 'cmRingPulse 2.4s ease-in-out infinite',
+          transition: 'top 0.32s cubic-bezier(0.4,0,0.2,1), left 0.32s cubic-bezier(0.4,0,0.2,1), width 0.32s cubic-bezier(0.4,0,0.2,1), height 0.32s cubic-bezier(0.4,0,0.2,1)',
         }} />
       )}
 
       {/* Tooltip card */}
       <div ref={tooltipRef} style={tooltipStyle} onClick={e => e.stopPropagation()}>
         <div style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+          fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em',
           color: '#F79B3D', textTransform: 'uppercase',
-          marginBottom: 8,
+          marginBottom: 6,
         }}>
           Step {stepIdx + 1} of {steps.length}
         </div>
         <div style={{
           fontFamily: 'Poppins,sans-serif',
-          fontSize: 18, fontWeight: 800,
+          fontSize: 16.5, fontWeight: 800,
           color: darkMode ? '#FFF5E8' : '#1E1B18',
           letterSpacing: '-0.3px',
-          marginBottom: 8,
+          marginBottom: 6,
           lineHeight: 1.25,
         }}>
           {step.title}
         </div>
         <div style={{
-          fontSize: 13.5,
+          fontSize: 13,
           color: darkMode ? 'rgba(255,245,232,0.62)' : 'rgba(42,31,16,0.62)',
-          lineHeight: 1.55,
-          marginBottom: 18,
+          lineHeight: 1.5,
+          marginBottom: 12,
         }}>
           {step.body}
         </div>
@@ -852,7 +870,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
         {/* Progress dots */}
         <div style={{
           display: 'flex', justifyContent: 'center', gap: 6,
-          marginBottom: 16,
+          marginBottom: 12,
         }}>
           {steps.map((_, i) => (
             <div key={i} style={{
