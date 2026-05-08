@@ -637,11 +637,22 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
     // show the OLD spotlight for ~380ms (the previous setTimeout
     // delay) before snapping — that was the "stuck and then snaps"
     // feel the user reported.
+    //
+    // Scroll target to TOP of viewport (~88px below the address bar)
+    // instead of center. Centering left the tooltip fighting for
+    // space below — on shorter viewports it ended up overlapping
+    // the highlighted element. Pinning the target near the top
+    // guarantees the bottom 60-70% of the viewport is free for the
+    // tooltip, so the spotlight stays visible.
     const startScroll = () => {
       const el = document.querySelector(step.selector);
-      if (el && typeof el.scrollIntoView === 'function') {
-        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {}
-      }
+      if (!el || typeof window === 'undefined') return;
+      try {
+        const rect = el.getBoundingClientRect();
+        const TOP_OFFSET = 88;
+        const targetY = window.scrollY + rect.top - TOP_OFFSET;
+        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+      } catch {}
     };
     startScroll();
     measure();
@@ -710,17 +721,21 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
   })();
 
   // ── Tooltip placement ─────────────────────────────────────────────
-  // - No target → centered on screen
-  // - Target → place above OR below depending on which side has more
-  //   room (measured from the CAPPED spotRect, not the full target).
-  //   Falls back to centered if neither side has at least tooltipH+margin
-  //   available. Top is clamped so the tooltip never goes above the
-  //   safe-area top, and the implicit bottom is clamped via vh too.
-  // - SAFE_BOTTOM reserves space for the bottom FABs (Cart / Bill /
-  //   etc.) so the tooltip doesn't sit on top of them.
+  // Target near top (startScroll places it at TOP_OFFSET=88) →
+  // always tooltip BELOW the spotlight, with a 12px gap.
+  //
+  // Earlier versions tried "above OR below depending on space" with
+  // a centered fallback. That logic was unstable: the page is
+  // smooth-scrolling, the target's clientRect changes every frame,
+  // and "above vs below" could flip mid-scroll, causing visible
+  // tooltip jumps. Pinning the rule to "always below" (with the
+  // scroll positioning the target near the top) is consistent,
+  // matches what the user explicitly asked for ("move the card
+  // below the image"), and stays stable through any scroll event.
+  //
+  // No-target steps (intro / outro) still center as before.
   const tooltipStyle = (() => {
     const SAFE_TOP = 16;
-    const SAFE_BOTTOM = 96;       // leave room for bottom FAB stack
     const MARGIN = 12;
     // Tooltip width: tighter on phones so the card doesn't dominate
     // the screen. Was min(360, vw-32); now min(340, vw-40) so the
@@ -754,28 +769,16 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
         left: Math.max(16, (vw - tooltipW) / 2),
       };
     }
-    // Use spotRect (capped) instead of target — guarantees there's
-    // always room below or above for the tooltip, even when the
-    // underlying target is taller than the viewport can fit alongside
-    // the tooltip.
+    // Always place the tooltip BELOW the spotlight. The target was
+    // scrolled to TOP_OFFSET=88 by startScroll(), so there's room
+    // below by construction. If the bottom would overflow (very
+    // short viewport, very long step copy), clamp to fit on-screen
+    // — accept partial overlap with the bottom FABs in that
+    // edge case rather than re-introduce a flip-flop placement.
     const spotBottom = spotRect.y + spotRect.h;
-    const spaceBelow = vh - spotBottom - SAFE_BOTTOM;
-    const spaceAbove = spotRect.y - SAFE_TOP;
-    let top;
-    if (spaceBelow >= tooltipH + MARGIN) {
-      // Place below the capped spotlight.
-      top = spotBottom + MARGIN;
-    } else if (spaceAbove >= tooltipH + MARGIN) {
-      // Place above the capped spotlight.
-      top = spotRect.y - tooltipH - MARGIN;
-    } else {
-      // Neither side has room — center vertically. With the capped
-      // spotRect this should be a rare edge case (very short
-      // viewport with a tall tooltip).
-      top = Math.max(SAFE_TOP, (vh - tooltipH) / 2);
-    }
-    // Clamp top into the safe area regardless of placement choice.
-    top = Math.min(Math.max(SAFE_TOP, top), vh - tooltipH - SAFE_BOTTOM);
+    let top = spotBottom + MARGIN;
+    const maxTop = vh - tooltipH - 12;
+    if (top > maxTop) top = Math.max(SAFE_TOP, maxTop);
     // Horizontal: center over target on wider screens; clamp into
     // viewport on narrow ones so the tooltip never overflows.
     const idealLeft = spotRect.x + spotRect.w / 2 - tooltipW / 2;
