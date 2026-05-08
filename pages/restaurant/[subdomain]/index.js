@@ -3370,57 +3370,67 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
            phone's screen and lands on a table beside it — same idea
            the customer will see when they tap "View in AR". */
         .ar-strip {
-          display: flex; align-items: center; gap: 14px;
-          padding: 12px 18px; margin-bottom: 20px;
+          /* v2 (May 8): centred copy + bigger SVG, no TRY-IT chip
+             (the chip didn't actually do anything — felt like a broken
+             button). Card content is centred horizontally so the
+             headline/subtitle reads as a focal element rather than a
+             text block competing with a pseudo-CTA. */
+          display: flex; flex-direction: column;
+          align-items: center; gap: 4px;
+          padding: 16px 20px; margin-bottom: 20px;
           background: linear-gradient(135deg, #FFFFFF 0%, #FFF8EA 100%);
           border: 1px solid rgba(247,155,61,0.25);
           border-radius: 16px;
           box-shadow: 0 2px 10px rgba(247,155,61,0.10), 0 1px 3px rgba(0,0,0,0.04);
           animation: fadeUp 0.4s ease both;
           overflow: hidden;
+          text-align: center;
         }
         .ar-strip-svg {
-          flex: 0 0 auto;
-          width: 88px; height: 58px;
+          width: 200px; height: 120px;
+          margin-bottom: 4px;
         }
-        .ar-strip-text { font-size: 14px; font-weight: 700; color: #1E1B18; letter-spacing: -0.2px; line-height: 1.2; }
-        .ar-strip-sub  { font-size: 11.5px; color: #9A9A9A; margin-top: 3px; line-height: 1.35; }
-        .ar-strip-chip {
-          margin-left: auto; flex-shrink: 0;
-          padding: 7px 14px; border-radius: 999px;
-          background: #F79B3D; color: #fff;
-          font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
-          cursor: pointer; transition: all 0.2s ease;
-          box-shadow: 0 4px 12px rgba(247,155,61,0.32);
-        }
-        .ar-strip-chip:hover { background: #F48A1E; transform: scale(1.05); }
+        .ar-strip-text { font-size: 16px; font-weight: 700; color: #1E1B18; letter-spacing: -0.3px; line-height: 1.2; }
+        .ar-strip-sub  { font-size: 12px; color: rgba(42,31,16,0.55); margin-top: 4px; line-height: 1.4; }
 
-        /* SVG animation: dish "rises out of" phone screen and lands
-           on the table to the right. 4.5s cycle so it's noticeable
-           but not distracting; ease-in-out smoothing. transform-origin
-           on the .ar-dish group is at SVG (0,0) so translate values
-           refer to absolute SVG-user-unit coordinates. */
+        /* SVG animation v2: a fuller, layered scene.
+             - Phone on the left, screen glowing
+             - Wooden table stretching to the right
+             - Plate rising from the phone screen, drifting up, then
+               settling onto the table with a small bounce
+             - Steam-style rays + a soft AR shimmer ring on the table
+               where the plate lands */
         .ar-strip-svg .ar-dish {
           transform-box: view-box;
           transform-origin: 0 0;
-          animation: ar-dish-fly 4.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+          animation: ar-dish-fly 5s cubic-bezier(0.42, 0, 0.18, 1) infinite;
         }
         @keyframes ar-dish-fly {
-          0%   { transform: translate(20px, 32px) scale(0.25); opacity: 0; }
-          12%  { transform: translate(20px, 30px) scale(0.45); opacity: 1; }
-          40%  { transform: translate(20px, 22px) scale(0.75); opacity: 1; }
-          68%  { transform: translate(72px, 46px) scale(1); opacity: 1; }
-          90%  { transform: translate(72px, 46px) scale(1); opacity: 1; }
-          100% { transform: translate(72px, 46px) scale(0.95); opacity: 0; }
+          0%   { transform: translate(50px, 78px) scale(0.18); opacity: 0; }
+          10%  { transform: translate(50px, 76px) scale(0.40); opacity: 1; }
+          38%  { transform: translate(50px, 50px) scale(0.85); opacity: 1; }
+          58%  { transform: translate(150px, 92px) scale(1.05); opacity: 1; }
+          66%  { transform: translate(150px, 96px) scale(1); opacity: 1; }
+          90%  { transform: translate(150px, 96px) scale(1); opacity: 1; }
+          100% { transform: translate(150px, 96px) scale(0.95); opacity: 0; }
         }
-        /* Sparkle pulse — subtle "magic" cue while the dish is moving */
+        .ar-strip-svg .ar-shimmer {
+          transform-box: view-box;
+          transform-origin: 150px 99px;
+          animation: ar-shimmer 5s ease-in-out infinite;
+          opacity: 0;
+        }
+        @keyframes ar-shimmer {
+          0%, 55%, 92%, 100% { opacity: 0; transform: scale(0.6); }
+          62%, 80%           { opacity: 0.7; transform: scale(1.05); }
+        }
         .ar-strip-svg .ar-sparkle {
-          animation: ar-sparkle 4.5s ease-in-out infinite;
+          animation: ar-sparkle 5s ease-in-out infinite;
           transform-origin: center;
         }
         @keyframes ar-sparkle {
           0%, 30%, 80%, 100% { opacity: 0; }
-          45%, 65%           { opacity: 0.8; }
+          42%, 60%           { opacity: 0.85; }
         }
         .dm .ar-strip { background: linear-gradient(135deg, rgba(255,245,232,0.04), rgba(247,155,61,0.07)); border-color: rgba(247,155,61,0.30); }
         .dm .ar-strip-text { color: #FFF5E8; }
@@ -4862,43 +4872,88 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
               value is visible at a glance. */}
           {arCount > 0 && (
             <div className="ar-strip">
-              <svg className="ar-strip-svg" viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                {/* Table (perspective ellipse on the right) */}
-                <ellipse cx="72" cy="48" rx="22" ry="3" fill="rgba(0,0,0,0.07)" />
-                <ellipse cx="72" cy="48" rx="22" ry="3" fill="none"
-                         stroke="rgba(247,155,61,0.3)" stroke-width="0.6" stroke-dasharray="2 2" />
+              {/* AR demo SVG v2 (May 8): bigger, more readable scene.
+                  Layout (200×120 viewBox):
+                    - phone on the left (x≈40-65, y≈40-100)
+                    - wooden table on the right (y≈92-110, x≈115-195)
+                    - plate launches from the phone's screen, arcs up
+                      and right, lands on the table with a soft drop
+                    - shimmer ring pulses on the table where it lands
+                    - sparkles dot the arc to sell the "AR magic"
+                  Animations driven entirely by CSS (.ar-dish,
+                  .ar-shimmer, .ar-sparkle) on a 5s cycle. */}
+              <svg className="ar-strip-svg" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                  <linearGradient id="ar-table" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#A87A4A" />
+                    <stop offset="1" stopColor="#704623" />
+                  </linearGradient>
+                  <linearGradient id="ar-screen" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#FFE9C4" />
+                    <stop offset="1" stopColor="#F7C45D" />
+                  </linearGradient>
+                  <radialGradient id="ar-shimmer-grad" cx="0.5" cy="0.5" r="0.5">
+                    <stop offset="0" stopColor="#F79B3D" stopOpacity="0.55" />
+                    <stop offset="1" stopColor="#F79B3D" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
 
-                {/* Phone (left) */}
+                {/* Wooden table (right side) */}
                 <g>
-                  <rect x="8" y="10" width="24" height="40" rx="3"
-                        fill="#1A1A1A" stroke="#F79B3D" stroke-width="1.4" />
-                  <rect x="10" y="14" width="20" height="28" rx="1.5" fill="#FFE9C4" />
-                  <rect x="16" y="12" width="8" height="1.5" rx="0.75" fill="#3a3a3a" />
-                  <circle cx="20" cy="46" r="1.4" fill="#F79B3D" />
+                  <rect x="110" y="96" width="86" height="6" fill="url(#ar-table)" />
+                  <line x1="110" y1="96" x2="196" y2="96" stroke="#C28953" strokeWidth="0.5" opacity="0.55" />
+                  <line x1="110" y1="102" x2="196" y2="102" stroke="#3A2510" strokeWidth="0.5" opacity="0.5" />
+                  <rect x="120" y="102" width="5" height="14" fill="#704623" />
+                  <rect x="183" y="102" width="5" height="14" fill="#704623" />
                 </g>
 
-                {/* Sparkles around the path */}
+                {/* Shimmer ring on the table — fires when the plate lands */}
+                <ellipse className="ar-shimmer" cx="150" cy="99" rx="22" ry="5" fill="url(#ar-shimmer-grad)" />
+
+                {/* Phone (left side) */}
                 <g>
-                  <circle className="ar-sparkle" cx="40" cy="20" r="1.2" fill="#FFB86B" />
-                  <circle className="ar-sparkle" cx="55" cy="14" r="1" fill="#F79B3D"
-                          style={{ animationDelay: '0.4s' }} />
-                  <circle className="ar-sparkle" cx="62" cy="34" r="1.2" fill="#FFB86B"
-                          style={{ animationDelay: '0.8s' }} />
+                  {/* Phone shadow */}
+                  <ellipse cx="52" cy="103" rx="14" ry="2" fill="rgba(0,0,0,0.08)" />
+                  {/* Phone body */}
+                  <rect x="38" y="32" width="28" height="68" rx="5"
+                        fill="#1A1A1A" stroke="#F79B3D" strokeWidth="1.6" />
+                  {/* Screen */}
+                  <rect x="40.5" y="38" width="23" height="50" rx="2.5" fill="url(#ar-screen)" />
+                  {/* Speaker bar */}
+                  <rect x="48" y="34.5" width="8" height="1.6" rx="0.8" fill="#3a3a3a" />
+                  {/* Camera dot */}
+                  <circle cx="52" cy="93" r="1.4" fill="#F79B3D" />
                 </g>
 
-                {/* Dish — rises out of phone screen and lands on table */}
+                {/* Sparkles dotted along the arc */}
+                <g>
+                  <circle className="ar-sparkle" cx="80" cy="58" r="1.6" fill="#FFB86B" />
+                  <circle className="ar-sparkle" cx="105" cy="45" r="1.2" fill="#F79B3D"
+                          style={{ animationDelay: '0.3s' }} />
+                  <circle className="ar-sparkle" cx="125" cy="62" r="1.5" fill="#FFB86B"
+                          style={{ animationDelay: '0.6s' }} />
+                  <circle className="ar-sparkle" cx="92" cy="78" r="1" fill="#F79B3D"
+                          style={{ animationDelay: '0.9s' }} />
+                </g>
+
+                {/* Dish — animates from phone screen → table */}
                 <g className="ar-dish">
-                  <ellipse cx="0" cy="2" rx="9" ry="2.6" fill="rgba(0,0,0,0.18)" />
-                  <ellipse cx="0" cy="0" rx="9" ry="2.8" fill="#F79B3D" />
-                  <ellipse cx="0" cy="-1" rx="6.5" ry="2" fill="#FFB86B" />
-                  <ellipse cx="0" cy="-1.8" rx="3.5" ry="1.2" fill="#FFF5DA" />
+                  {/* Soft cast shadow under the plate */}
+                  <ellipse cx="0" cy="3" rx="13" ry="3.4" fill="rgba(0,0,0,0.18)" />
+                  {/* Plate base */}
+                  <ellipse cx="0" cy="0" rx="13" ry="3.6" fill="#F2EDE3" stroke="#D9CDB6" strokeWidth="0.6" />
+                  {/* Plate inner ring */}
+                  <ellipse cx="0" cy="-0.6" rx="10" ry="2.6" fill="#FFFFFF" />
+                  {/* Food mound */}
+                  <ellipse cx="0" cy="-2.2" rx="7" ry="2.2" fill="#F79B3D" />
+                  {/* Highlight */}
+                  <ellipse cx="0" cy="-3" rx="4" ry="1.3" fill="#FFC972" />
+                  {/* Garnish dot */}
+                  <circle cx="-2" cy="-3.4" r="0.9" fill="#5DA068" />
                 </g>
               </svg>
-              <div>
-                <div className="ar-strip-text">See it on your table</div>
-                <div className="ar-strip-sub">{arCount} dish{arCount !== 1 ? 'es' : ''} available in AR · Tap any AR dish</div>
-              </div>
-              <div className="ar-strip-chip">TRY IT</div>
+              <div className="ar-strip-text">See it on your table</div>
+              <div className="ar-strip-sub">{arCount} dish{arCount !== 1 ? 'es' : ''} marked AR · tap a card with the AR pill, then “View in AR”</div>
             </div>
           )}
 
