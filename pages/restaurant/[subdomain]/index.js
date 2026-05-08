@@ -1543,17 +1543,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
 
 
-  // Smart header — Medium-style pixel-by-pixel tracking + snap on
+  // Smart header — Medium-style per-frame finger-track + snap on
   // idle. v3 (binary state + CSS transition) felt jumpy to the user;
-  // the per-pixel finger-track from before is smoother in practice
-  // because each scroll frame produces a continuous translation
-  // rather than a binary "fully shown / fully hidden" snap.
+  // the original per-pixel scroll tracking is smoother in practice
+  // because each scroll frame produces a continuous translation.
   //
-  // hdrHeight is still tracked (via ResizeObserver) so the
-  // category-tile click handler can offset its smooth-scroll target
-  // by the full header height — fixes the bug where scrolling UP to
-  // a category section above leaves the header covering the title.
-  const scrollTicking = useRef(false);
+  // hdrHeight is tracked (via ResizeObserver) so the category-tile
+  // click handler can offset its smooth-scroll target by the full
+  // header height — fixes the bug where scrolling UP to a category
+  // section above leaves the header covering the title. (hdrRef,
+  // lastScrollY, scrollTicking are declared above with the other
+  // header refs.)
   const [hdrHeight, setHdrHeight] = useState(0);
 
   useEffect(() => {
