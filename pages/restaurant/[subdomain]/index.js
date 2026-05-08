@@ -1368,27 +1368,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const filtered = useMemo(() => activeCat === 'All' ? enrichedItems : enrichedItems.filter(i => i.category === activeCat), [enrichedItems, activeCat]);
 
   // ── Categorised menu structure (May 8 redesign) ─────────────────────
-  // For the "All" view we now lay items out as horizontal-scroll
-  // sections grouped by category instead of one giant vertical list.
-  // This block builds the data the new section renderer reads:
+  // Customer menu is rendered as horizontal-scroll sections grouped by
+  // item.category. Inside each section, isFeatured items appear first
+  // (Layer 3 of the original 3-layer featured strategy — kept). The
+  // separate top-of-menu Featured row + Featured tile (Layer 1 + 2)
+  // were dropped per the user's revised spec: featured items now only
+  // get prominence WITHIN their own category, not as a global section.
+  // Admin can still create a manual category named "Featured" if they
+  // want a literal Featured menu group.
   //
-  //   featuredSection — { items: [...isFeatured across all categories] }
-  //                     Rendered first if non-empty; serves discovery.
-  //   categorySections — [{ name, image, items[] }, ...]
-  //                      Items inside each section are sorted with
-  //                      featured-first so customers browsing one
-  //                      category still see the chef's picks first.
-  //   categoryStrip   — [{ name, image }] for the top image-tile nav.
-  //                     "Featured" tile is prepended when featured
-  //                     items exist; tap scrolls to the matching
-  //                     section (handled by IDs in step 2).
-  //
-  // visibleItems excludes sold-out (availableUntil === todayStr) only
-  // when the customer page hides them — left to the renderer.
-  // visibleEnriched is just enrichedItems with the same active-filter
-  // applied. We keep the old `filtered` derivation untouched so the
-  // category-pill filter (when activeCat !== 'All') still works as a
-  // fallback while the new section UI is being wired.
+  //   categorySections — [{ name, image, items[] }, ...] grouped from
+  //                      enrichedItems with featured-first sort inside
+  //                      each section.
+  //   categoryStrip   — [{ name, image }] for the top image-tile nav,
+  //                     one tile per category, in the same order as
+  //                     categorySections.
   const categorySections = useMemo(() => {
     // Build category → items map, preserving insertion order.
     const byCat = new Map();
@@ -1418,31 +1412,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     return sections;
   }, [enrichedItems]);
 
-  const featuredSection = useMemo(() => {
-    const items = enrichedItems.filter(i => i.isFeatured);
-    return items.length > 0 ? { name: 'Featured', items } : null;
-  }, [enrichedItems]);
-
   const categoryStrip = useMemo(() => {
-    const tiles = [];
-    if (featuredSection) {
-      tiles.push({
-        key: '__featured',
-        name: 'Featured',
-        image: featuredSection.items[0]?.imageURL || '',
-        isFeatured: true,
-      });
-    }
-    for (const section of categorySections) {
-      tiles.push({
-        key: section.name,
-        name: section.name,
-        image: section.image,
-        isFeatured: false,
-      });
-    }
-    return tiles;
-  }, [featuredSection, categorySections]);
+    return categorySections.map((section) => ({
+      key: section.name,
+      name: section.name,
+      image: section.image,
+    }));
+  }, [categorySections]);
 
 
 
@@ -4728,9 +4704,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             <div className="cats-outer">
               <div className="cat-tile-strip">
                 {categoryStrip.map((tile) => {
-                  const targetId = tile.isFeatured
-                    ? 'cat-section-__featured'
-                    : 'cat-section-' + tile.name.replace(/\s+/g, '-').toLowerCase();
+                  const targetId = 'cat-section-' + tile.name.replace(/\s+/g, '-').toLowerCase();
                   const handleClick = () => {
                     const el = typeof document !== 'undefined' ? document.getElementById(targetId) : null;
                     if (el) {
@@ -4742,13 +4716,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     // We still update activeCat so any downstream
                     // logic that reads it (FAB tour, analytics) keeps
                     // working — but no longer filters the menu.
-                    if (typeof setActiveCat === 'function') setActiveCat(tile.isFeatured ? 'All' : tile.name);
+                    if (typeof setActiveCat === 'function') setActiveCat(tile.name);
                   };
                   return (
                     <button
                       key={tile.key}
                       type="button"
-                      className={`cat-tile${tile.isFeatured ? ' featured' : ''}`}
+                      className="cat-tile"
                       onClick={handleClick}
                       aria-label={`Jump to ${tile.name}`}
                     >
@@ -4756,9 +4730,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         className="cat-tile-img"
                         style={tile.image ? { backgroundImage: `url(${tile.image})` } : undefined}
                       >
-                        {!tile.image && (tile.isFeatured ? '★' : catIcon(tile.name))}
+                        {!tile.image && catIcon(tile.name)}
                       </span>
-                      <span className="cat-tile-label">{tile.isFeatured ? 'Featured' : tile.name}</span>
+                      <span className="cat-tile-label">{tile.name}</span>
                     </button>
                   );
                 })}
@@ -5112,8 +5086,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </button>
             );
 
-            const isEmpty = !featuredSection && categorySections.length === 0;
-            if (isEmpty) {
+            if (categorySections.length === 0) {
               return (
                 <div className="empty">
                   <div style={{ fontSize: 44, marginBottom: 10 }}>🥢</div>
@@ -5123,17 +5096,6 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             }
             return (
               <>
-                {featuredSection && (
-                  <section className="cat-section featured" id={sectionId('__featured')}>
-                    <div className="cat-section-head">
-                      <h3 className="cat-section-title">✨ Featured</h3>
-                      <span className="cat-section-count">{featuredSection.items.length}</span>
-                    </div>
-                    <div className="cat-row">
-                      {featuredSection.items.map((item, idx) => renderItemCard(item, idx))}
-                    </div>
-                  </section>
-                )}
                 {categorySections.map((section) => (
                   <section key={section.name} className="cat-section" id={sectionId(section.name)}>
                     <div className="cat-section-head">
