@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey } from '../../lib/db';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey, updateRestaurant } from '../../lib/db';
 import { uploadFile, uploadImage, buildImagePath, fileSizeMB, optimizeOneImage, deleteFile } from '../../lib/storage';
 import { db } from '../../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -131,12 +131,19 @@ export default function AdminItems() {
   // on the overlay fields, not on Petpooja's side).
   // ZERO impact on standalone restaurants — isHybrid stays false.
   const [isHybrid, setIsHybrid] = useState(false);
+  // Admin-controlled category order + per-category images (May 8).
+  // Both live on the restaurant doc so changes show up on the
+  // customer menu in real time without an items collection rewrite.
+  const [savedCategoryOrder, setSavedCategoryOrder] = useState([]);
+  const [savedCategoryImages, setSavedCategoryImages] = useState({});
   useEffect(() => {
     if (!rid) return;
     const unsub = onSnapshot(doc(db, 'restaurants', rid), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
       setIsHybrid(data.posMode === 'petpooja_hybrid');
+      setSavedCategoryOrder(Array.isArray(data.categoryOrder) ? data.categoryOrder : []);
+      setSavedCategoryImages(data.categoryImages && typeof data.categoryImages === 'object' ? data.categoryImages : {});
     }, () => { /* listener errors are non-fatal — keep last known state */ });
     return unsub;
   }, [rid]);
@@ -214,6 +221,68 @@ export default function AdminItems() {
     const cats = Array.from(new Set(items.map(i => i.category).filter(Boolean))).sort();
     return ['all', ...cats];
   }, [items]);
+
+  // Effective category order shown in the customer menu = saved order
+  // first, with any newly-introduced categories appended at the end
+  // (per the user's "(a)" rule). Used to drive the drag-reorder strip
+  // below + the grouped admin-side rendering in Commit D.
+  const effectiveCategoryOrder = useMemo(() => {
+    const usedSet = new Set(items.map(i => (i.category || '').trim()).filter(Boolean));
+    const result = [];
+    for (const name of savedCategoryOrder) {
+      if (usedSet.has(name)) {
+        result.push(name);
+        usedSet.delete(name);
+      }
+    }
+    // Newcomers — preserve insertion order (the order they first
+    // appear among items rather than alphabetical), so a brand-new
+    // category lands predictably at the end.
+    for (const item of items) {
+      const name = (item.category || '').trim();
+      if (name && usedSet.has(name)) {
+        result.push(name);
+        usedSet.delete(name);
+      }
+    }
+    return result;
+  }, [items, savedCategoryOrder]);
+
+  // Persist the new order. Optimistic — local state updates first so
+  // the drag preview feels instant; the Firestore write follows. On
+  // failure we'd want a toast (TODO if reports come in), but the
+  // listener will re-sync on the next snapshot anyway.
+  const saveCategoryOrder = async (newOrder) => {
+    setSavedCategoryOrder(newOrder);
+    if (!rid) return;
+    try {
+      await updateRestaurant(rid, { categoryOrder: newOrder });
+    } catch (e) {
+      console.error('saveCategoryOrder failed', e);
+      toast.error('Could not save category order. Refresh and retry.');
+    }
+  };
+
+  // Drag-reorder for the category strip — separate refs from the
+  // existing item drag so they don't interfere.
+  const catDragFrom = useRef(null);
+  const catDragOver = useRef(null);
+  const [catDragging, setCatDragging] = useState(null);
+  const handleCatDragEnd = async () => {
+    const from = catDragFrom.current;
+    const to = catDragOver.current;
+    setCatDragging(null);
+    catDragFrom.current = null;
+    catDragOver.current = null;
+    if (!from || !to || from === to) return;
+    const order = [...effectiveCategoryOrder];
+    const fromIdx = order.indexOf(from);
+    const toIdx = order.indexOf(to);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = order.splice(fromIdx, 1);
+    order.splice(toIdx, 0, moved);
+    await saveCategoryOrder(order);
+  };
 
   // ═══ Stats for dark strip ═══
   const stats = useMemo(() => {
@@ -957,6 +1026,69 @@ export default function AdminItems() {
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* ═══ Customer-facing category order (May 8) ═══
+              Drag-reorder strip mirroring what diners see at the top
+              of the menu page. Saves to restaurants/{rid}.categoryOrder
+              optimistically; the customer page reads that field to
+              order its category sections. New categories (typed for
+              the first time on a new item) auto-append at the end —
+              admin can drag them into position later. */}
+          {effectiveCategoryOrder.length > 1 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 11, fontWeight: 600, color: A.faintText,
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                marginBottom: 8,
+              }}>
+                <span>Customer menu order</span>
+                <span style={{ color: A.mutedText, textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>
+                  · drag to reorder how categories appear on the menu
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {effectiveCategoryOrder.map((name) => {
+                  const isDragging = catDragging === name;
+                  const isOver = catDragOver.current === name;
+                  const count = items.filter(i => (i.category || '').trim() === name).length;
+                  return (
+                    <div
+                      key={name}
+                      draggable
+                      onDragStart={() => { catDragFrom.current = name; setCatDragging(name); }}
+                      onDragEnter={() => { catDragOver.current = name; }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDragEnd={handleCatDragEnd}
+                      title={`Drag to reorder ${name}`}
+                      style={{
+                        padding: '8px 14px', borderRadius: 10,
+                        background: A.shell, border: A.border,
+                        boxShadow: isDragging ? '0 4px 14px rgba(0,0,0,0.10)' : A.shadowCard,
+                        opacity: isDragging ? 0.55 : 1,
+                        outline: isOver && !isDragging ? `2px solid ${A.warning}` : 'none',
+                        outlineOffset: 2,
+                        cursor: 'grab',
+                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                        fontSize: 13, fontWeight: 600, color: A.ink,
+                        fontFamily: A.font,
+                        userSelect: 'none',
+                        transition: 'opacity 0.15s ease, box-shadow 0.15s ease, outline-color 0.15s ease',
+                      }}
+                    >
+                      <span style={{ color: A.faintText, fontSize: 11 }}>⋮⋮</span>
+                      {name}
+                      <span style={{
+                        padding: '1px 7px', borderRadius: 6,
+                        background: A.subtleBg, color: A.faintText,
+                        fontSize: 10, fontWeight: 700, fontFamily: A.mono,
+                      }}>{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

@@ -1391,26 +1391,46 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       if (!byCat.has(c)) byCat.set(c, []);
       byCat.get(c).push(item);
     }
+    // Honour restaurant.categoryOrder when present (admin-set drag
+    // order from /admin/items). Categories not in the saved order
+    // (e.g. a brand-new one the admin just typed into an item) are
+    // appended at the end — matches the user's "(a) append" rule.
+    const savedOrder = Array.isArray(restaurant?.categoryOrder)
+      ? restaurant.categoryOrder
+      : [];
+    const orderIndex = (name) => {
+      const i = savedOrder.indexOf(name);
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    const sortedNames = [...byCat.keys()].sort((a, b) => {
+      const ai = orderIndex(a);
+      const bi = orderIndex(b);
+      if (ai !== bi) return ai - bi;
+      // Both absent from savedOrder → stable insertion order.
+      return 0;
+    });
     // Within each category: featured first, then everything else
     // preserving the admin-set sort order (already applied upstream).
     const sections = [];
-    for (const [name, items] of byCat.entries()) {
+    for (const name of sortedNames) {
+      const items = byCat.get(name) || [];
       const featuredFirst = [
         ...items.filter(i => i.isFeatured),
         ...items.filter(i => !i.isFeatured),
       ];
-      // Use the first item's image (or first featured item's image)
-      // as the category tile's hero photo. Fallback to '' so the
-      // tile renderer can substitute an emoji/placeholder.
+      // Use admin-uploaded category image first (commit C), then fall
+      // back to the first item's photo, then to '' so the tile
+      // renderer can substitute an emoji.
+      const adminImage = restaurant?.categoryImages?.[name] || '';
       const heroItem = featuredFirst[0] || null;
       sections.push({
         name,
-        image: heroItem?.imageURL || '',
+        image: adminImage || heroItem?.imageURL || '',
         items: featuredFirst,
       });
     }
     return sections;
-  }, [enrichedItems]);
+  }, [enrichedItems, restaurant?.categoryOrder, restaurant?.categoryImages]);
 
   const categoryStrip = useMemo(() => {
     return categorySections.map((section) => ({
