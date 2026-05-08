@@ -617,6 +617,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       setTarget(null);
       return;
     }
+    let raf = 0;
     const measure = () => {
       const el = document.querySelector(step.selector);
       if (!el) {
@@ -631,21 +632,33 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       }
       setTarget({ x: r.left, y: r.top, w: r.width, h: r.height });
     };
-    // First measurement: wait a couple frames so any pending layout
-    // settles (e.g. demo FABs that just rendered when the tour opened).
-    const tryScroll = () => {
+    // Measure IMMEDIATELY on step change so the spotlight is already
+    // at the right element when the scroll begins. Otherwise we'd
+    // show the OLD spotlight for ~380ms (the previous setTimeout
+    // delay) before snapping — that was the "stuck and then snaps"
+    // feel the user reported.
+    const startScroll = () => {
       const el = document.querySelector(step.selector);
       if (el && typeof el.scrollIntoView === 'function') {
         try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {}
       }
     };
-    tryScroll();
-    const t = setTimeout(measure, 380);
-    const onChange = () => measure();
+    startScroll();
+    measure();
+    // rAF-throttle scroll-driven re-measurements so the spotlight
+    // tracks the page scroll frame-perfect (without piling up React
+    // re-renders during a fast scroll).
+    const onChange = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        measure();
+      });
+    };
     window.addEventListener('resize', onChange);
     window.addEventListener('scroll', onChange, true);
     return () => {
-      clearTimeout(t);
+      if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('resize', onChange);
       window.removeEventListener('scroll', onChange, true);
     };
@@ -724,10 +737,11 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       boxShadow: '0 16px 50px rgba(0,0,0,0.45), 0 4px 14px rgba(0,0,0,0.20)',
       border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
       transformOrigin: 'center center',
-      // Step-change animation: no scale (jarring), no JS-driven mount
-      // animation. Smooth cross-step glide via CSS transition on top
-      // + left. cmFade applies once on mount via animationName below.
-      transition: 'top 0.32s cubic-bezier(0.4, 0, 0.2, 1), left 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+      // No top/left transition. The tooltip's position is computed
+      // off the spotRect (which tracks the page scroll via rAF
+      // measurements). Adding a 320ms transition on top here made
+      // the tooltip lag the spotlight by ~320ms during scroll,
+      // which read as "stuck then snap". Now they move together.
       animation: 'cmFade 0.18s ease-out both',
       zIndex: 1001,
     };
@@ -813,18 +827,21 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
               height={spotRect ? spotRect.h + 12 : 0}
               rx={14} ry={14}
               fill="black"
-              style={{
-                transition: 'x 0.32s cubic-bezier(0.4,0,0.2,1), y 0.32s cubic-bezier(0.4,0,0.2,1), width 0.32s cubic-bezier(0.4,0,0.2,1), height 0.32s cubic-bezier(0.4,0,0.2,1)',
-              }}
+              /* No CSS transition — the spotlight tracks the smooth-
+                 scroll frame-by-frame via the rAF-throttled measure
+                 listener. A ~320ms transition was lagging behind the
+                 scroll, which read as "stuck then snap". Setting the
+                 attributes directly on every scroll frame produces
+                 continuous motion at the page-scroll's cadence. */
             />
           </mask>
         </defs>
         <rect width="100%" height="100%" fill="rgba(0,0,0,0.74)" mask="url(#cm-tour-mask)" />
       </svg>
 
-      {/* Spotlight ring — pulses around the spotRect, transitions
-          smoothly to the next step's rect via CSS top/left/w/h
-          transition. */}
+      {/* Spotlight ring — same logic as the cutout above. Tracks the
+          target via rAF-throttled measurements, no CSS transition,
+          continuous motion follows the page scroll. */}
       {spotRect && (
         <div style={{
           position: 'absolute',
@@ -835,7 +852,6 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
           boxShadow: '0 0 0 4px rgba(247,155,61,0.30)',
           pointerEvents: 'none',
           animation: 'cmRingPulse 2.4s ease-in-out infinite',
-          transition: 'top 0.32s cubic-bezier(0.4,0,0.2,1), left 0.32s cubic-bezier(0.4,0,0.2,1), width 0.32s cubic-bezier(0.4,0,0.2,1), height 0.32s cubic-bezier(0.4,0,0.2,1)',
         }} />
       )}
 
@@ -7941,7 +7957,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   : "Order ahead and pick up at the counter. Quick tour:",
             },
             {
-              selector: '.card',  // first menu item card
+              // Spotlight just the dish photo (.c-img inside the card)
+              // instead of the full .card — menu cards are 500-600px
+              // tall on mobile (image + name + ingredients + price +
+              // tags + AR pill), and even with our 220px spot cap the
+              // tooltip below ended up sitting on top of the rest of
+              // the card. The image alone is ~185px and reads
+              // unambiguously as "this is one menu item".
+              selector: '.card .c-img',
               title: 'Tap any dish for details',
               body: 'See photos, ingredients, and try the AR view if available — works right in your browser, no app needed.',
             },
