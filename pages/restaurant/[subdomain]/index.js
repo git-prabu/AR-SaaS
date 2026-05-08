@@ -607,6 +607,13 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
   const [target, setTarget] = useState(null);
   const tooltipRef = useRef(null);
   const [tooltipH, setTooltipH] = useState(220);  // measured after first render
+  // Per-step placement decision ('above' | 'below'). Locked at step
+  // change so the tooltip never flips mid-scroll. Decided based on
+  // whether the target lives inside a position:fixed ancestor (FABs)
+  // — fixed targets always sit at the bottom of the viewport and the
+  // tooltip needs to go above them; everything else is scrolled to
+  // TOP_OFFSET=88 so the tooltip goes below.
+  const [placement, setPlacement] = useState('below');
   const step = steps[stepIdx];
   const isLast = stepIdx >= steps.length - 1;
 
@@ -632,29 +639,45 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       }
       setTarget({ x: r.left, y: r.top, w: r.width, h: r.height });
     };
-    // Measure IMMEDIATELY on step change so the spotlight is already
-    // at the right element when the scroll begins. Otherwise we'd
-    // show the OLD spotlight for ~380ms (the previous setTimeout
-    // delay) before snapping — that was the "stuck and then snaps"
-    // feel the user reported.
+    // Measure IMMEDIATELY on step change so the spotlight is at the
+    // right element before the scroll begins.
     //
-    // Scroll target to TOP of viewport (~88px below the address bar)
-    // instead of center. Centering left the tooltip fighting for
-    // space below — on shorter viewports it ended up overlapping
-    // the highlighted element. Pinning the target near the top
-    // guarantees the bottom 60-70% of the viewport is free for the
-    // tooltip, so the spotlight stays visible.
-    const startScroll = () => {
-      const el = document.querySelector(step.selector);
-      if (!el || typeof window === 'undefined') return;
-      try {
-        const rect = el.getBoundingClientRect();
-        const TOP_OFFSET = 88;
-        const targetY = window.scrollY + rect.top - TOP_OFFSET;
-        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
-      } catch {}
+    // Placement + scroll behaviour depends on whether the target
+    // lives inside a position:fixed ancestor:
+    //
+    //   FIXED TARGET (FABs at bottom — Cart, Bill, Order Status,
+    //                Help Me Choose, Waiter):
+    //     Don't scroll the page (the FAB is already on screen and
+    //     scrolling can't move it anyway). Place tooltip ABOVE.
+    //
+    //   SCROLLABLE TARGET (menu cards, headers, etc.):
+    //     Scroll the target to ~88px below the top of the viewport
+    //     so there's plenty of room below for the tooltip. Place
+    //     tooltip BELOW.
+    //
+    // The decision is locked for the duration of the step (held in
+    // the `placement` state) so it doesn't flip mid-scroll.
+    const isInFixedAncestor = (el) => {
+      let cur = el;
+      while (cur && cur !== document.body) {
+        if (window.getComputedStyle(cur).position === 'fixed') return true;
+        cur = cur.parentElement;
+      }
+      return false;
     };
-    startScroll();
+    const el = document.querySelector(step.selector);
+    if (el) {
+      const fixedTarget = isInFixedAncestor(el);
+      setPlacement(fixedTarget ? 'above' : 'below');
+      if (!fixedTarget && typeof window !== 'undefined') {
+        try {
+          const rect = el.getBoundingClientRect();
+          const TOP_OFFSET = 88;
+          const targetY = window.scrollY + rect.top - TOP_OFFSET;
+          window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+        } catch {}
+      }
+    }
     measure();
     // rAF-throttle scroll-driven re-measurements so the spotlight
     // tracks the page scroll frame-perfect (without piling up React
@@ -769,16 +792,23 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
         left: Math.max(16, (vw - tooltipW) / 2),
       };
     }
-    // Always place the tooltip BELOW the spotlight. The target was
-    // scrolled to TOP_OFFSET=88 by startScroll(), so there's room
-    // below by construction. If the bottom would overflow (very
-    // short viewport, very long step copy), clamp to fit on-screen
-    // — accept partial overlap with the bottom FABs in that
-    // edge case rather than re-introduce a flip-flop placement.
+    // Honour the placement decision locked in at step change.
+    // 'below'  → tooltip below the spotlight (scrollable targets,
+    //            scrolled to TOP_OFFSET=88).
+    // 'above'  → tooltip above the spotlight (fixed-ancestor targets
+    //            like the bottom FAB stack).
     const spotBottom = spotRect.y + spotRect.h;
-    let top = spotBottom + MARGIN;
-    const maxTop = vh - tooltipH - 12;
-    if (top > maxTop) top = Math.max(SAFE_TOP, maxTop);
+    let top;
+    if (placement === 'above') {
+      top = spotRect.y - tooltipH - MARGIN;
+      // If above doesn't fit (target too close to top), clamp into
+      // the safe area — accept slight overlap rather than disappear.
+      if (top < SAFE_TOP) top = SAFE_TOP;
+    } else {
+      top = spotBottom + MARGIN;
+      const maxTop = vh - tooltipH - 12;
+      if (top > maxTop) top = Math.max(SAFE_TOP, maxTop);
+    }
     // Horizontal: center over target on wider screens; clamp into
     // viewport on narrow ones so the tooltip never overflows.
     const idealLeft = spotRect.x + spotRect.w / 2 - tooltipW / 2;
@@ -1352,11 +1382,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     try { localStorage.setItem('ar_install_dismissed', '1'); } catch {}
   }, []);
 
-  // Dark mode
+  // Theme — light by default for first-time visitors. Returning
+  // visitors who explicitly switched to dark still see dark
+  // (localStorage 'ar_theme' === 'dark'). The day/night toggle in
+  // the header lets either mode flip back at any time.
   const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     const stored = localStorage.getItem('ar_theme');
-    return stored !== 'light'; // dark by default
+    return stored === 'dark';
   });
 
   // ── Language ──────────────────────────────────────────────────────────────
