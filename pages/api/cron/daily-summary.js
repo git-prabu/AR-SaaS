@@ -1,8 +1,15 @@
 // pages/api/cron/daily-summary.js
 //
-// Vercel cron endpoint — runs once a day at midnight IST and emails a
-// daily summary to every active restaurant. Schedule lives in vercel.json
-// (`30 18 * * *` = 18:30 UTC = 00:00 IST).
+// Vercel cron endpoint — runs once a day shortly after midnight IST and
+// emails a daily summary to every active restaurant. Schedule lives in
+// vercel.json (`0 19 * * *` = 19:00 UTC = 00:30 IST).
+//
+// Why 00:30 IST and not 00:00? Vercel Hobby plan only allows cron
+// schedules at the top of an hour (minute=0). `30 18 * * *` (the
+// previous schedule) was silently rejected, which is why daily-summary
+// emails stopped going out. The 30-minute delay is harmless — yesterdayISTKey()
+// in lib/dailySummary.js already subtracts 60min to safely land in
+// "yesterday IST" regardless of when the cron fires within the hour.
 //
 // Auth: protected by CRON_SECRET env var. Vercel cron requests include
 // `Authorization: Bearer ${CRON_SECRET}` automatically. We reject anything
