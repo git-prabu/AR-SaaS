@@ -3780,30 +3780,36 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
            the click to openItem(). */
         .quick-add {
           position: absolute;
-          right: 10px; bottom: 10px;
+          right: 8px; bottom: 8px;
           z-index: 3;
           display: inline-flex; align-items: center; justify-content: center;
           min-width: 36px; height: 36px;
           padding: 0 4px;
           border-radius: 999px;
           background: #FFFFFF;
-          color: #E05A3A;
+          /* Literal ink colour, NOT the --ink token. The token flips to cream
+             in dark mode which makes the + invisible against the white circle.
+             The white circle stays white in both modes by design, so the +
+             must always be dark. */
+          color: #1E1B18;
           font-family: 'Inter', sans-serif;
-          font-size: 16px; font-weight: 800; line-height: 1;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.18), 0 0 0 1.5px rgba(224,90,58,0.30);
+          font-size: 22px; font-weight: 800; line-height: 1;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.22);
           cursor: pointer;
           user-select: none;
           -webkit-tap-highlight-color: transparent;
           transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
         }
-        .quick-add:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(224,90,58,0.32); }
+        .quick-add:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.28); }
         .quick-add:active { transform: translateY(0); }
         .quick-add.in-cart {
-          background: linear-gradient(135deg, #B8472D, #FFB86B);
-          color: #FFFFFF;
+          min-width: 84px;
+          background: linear-gradient(135deg, #B8472D, #D7644A);
+          color: #FFF5E8;
           gap: 4px;
-          padding: 0 6px;
+          padding: 4px;
           box-shadow: 0 4px 14px rgba(184,71,45,0.45);
+          font-size: 14px;
         }
         .quick-add .qa-step {
           display: inline-flex; align-items: center; justify-content: center;
@@ -3811,17 +3817,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           border-radius: 50%;
           background: rgba(255,255,255,0.22);
           font-size: 16px; font-weight: 800; line-height: 1;
+          color: #FFF5E8;
           transition: background 0.15s ease;
         }
         .quick-add .qa-step:hover { background: rgba(255,255,255,0.36); }
         .quick-add .qa-qty {
           min-width: 18px; text-align: center;
-          font-size: 13px; font-weight: 800;
+          font-size: 14px; font-weight: 800;
+          color: #FFF5E8;
           letter-spacing: 0.02em;
         }
         .quick-add.disabled { opacity: 0.45; cursor: not-allowed; }
-        .dm .quick-add { background: #FFF5E8; color: #E05A3A; }
-        .dm .quick-add.in-cart { background: linear-gradient(135deg, #B8472D, #FFB86B); color: #1E1B18; }
+        /* Dark mode: idle circle stays white (still readable, + always dark).
+           In-cart pill uses the lighter terracotta gradient so it pops on the
+           chocolate surface. */
+        .dm .quick-add { background: #FFFFFF; color: #1E1B18; }
+        .dm .quick-add.in-cart { background: linear-gradient(135deg, #D7644A, #BD4F33); color: #FFF5E8; }
 
         /* ─────────── CATEGORY SECTIONS (May 8 menu redesign) ───────────
            Each category is a horizontal-scroll row of full-info cards.
@@ -3878,7 +3889,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
         /* ─────────── CARD — Apple App Store level ─────────── */
         .card {
-          background: #FFFFFF;
+          background: #FEFCF8;
           border-radius: 20px; overflow: hidden;
           cursor: pointer; position: relative; text-align: left;
           display: flex; flex-direction: column;
@@ -3887,9 +3898,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           box-shadow:
             0 1px 3px rgba(0,0,0,0.06),
             0 4px 16px rgba(0,0,0,0.07);
-          border: 1px solid #F0E8DE;
+          border: 1px solid rgba(42,31,16,0.10);
+        }
+        .card.chef-special {
+          border: 1.5px solid rgba(184,71,45,0.35);
+          box-shadow:
+            0 1px 3px rgba(184,71,45,0.10),
+            0 4px 16px rgba(184,71,45,0.12);
         }
         .card:hover  { transform: translateY(-6px); box-shadow: 0 16px 44px rgba(0,0,0,0.16); border-color: rgba(184,71,45,0.2); }
+        .card.chef-special:hover { box-shadow: 0 16px 44px rgba(184,71,45,0.22); }
         .card:hover .c-img img { transform: scale(1.06); }
         .card:active { transform: scale(0.98); }
 
@@ -3904,27 +3922,27 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
         /* AR badge — top right, minimal */
         .c-ar-pill {
-          position: absolute; top: 10px; right: 10px;
+          position: absolute; top: 8px; right: 8px;
           display: flex; align-items: center; gap: 4px;
-          background: rgba(30,27,24,0.78);
+          background: rgba(26,22,18,0.86);
           backdrop-filter: blur(8px);
-          color: #fff; font-size: 10px; font-weight: 700;
+          color: #D7644A; font-size: 10px; font-weight: 700;
           padding: 4px 9px; border-radius: 8px;
           letter-spacing: 0.03em;
           z-index: 3;
         }
 
-        /* Veg indicator */
+        /* Veg indicator — square w/ inner dot */
         .veg-ind {
-          position: absolute; top: 10px; left: 10px;
-          width: 20px; height: 20px; border-radius: 4px; border: 2px solid;
-          background: rgba(255,255,255,0.92); display: flex; align-items: center; justify-content: center;
+          position: absolute; top: 8px; left: 8px;
+          width: 16px; height: 16px; border-radius: 3px; border: 1.5px solid;
+          background: #FFFFFF; display: flex; align-items: center; justify-content: center;
           z-index: 3;
         }
         .veg-ind.v  { border-color: #2A8048; }
         .veg-ind.nv { border-color: #C03020; }
-        .veg-ind.v::after  { content:''; width:8px; height:8px; border-radius:50%; background:#2A8048; }
-        .veg-ind.nv::after { content:''; width:8px; height:8px; border-radius:50%; background:#C03020; }
+        .veg-ind.v::after  { content:''; width:7px; height:7px; border-radius:50%; background:#2A8048; }
+        .veg-ind.nv::after { content:''; width:7px; height:7px; border-radius:50%; background:#C03020; }
 
         /* Offer ribbon */
         .c-ribbon {
@@ -3953,14 +3971,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .c-badge-offer { background: #EFEBE3; color: #6A5530; }
 
         .c-name {
-          font-size: 15px; font-weight: 700; color: #1E1B18;
+          font-size: 14px; font-weight: 700; color: #1E1B18;
           line-height: 1.3; margin-bottom: 8px;
-          letter-spacing: -0.2px;
+          letter-spacing: -0.15px;
           flex: 1;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
 
         .c-price-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
-        .c-price { font-size: 16px; font-weight: 800; color: #B8472D; letter-spacing: -0.3px; }
+        .c-price { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 800; color: #B8472D; letter-spacing: -0.3px; }
         .c-cal   { font-size: 11px; color: #7A7A7A; font-weight: 500; }
 
         .c-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
@@ -3971,17 +3993,18 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
         .c-prep { font-size: 11px; color: #7A7A7A; }
 
-        /* AR CTA at card bottom */
-        .c-ar-cta {
-          margin-top: 10px;
-          display: flex; align-items: center; justify-content: center; gap: 7px;
-          padding: 9px; border-radius: 10px;
-          background: #F5F0EA;
-          font-size: 11px; font-weight: 700; color: #2B2B2B;
-          letter-spacing: 0.04em; text-transform: uppercase;
-          transition: all 0.2s ease;
+        /* Sold-out pill (replaces quick-add in sold-out state) */
+        .c-sold-pill {
+          position: absolute; right: 8px; bottom: 8px;
+          z-index: 3;
+          display: inline-flex; align-items: center; justify-content: center;
+          padding: 5px 11px;
+          background: rgba(26,22,18,0.78);
+          color: #FFF5E8; font-size: 11px; font-weight: 800;
+          letter-spacing: 0.06em; text-transform: uppercase;
+          border-radius: 20px;
+          backdrop-filter: blur(6px);
         }
-        .c-ar-cta:hover { background: rgba(184,71,45,0.12); color: #B8472D; }
 
         /* empty */
         .empty { text-align:center; padding:72px 20px; color:#9A9A9A; }
@@ -4424,19 +4447,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .c-cal     { color: var(--text-muted) !important; }
         .dm .c-prep    { color: var(--text-muted) !important; }
 
-        /* AR CTA inside card */
-        .dm .c-ar-cta  {
-          background: rgba(184,71,45,0.1) !important;
-          color: var(--accent) !important;
-          border-top: 1px solid rgba(184,71,45,0.12) !important;
-        }
-
         /* Badges */
         .dm .c-badge-pop  { background: rgba(184,71,45,0.16) !important; color: var(--accent) !important; }
         .dm .c-badge-feat { background: rgba(120,80,200,0.18) !important; color: #C0A0F0 !important; }
 
-        /* AR pill on card */
-        .dm .c-ar-pill { background: rgba(184,71,45,0.85) !important; }
+        /* AR pill on card — same dark-glass background in both modes per spec,
+           only the terracotta text changes brightness to suit the new bg. */
+        .dm .c-ar-pill { background: rgba(26,22,18,0.86) !important; color: #D7644A !important; }
 
         /* ── MODAL SHEET — layered dark surfaces ── */
         .dm .overlay {
@@ -5432,19 +5449,24 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             // slug helper for the section id (must match what the
             // category strip uses to scroll into view).
             const sectionId = (name) => 'cat-section-' + String(name).replace(/\s+/g, '-').toLowerCase();
-            const renderItemCard = (item, idx) => (
-                <button key={item.id} className="card" style={{ animationDelay: `${idx * 0.05}s`, opacity: (item.soldOut || item.isOutOfStock) ? 0.65 : 1, cursor: (item.soldOut || item.isOutOfStock) ? 'not-allowed' : 'pointer' }} onClick={() => { if (!item.soldOut && !item.isOutOfStock) openItem(item); }}>
+            const renderItemCard = (item, idx) => {
+              // Chef's Special gets the bordered card variant per spec. Detected
+              // the same way the badge code below detects it.
+              const isChef = item.offerLabel && item.offerLabel.toLowerCase().includes('chef');
+              // Mode-aware dim for sold-out / OOS — slightly darker dim in
+              // dark mode so the card sinks visually against chocolate bg.
+              const dimOpacity = (item.soldOut || item.isOutOfStock) ? (darkMode ? 0.55 : 0.65) : 1;
+              return (
+                <button key={item.id} className={`card${isChef ? ' chef-special' : ''}`} style={{ animationDelay: `${idx * 0.05}s`, opacity: dimOpacity, cursor: (item.soldOut || item.isOutOfStock) ? 'not-allowed' : 'pointer' }} onClick={() => { if (!item.soldOut && !item.isOutOfStock) openItem(item); }}>
                   <div className="c-img" style={{ position: 'relative' }}>
                     <div className={`img-skeleton${imgLoaded[item.id] ? ' loaded' : ''}`} />
                     <img src={imgSrc(item)} alt={item.name} loading="lazy" decoding="async"
                       className={imgLoaded[item.id] ? 'img-visible' : ''}
-                      style={{ filter: item.soldOut ? 'grayscale(60%)' : 'none' }}
+                      style={{ filter: item.soldOut ? 'grayscale(100%)' : 'none' }}
                       onLoad={() => setImgLoaded(s => ({ ...s, [item.id]: true }))}
                       onError={() => { setImgErr(e => ({ ...e, [item.id]: true })); setImgLoaded(s => ({ ...s, [item.id]: true })); }} />
                     {item.soldOut && (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', borderRadius: 'inherit' }}>
-                        <span style={{ background: '#C04A28', color: '#fff', fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 20, letterSpacing: '0.06em' }}>SOLD OUT</span>
-                      </div>
+                      <span className="c-sold-pill">{t.soldOut || 'Sold out'}</span>
                     )}
                     {item.isOutOfStock && (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', borderRadius: 'inherit' }}>
@@ -5596,17 +5618,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         {item.prepTime && <span className="c-prep">⏱ {item.prepTime}</span>}
                       </div>
                     )}
-                    {!item.soldOut && item.modelURL && (
-                      <div className="c-ar-cta">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
-                        </svg>
-                        {t.viewAR}
-                      </div>
-                    )}
+                    {/* Duplicate "View in AR" CTA at the card bottom removed
+                        per design spec — the .c-ar-pill on the photo is
+                        enough signal that the dish has an AR model. */}
                   </div>
                 </button>
-            );
+              );
+            };
 
             // Search mode — flat result list across all items.
             // Match against name + description (case-insensitive).
