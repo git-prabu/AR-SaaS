@@ -4091,93 +4091,184 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .ar-btn-sub { color:rgba(255,255,255,0.75); font-weight:800; }
         .ar-hint { text-align:center; font-size:11px; color:#7A7A7A; margin-top:9px; letter-spacing:-0.1px; }
 
-        /* ─────────── FAB — stacked layout ─────────── */
+        /* ─────────── BOTTOM DOCK — adaptive 2-column chip grid (Problem 3) ───────────
+           One container, one CSS Grid. Chips render conditionally per order state.
+           Primary chip (terracotta or success-green gradient) spans full row via
+           .dock-chip-primary { grid-column: 1 / -1 }. A lone secondary chip in
+           the same dock also spans full row via .dock-chip-full so it doesn't
+           float alone in a single grid cell (this was the alignment bug Prabu
+           flagged for the Browsing + Takeaway-payment-pending states).
+           Existing classnames .cart-fab, .bill-fab, .bill-fab.status-fab,
+           .waiter-fab are preserved because the welcome-tour selectors depend
+           on them. */
         .fab-wrap {
           position: fixed;
-          bottom: 20px; left: 0; right: 0;
-          display: flex; flex-direction: column; align-items: center;
-          gap: 10px; padding: 0 12px;
-          z-index: 45;
-          pointer-events: none;
+          bottom: max(16px, env(safe-area-inset-bottom, 16px));
+          left: 12px; right: 12px;
+          max-width: 540px; margin: 0 auto;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          padding: 8px;
+          background: rgba(255,245,232,0.92);
+          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(42,31,16,0.10);
+          border-radius: 22px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+          z-index: 50;
         }
-        .fab-row {
-          display: flex; flex-direction: row; justify-content: center; align-items: center;
-          gap: 8px; flex-wrap: nowrap;
+        .dm .fab-wrap {
+          background: rgba(26,22,18,0.92);
+          border-color: rgba(255,245,232,0.08);
+          box-shadow: 0 4px 24px rgba(0,0,0,0.45);
         }
-        @media (max-width: 480px) {
-          .fab-wrap { gap: 8px; bottom: 16px; }
-          .fab-row { gap: 6px; }
-          .waiter-fab { padding: 9px 13px !important; font-size: 12px !important; }
-          .cart-fab { padding: 10px 14px !important; font-size: 13px !important; }
-          .sma-fab { padding: 10px 16px !important; font-size: 13px !important; }
+        /* The two existing .fab-row wrappers used to be flex containers; under
+           the new grid they pass through transparently so all chips inside
+           them line up as direct grid children of .fab-wrap. */
+        .fab-row { display: contents; }
+
+        /* Span helpers.
+           Primary chip uses order:-1 so the grid visually places it at
+           the TOP regardless of DOM order — DOM order is fixed by the
+           render sequence (payment → status → bill → cart → waiter → sma)
+           so that the tour selectors keep working. */
+        .dock-chip-primary { grid-column: 1 / -1; order: -1; }
+        .dock-chip-full    { grid-column: 1 / -1; }
+
+        /* Install banner — sibling of .fab-wrap, sits 116px above it
+           so it never collides with the dock (z-index 49 vs dock 50). */
+        .install-banner {
+          position: fixed;
+          bottom: 116px;
+          left: 12px; right: 12px;
+          max-width: 540px; margin: 0 auto;
+          z-index: 49;
+          padding: 12px 14px;
+          background: #FEFCF8;
+          border: 1.5px solid rgba(42,31,16,0.10);
+          border-radius: 14px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+          display: flex; align-items: center; gap: 10px;
+          font-family: 'Inter', sans-serif;
+        }
+        .dm .install-banner {
+          background: rgba(255,255,255,0.05);
+          border-color: rgba(255,255,255,0.10);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.3);
         }
 
-        .waiter-fab {
-          pointer-events: all;
-          display: flex; align-items: center; gap: 8px;
-          padding: 14px 22px; border-radius: 50px; border: none;
-          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 14px;
-          cursor: pointer; white-space: nowrap; flex-shrink: 0;
-          transition: transform 0.2s, box-shadow 0.2s;
-          animation: fadeUp 0.4s ease both;
+        /* Pulse dot inside a chip — draws attention (Bill ready, Payment pending). */
+        @keyframes dockPulseDot {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%      { transform: scale(1.35); opacity: 0.55; }
         }
-        .waiter-fab:hover  { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
-        .waiter-fab:active { transform: scale(0.96); }
-        /* ─────────── CART ─────────── */
-        .cart-fab {
+        .dock-pulse-dot {
+          display: inline-block;
+          width: 7px; height: 7px; border-radius: 50%;
+          background: #B8472D;
+          animation: dockPulseDot 1.6s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+        .dock-pulse-dot.on-primary { background: rgba(26,22,18,0.55); }
+        .dock-pulse-dot.on-success { background: rgba(255,255,255,0.85); }
+
+        /* Shared chip rules. Every dock button gets these regardless of
+           which classname (cart-fab / bill-fab / waiter-fab / sma-fab) it
+           uses — the classname is only kept so the welcome-tour selectors
+           still work. The primary vs secondary look is driven by an
+           additional class (.dock-chip-primary / .dock-chip-success). */
+        .fab-wrap .waiter-fab,
+        .fab-wrap .cart-fab,
+        .fab-wrap .bill-fab,
+        .fab-wrap .sma-fab {
           pointer-events: all;
-          display: flex; align-items: center; gap: 10px;
-          padding: 14px 24px; border-radius: 50px; border: none;
-          background: linear-gradient(135deg, #B8472D, #E05A3A);
-          color: #fff;
-          font-family: 'Inter', sans-serif; font-weight: 800; font-size: 15px;
+          display: flex; align-items: center; justify-content: center; gap: 6px;
+          min-height: 48px;
+          padding: 6px 14px; border-radius: 14px; border: none;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px;
           cursor: pointer; white-space: nowrap;
-          box-shadow: 0 6px 28px rgba(224,90,58,0.55);
-          transition: transform 0.2s, box-shadow 0.2s;
+          letter-spacing: -0.1px;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
           animation: fadeUp 0.4s ease both;
           position: relative;
-          letter-spacing: -0.2px;
+          background: rgba(0,0,0,0.04);
+          color: #1E1B18;
+          box-shadow: none;
         }
-        .cart-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(224,90,58,0.65); }
-        .cart-fab:active { transform: scale(0.96); }
+        .fab-wrap .waiter-fab:hover,
+        .fab-wrap .cart-fab:hover,
+        .fab-wrap .bill-fab:hover,
+        .fab-wrap .sma-fab:hover { background: rgba(0,0,0,0.08); }
+        .fab-wrap .waiter-fab:active,
+        .fab-wrap .cart-fab:active,
+        .fab-wrap .bill-fab:active,
+        .fab-wrap .sma-fab:active { transform: scale(0.97); }
+
+        .dm .fab-wrap .waiter-fab,
+        .dm .fab-wrap .cart-fab,
+        .dm .fab-wrap .bill-fab,
+        .dm .fab-wrap .sma-fab {
+          background: rgba(255,245,232,0.06);
+          color: #FFF5E8;
+        }
+        .dm .fab-wrap .waiter-fab:hover,
+        .dm .fab-wrap .cart-fab:hover,
+        .dm .fab-wrap .bill-fab:hover,
+        .dm .fab-wrap .sma-fab:hover { background: rgba(255,245,232,0.10); }
+
+        /* Primary chip — terracotta gradient. Always overrides the
+           secondary defaults above when applied. */
+        .fab-wrap .dock-chip-primary {
+          background: linear-gradient(135deg, #C2502E, #B8472D);
+          color: #FFF5E8;
+          box-shadow: 0 4px 14px rgba(184,71,45,0.32);
+          font-weight: 800; font-size: 14px;
+        }
+        .fab-wrap .dock-chip-primary:hover {
+          background: linear-gradient(135deg, #B8472D, #A33B19);
+          box-shadow: 0 6px 18px rgba(184,71,45,0.40);
+        }
+        .dm .fab-wrap .dock-chip-primary {
+          background: linear-gradient(135deg, #D7644A, #BD4F33);
+          box-shadow: 0 4px 14px rgba(184,71,45,0.45);
+        }
+        .dm .fab-wrap .dock-chip-primary:hover {
+          background: linear-gradient(135deg, #BD4F33, #A33B19);
+        }
+
+        /* Success variant — for "Order ready!" primary chip. Same in both
+           modes per spec (green pops on both cream and chocolate). */
+        .fab-wrap .dock-chip-success {
+          background: linear-gradient(135deg, #4FB36C, #2D8B4E);
+          color: #FFFFFF;
+          box-shadow: 0 4px 14px rgba(45,139,78,0.32);
+        }
+        .fab-wrap .dock-chip-success:hover {
+          background: linear-gradient(135deg, #2D8B4E, #1F6B38);
+          box-shadow: 0 6px 18px rgba(45,139,78,0.42);
+        }
+
         @keyframes cartPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
         .cart-fab-pop { animation: cartPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
-        .bill-fab {
-          pointer-events: all;
-          display: flex; align-items: center; gap: 10px;
-          padding: 14px 22px; border-radius: 50px; border: none;
-          background: linear-gradient(135deg,#2D8B4E,#1A6B38);
-          color: #fff; font-family: 'Inter',sans-serif; font-weight: 700; font-size: 14px;
-          cursor: pointer; white-space: nowrap; flex-shrink: 0;
-          box-shadow: 0 6px 28px rgba(45,139,78,0.45), 0 2px 8px rgba(0,0,0,0.2);
-          transition: transform 0.2s, box-shadow 0.2s;
-          animation: fadeUp 0.4s ease both;
-          letter-spacing: -0.2px;
-          position: relative;
-        }
-        .bill-fab:hover  { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(45,139,78,0.55); }
-        .bill-fab:active { transform: scale(0.96); }
-        .bill-price {
-          font-size: 13px; font-weight: 700; opacity: 0.85;
-          background: rgba(0,0,0,0.18); border-radius: 20px;
-          padding: 3px 10px;
-        }
-        @media (max-width: 480px) {
-          .bill-fab { padding: 10px 14px !important; font-size: 13px !important; }
-        }
-        .cart-price {
-          font-size: 13px; font-weight: 700; opacity: 0.85;
-          background: rgba(0,0,0,0.18); border-radius: 20px;
-          padding: 2px 8px;
-        }
+
+        /* Count badge inside the primary cart chip. Cream pill with
+           terracotta number — flips background in dark mode so the
+           number stays terracotta against a dark surface. */
         .cart-badge {
-          position: absolute; top: -7px; right: -7px;
-          width: 22px; height: 22px; border-radius: 50%;
-          background: #fff; color: #E05A3A;
-          font-size: 12px; font-weight: 900;
-          display: flex; align-items: center; justify-content: center;
-          border: 2px solid #E05A3A;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          display: inline-flex; align-items: center; justify-content: center;
+          min-width: 22px; height: 22px; padding: 0 6px;
+          border-radius: 11px;
+          background: #FFF5E8; color: #B8472D;
+          font-size: 12px; font-weight: 800;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+          margin-left: 4px;
+        }
+        .dm .cart-badge { background: #221C16; color: #D7644A; }
+
+        .bill-price, .cart-price {
+          font-size: 12px; font-weight: 700; opacity: 0.85;
+          background: rgba(255,255,255,0.18); border-radius: 8px;
+          padding: 2px 8px;
         }
         .cart-item-row {
           display: flex; align-items: center; gap: 12px;
@@ -4193,20 +4284,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
         .qty-btn:hover { border-color: #E05A3A; color: #E05A3A; }
 
-        .sma-fab {
-          pointer-events: all;
-          display: flex; align-items: center; gap: 8px;
-          padding: 14px 28px; border-radius: 50px; border: none;
-          background: #B8472D; color: #FFFFFF;
-          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
-          cursor: pointer; white-space: nowrap; letter-spacing: -0.1px;
-          box-shadow: 0 6px 24px rgba(184,71,45,0.45), 0 2px 8px rgba(184,71,45,0.25);
-          transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, border-color 0.28s ease;
-          animation: fadeUp 0.5s 0.3s ease both;
-        }
-        .sma-fab:hover  { transform: translateY(-3px) scale(1.02); box-shadow: 0 12px 32px rgba(184,71,45,0.55); filter: brightness(1.05); }
-        .sma-fab:active { transform: scale(0.97); }
-        .sma-fab-icon   { font-size: 17px; }
+        /* .sma-fab base appearance is inherited from the shared
+           .fab-wrap .sma-fab rule above. The .dock-chip-primary class
+           is added in JSX when "Help me choose" is the primary action
+           (i.e. browsing with no order and no cart). */
+        .sma-fab-icon   { font-size: 15px; }
 
         /* ─────────── SMART MENU ASSISTANT ─────────── */
         .sma-overlay {
@@ -5684,229 +5766,249 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           })()}
         </main>
 
-        {/* ─── FABs: stacked layout ─── */}
-        {!selectedItem && !smaOpen && (
-          <div className="fab-wrap">
-            {/* Top row: My Bill (only after order placed) + Cart.
-                May 3 — during the welcome coach-mark tour we also
-                render this row with demo FABs even when the customer
-                has no order or items, so the tour can spotlight where
-                each button will appear. After the tour ends the row
-                snaps back to its normal conditional rendering. */}
-            {(placedOrder || cartTotal > 0 || welcomeOpen) && (
-              <div className="fab-row">
-                {/* Phase F redesign — when a takeaway order is still in
-                    awaiting_payment, the FAB swaps from "Order Status"
-                    (which would show a kitchen progress bar that's
-                    misleading because the kitchen hasn't started yet)
-                    to a "Payment" CTA that reopens the payment step.
-                    Without this the customer had no way back to the
-                    payment screen after closing it. */}
-                {placedOrder && !cartOpen && liveOrderStatus === 'awaiting_payment' && placedOrder.orderType === 'takeaway' && (
-                  <button
-                    className="bill-fab status-fab"
-                    onClick={() => { setCartOpen(true); setOrderStep('payment'); }}
-                    style={{ background: '#B8472D', borderColor: '#B8472D', color: '#1E1B18' }}>
-                    <span style={{
-                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                      background: '#1E1B18',
-                      animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
-                    }} />
-                    <span style={{ fontSize: 16 }}>💳</span>
-                    <span>Payment</span>
-                  </button>
-                )}
+        {/* ─── BOTTOM DOCK (Problem 3 redesign) ───
+            Single 2-column grid that adapts to order state. One chip
+            gets promoted to PRIMARY (full row, terracotta or success-
+            green gradient); the rest land below as secondaries. When
+            a secondary chip would land alone on its row (odd secondary
+            count), dock-chip-full spans it full-width — fixes the
+            alignment bug for the Browsing + Takeaway-payment-pending
+            states.
 
-                {/* Order Status FAB — May 3.
-                    Aggregates status across ALL session orders, not just
-                    the latest. Surfacing the most actionable state means
-                    that if order #9 is Ready while a newer #10 is still
-                    Preparing, the FAB says "Order Ready!" so the
-                    customer doesn't walk past their food. The +N badge
-                    hints there's more than one order being tracked, so
-                    the customer knows tabs exist on the success view.
-                    Tour mode: when the welcome tour is active and the
-                    customer has no live order, we render a demo "Order
-                    Status · Preparing…" version so the tour can spotlight
-                    it. The demo button is non-interactive (just a
-                    visual). */}
-                {placedOrder && !cartOpen && fabAggregateStatus && fabAggregateStatus !== 'awaiting_payment' && (() => {
-                  const s = fabAggregateStatus;
-                  const extra = Math.max(0, fabActiveOrderCount - 1);
-                  return (
-                    <button
-                      className={`bill-fab status-fab${s === 'ready' ? ' status-fab-ready' : ''}`}
-                      onClick={() => { setCartOpen(true); setOrderStep('success'); }}
-                      style={{ background: s === 'ready' ? '#2D8B4E' : undefined, borderColor: s === 'ready' ? '#2D8B4E' : undefined, position: 'relative' }}>
-                      <span style={{
-                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                        background: s === 'ready'     ? '#FFFFFF'
-                                   : s === 'preparing' ? '#4A80C0'
-                                   :                     '#B8472D',
-                        animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
-                        boxShadow: s === 'ready'
-                          ? '0 0 0 0 rgba(255,255,255,0.5)'
-                          : '0 0 0 0 rgba(184,71,45,0.5)',
-                      }} />
-                      <span style={{ fontSize: 16 }}>
-                        {s === 'ready' ? '🎉' : s === 'preparing' ? '🍳' : '⏳'}
-                      </span>
-                      <span>
-                        {s === 'ready'
-                          ? (extra > 0 ? `Order Ready! +${extra}` : 'Order Ready!')
-                          : s === 'preparing'
-                            ? (extra > 0 ? `Preparing… +${extra}` : 'Preparing…')
-                            : (extra > 0 ? `Order Status (${fabActiveOrderCount})` : 'Order Status')}
-                      </span>
-                    </button>
-                  );
-                })()}
-                {/* Tour-mode demo Status FAB — only visible during the
-                    welcome tour, only when the real one above isn't
-                    rendering. Static "Preparing…" copy so the tour
-                    spotlight has a target that looks real. */}
-                {welcomeOpen && !placedOrder && (
-                  <button
-                    className="bill-fab status-fab"
-                    onClick={(e) => e.preventDefault()}
-                    aria-hidden="true"
-                    style={{ position: 'relative' }}>
-                    <span style={{
-                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                      background: '#B8472D',
-                      animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
-                    }} />
-                    <span style={{ fontSize: 16 }}>🍳</span>
-                    <span>Order Status</span>
-                  </button>
-                )}
+            DOM order intentionally stays: payment → status → bill →
+            cart → waiter → sma. The tour selectors (.cart-fab,
+            .bill-fab, .bill-fab.status-fab, .waiter-fab) keep working
+            because the classnames are preserved. Visual top-row
+            placement is handled by `order: -1` on .dock-chip-primary. */}
+        {!selectedItem && !smaOpen && (() => {
+          // ── State detection ─────────────────────────────────────
+          const isAwaitingPayTakeaway = !!placedOrder && !cartOpen
+            && liveOrderStatus === 'awaiting_payment'
+            && placedOrder.orderType === 'takeaway';
+          const isOrderReady = !!placedOrder && !cartOpen
+            && fabAggregateStatus === 'ready';
+          const cartHasItems = cartTotal > 0;
+          const noOrder = !placedOrder;
 
-                {/* My Bill: only useful once at least one order on the
-                    bill is past awaiting_payment. May 3 — also show
-                    when past orders are paid but the LATEST is still
-                    in awaiting_payment, because the customer should
-                    still be able to view the bill of an earlier paid
-                    order while a new one is being checked out. */}
-                {placedOrder && !cartOpen && sessionOrders.some(o =>
-                  o.liveStatus && o.liveStatus !== 'awaiting_payment' && o.liveStatus !== 'cancelled'
-                ) && (
-                  <button className="bill-fab" onClick={() => setBillOpen(true)}>
-                    <span style={{ fontSize: 16 }}>🧾</span>
-                    <span>My Bill</span>
-                  </button>
-                )}
-                {/* Tour-mode demo Bill FAB. */}
-                {welcomeOpen && !placedOrder && (
-                  <button
-                    className="bill-fab"
-                    onClick={(e) => e.preventDefault()}
-                    aria-hidden="true">
-                    <span style={{ fontSize: 16 }}>🧾</span>
-                    <span>My Bill</span>
-                  </button>
-                )}
-                {cartTotal > 0 && (
-                  <button className="cart-fab" onClick={() => setCartOpen(true)}>
-                    <span style={{ fontSize: 16 }}>🛒</span>
-                    <span>View Order · {cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
-                    <div className="cart-badge">{cartTotal}</div>
-                  </button>
-                )}
-                {/* Tour-mode demo Cart FAB. */}
-                {welcomeOpen && cartTotal === 0 && (
-                  <button
-                    className="cart-fab"
-                    onClick={(e) => e.preventDefault()}
-                    aria-hidden="true">
-                    <span style={{ fontSize: 16 }}>🛒</span>
-                    <span>View Order · 2 items</span>
-                    <div className="cart-badge">2</div>
-                  </button>
-                )}
-              </div>
-            )}
-            {/* Phase L — PWA install prompt banner.
-                Appears ABOVE the FAB row when the browser has decided
-                the page is install-worthy AND the diner hasn't dismissed
-                it. One tap on "Save" fires the native install dialog;
-                "Not now" hides the banner for the rest of the device's
-                lifetime (localStorage flag).
-                We deliberately keep it small + dismissible — for a
-                customer who's eating, an aggressive prompt is friction. */}
-            {installDeferred && !installDismissed && (
-              <div style={{
-                position: 'relative',
-                marginBottom: 10,
-                padding: '12px 14px',
-                background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff',
-                border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.10)' : 'rgba(42,31,16,0.10)'}`,
-                borderRadius: 14,
-                boxShadow: darkMode ? '0 4px 16px rgba(0,0,0,0.3)' : '0 4px 16px rgba(0,0,0,0.08)',
-                display: 'flex', alignItems: 'center', gap: 10,
-                fontFamily: 'Inter, sans-serif',
-              }}>
-                <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>📱</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 13, fontWeight: 700,
-                    color: darkMode ? '#FFF5E8' : '#1E1B18',
-                    marginBottom: 1, letterSpacing: '-0.1px',
-                  }}>
-                    Save menu to home screen
-                  </div>
-                  <div style={{
-                    fontSize: 11,
-                    color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)',
-                    lineHeight: 1.35,
-                  }}>
-                    Open it next visit with one tap, no QR scan needed.
-                  </div>
-                </div>
+          // Decide which chip is primary in this state.
+          //   payment   → takeaway awaiting payment (urgent, pulse)
+          //   orderReady→ kitchen says ready (success green)
+          //   cart      → cart has items, no in-flight order
+          //   help      → browsing default (nothing else going on)
+          //   null      → in-progress order (no chip dominates)
+          let primaryKey = null;
+          if (isAwaitingPayTakeaway) primaryKey = 'payment';
+          else if (isOrderReady) primaryKey = 'orderReady';
+          else if (cartHasItems) primaryKey = 'cart';
+          else if (noOrder) primaryKey = 'help';
+
+          // ── Chip visibility (mirrors the conditions used inline) ─
+          const showStatusReal = !!placedOrder && !cartOpen && fabAggregateStatus && fabAggregateStatus !== 'awaiting_payment';
+          const showStatusDemo = welcomeOpen && !placedOrder;
+          const showBillReal = !!placedOrder && !cartOpen && sessionOrders.some(o =>
+            o.liveStatus && o.liveStatus !== 'awaiting_payment' && o.liveStatus !== 'cancelled');
+          const showBillDemo = welcomeOpen && !placedOrder;
+          const showCartReal = cartHasItems;
+          const showCartDemo = welcomeOpen && cartTotal === 0;
+          const showWaiter   = waiterCallsEnabled;
+
+          // ── Compute the last-secondary-needs-full-row flag ──────
+          // Build a list of visible chip keys in DOM order. The primary
+          // chip is in there too — we drop it when counting secondaries.
+          const visibleKeys = [];
+          if (isAwaitingPayTakeaway)               visibleKeys.push('payment');
+          if (showStatusReal)                      visibleKeys.push('status');
+          if (showStatusDemo)                      visibleKeys.push('status');
+          if (showBillReal)                        visibleKeys.push('bill');
+          if (showBillDemo)                        visibleKeys.push('bill');
+          if (showCartReal)                        visibleKeys.push('cart');
+          if (showCartDemo)                        visibleKeys.push('cart');
+          if (showWaiter)                          visibleKeys.push('waiter');
+          /* help (sma) is always rendered */      visibleKeys.push('help');
+
+          const secondaryKeys = visibleKeys.filter(k => k !== primaryKey);
+          const oddSecondaries = secondaryKeys.length % 2 === 1;
+          // Mark the last DOM-rendered non-primary chip so it spans full row
+          // when the secondary count is odd. We rely on stable render order.
+          const lastSoloKey = oddSecondaries ? secondaryKeys[secondaryKeys.length - 1] : null;
+
+          const primaryCls = (key) => {
+            const cls = [];
+            if (key === primaryKey) {
+              cls.push('dock-chip-primary');
+              if (key === 'orderReady') cls.push('dock-chip-success');
+            } else if (key === lastSoloKey) {
+              cls.push('dock-chip-full');
+            }
+            return cls.length ? ' ' + cls.join(' ') : '';
+          };
+
+          // Status chip — handles both real and demo, both ready and preparing
+          const renderStatusChip = (isDemo) => {
+            if (isDemo) {
+              return (
                 <button
-                  onClick={triggerInstall}
-                  style={{
-                    flexShrink: 0,
-                    padding: '8px 14px', borderRadius: 9,
-                    background: '#B8472D', color: '#1E1B18',
-                    border: 'none', cursor: 'pointer',
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: 12, fontWeight: 700, letterSpacing: '0.01em',
-                  }}
-                >
-                  Save
+                  key="status-demo"
+                  className={`bill-fab status-fab${primaryCls('status')}`}
+                  onClick={(e) => e.preventDefault()}
+                  aria-hidden="true">
+                  <span className="dock-pulse-dot" />
+                  <span style={{ fontSize: 14 }}>🍳</span>
+                  <span>Order Status</span>
                 </button>
-                <button
-                  onClick={dismissInstall}
-                  aria-label="Dismiss"
-                  style={{
-                    flexShrink: 0,
-                    width: 24, height: 24, padding: 0,
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.4)',
-                    fontSize: 18, lineHeight: 1,
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            )}
-
-            {/* Bottom row: Call Waiter + Help Me Choose */}
-            <div className="fab-row">
-              {waiterCallsEnabled && (
-                <button className="waiter-fab" onClick={() => setWaiterModal(true)}
-                  style={{ background: darkMode ? '#2A2520' : '#fff', border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.12)'}`, boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.14)', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
-                  <span style={{ fontSize: 16 }}>🔔</span>
-                  <span>{t.needHelp}</span>
-                </button>
-              )}
-              <button className="sma-fab" onClick={openSMA}>
-                <span className="sma-fab-icon">✨</span>
-                {t.helpChoose}
+              );
+            }
+            const s = fabAggregateStatus;
+            const extra = Math.max(0, fabActiveOrderCount - 1);
+            const isReady = s === 'ready';
+            return (
+              <button
+                key="status-real"
+                className={`bill-fab status-fab${isReady ? ' status-fab-ready' : ''}${primaryCls(isReady ? 'orderReady' : 'status')}`}
+                onClick={() => { setCartOpen(true); setOrderStep('success'); }}>
+                <span className={`dock-pulse-dot${isReady ? ' on-success' : ''}`} />
+                <span style={{ fontSize: 14 }}>
+                  {isReady ? '🎉' : s === 'preparing' ? '🍳' : '⏳'}
+                </span>
+                <span>
+                  {isReady
+                    ? (extra > 0 ? `Order Ready! +${extra}` : 'Order Ready!')
+                    : s === 'preparing'
+                      ? (extra > 0 ? `Preparing… +${extra}` : 'Preparing…')
+                      : (extra > 0 ? `Order Status (${fabActiveOrderCount})` : 'Order Status')}
+                </span>
               </button>
-            </div>
-          </div>
-        )}
+            );
+          };
+
+          return (
+            <>
+              {/* PWA install prompt — sits 116px above the dock so it
+                  never collides (dock z-index 50, banner 49). Same copy
+                  + dismiss behaviour as before; just relocated. */}
+              {installDeferred && !installDismissed && (
+                <div className="install-banner">
+                  <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>📱</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 13, fontWeight: 700,
+                      color: darkMode ? '#FFF5E8' : '#1E1B18',
+                      marginBottom: 1, letterSpacing: '-0.1px',
+                    }}>
+                      Save menu to home screen
+                    </div>
+                    <div style={{
+                      fontSize: 11,
+                      color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)',
+                      lineHeight: 1.35,
+                    }}>
+                      Open it next visit with one tap, no QR scan needed.
+                    </div>
+                  </div>
+                  <button
+                    onClick={triggerInstall}
+                    style={{
+                      flexShrink: 0,
+                      padding: '8px 14px', borderRadius: 9,
+                      background: '#B8472D', color: '#FFF5E8',
+                      border: 'none', cursor: 'pointer',
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: 12, fontWeight: 700, letterSpacing: '0.01em',
+                    }}>
+                    Save
+                  </button>
+                  <button
+                    onClick={dismissInstall}
+                    aria-label="Dismiss"
+                    style={{
+                      flexShrink: 0,
+                      width: 24, height: 24, padding: 0,
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.4)',
+                      fontSize: 18, lineHeight: 1,
+                    }}>×</button>
+                </div>
+              )}
+
+              <div className="fab-wrap">
+                {/* Payment chip — takeaway, awaiting payment. */}
+                {isAwaitingPayTakeaway && (
+                  <button
+                    className={`bill-fab status-fab${primaryCls('payment')}`}
+                    onClick={() => { setCartOpen(true); setOrderStep('payment'); }}>
+                    <span className="dock-pulse-dot on-primary" />
+                    <span style={{ fontSize: 14 }}>💳</span>
+                    <span>Payment pending</span>
+                  </button>
+                )}
+
+                {/* Order Status chip — real (preparing/ready) or demo. */}
+                {showStatusReal && renderStatusChip(false)}
+                {showStatusDemo && renderStatusChip(true)}
+
+                {/* Bill chip — real or demo. */}
+                {showBillReal && (
+                  <button
+                    className={`bill-fab${primaryCls('bill')}`}
+                    onClick={() => setBillOpen(true)}>
+                    <span style={{ fontSize: 14 }}>🧾</span>
+                    <span>My Bill</span>
+                  </button>
+                )}
+                {showBillDemo && (
+                  <button
+                    className={`bill-fab${primaryCls('bill')}`}
+                    onClick={(e) => e.preventDefault()}
+                    aria-hidden="true">
+                    <span style={{ fontSize: 14 }}>🧾</span>
+                    <span>My Bill</span>
+                  </button>
+                )}
+
+                {/* Cart chip — real or demo. */}
+                {showCartReal && (
+                  <button
+                    className={`cart-fab${primaryCls('cart')}`}
+                    onClick={() => setCartOpen(true)}>
+                    <span style={{ fontSize: 14 }}>🛒</span>
+                    <span>View Order · {cartTotal} item{cartTotal !== 1 ? 's' : ''}</span>
+                    <span className="cart-badge">{cartTotal}</span>
+                  </button>
+                )}
+                {showCartDemo && (
+                  <button
+                    className={`cart-fab${primaryCls('cart')}`}
+                    onClick={(e) => e.preventDefault()}
+                    aria-hidden="true">
+                    <span style={{ fontSize: 14 }}>🛒</span>
+                    <span>View Order · 2 items</span>
+                    <span className="cart-badge">2</span>
+                  </button>
+                )}
+
+                {/* Waiter chip — almost always secondary. Becomes
+                    dock-chip-full when it'd otherwise land alone. */}
+                {showWaiter && (
+                  <button
+                    className={`waiter-fab${primaryCls('waiter')}`}
+                    onClick={() => setWaiterModal(true)}>
+                    <span style={{ fontSize: 14 }}>🔔</span>
+                    <span>{t.needHelp}</span>
+                  </button>
+                )}
+
+                {/* Help Me Choose — always rendered. Primary chip in
+                    pure-browsing state, secondary otherwise. */}
+                <button
+                  className={`sma-fab${primaryCls('help')}`}
+                  onClick={openSMA}>
+                  <span className="sma-fab-icon">✨</span>
+                  <span>{t.helpChoose}</span>
+                </button>
+              </div>
+            </>
+          );
+        })()}
 
         {/* ─── ITEM MODAL ─── */}
         {selectedItem && (
