@@ -768,7 +768,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       position: 'absolute',
       width: tooltipW,
       maxWidth: 'none',
-      background: darkMode ? '#1A1612' : '#FFFFFF',
+      background: darkMode ? '#221C16' : '#FFFFFF',
       borderRadius: 16,
       padding: '14px 18px 12px',
       boxSizing: 'border-box',
@@ -832,7 +832,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
                            geometry transition). */
         @keyframes cmFade { from { opacity: 0; } to { opacity: 1; } }
         @keyframes cmFadeT { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes cmRingPulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(247,155,61,0.28); } 50% { box-shadow: 0 0 0 8px rgba(247,155,61,0.10); } }
+        @keyframes cmRingPulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(184,71,45,0.28); } 50% { box-shadow: 0 0 0 8px rgba(184,71,45,0.10); } }
       `}</style>
 
       {/* Dark backdrop with cutout (or solid backdrop when no target).
@@ -881,8 +881,8 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
           top: spotRect.y - 6, left: spotRect.x - 6,
           width: spotRect.w + 12, height: spotRect.h + 12,
           borderRadius: 14,
-          border: '2px solid #F79B3D',
-          boxShadow: '0 0 0 4px rgba(247,155,61,0.30)',
+          border: '2px solid #B8472D',
+          boxShadow: '0 0 0 4px rgba(184,71,45,0.30)',
           pointerEvents: 'none',
           animation: 'cmRingPulse 2.4s ease-in-out infinite',
         }} />
@@ -892,7 +892,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
       <div ref={tooltipRef} style={tooltipStyle} onClick={e => e.stopPropagation()}>
         <div style={{
           fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em',
-          color: '#F79B3D', textTransform: 'uppercase',
+          color: '#B8472D', textTransform: 'uppercase',
           marginBottom: 6,
         }}>
           Step {stepIdx + 1} of {steps.length}
@@ -925,7 +925,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
             <div key={i} style={{
               width: i === stepIdx ? 22 : 6, height: 6, borderRadius: 3,
               background: i === stepIdx
-                ? '#F79B3D'
+                ? '#B8472D'
                 : (darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.16)'),
               transition: 'all 0.22s',
             }} />
@@ -964,12 +964,12 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
             onClick={handleNext}
             style={{
               padding: '10px 22px', borderRadius: 10, border: 'none',
-              background: 'linear-gradient(135deg,#F79B3D,#F48A1E)',
+              background: 'linear-gradient(135deg,#B8472D,#A33B19)',
               color: '#FFFFFF',
               fontSize: 13, fontWeight: 700,
               fontFamily: 'inherit',
               cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(247,155,61,0.40)',
+              boxShadow: '0 4px 16px rgba(184,71,45,0.40)',
               letterSpacing: '0.01em',
             }}>
             {isLast ? 'Got it — let’s order' : 'Next →'}
@@ -3048,8 +3048,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     };
     const STATUS_COLOR = {
       awaiting_payment: '#D9534F',
-      pending: '#F79B3D',
-      preparing: '#F79B3D',
+      pending: '#B8472D',
+      preparing: '#B8472D',
       ready: '#2D8B4E',
       served: '#7AA88E',
       cancelled: 'rgba(0,0,0,0.4)',
@@ -3067,7 +3067,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {pastOrders.map(po => {
             const label = STATUS_LABEL[po.status] || po.status;
-            const color = STATUS_COLOR[po.status] || '#F79B3D';
+            const color = STATUS_COLOR[po.status] || '#B8472D';
             const ref = po.orderNumber
               ? `#${po.orderNumber}`
               : `#${(po.orderId || '').slice(-6).toUpperCase()}`;
@@ -3174,7 +3174,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // ── Session validation screens ────────────────────────────────────────
   if (tableNumber && !sessionChecked) return (
     <div style={{ minHeight: '100vh', background: '#0D0B08', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #F79B3D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 32, height: 32, border: '3px solid #B8472D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -3348,10 +3348,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
         .r-logo {
           width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-          background: linear-gradient(145deg,#F79B3D,#F4C06A);
+          background: linear-gradient(145deg,#B8472D,#F4C06A);
           display: flex; align-items: center; justify-content: center;
           font-size: 20px;
-          box-shadow: 0 3px 12px rgba(247,155,61,0.35);
+          box-shadow: 0 3px 12px rgba(184,71,45,0.35);
         }
         .r-name { font-size: 17px; font-weight: 700; color: #1E1B18; letter-spacing: -0.3px; line-height: 1.2; }
         .r-sub  { font-size: 12px; color: #9A9A9A; margin-top: 2px; letter-spacing: -0.1px; }
@@ -3360,12 +3360,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           flex-shrink: 0;
           display: flex; align-items: center; gap: 5px;
           padding: 5px 12px; border-radius: 20px;
-          background: rgba(247,155,61,0.1);
-          border: 1px solid rgba(247,155,61,0.25);
+          background: rgba(184,71,45,0.1);
+          border: 1px solid rgba(184,71,45,0.25);
           font-size: 11px; font-weight: 600; color: #E07020;
           letter-spacing: 0.01em;
         }
-        .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #F79B3D; animation: blink 1.8s infinite; }
+        .ar-dot { width: 6px; height: 6px; border-radius: 50%; background: #B8472D; animation: blink 1.8s infinite; }
 
         /* ── Mobile header — fits everything neatly on ≤480px screens ── */
         @media (max-width: 480px) {
@@ -3434,7 +3434,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           letter-spacing: -0.1px;
           /* Appearance */
           border: 1.5px solid transparent;
-          background: rgba(247,155,61,0.07);
+          background: rgba(184,71,45,0.07);
           color: #2B2B2B;
           cursor: pointer;
           position: relative;
@@ -3447,17 +3447,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           -webkit-tap-highlight-color: transparent;
         }
         .cat-pill:hover:not(.on) {
-          background: rgba(247,155,61,0.14);
+          background: rgba(184,71,45,0.14);
           color: #1E1B18;
         }
         .cat-pill:active { opacity: 0.85; }
         /* ── Active pill — amber fill, same physical size ── */
         .cat-pill.on {
-          background: #F79B3D;
+          background: #B8472D;
           color: #FFFFFF;
           font-weight: 600;
           border-color: transparent;
-          box-shadow: 0 4px 16px rgba(247,155,61,0.38), 0 1px 4px rgba(247,155,61,0.2);
+          box-shadow: 0 4px 16px rgba(184,71,45,0.38), 0 1px 4px rgba(184,71,45,0.2);
           /* No letter-spacing change — prevents neighbour pills from shifting */
         }
         .cat-emoji {
@@ -3493,22 +3493,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .hdr-search-btn {
           width: 34px; height: 34px;
           border-radius: 50%;
-          background: rgba(247,155,61,0.10);
-          border: 1px solid rgba(247,155,61,0.22);
-          color: #C97A1A;
+          background: rgba(184,71,45,0.10);
+          border: 1px solid rgba(184,71,45,0.22);
+          color: #9A371F;
           display: inline-flex; align-items: center; justify-content: center;
           cursor: pointer; padding: 0;
           flex-shrink: 0;
           transition: background 0.15s ease, transform 0.15s ease;
         }
-        .hdr-search-btn:hover { background: rgba(247,155,61,0.18); }
+        .hdr-search-btn:hover { background: rgba(184,71,45,0.18); }
         .hdr-search-btn:active { transform: scale(0.95); }
         .hdr-search-btn.on {
-          background: #F79B3D; color: #FFFFFF;
-          border-color: rgba(247,155,61,0.55);
-          box-shadow: 0 4px 10px rgba(247,155,61,0.30);
+          background: #B8472D; color: #FFFFFF;
+          border-color: rgba(184,71,45,0.55);
+          box-shadow: 0 4px 10px rgba(184,71,45,0.30);
         }
-        .dm .hdr-search-btn { background: rgba(247,155,61,0.18); border-color: rgba(247,155,61,0.30); color: #FFC972; }
+        .dm .hdr-search-btn { background: rgba(184,71,45,0.18); border-color: rgba(184,71,45,0.30); color: #E89E7C; }
 
         /* When expanded the search input occupies the full second
            row of the header — same width as the cat-tile-strip — so
@@ -3518,7 +3518,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           padding: 8px 14px;
           margin: 8px 4px;
           background: #FFFFFF;
-          border: 1px solid rgba(247,155,61,0.30);
+          border: 1px solid rgba(184,71,45,0.30);
           border-radius: 999px;
           box-shadow: 0 1px 3px rgba(0,0,0,0.04);
           transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -3529,8 +3529,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           to   { opacity: 1; transform: translateY(0); }
         }
         .menu-search:focus-within {
-          border-color: rgba(247,155,61,0.55);
-          box-shadow: 0 2px 12px rgba(247,155,61,0.18);
+          border-color: rgba(184,71,45,0.55);
+          box-shadow: 0 2px 12px rgba(184,71,45,0.18);
         }
         .menu-search svg { flex-shrink: 0; color: rgba(42,31,16,0.4); }
         .menu-search input {
@@ -3615,8 +3615,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .cat-tile:hover .cat-tile-img,
         .cat-tile:focus-visible .cat-tile-img {
           transform: translateY(-2px);
-          box-shadow: 0 6px 18px rgba(247,155,61,0.25);
-          border-color: rgba(247,155,61,0.45);
+          box-shadow: 0 6px 18px rgba(184,71,45,0.25);
+          border-color: rgba(184,71,45,0.45);
         }
         .cat-tile:active .cat-tile-img { transform: translateY(0); }
         .cat-tile-label {
@@ -3630,16 +3630,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .cat-tile-label { color: #FFF5E8; }
         /* Featured tile — gold accent ring + warmer label */
         .cat-tile.featured .cat-tile-img {
-          background: linear-gradient(135deg, #F7C45D, #F79B3D);
+          background: linear-gradient(135deg, #D7644A, #B8472D);
           color: #1E1B18;
-          border-color: rgba(247,155,61,0.55);
-          box-shadow: 0 4px 14px rgba(247,155,61,0.35);
+          border-color: rgba(184,71,45,0.55);
+          box-shadow: 0 4px 14px rgba(184,71,45,0.35);
         }
         .cat-tile.featured .cat-tile-label {
-          color: #C97A1A;
+          color: #9A371F;
           font-weight: 700;
         }
-        .dm .cat-tile.featured .cat-tile-label { color: #F7C45D; }
+        .dm .cat-tile.featured .cat-tile-label { color: #D7644A; }
 
         /* ─────────── MAIN ─────────── */
         .main {
@@ -3665,14 +3665,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                  gradient + cold gray screen vs the warm orange theme)
              v4 makes the phone the focal element, drops cartoony
              sparkles, and uses the existing brand orange palette
-             (#F79B3D / #C97A1A / cream) throughout. */
+             (#B8472D / #9A371F / cream) throughout. */
           display: flex; flex-direction: row;
           align-items: stretch; gap: 18px;
           padding: 14px 20px 14px 18px; margin-bottom: 18px;
-          background: linear-gradient(135deg, #FFFFFF 0%, #FFF1DC 100%);
-          border: 1px solid rgba(247,155,61,0.28);
+          background: linear-gradient(135deg, #FFFFFF 0%, #F5EDE0 100%);
+          border: 1px solid rgba(184,71,45,0.28);
           border-radius: 18px;
-          box-shadow: 0 6px 20px rgba(247,155,61,0.10), 0 1px 3px rgba(0,0,0,0.04);
+          box-shadow: 0 6px 20px rgba(184,71,45,0.10), 0 1px 3px rgba(0,0,0,0.04);
           animation: fadeUp 0.4s ease both;
           overflow: hidden;
           position: relative;
@@ -3701,11 +3701,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           align-self: flex-start;
           font-size: 10px; font-weight: 700;
           letter-spacing: 0.05em; text-transform: uppercase;
-          color: #C97A1A;
-          background: rgba(247,155,61,0.16);
+          color: #9A371F;
+          background: rgba(184,71,45,0.16);
           border-radius: 999px;
         }
-        .dm .ar-strip-pill { color: #FFC972; background: rgba(247,155,61,0.24); }
+        .dm .ar-strip-pill { color: #E89E7C; background: rgba(184,71,45,0.24); }
 
         /* SVG animation v4 — phone is the dominant element on the
            left half of the viewBox; the dish rises out of its screen,
@@ -3746,7 +3746,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           0%, 35%, 100% { opacity: 0.8; }
           50%, 65%      { opacity: 1; }
         }
-        .dm .ar-strip { background: linear-gradient(135deg, rgba(255,245,232,0.04), rgba(247,155,61,0.07)); border-color: rgba(247,155,61,0.30); }
+        .dm .ar-strip { background: linear-gradient(135deg, rgba(255,245,232,0.04), rgba(184,71,45,0.07)); border-color: rgba(184,71,45,0.30); }
         .dm .ar-strip-text { color: #FFF5E8; }
         .dm .ar-strip-sub  { color: rgba(255,245,232,0.55); }
 
@@ -3799,11 +3799,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .quick-add:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(224,90,58,0.32); }
         .quick-add:active { transform: translateY(0); }
         .quick-add.in-cart {
-          background: linear-gradient(135deg, #F79B3D, #FFB86B);
+          background: linear-gradient(135deg, #B8472D, #FFB86B);
           color: #FFFFFF;
           gap: 4px;
           padding: 0 6px;
-          box-shadow: 0 4px 14px rgba(247,155,61,0.45);
+          box-shadow: 0 4px 14px rgba(184,71,45,0.45);
         }
         .quick-add .qa-step {
           display: inline-flex; align-items: center; justify-content: center;
@@ -3821,7 +3821,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
         .quick-add.disabled { opacity: 0.45; cursor: not-allowed; }
         .dm .quick-add { background: #FFF5E8; color: #E05A3A; }
-        .dm .quick-add.in-cart { background: linear-gradient(135deg, #F79B3D, #FFB86B); color: #1E1B18; }
+        .dm .quick-add.in-cart { background: linear-gradient(135deg, #B8472D, #FFB86B); color: #1E1B18; }
 
         /* ─────────── CATEGORY SECTIONS (May 8 menu redesign) ───────────
            Each category is a horizontal-scroll row of full-info cards.
@@ -3851,8 +3851,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           color: rgba(255,245,232,0.45);
           background: rgba(255,255,255,0.06);
         }
-        .cat-section.featured .cat-section-title { color: #C97A1A; }
-        .dm .cat-section.featured .cat-section-title { color: #F7C45D; }
+        .cat-section.featured .cat-section-title { color: #9A371F; }
+        .dm .cat-section.featured .cat-section-title { color: #D7644A; }
 
         .cat-row {
           display: flex; gap: 12px;
@@ -3889,7 +3889,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             0 4px 16px rgba(0,0,0,0.07);
           border: 1px solid #F0E8DE;
         }
-        .card:hover  { transform: translateY(-6px); box-shadow: 0 16px 44px rgba(0,0,0,0.16); border-color: rgba(247,155,61,0.2); }
+        .card:hover  { transform: translateY(-6px); box-shadow: 0 16px 44px rgba(0,0,0,0.16); border-color: rgba(184,71,45,0.2); }
         .card:hover .c-img img { transform: scale(1.06); }
         .card:active { transform: scale(0.98); }
 
@@ -3947,8 +3947,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           display: inline-flex; align-items: center; gap: 4px;
           white-space: nowrap;
         }
-        .c-badge-chef { background: linear-gradient(135deg, #FFE0A8, #FFC972); color: #7A4A0A; box-shadow: 0 1px 4px rgba(196,140,40,0.25); }
-        .c-badge-feat { background: #FFE6CF; color: #B85A0A; }
+        .c-badge-chef { background: linear-gradient(135deg, #FFE0A8, #E89E7C); color: #7A4A0A; box-shadow: 0 1px 4px rgba(196,140,40,0.25); }
+        .c-badge-feat { background: #F2D5C9; color: #B85A0A; }
         .c-badge-pop  { background: #FFE0DD; color: #C9341A; }
         .c-badge-offer { background: #EFEBE3; color: #6A5530; }
 
@@ -3960,7 +3960,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
 
         .c-price-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
-        .c-price { font-size: 16px; font-weight: 800; color: #F79B3D; letter-spacing: -0.3px; }
+        .c-price { font-size: 16px; font-weight: 800; color: #B8472D; letter-spacing: -0.3px; }
         .c-cal   { font-size: 11px; color: #7A7A7A; font-weight: 500; }
 
         .c-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
@@ -3981,7 +3981,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           letter-spacing: 0.04em; text-transform: uppercase;
           transition: all 0.2s ease;
         }
-        .c-ar-cta:hover { background: rgba(247,155,61,0.12); color: #F79B3D; }
+        .c-ar-cta:hover { background: rgba(184,71,45,0.12); color: #B8472D; }
 
         /* empty */
         .empty { text-align:center; padding:72px 20px; color:#9A9A9A; }
@@ -4036,7 +4036,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .m-pills { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
         .m-pill  { display:flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; background:#F5F0EA; color:#2B2B2B; }
 
-        .m-price     { display:block; width:100%; text-align:center; font-size:34px; font-weight:800; color:#F79B3D; letter-spacing:-0.6px; }
+        .m-price     { display:block; width:100%; text-align:center; font-size:34px; font-weight:800; color:#B8472D; letter-spacing:-0.6px; }
         .m-price-sub { display:block; width:100%; text-align:center; font-size:11px; color:#7A7A7A; margin-top:2px; margin-bottom:14px; }
         .m-desc      { font-size:14px; color:#5A5A5A; line-height:1.7; text-align:center; margin-bottom:20px; letter-spacing:-0.1px; }
 
@@ -4045,7 +4045,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
         .nutr { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
         .nc   { background:#FAF7F2; border:0.5px solid rgba(0,0,0,0.07); border-radius:12px; padding:13px 8px; text-align:center; }
-        .nc-v { font-size:20px; font-weight:800; color:#F79B3D; letter-spacing:-0.3px; }
+        .nc-v { font-size:20px; font-weight:800; color:#B8472D; letter-spacing:-0.3px; }
         .nc-u { font-size:10px; color:#7A7A7A; margin-top:1px; }
         .nc-l { font-size:10px; color:#5A5A5A; margin-top:3px; font-weight:600; }
 
@@ -4056,14 +4056,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         /* AR Button */
         .ar-btn {
           width:100%; padding:17px; border-radius:50px; border:none;
-          background: #F79B3D; color: #FFFFFF;
+          background: #B8472D; color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:11px;
-          box-shadow: 0 6px 20px rgba(247,155,61,0.38);
+          box-shadow: 0 6px 20px rgba(184,71,45,0.38);
           transition: transform 0.15s, box-shadow 0.15s;
           letter-spacing: -0.1px;
         }
-        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 10px 28px rgba(247,155,61,0.48); filter: brightness(1.05); }
+        .ar-btn:hover  { transform:translateY(-2px); box-shadow:0 10px 28px rgba(184,71,45,0.48); filter: brightness(1.05); }
         .ar-btn:active { transform:scale(0.98); }
         .ar-btn-sub { color:rgba(255,255,255,0.75); font-weight:800; }
         .ar-hint { text-align:center; font-size:11px; color:#7A7A7A; margin-top:9px; letter-spacing:-0.1px; }
@@ -4105,7 +4105,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           pointer-events: all;
           display: flex; align-items: center; gap: 10px;
           padding: 14px 24px; border-radius: 50px; border: none;
-          background: linear-gradient(135deg, #F79B3D, #E05A3A);
+          background: linear-gradient(135deg, #B8472D, #E05A3A);
           color: #fff;
           font-family: 'Inter', sans-serif; font-weight: 800; font-size: 15px;
           cursor: pointer; white-space: nowrap;
@@ -4174,14 +4174,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           pointer-events: all;
           display: flex; align-items: center; gap: 8px;
           padding: 14px 28px; border-radius: 50px; border: none;
-          background: #F79B3D; color: #FFFFFF;
+          background: #B8472D; color: #FFFFFF;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
           cursor: pointer; white-space: nowrap; letter-spacing: -0.1px;
-          box-shadow: 0 6px 24px rgba(247,155,61,0.45), 0 2px 8px rgba(247,155,61,0.25);
+          box-shadow: 0 6px 24px rgba(184,71,45,0.45), 0 2px 8px rgba(184,71,45,0.25);
           transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.28s ease, border-color 0.28s ease;
           animation: fadeUp 0.5s 0.3s ease both;
         }
-        .sma-fab:hover  { transform: translateY(-3px) scale(1.02); box-shadow: 0 12px 32px rgba(247,155,61,0.55); filter: brightness(1.05); }
+        .sma-fab:hover  { transform: translateY(-3px) scale(1.02); box-shadow: 0 12px 32px rgba(184,71,45,0.55); filter: brightness(1.05); }
         .sma-fab:active { transform: scale(0.97); }
         .sma-fab-icon   { font-size: 17px; }
 
@@ -4206,9 +4206,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .sma-prog-row  { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
         .sma-prog-txt  { font-size:12px; font-weight:600; color:#7A7A7A; letter-spacing:0.01em; }
         .sma-back      { font-size:12px; font-weight:600; color:#7A7A7A; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; padding:0; transition:color 0.15s; }
-        .sma-back:hover { color:#F79B3D; }
+        .sma-back:hover { color:#B8472D; }
         .sma-prog-bar  { height:3px; background:#F5F0EA; border-radius:99px; overflow:hidden; }
-        .sma-prog-fill { height:100%; background:#F79B3D; border-radius:99px; transition:width 0.3s ease; }
+        .sma-prog-fill { height:100%; background:#B8472D; border-radius:99px; transition:width 0.3s ease; }
 
         .sma-q-wrap  { padding:26px 22px 34px; }
         .sma-q-emoji { font-size:40px; text-align:center; margin-bottom:12px; }
@@ -4223,13 +4223,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           transition:all 0.16s ease; text-align:left; width:100%;
           font-family:'Inter',sans-serif;
         }
-        .sma-opt:hover  { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); filter: brightness(1.01); }
+        .sma-opt:hover  { background:#FFFAF4; border-color:#B8472D; transform:translateX(3px); filter: brightness(1.01); }
         .sma-opt:active { transform: scale(0.985); filter: brightness(0.97); }
         .sma-opt:active { transform:scale(0.98); }
         .sma-opt-emoji  { font-size:24px; flex-shrink:0; }
         .sma-opt-label  { font-size:14px; font-weight:600; color:#1E1B18; letter-spacing:-0.1px; }
         .sma-dismiss    { display:block; text-align:center; margin:18px auto 0; font-size:12px; color:#7A7A7A; background:none; border:none; cursor:pointer; font-family:'Inter',sans-serif; }
-        .sma-dismiss:hover { color:#F79B3D; }
+        .sma-dismiss:hover { color:#B8472D; }
 
         .sma-res-wrap   { padding:20px 20px 40px; }
         .sma-res-hdr    { text-align:center; margin-bottom:22px; }
@@ -4244,16 +4244,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           cursor:pointer; transition:all 0.15s ease;
           text-align:left; width:100%; font-family:'Inter',sans-serif;
         }
-        .sma-item:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateX(3px); filter: brightness(1.01); }
+        .sma-item:hover { background:#FFFAF4; border-color:#B8472D; transform:translateX(3px); filter: brightness(1.01); }
         .sma-item-img   { width:50px; height:50px; border-radius:12px; object-fit:cover; flex-shrink:0; background:#F5F0EA; }
         .sma-item-name  { font-size:14px; font-weight:700; color:#1E1B18; margin-bottom:4px; letter-spacing:-0.1px; }
         .sma-item-meta  { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-        .sma-item-price { font-size:14px; font-weight:800; color:#F79B3D; }
+        .sma-item-price { font-size:14px; font-weight:800; color:#B8472D; }
         .sma-item-chip  { font-size:10px; font-weight:700; padding:2px 8px; border-radius:6px; }
         .sma-chip-pop   { background:#FFF0EB; color:#E07020; }
         .sma-chip-ar    { background:#E8F5EE; color:#1A6A38; }
         .sma-actions { display:flex; gap:9px; margin-top:22px; }
-        .sma-btn-dark  { flex:1; padding:14px; border-radius:50px; border:none; background:#F79B3D; color:#fff; font-family:'Inter',sans-serif; font-weight:700; font-size:14px; cursor:pointer; letter-spacing:-0.1px; box-shadow:0 4px 14px rgba(247,155,61,0.35); }
+        .sma-btn-dark  { flex:1; padding:14px; border-radius:50px; border:none; background:#B8472D; color:#fff; font-family:'Inter',sans-serif; font-weight:700; font-size:14px; cursor:pointer; letter-spacing:-0.1px; box-shadow:0 4px 14px rgba(184,71,45,0.35); }
         .sma-btn-light { flex:1; padding:14px; border-radius:12px; border:1px solid rgba(0,0,0,0.12); background:transparent; color:#2B2B2B; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer; }
         .sma-btn-light:hover { background:#F5F0EA; }
         .sma-no-match { text-align:center; padding:36px 20px; color:#7A7A7A; font-size:14px; }
@@ -4269,7 +4269,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           cursor:pointer; text-align:center; transition:all 0.18s ease;
           font-family:'Inter',sans-serif;
         }
-        .sma-mode-card:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateY(-2px); box-shadow:0 6px 20px rgba(247,155,61,0.18); }
+        .sma-mode-card:hover { background:#FFFAF4; border-color:#B8472D; transform:translateY(-2px); box-shadow:0 6px 20px rgba(184,71,45,0.18); }
         .sma-mode-card-emoji { font-size:36px; margin-bottom:10px; }
         .sma-mode-card-name  { font-size:15px; font-weight:800; color:#1E1B18; margin-bottom:4px; letter-spacing:-0.2px; }
         .sma-mode-card-desc  { font-size:11px; color:#7A7A7A; line-height:1.5; }
@@ -4285,7 +4285,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           cursor:pointer; text-align:center; transition:all 0.18s ease;
           font-family:'Inter',sans-serif;
         }
-        .sma-size-btn:hover { background:#FFFAF4; border-color:#F79B3D; transform:translateY(-2px); }
+        .sma-size-btn:hover { background:#FFFAF4; border-color:#B8472D; transform:translateY(-2px); }
         .sma-size-btn-emoji { font-size:22px; display:block; margin-bottom:6px; }
         .sma-size-btn-num   { font-size:15px; font-weight:800; color:#1E1B18; }
         .sma-size-btn-lbl   { font-size:10px; color:#7A7A7A; margin-top:2px; }
@@ -4316,8 +4316,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           --bg-card:    #1F1F1F;
           --bg-elevated:#252525;
           --divider:    #2A2A2A;
-          --accent:     #F79B3D;
-          --accent-glow:rgba(247,155,61,0.22);
+          --accent:     #B8472D;
+          --accent-glow:rgba(184,71,45,0.22);
           --text-1:     #FFFFFF;
           --text-2:     #B3B3B3;
           --text-muted: #7A7A7A;
@@ -4340,15 +4340,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .r-name  { color: var(--text-1) !important; }
         .dm .r-sub   { color: var(--text-muted) !important; }
         .dm .r-logo  {
-          background: linear-gradient(145deg,#F79B3D,#C07020) !important;
-          box-shadow: 0 3px 12px rgba(247,155,61,0.35) !important;
+          background: linear-gradient(145deg,#B8472D,#C07020) !important;
+          box-shadow: 0 3px 12px rgba(184,71,45,0.35) !important;
         }
 
         /* ── AR Live badge ── */
         .dm .ar-badge {
-          background: rgba(247,155,61,0.12) !important;
-          border-color: rgba(247,155,61,0.3) !important;
-          color: #F79B3D !important;
+          background: rgba(184,71,45,0.12) !important;
+          border-color: rgba(184,71,45,0.3) !important;
+          color: #B8472D !important;
         }
 
         /* ── Category pills ── */
@@ -4364,14 +4364,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .cat-pill.on {
           background: var(--accent) !important;
           color: #fff !important;
-          box-shadow: 0 4px 16px rgba(247,155,61,0.45) !important;
+          box-shadow: 0 4px 16px rgba(184,71,45,0.45) !important;
         }
 
         /* ── AR strip & offer bar ── */
         .dm .ar-strip {
           backdrop-filter: blur(12px);
           background: var(--bg-card) !important;
-          border-color: rgba(247,155,61,0.18) !important;
+          border-color: rgba(184,71,45,0.18) !important;
           box-shadow: 0 2px 16px rgba(0,0,0,0.4) !important;
         }
         .dm .ar-strip-text { color: var(--text-1) !important; }
@@ -4393,7 +4393,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
         .dm .card:hover {
           box-shadow: var(--shadow-hover) !important;
-          border-color: rgba(247,155,61,0.15) !important;
+          border-color: rgba(184,71,45,0.15) !important;
         }
 
         /* Cinematic bottom-gradient on card images in dark mode */
@@ -4426,17 +4426,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
         /* AR CTA inside card */
         .dm .c-ar-cta  {
-          background: rgba(247,155,61,0.1) !important;
+          background: rgba(184,71,45,0.1) !important;
           color: var(--accent) !important;
-          border-top: 1px solid rgba(247,155,61,0.12) !important;
+          border-top: 1px solid rgba(184,71,45,0.12) !important;
         }
 
         /* Badges */
-        .dm .c-badge-pop  { background: rgba(247,155,61,0.16) !important; color: var(--accent) !important; }
+        .dm .c-badge-pop  { background: rgba(184,71,45,0.16) !important; color: var(--accent) !important; }
         .dm .c-badge-feat { background: rgba(120,80,200,0.18) !important; color: #C0A0F0 !important; }
 
         /* AR pill on card */
-        .dm .c-ar-pill { background: rgba(247,155,61,0.85) !important; }
+        .dm .c-ar-pill { background: rgba(184,71,45,0.85) !important; }
 
         /* ── MODAL SHEET — layered dark surfaces ── */
         .dm .overlay {
@@ -4452,7 +4452,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           box-shadow:
             0 -12px 60px rgba(0,0,0,0.6),
             inset 0 1px 0 rgba(255,255,255,0.12),
-            inset 0 0 40px 0px rgba(247,155,61,0.04) !important;
+            inset 0 0 40px 0px rgba(184,71,45,0.04) !important;
           overflow-y: auto !important;
         }
         .dm .sheet::before {
@@ -4503,7 +4503,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .tag-cat  { background: var(--bg-elevated) !important; color: var(--text-2) !important; border: 1px solid var(--divider) !important; }
         .dm .tag-veg  { background: rgba(30,100,60,0.22) !important; color: #5EC47A !important; }
         .dm .tag-nv   { background: rgba(140,30,30,0.22) !important; color: #E07060 !important; }
-        .dm .tag-pop  { background: rgba(247,155,61,0.14) !important; color: var(--accent) !important; }
+        .dm .tag-pop  { background: rgba(184,71,45,0.14) !important; color: var(--accent) !important; }
         .dm .m-pill   { background: var(--bg-elevated) !important; color: var(--text-2) !important; }
 
         /* Nutrition cards */
@@ -4538,9 +4538,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         /* AR button in modal */
         .dm .ar-btn {
           background: var(--accent) !important;
-          box-shadow: 0 6px 24px rgba(247,155,61,0.4) !important;
+          box-shadow: 0 6px 24px rgba(184,71,45,0.4) !important;
         }
-        .dm .ar-btn:hover { box-shadow: 0 10px 32px rgba(247,155,61,0.55) !important; }
+        .dm .ar-btn:hover { box-shadow: 0 10px 32px rgba(184,71,45,0.55) !important; }
         .dm .ar-hint { color: var(--text-muted) !important; }
 
         /* ── SMART MENU ASSISTANT ── */
@@ -4570,7 +4570,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .sma-opt:hover {
           background: var(--bg-elevated) !important;
           border-color: var(--accent) !important;
-          box-shadow: 0 0 0 1px rgba(247,155,61,0.25) !important;
+          box-shadow: 0 0 0 1px rgba(184,71,45,0.25) !important;
         }
         .dm .sma-opt-label { color: var(--text-1) !important; }
         .dm .sma-dismiss   { color: var(--text-muted) !important; }
@@ -4592,7 +4592,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .sma-item-price { color: var(--accent) !important; }
 
         /* Badges inside SMA */
-        .dm .sma-chip-pop   { background: rgba(247,155,61,0.14) !important; color: var(--accent) !important; }
+        .dm .sma-chip-pop   { background: rgba(184,71,45,0.14) !important; color: var(--accent) !important; }
         .dm .sma-chip-ar    { background: rgba(40,100,70,0.2) !important; color: #5EC47A !important; }
         .dm .sma-chip-share { background: rgba(40,80,180,0.2) !important; color: #80A8F0 !important; }
 
@@ -4606,7 +4606,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .sma-mode-card:hover {
           background: var(--bg-elevated) !important;
           border-color: var(--accent) !important;
-          box-shadow: 0 0 0 1px rgba(247,155,61,0.2), 0 8px 24px rgba(0,0,0,0.4) !important;
+          box-shadow: 0 0 0 1px rgba(184,71,45,0.2), 0 8px 24px rgba(0,0,0,0.4) !important;
         }
         .dm .sma-mode-card-name { color: var(--text-1) !important; }
         .dm .sma-mode-card-desc { color: var(--text-muted) !important; }
@@ -4636,7 +4636,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         /* Action buttons */
         .dm .sma-btn-dark {
           background: var(--accent) !important;
-          box-shadow: 0 4px 16px rgba(247,155,61,0.35) !important;
+          box-shadow: 0 4px 16px rgba(184,71,45,0.35) !important;
         }
         .dm .sma-btn-light {
           background: transparent !important;
@@ -4652,10 +4652,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         /* FAB in dark mode */
         .dm .sma-fab {
           background: var(--accent) !important;
-          box-shadow: 0 6px 28px rgba(247,155,61,0.5), 0 2px 8px rgba(0,0,0,0.5) !important;
+          box-shadow: 0 6px 28px rgba(184,71,45,0.5), 0 2px 8px rgba(0,0,0,0.5) !important;
         }
         .dm .sma-fab:hover {
-          box-shadow: 0 12px 40px rgba(247,155,61,0.65), 0 4px 12px rgba(0,0,0,0.5) !important;
+          box-shadow: 0 12px 40px rgba(184,71,45,0.65), 0 4px 12px rgba(0,0,0,0.5) !important;
         }
 
 
@@ -4723,7 +4723,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .lang-btn { color: rgba(255,255,255,0.35) !important; }
         .dm .lang-btn:hover:not(.on) { color: rgba(255,255,255,0.65) !important; }
         .dm .lang-btn.on {
-          background: #F79B3D !important;
+          background: #B8472D !important;
           color: #1E1B18 !important;
         }
 
@@ -4922,7 +4922,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
         .pb1 {
           width: 70vw; height: 70vw; top: -20%; left: -15%;
-          background: radial-gradient(circle, #F79B3D 0%, #E05A3A 50%, transparent 75%);
+          background: radial-gradient(circle, #B8472D 0%, #E05A3A 50%, transparent 75%);
           animation: plasma1 18s ease-in-out infinite;
         }
         .pb2 {
@@ -4932,7 +4932,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         }
         .pb3 {
           width: 60vw; height: 60vw; bottom: -20%; left: 20%;
-          background: radial-gradient(circle, #FFB347 0%, #F79B3D 45%, transparent 75%);
+          background: radial-gradient(circle, #D7644A 0%, #B8472D 45%, transparent 75%);
           animation: plasma3 16s ease-in-out infinite;
         }
         .pb4 {
@@ -4964,12 +4964,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           background: conic-gradient(
             from 0deg,
             transparent 0deg,
-            #F79B3D 50deg,
+            #B8472D 50deg,
             #FFD056 110deg,
             #E05A3A 170deg,
             transparent 230deg,
             transparent 290deg,
-            #F79B3D 340deg,
+            #B8472D 340deg,
             transparent 360deg
           );
           animation: electricSpin 3.2s linear infinite;
@@ -5009,7 +5009,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           position: 'absolute', left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)`,
                           transform: `translate(-50%,-50%) rotate(${angle}deg)`,
                           fontSize: 8, fontWeight: 800, letterSpacing: 0.5, userSelect: 'none',
-                          color: darkMode ? 'rgba(247,155,61,0.7)' : 'rgba(247,155,61,0.85)',
+                          color: darkMode ? 'rgba(184,71,45,0.7)' : 'rgba(184,71,45,0.85)',
                           lineHeight: 1,
                         }}>{ch}</span>
                       );
@@ -5195,7 +5195,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, paddingInline: 2 }}>
                 <span style={{ fontSize: 13 }}>🏷️</span>
-                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 12, color: darkMode ? '#F79B3D' : '#A06010', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Today&apos;s Offers</span>
+                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 12, color: darkMode ? '#D7644A' : '#6E2B17', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Today&apos;s Offers</span>
                 <span style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.3)' : 'rgba(42,31,16,0.3)', fontWeight: 500 }}>{activeOffers.length} active</span>
               </div>
               <div style={{ display: 'flex', gap: 12, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, paddingTop: 2, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
@@ -5210,7 +5210,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       style={{
                         flexShrink: 0, width: 220, borderRadius: 20, overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default',
                         background: darkMode ? '#1A1410' : '#FFFFFF',
-                        border: `1.5px solid ${darkMode ? 'rgba(247,155,61,0.25)' : 'rgba(247,155,61,0.4)'}`,
+                        border: `1.5px solid ${darkMode ? 'rgba(184,71,45,0.25)' : 'rgba(184,71,45,0.4)'}`,
                         boxShadow: darkMode ? '0 4px 24px rgba(0,0,0,0.4)' : '0 4px 20px rgba(42,31,16,0.1)',
                         transition: 'transform 0.18s, box-shadow 0.18s',
                       }}
@@ -5254,7 +5254,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             )}
                           </div>
                           {isClickable && (
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#F79B3D,#E05A3A)', padding: '5px 10px', borderRadius: 10, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(224,90,58,0.35)' }}>View →</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg,#B8472D,#E05A3A)', padding: '5px 10px', borderRadius: 10, whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(224,90,58,0.35)' }}>View →</div>
                           )}
                         </div>
                       </div>
@@ -5280,16 +5280,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   occupying ~45% of the SVG width; table shrunk to a
                   small slab on the right. Palette pulled directly from
                   the brand tokens used elsewhere on the page —
-                  #F79B3D / #C97A1A / #FFE6CF / cream — so the banner
+                  #B8472D / #9A371F / #F2D5C9 / cream — so the banner
                   reads as part of the same surface, not a separate
                   illustration. Sparkle decorations dropped per user
                   feedback ("too cartoonish"). */}
               <svg className="ar-strip-svg" viewBox="0 0 220 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <defs>
                   <linearGradient id="ar4-screen" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#FFD58A" />
-                    <stop offset="0.55" stopColor="#F79B3D" />
-                    <stop offset="1" stopColor="#C97A1A" />
+                    <stop offset="0" stopColor="#E89E7C" />
+                    <stop offset="0.55" stopColor="#B8472D" />
+                    <stop offset="1" stopColor="#9A371F" />
                   </linearGradient>
                   <linearGradient id="ar4-screen-glow" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.55" />
@@ -5301,8 +5301,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     <stop offset="1" stopColor="#B98750" />
                   </linearGradient>
                   <radialGradient id="ar4-shimmer" cx="0.5" cy="0.5" r="0.5">
-                    <stop offset="0" stopColor="#F79B3D" stopOpacity="0.6" />
-                    <stop offset="1" stopColor="#F79B3D" stopOpacity="0" />
+                    <stop offset="0" stopColor="#B8472D" stopOpacity="0.6" />
+                    <stop offset="1" stopColor="#B8472D" stopOpacity="0" />
                   </radialGradient>
                 </defs>
 
@@ -5310,7 +5310,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     visual priority. Warm cream wood matches header. */}
                 <g>
                   <rect x="130" y="98" width="76" height="6" rx="1.5" fill="url(#ar4-table)" />
-                  <line x1="130" y1="98" x2="206" y2="98" stroke="#FFE6CF" strokeWidth="0.6" opacity="0.7" />
+                  <line x1="130" y1="98" x2="206" y2="98" stroke="#F2D5C9" strokeWidth="0.6" opacity="0.7" />
                   <rect x="138" y="104" width="5" height="14" rx="1" fill="#A06438" />
                   <rect x="193" y="104" width="5" height="14" rx="1" fill="#A06438" />
                 </g>
@@ -5331,7 +5331,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <ellipse cx="68" cy="106" rx="22" ry="3" fill="rgba(0,0,0,0.10)" />
                   {/* Outer phone body — dark, rounded */}
                   <rect x="42" y="14" width="52" height="92" rx="9"
-                        fill="#1B1A18" stroke="rgba(247,155,61,0.45)" strokeWidth="1.2" />
+                        fill="#1B1A18" stroke="rgba(184,71,45,0.45)" strokeWidth="1.2" />
                   {/* Screen — orange brand gradient */}
                   <rect className="phone-glow" x="46" y="20" width="44" height="78" rx="6" fill="url(#ar4-screen)" />
                   {/* Screen highlight (top-left) for depth */}
@@ -5353,8 +5353,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <ellipse cx="0" cy="3" rx="14" ry="3.6" fill="rgba(0,0,0,0.20)" />
                   <ellipse cx="0" cy="0" rx="14" ry="3.8" fill="#FFFFFF" stroke="#E2D6BF" strokeWidth="0.6" />
                   <ellipse cx="0" cy="-0.7" rx="10.5" ry="2.7" fill="#FFF8E8" />
-                  <ellipse cx="0" cy="-2.4" rx="7.2" ry="2.2" fill="#F79B3D" />
-                  <ellipse cx="-0.5" cy="-3.2" rx="4" ry="1.3" fill="#FFC972" />
+                  <ellipse cx="0" cy="-2.4" rx="7.2" ry="2.2" fill="#B8472D" />
+                  <ellipse cx="-0.5" cy="-3.2" rx="4" ry="1.3" fill="#E89E7C" />
                   <circle cx="-2.5" cy="-3.6" r="0.9" fill="#5DA068" />
                 </g>
               </svg>
@@ -5378,21 +5378,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             <div className="combos-section-wrap" style={{ marginBottom: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 18 }}>🍱</span>
-                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: darkMode ? '#F79B3D' : '#A06010' }}><span className="shiny-txt">Combo Deals</span></span>
-                <span style={{ padding: '3px 10px', borderRadius: 20, background: darkMode ? 'rgba(247,155,61,0.2)' : 'rgba(247,155,61,0.15)', color: darkMode ? '#F4C050' : '#A06010', fontSize: 11, fontWeight: 700, border: '1px solid rgba(247,155,61,0.3)' }}>Special Offers</span>
+                <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 16, color: darkMode ? '#D7644A' : '#6E2B17' }}><span className="shiny-txt">Combo Deals</span></span>
+                <span style={{ padding: '3px 10px', borderRadius: 20, background: darkMode ? 'rgba(184,71,45,0.2)' : 'rgba(184,71,45,0.15)', color: darkMode ? '#E89E7C' : '#6E2B17', fontSize: 11, fontWeight: 700, border: '1px solid rgba(184,71,45,0.3)' }}>Special Offers</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, filter: 'url(#card-turb)' }}>
                 {(combos || []).filter(c => c.isActive !== false).map(combo => {
                   const comboItems = (combo.itemIds || []).map(id => (menuItems || []).find(i => i.id === id)).filter(Boolean);
                   return (
                     <div key={combo.id} onClick={() => setSelectedCombo({ ...combo, resolvedItems: comboItems })}
-                      style={{ borderRadius: 18, border: '1.5px solid rgba(247,155,61,0.35)', background: darkMode ? 'linear-gradient(135deg,rgba(18,14,10,0.80),rgba(28,20,10,0.80))' : 'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))', backdropFilter: darkMode ? 'blur(12px)' : 'none', WebkitBackdropFilter: darkMode ? 'blur(12px)' : 'none', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', cursor: 'pointer', transition: 'transform 0.18s, box-shadow 0.18s' }}
-                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(247,155,61,0.2)'; }}
+                      style={{ borderRadius: 18, border: '1.5px solid rgba(184,71,45,0.35)', background: darkMode ? 'linear-gradient(135deg,rgba(18,14,10,0.80),rgba(28,20,10,0.80))' : 'linear-gradient(135deg,rgba(255,252,248,0.98),rgba(250,245,235,0.98))', backdropFilter: darkMode ? 'blur(12px)' : 'none', WebkitBackdropFilter: darkMode ? 'blur(12px)' : 'none', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', cursor: 'pointer', transition: 'transform 0.18s, box-shadow 0.18s' }}
+                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(184,71,45,0.2)'; }}
                       onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
                           <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 15, color: darkMode ? 'var(--text-1)' : '#1E1B18' }}>{combo.name}</span>
-                          {combo.tag && <span style={{ padding: '2px 9px', borderRadius: 20, background: 'rgba(247,155,61,0.25)', color: darkMode ? '#F4C050' : '#A06010', fontSize: 11, fontWeight: 700 }}>{combo.tag}</span>}
+                          {combo.tag && <span style={{ padding: '2px 9px', borderRadius: 20, background: 'rgba(184,71,45,0.25)', color: darkMode ? '#E89E7C' : '#6E2B17', fontSize: 11, fontWeight: 700 }}>{combo.tag}</span>}
                         </div>
                         {combo.description && <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', marginBottom: 8 }}>{combo.description}</div>}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -5400,7 +5400,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             <span key={item.id} style={{ padding: '3px 9px', borderRadius: 20, background: darkMode ? 'rgba(255,245,232,0.1)' : 'rgba(42,31,16,0.06)', fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.65)', fontWeight: 500 }}>{item.name}</span>
                           ))}
                         </div>
-                        <div style={{ fontSize: 11, color: darkMode ? 'rgba(247,155,61,0.7)' : '#A06010', marginTop: 8, fontWeight: 600 }}>Tap to view & add →</div>
+                        <div style={{ fontSize: 11, color: darkMode ? 'rgba(184,71,45,0.7)' : '#6E2B17', marginTop: 8, fontWeight: 600 }}>Tap to view & add →</div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#E05A3A' }}>₹{combo.comboPrice}</div>
@@ -5578,7 +5578,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         )}
                         {item.calories && <span className="c-cal">{item.calories} kcal</span>}
                         {item.ratingCount > 0 && (
-                          <span style={{ fontSize: 11, color: '#F79B3D', fontWeight: 700, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 11, color: '#B8472D', fontWeight: 700, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
                             ★ {item.ratingAvg?.toFixed(1)}
                             <span style={{ color: 'rgba(42,31,16,0.35)', fontWeight: 400 }}> ({item.ratingCount})</span>
                           </span>
@@ -5688,7 +5688,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <button
                     className="bill-fab status-fab"
                     onClick={() => { setCartOpen(true); setOrderStep('payment'); }}
-                    style={{ background: '#F79B3D', borderColor: '#F79B3D', color: '#1E1B18' }}>
+                    style={{ background: '#B8472D', borderColor: '#B8472D', color: '#1E1B18' }}>
                     <span style={{
                       width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
                       background: '#1E1B18',
@@ -5724,11 +5724,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
                         background: s === 'ready'     ? '#FFFFFF'
                                    : s === 'preparing' ? '#4A80C0'
-                                   :                     '#F79B3D',
+                                   :                     '#B8472D',
                         animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
                         boxShadow: s === 'ready'
                           ? '0 0 0 0 rgba(255,255,255,0.5)'
-                          : '0 0 0 0 rgba(247,155,61,0.5)',
+                          : '0 0 0 0 rgba(184,71,45,0.5)',
                       }} />
                       <span style={{ fontSize: 16 }}>
                         {s === 'ready' ? '🎉' : s === 'preparing' ? '🍳' : '⏳'}
@@ -5755,7 +5755,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     style={{ position: 'relative' }}>
                     <span style={{
                       width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                      background: '#F79B3D',
+                      background: '#B8472D',
                       animation: 'fab-pulse-dot 1.4s ease-in-out infinite',
                     }} />
                     <span style={{ fontSize: 16 }}>🍳</span>
@@ -5849,7 +5849,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   style={{
                     flexShrink: 0,
                     padding: '8px 14px', borderRadius: 9,
-                    background: '#F79B3D', color: '#1E1B18',
+                    background: '#B8472D', color: '#1E1B18',
                     border: 'none', cursor: 'pointer',
                     fontFamily: 'Inter, sans-serif',
                     fontSize: 12, fontWeight: 700, letterSpacing: '0.01em',
@@ -5901,7 +5901,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <img src={imgSrc(selectedItem)} alt={selectedItem.name} loading="lazy" decoding="async"
                     onError={() => setImgErr(e => ({ ...e, [selectedItem.id]: true }))} />
                   {selectedItem.offerBadge && selectedItem.offerLabel && (
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '7px 14px', background: selectedItem.offerColor || '#F79B3D', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center' }}>
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '7px 14px', background: selectedItem.offerColor || '#B8472D', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center' }}>
                       🏷 {selectedItem.offerLabel}
                     </div>
                   )}
@@ -5964,7 +5964,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <div style={{ margin: '14px 0 4px', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(42,31,16,0.04)', border: `1px solid ${darkMode ? 'rgba(255,245,232,0.08)' : 'rgba(42,31,16,0.08)'}` }}>
                     {(selectedItem.variants?.length || 0) > 0 && (
                       <div style={{ marginBottom: (selectedItem.addOns?.length || 0) > 0 ? 12 : 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: darkMode ? 'rgba(247,155,61,0.85)' : '#A05000', marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: darkMode ? 'rgba(184,71,45,0.85)' : '#A05000', marginBottom: 8 }}>
                           Choose size · required
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -5975,8 +5975,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                 onClick={() => setModifierChoice(m => ({ ...m, variant: selected ? null : v }))}
                                 style={{
                                   padding: '8px 14px', borderRadius: 20,
-                                  border: selected ? '2px solid #F79B3D' : `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.15)'}`,
-                                  background: selected ? 'rgba(247,155,61,0.12)' : 'transparent',
+                                  border: selected ? '2px solid #B8472D' : `1.5px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.15)'}`,
+                                  background: selected ? 'rgba(184,71,45,0.12)' : 'transparent',
                                   color: darkMode ? '#FFF5E8' : '#1E1B18',
                                   fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif',
                                 }}>
@@ -5989,7 +5989,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     )}
                     {(selectedItem.addOns?.length || 0) > 0 && (
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: darkMode ? 'rgba(247,155,61,0.85)' : '#A05000', marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: darkMode ? 'rgba(184,71,45,0.85)' : '#A05000', marginBottom: 8 }}>
                           Add-ons · optional
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -6057,12 +6057,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           disabled={!canAdd}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 50, border: 'none',
-                            background: darkMode ? '#F79B3D' : '#1E1B18',
+                            background: darkMode ? '#D7644A' : '#1E1B18',
                             color: darkMode ? '#ffffff' : '#FFF5E8',
                             fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                             cursor: canAdd ? 'pointer' : 'not-allowed',
                             opacity: canAdd ? 1 : 0.5,
-                            boxShadow: darkMode ? '0 4px 16px rgba(247,155,61,0.35)' : '0 4px 16px rgba(0,0,0,0.25)',
+                            boxShadow: darkMode ? '0 4px 16px rgba(184,71,45,0.35)' : '0 4px 16px rgba(0,0,0,0.25)',
                           }}>
                           🛒 {hasMods ? (variantRequired && !modifierChoice.variant ? 'Pick a size' : `Add to Order · ₹${effectivePrice}`) : 'Add to Order List'}
                         </button>
@@ -6082,7 +6082,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ display: 'flex', gap: 3 }}>
                           {[1, 2, 3, 4, 5].map(s => (
-                            <span key={s} style={{ fontSize: 22, color: s <= userRatings[selectedItem.id] ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.15)' }}>★</span>
+                            <span key={s} style={{ fontSize: 22, color: s <= userRatings[selectedItem.id] ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.15)' }}>★</span>
                           ))}
                         </div>
                         <span style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', fontWeight: 500 }}>Thanks for rating!</span>
@@ -6092,7 +6092,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                           {[1, 2, 3, 4, 5].map(s => (
                             <button key={s} onClick={() => handleRate(selectedItem, s)} disabled={!!ratingPending} style={{ fontSize: 33, background: 'none', border: 'none', cursor: 'pointer', color: darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)', padding: '2px 3px 2px 0px', transition: 'color 0.1s, transform 0.1s', lineHeight: 1 }}
-                              onMouseOver={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for (let i = 0; i < 5; i++) { const btn = e.currentTarget.parentNode.children[i]; btn.style.color = i < s ? '#F79B3D' : empty; } }}
+                              onMouseOver={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for (let i = 0; i < 5; i++) { const btn = e.currentTarget.parentNode.children[i]; btn.style.color = i < s ? '#B8472D' : empty; } }}
                               onMouseOut={e => { const empty = darkMode ? 'rgba(255,255,255,0.18)' : 'rgba(42,31,16,0.15)'; for (let i = 0; i < 5; i++) { e.currentTarget.parentNode.children[i].style.color = empty; } }}>
                               ★
                             </button>
@@ -6121,9 +6121,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       </div>
                       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
                         {paired.map(u => (
-                          <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.07)', border: '1.5px solid rgba(247,155,61,0.25)', borderRadius: 14, cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left' }}
-                            onMouseOver={e => { e.currentTarget.style.background = 'rgba(247,155,61,0.22)'; e.currentTarget.style.borderColor = 'rgba(247,155,61,0.55)'; }}
-                            onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.07)'; e.currentTarget.style.borderColor = 'rgba(247,155,61,0.25)'; }}>
+                          <button key={u.id} onClick={() => openItem(u)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: darkMode ? 'rgba(184,71,45,0.12)' : 'rgba(184,71,45,0.07)', border: '1.5px solid rgba(184,71,45,0.25)', borderRadius: 14, cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left' }}
+                            onMouseOver={e => { e.currentTarget.style.background = 'rgba(184,71,45,0.22)'; e.currentTarget.style.borderColor = 'rgba(184,71,45,0.55)'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = darkMode ? 'rgba(184,71,45,0.12)' : 'rgba(184,71,45,0.07)'; e.currentTarget.style.borderColor = 'rgba(184,71,45,0.25)'; }}>
                             {u.imageURL && (
                               <div style={{ width: 36, height: 36, borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
                                 <img src={u.imageURL} alt={u.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -6131,7 +6131,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             )}
                             <div>
                               <div className="m-title" style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{u.name}</div>
-                              {u.price && <div style={{ fontSize: 11, color: '#F79B3D', fontWeight: 700 }}>₹{u.price}</div>}
+                              {u.price && <div style={{ fontSize: 11, color: '#B8472D', fontWeight: 700 }}>₹{u.price}</div>}
                             </div>
                           </button>
                         ))}
@@ -6173,13 +6173,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   return (
                     <div style={{
                       padding: '10px 12px', borderRadius: 12, marginBottom: 12,
-                      background: darkMode ? 'rgba(247,155,61,0.12)' : 'rgba(247,155,61,0.08)',
-                      border: '1.5px solid rgba(247,155,61,0.30)',
+                      background: darkMode ? 'rgba(184,71,45,0.12)' : 'rgba(184,71,45,0.08)',
+                      border: '1.5px solid rgba(184,71,45,0.30)',
                       display: 'flex', alignItems: 'center', gap: 10,
                     }}>
                       <span style={{ fontSize: 18, lineHeight: 1 }}>📦</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#F7A85A' : '#A06318' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#D7644A' : '#9A371F' }}>
                           Adding to order {orderRef}
                         </div>
                         <div style={{ fontSize: 11, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', marginTop: 1, lineHeight: 1.35 }}>
@@ -6209,14 +6209,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
                         {c.modNote && (
-                          <div style={{ fontSize: 11, color: darkMode ? 'rgba(247,155,61,0.85)' : '#A05000', marginTop: 2, fontWeight: 500 }}>
+                          <div style={{ fontSize: 11, color: darkMode ? 'rgba(184,71,45,0.85)' : '#A05000', marginTop: 2, fontWeight: 500 }}>
                             {c.modNote}
                           </div>
                         )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                           <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)' }}>Qty: {c.qty}</div>
                           <button onClick={() => setNoteOpen(n => ({ ...n, [key]: !n[key] }))}
-                            style={{ fontSize: 11, color: '#F79B3D', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
+                            style={{ fontSize: 11, color: '#B8472D', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
                             {c.note ? '✏ Edit note' : '+ Note'}
                           </button>
                         </div>
@@ -6260,7 +6260,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           placeholder="Coupon code"
                           style={{ flex: 1, padding: '10px 13px', borderRadius: 10, border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`, background: darkMode ? 'rgba(255,255,255,0.05)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 13, fontFamily: 'monospace', letterSpacing: '0.06em', outline: 'none', textTransform: 'uppercase' }} />
                         <button onClick={applyCoupon} disabled={!couponCode.trim() || couponLoading}
-                          style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#F79B3D', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: !couponCode.trim() ? 0.5 : 1 }}>
+                          style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#B8472D', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: !couponCode.trim() ? 0.5 : 1 }}>
                           {couponLoading ? '…' : 'Apply'}
                         </button>
                       </div>
@@ -6290,7 +6290,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           flex: 2, padding: '12px', borderRadius: 12, border: 'none',
                           background: isSubmitting
                             ? 'rgba(42,31,16,0.3)'
-                            : darkMode ? '#F79B3D' : '#1E1B18',
+                            : darkMode ? '#D7644A' : '#1E1B18',
                           color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8',
                           fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                           cursor: isSubmitting ? 'not-allowed' : 'pointer',
@@ -6341,8 +6341,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             onClick={() => setCustomerOrderType(opt.k)}
                             style={{
                               padding: '12px 14px', borderRadius: 12,
-                              border: selected ? '2px solid #F79B3D' : `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`,
-                              background: selected ? 'rgba(247,155,61,0.10)' : darkMode ? 'rgba(255,255,255,0.03)' : '#fff',
+                              border: selected ? '2px solid #B8472D' : `1.5px solid ${darkMode ? 'rgba(255,245,232,0.12)' : 'rgba(42,31,16,0.12)'}`,
+                              background: selected ? 'rgba(184,71,45,0.10)' : darkMode ? 'rgba(255,255,255,0.03)' : '#fff',
                               color: darkMode ? '#FFF5E8' : '#1E1B18',
                               fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                               cursor: 'pointer',
@@ -6433,7 +6433,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 {/* Confirm button — outside the scroll wrapper so it stays
                     visible at the bottom even when the form is mid-scroll. */}
                 <button onClick={placeOrder} disabled={isSubmitting}
-                  style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : darkMode ? '#F79B3D' : '#1E1B18', color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
+                  style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: isSubmitting ? 'rgba(42,31,16,0.3)' : darkMode ? '#D7644A' : '#1E1B18', color: darkMode && !isSubmitting ? '#1E1B18' : '#FFF5E8', fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif', cursor: isSubmitting ? 'not-allowed' : 'pointer', flexShrink: 0 }}>
                   {isSubmitting ? '...' : t.confirmOrder}
                 </button>
               </>)}
@@ -6545,9 +6545,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         the kitchen. */}
                     <div style={{
                       padding: '12px 14px', borderRadius: 12, marginBottom: 14,
-                      background: darkMode ? 'rgba(247,155,61,0.10)' : 'rgba(247,155,61,0.06)',
-                      border: '1.5px solid rgba(247,155,61,0.30)',
-                      fontSize: 13, color: darkMode ? '#F7A85A' : '#A06318', fontWeight: 600,
+                      background: darkMode ? 'rgba(184,71,45,0.10)' : 'rgba(184,71,45,0.06)',
+                      border: '1.5px solid rgba(184,71,45,0.30)',
+                      fontSize: 13, color: darkMode ? '#D7644A' : '#9A371F', fontWeight: 600,
                       lineHeight: 1.45,
                     }}>
                       📦 Your order is saved but <u>not yet sent to the kitchen</u>. We'll start preparing once your payment is confirmed.
@@ -6586,7 +6586,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                 <span style={{
                                   fontFamily: "'JetBrains Mono', monospace",
                                   fontWeight: 700, fontSize: 12,
-                                  color: '#F79B3D', minWidth: 24,
+                                  color: '#B8472D', minWidth: 24,
                                 }}>
                                   {it.qty || 1}×
                                 </span>
@@ -6772,8 +6772,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           style={{
                             width: '100%', padding: '12px 14px', borderRadius: 12,
                             background: 'transparent',
-                            border: `1.5px solid ${darkMode ? 'rgba(247,155,61,0.40)' : 'rgba(247,155,61,0.40)'}`,
-                            color: '#F79B3D',
+                            border: `1.5px solid ${darkMode ? 'rgba(184,71,45,0.40)' : 'rgba(184,71,45,0.40)'}`,
+                            color: '#B8472D',
                             fontSize: 13, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                             cursor: 'pointer', marginBottom: 10,
                           }}>
@@ -6869,8 +6869,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     };
                     const TAB_STATUS_COLOR = {
                       awaiting_payment: '#D9534F',
-                      pending: '#F79B3D',
-                      preparing: '#F79B3D',
+                      pending: '#B8472D',
+                      preparing: '#B8472D',
                       ready: '#2D8B4E',
                       served: '#7AA88E',
                       cancelled: 'rgba(0,0,0,0.4)',
@@ -6888,7 +6888,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           {sessionOrders.map((so, idx) => {
                             const isSel = so.orderId === selectedSuccessOrderId;
                             const status = so.liveStatus || 'pending';
-                            const dotColor = TAB_STATUS_COLOR[status] || '#F79B3D';
+                            const dotColor = TAB_STATUS_COLOR[status] || '#B8472D';
                             const label = TAB_STATUS_LABEL[status] || status;
                             const ref = so.orderNumber
                               ? `#${so.orderNumber}${idx > 0 && sessionOrders.some((t, i) => i < idx && t.orderNumber === so.orderNumber) ? `[${idx + 1}]` : ''}`
@@ -6902,9 +6902,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                   flexShrink: 0,
                                   padding: '10px 14px',
                                   borderRadius: 14,
-                                  border: `1.5px solid ${isSel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
+                                  border: `1.5px solid ${isSel ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
                                   background: isSel
-                                    ? (darkMode ? 'rgba(247,155,61,0.14)' : 'rgba(247,155,61,0.08)')
+                                    ? (darkMode ? 'rgba(184,71,45,0.14)' : 'rgba(184,71,45,0.08)')
                                     : 'transparent',
                                   cursor: 'pointer',
                                   display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
@@ -6970,8 +6970,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       );
                     }
                     const STATUS_STEPS = [
-                      { key: 'pending',   label: 'Order Placed',   icon: '✓', color: '#F79B3D' },
-                      { key: 'preparing', label: 'Preparing',      icon: '🍳', color: '#F79B3D' },
+                      { key: 'pending',   label: 'Order Placed',   icon: '✓', color: '#B8472D' },
+                      { key: 'preparing', label: 'Preparing',      icon: '🍳', color: '#B8472D' },
                       { key: 'ready',     label: 'Ready!',         icon: '🎉', color: '#2D8B4E' },
                       { key: 'served',    label: 'Served',         icon: '✅', color: '#2D8B4E' },
                     ];
@@ -6985,7 +6985,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
                           {/* Progress line */}
                           <div style={{ position: 'absolute', top: 14, left: '10%', right: '10%', height: 3, background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)', borderRadius: 99, zIndex: 0 }}>
-                            <div style={{ height: '100%', borderRadius: 99, background: '#F79B3D', width: `${Math.min(100, (curIdx / (STATUS_STEPS.length - 1)) * 100)}%`, transition: 'width 0.5s' }} />
+                            <div style={{ height: '100%', borderRadius: 99, background: '#B8472D', width: `${Math.min(100, (curIdx / (STATUS_STEPS.length - 1)) * 100)}%`, transition: 'width 0.5s' }} />
                           </div>
                           {STATUS_STEPS.map((s, i) => {
                             const done = i <= curIdx;
@@ -7021,10 +7021,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
                       style={{
                         flex: 1, padding: '13px 16px', borderRadius: 12, border: 'none',
-                        background: 'linear-gradient(135deg,#F79B3D,#F48A1E)', color: '#fff',
+                        background: 'linear-gradient(135deg,#B8472D,#A33B19)', color: '#fff',
                         fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 16px rgba(247,155,61,0.30)',
+                        boxShadow: '0 4px 16px rgba(184,71,45,0.30)',
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       }}>
                       <span style={{ fontSize: 16 }}>＋</span> Add more items
@@ -7053,7 +7053,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         {/* ─── COMBO DETAIL MODAL ─── */}
         {selectedCombo && (
           <SheetOverlay onClose={() => setSelectedCombo(null)} darkMode={darkMode}>
-            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 32px', maxHeight: '85vh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
+            <div style={{ width: '100%', maxWidth: 540, background: darkMode ? '#221C16' : '#FEFCF8', borderRadius: '24px 24px 0 0', padding: '0 0 32px', maxHeight: '85vh', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)' }}>
               {/* Handle */}
               <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
@@ -7063,7 +7063,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 4 }}>{selectedCombo.name}</div>
-                    {selectedCombo.tag && <span style={{ padding: '3px 10px', borderRadius: 20, background: 'rgba(247,155,61,0.25)', color: darkMode ? '#F4C050' : '#A06010', fontSize: 12, fontWeight: 700 }}>{selectedCombo.tag}</span>}
+                    {selectedCombo.tag && <span style={{ padding: '3px 10px', borderRadius: 20, background: 'rgba(184,71,45,0.25)', color: darkMode ? '#E89E7C' : '#6E2B17', fontSize: 12, fontWeight: 700 }}>{selectedCombo.tag}</span>}
                   </div>
                   <button onClick={() => setSelectedCombo(null)} style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.07)', border: 'none', borderRadius: '50%', width: 36, height: 36, fontSize: 18, cursor: 'pointer', color: darkMode ? '#FFF5E8' : '#1E1B18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
                 </div>
@@ -7090,13 +7090,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                         {item.price > 0 && <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', textDecoration: 'line-through' }}>₹{item.price}</div>}
-                        <div style={{ fontSize: 11, fontWeight: 700, color: darkMode ? 'rgba(247,155,61,0.8)' : '#A06010' }}>View →</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: darkMode ? 'rgba(184,71,45,0.8)' : '#6E2B17' }}>View →</div>
                       </div>
                     </div>
                   ))}
                 </div>
                 {/* Price + CTA */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', borderRadius: 16, background: darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.08)', border: '1.5px solid rgba(247,155,61,0.3)', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px', borderRadius: 16, background: darkMode ? 'rgba(184,71,45,0.1)' : 'rgba(184,71,45,0.08)', border: '1.5px solid rgba(184,71,45,0.3)', marginBottom: 16 }}>
                   <div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 26, color: '#E05A3A' }}>₹{selectedCombo.comboPrice}</div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
@@ -7106,7 +7106,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   </div>
                   <button
                     onClick={() => { addComboToCart(selectedCombo); setSelectedCombo(null); }}
-                    style={{ padding: '12px 22px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#F79B3D,#E05A3A)', color: '#fff', fontFamily: 'Inter,sans-serif', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 16px rgba(224,90,58,0.45)' }}>
+                    style={{ padding: '12px 22px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#B8472D,#E05A3A)', color: '#fff', fontFamily: 'Inter,sans-serif', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 16px rgba(224,90,58,0.45)' }}>
                     + Add to Order
                   </button>
                 </div>
@@ -7152,10 +7152,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       { id: 'order', emoji: '📋', label: 'Ready to Order' },
                     ].map(opt => (
                       <button key={opt.id} onClick={() => setWaiterReason(opt.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 14, border: `2px solid ${waiterReason === opt.id ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: waiterReason === opt.id ? 'rgba(247,155,61,0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 14, border: `2px solid ${waiterReason === opt.id ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`, background: waiterReason === opt.id ? 'rgba(184,71,45,0.1)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%' }}>
                         <span style={{ fontSize: 22 }}>{opt.emoji}</span>
                         <span style={{ fontSize: 14, fontWeight: 600, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{opt.label}</span>
-                        {waiterReason === opt.id && <span style={{ marginLeft: 'auto', color: '#F79B3D', fontSize: 18 }}>✓</span>}
+                        {waiterReason === opt.id && <span style={{ marginLeft: 'auto', color: '#B8472D', fontSize: 18 }}>✓</span>}
                       </button>
                     ))}
                   </div>
@@ -7175,7 +7175,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <button
                     onClick={handleWaiterCall}
                     disabled={!waiterReason || waiterSending}
-                    style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: waiterReason ? 'linear-gradient(135deg,#F79B3D,#F48A1E)' : 'rgba(92, 92, 92, 0.5)', color: waiterReason ? '#fff' : 'rgba(255, 255, 255, 0.57)', fontSize: 15, fontWeight: 700, fontFamily: 'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition: 'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(247,155,61,0.35)' : 'none' }}>
+                    style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: waiterReason ? 'linear-gradient(135deg,#B8472D,#A33B19)' : 'rgba(92, 92, 92, 0.5)', color: waiterReason ? '#fff' : 'rgba(255, 255, 255, 0.57)', fontSize: 15, fontWeight: 700, fontFamily: 'Poppins,sans-serif', cursor: waiterReason ? 'pointer' : 'not-allowed', transition: 'all 0.2s', boxShadow: waiterReason ? '0 4px 16px rgba(184,71,45,0.35)' : 'none' }}>
                     {waiterSending ? 'Sending…' : '🔔 Call Waiter'}
                   </button>
                 </>
@@ -7187,9 +7187,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         {/* ─── MY BILL SHEET ─── */}
         {billOpen && bill && (
           <SheetOverlay onClose={() => setBillOpen(false)} darkMode={darkMode}>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, margin: '0 auto', background: darkMode ? '#221C16' : '#FEFCF8', borderRadius: '24px 24px 0 0', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)', transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
               {/* Handle */}
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', flexShrink: 0, background: darkMode ? '#1A1612' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 10px', flexShrink: 0, background: darkMode ? '#221C16' : '#FEFCF8', borderRadius: '24px 24px 0 0' }}>
                 <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
               </div>
 
@@ -7212,8 +7212,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 };
                 const TAB_STATUS_COLOR = {
                   awaiting_payment: '#D9534F',
-                  pending: '#F79B3D',
-                  preparing: '#F79B3D',
+                  pending: '#B8472D',
+                  preparing: '#B8472D',
                   ready: '#2D8B4E',
                   served: '#7AA88E',
                   cancelled: 'rgba(0,0,0,0.4)',
@@ -7222,7 +7222,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <div style={{
                     flexShrink: 0,
                     padding: '0 16px 12px',
-                    background: darkMode ? '#1A1612' : '#FEFCF8',
+                    background: darkMode ? '#221C16' : '#FEFCF8',
                     borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(42,31,16,0.06)'}`,
                   }}>
                     <div style={{
@@ -7239,7 +7239,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         // tab badge keeps up with admin transitions
                         // (preparing → ready → served) without remount.
                         const liveStatus = isCurrent ? liveOrderStatus : tab.status;
-                        const dotColor = TAB_STATUS_COLOR[liveStatus] || '#F79B3D';
+                        const dotColor = TAB_STATUS_COLOR[liveStatus] || '#B8472D';
                         const ref = tab.orderNumber
                           ? `#${tab.orderNumber}${idx > 0 && billTabs.some((t, i) => i < idx && t.orderNumber === tab.orderNumber) ? `[${idx + 1}]` : ''}`
                           : `#${(tab.orderId || '').slice(-4).toUpperCase()}`;
@@ -7251,9 +7251,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                               flexShrink: 0,
                               padding: '8px 14px',
                               borderRadius: 999,
-                              border: `1.5px solid ${isSel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
+                              border: `1.5px solid ${isSel ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
                               background: isSel
-                                ? (darkMode ? 'rgba(247,155,61,0.14)' : 'rgba(247,155,61,0.08)')
+                                ? (darkMode ? 'rgba(184,71,45,0.14)' : 'rgba(184,71,45,0.08)')
                                 : 'transparent',
                               cursor: 'pointer',
                               display: 'flex', alignItems: 'center', gap: 8,
@@ -7323,13 +7323,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         };
                         const HDR_COLOR = {
                           awaiting_payment: '#D9534F',
-                          pending: '#F79B3D',
-                          preparing: '#F79B3D',
+                          pending: '#B8472D',
+                          preparing: '#B8472D',
                           ready: '#2D8B4E',
                           served: '#7AA88E',
                           cancelled: 'rgba(0,0,0,0.4)',
                         };
-                        const c = HDR_COLOR[viewingBillOrderStatus] || '#F79B3D';
+                        const c = HDR_COLOR[viewingBillOrderStatus] || '#B8472D';
                         return (
                           <span style={{
                             fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
@@ -7499,8 +7499,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             style={{
                               display: 'flex', alignItems: 'center', gap: 14,
                               padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
-                              border: `2px solid ${sel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}`,
-                              background: sel ? (darkMode ? 'rgba(247,155,61,0.1)' : 'rgba(247,155,61,0.06)') : 'transparent',
+                              border: `2px solid ${sel ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}`,
+                              background: sel ? (darkMode ? 'rgba(184,71,45,0.1)' : 'rgba(184,71,45,0.06)') : 'transparent',
                               transition: 'all 0.15s', textAlign: 'left',
                             }}>
                             <div style={{ width: 46, height: 46, borderRadius: 13, background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{m.icon}</div>
@@ -7508,8 +7508,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                               <div style={{ fontSize: 15, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2 }}>{m.label}</div>
                               <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.45)' }}>{m.sub}</div>
                             </div>
-                            <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${sel ? '#F79B3D' : darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                              {sel && <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#F79B3D' }} />}
+                            <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${sel ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                              {sel && <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#B8472D' }} />}
                             </div>
                           </button>
                         );
@@ -8083,7 +8083,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             <SheetOverlay onClose={() => dismissFeedbackPrompt(feedbackForOrderId)} darkMode={darkMode}>
               <div onClick={e => e.stopPropagation()} style={{
                 width: '100%', maxWidth: 540, margin: '0 auto',
-                background: darkMode ? '#1A1612' : '#FEFCF8',
+                background: darkMode ? '#221C16' : '#FEFCF8',
                 borderRadius: '24px 24px 0 0',
                 padding: '0 0 calc(env(safe-area-inset-bottom, 20px) + 28px)',
                 animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)',
@@ -8116,7 +8116,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             background: 'transparent', border: 'none',
                             cursor: 'pointer', padding: 4,
                             fontSize: 38, lineHeight: 1,
-                            color: filled ? '#F79B3D' : (darkMode ? 'rgba(255,245,232,0.2)' : 'rgba(42,31,16,0.18)'),
+                            color: filled ? '#B8472D' : (darkMode ? 'rgba(255,245,232,0.2)' : 'rgba(42,31,16,0.18)'),
                             transition: 'transform 0.15s, color 0.15s',
                             transform: filled ? 'scale(1.05)' : 'scale(1)',
                           }}>
@@ -8168,12 +8168,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       style={{
                         flex: 1, padding: '13px 16px', borderRadius: 12, border: 'none',
                         background: feedbackRating
-                          ? 'linear-gradient(135deg,#F79B3D,#F48A1E)'
+                          ? 'linear-gradient(135deg,#B8472D,#A33B19)'
                           : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'),
                         color: feedbackRating ? '#fff' : (darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)'),
                         fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                         cursor: feedbackRating && !feedbackSending ? 'pointer' : 'not-allowed',
-                        boxShadow: feedbackRating ? '0 4px 16px rgba(247,155,61,0.30)' : 'none',
+                        boxShadow: feedbackRating ? '0 4px 16px rgba(184,71,45,0.30)' : 'none',
                       }}>
                       {feedbackSending ? 'Sending…' : 'Submit'}
                     </button>
@@ -8204,7 +8204,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           >
             <div onClick={e => e.stopPropagation()} style={{
               width: '100%', maxWidth: 460, margin: '0 auto',
-              background: darkMode ? '#1A1612' : '#FEFCF8',
+              background: darkMode ? '#221C16' : '#FEFCF8',
               borderRadius: '24px 24px 0 0',
               padding: '0 0 calc(env(safe-area-inset-bottom, 20px) + 24px)',
               animation: 'slideUp 0.3s cubic-bezier(0.32,0.72,0,1)',
@@ -8227,11 +8227,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   onClick={() => setShowOrderMoreCard(false)}
                   style={{
                     width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none',
-                    background: 'linear-gradient(135deg, #F79B3D, #F7C45D)',
+                    background: 'linear-gradient(135deg, #B8472D, #D7644A)',
                     color: '#1E1B18',
                     fontSize: 15, fontWeight: 800, fontFamily: 'Inter,sans-serif',
                     letterSpacing: '0.02em', cursor: 'pointer',
-                    boxShadow: '0 6px 18px rgba(247,155,61,0.35)',
+                    boxShadow: '0 6px 18px rgba(184,71,45,0.35)',
                   }}
                 >
                   Yes, order more
