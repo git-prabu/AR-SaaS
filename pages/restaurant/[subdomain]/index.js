@@ -1139,6 +1139,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     if (typeof window === 'undefined') return null;
     try { const s = sessionStorage.getItem('ar_payment_done'); return s ? JSON.parse(s).method : null; } catch { return null; }
   });
+  // Which UPI app the customer picked from the Swiggy-style picker.
+  // One of: 'gpay' | 'phonepe' | 'paytm' | 'other' | 'gateway'.
+  // 'gateway' is used when the restaurant has a payment gateway active —
+  // the gateway picks the actual app, so we just show one row.
+  // Combined with paymentMethod==='upi' to drive the deep-link scheme +
+  // the "Pay ₹X via {appName}" CTA copy.
+  const [upiApp, setUpiApp] = useState(null);
   const [billOpen, setBillOpen] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
   // May 1 — multi-order bill view. When the customer has placed several
@@ -4030,6 +4037,170 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         /* empty */
         .empty { text-align:center; padding:72px 20px; color:#9A9A9A; }
 
+        /* ─────────── PAYMENT MODAL — Swiggy-style UPI picker (Problem 5) ───────────
+           Headline section labels, UPI-app list rows, Cash/Card grid,
+           and the terracotta-gradient primary CTA. The selected state
+           uses a 2px terracotta border with 11px padding so the border
+           doesn't shift the content (vs 12px default + 1px border). */
+        .pay-section-label {
+          font-size: 11px; font-weight: 700;
+          letter-spacing: 0.10em; text-transform: uppercase;
+          color: rgba(30,27,24,0.55);
+          margin: 14px 0 10px;
+        }
+        .dm .pay-section-label { color: rgba(255,245,232,0.55); }
+
+        .pay-app-row {
+          display: flex; align-items: center; gap: 12px;
+          width: 100%;
+          padding: 12px;
+          border: 1px solid rgba(30,27,24,0.10);
+          border-radius: 14px;
+          background: transparent;
+          cursor: pointer;
+          margin-bottom: 8px;
+          font-family: 'Inter', sans-serif;
+          transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .pay-app-row:hover { background: rgba(30,27,24,0.03); }
+        .pay-app-row.selected {
+          padding: 11px;
+          border: 2px solid #B8472D;
+          background: rgba(184,71,45,0.04);
+        }
+        .dm .pay-app-row { border-color: rgba(255,245,232,0.10); }
+        .dm .pay-app-row:hover { background: rgba(255,245,232,0.04); }
+        .dm .pay-app-row.selected {
+          border-color: #D7644A;
+          background: rgba(184,71,45,0.10);
+        }
+
+        .pay-app-icon {
+          width: 38px; height: 38px; flex-shrink: 0;
+          border-radius: 9px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 14px; font-weight: 800; letter-spacing: -0.02em;
+          color: #FFFFFF;
+        }
+        .pay-app-icon.gpay   { background: #FFFFFF; color: #4285F4; border: 1px solid rgba(30,27,24,0.10); font-size: 18px; }
+        .pay-app-icon.phonepe{ background: #5F259F; }
+        .pay-app-icon.paytm  { background: #00BAF2; font-size: 12px; }
+        .pay-app-icon.other  { background: rgba(30,27,24,0.08); color: rgba(30,27,24,0.65); }
+        .pay-app-icon.cash   { background: rgba(45,139,78,0.12); color: #2D8B4E; font-size: 18px; }
+        .pay-app-icon.card   { background: rgba(74,128,192,0.12); color: #4A80C0; font-size: 18px; }
+        .pay-app-icon.gateway{ background: #5F259F; color: #FFF5E8; font-size: 18px; }
+        .dm .pay-app-icon.other { background: rgba(255,245,232,0.08); color: rgba(255,245,232,0.65); }
+        .dm .pay-app-icon.gpay  { background: #FFFFFF; }
+
+        .pay-app-name {
+          flex: 1;
+          font-size: 15px; font-weight: 700;
+          color: #1E1B18; text-align: left;
+        }
+        .dm .pay-app-name { color: #FFF5E8; }
+
+        .pay-radio {
+          width: 22px; height: 22px; flex-shrink: 0;
+          border-radius: 50%;
+          border: 2px solid rgba(30,27,24,0.18);
+          display: flex; align-items: center; justify-content: center;
+          transition: border-color 0.15s ease;
+        }
+        .pay-app-row.selected .pay-radio {
+          border-color: #B8472D;
+        }
+        .pay-app-row.selected .pay-radio::after {
+          content: '';
+          width: 12px; height: 12px;
+          border-radius: 50%;
+          background: #B8472D;
+        }
+        .dm .pay-radio { border-color: rgba(255,245,232,0.18); }
+        .dm .pay-app-row.selected .pay-radio { border-color: #D7644A; }
+        .dm .pay-app-row.selected .pay-radio::after { background: #D7644A; }
+
+        /* Chevron for the "Other UPI app" row */
+        .pay-app-chevron {
+          flex-shrink: 0;
+          font-size: 18px; line-height: 1;
+          color: rgba(30,27,24,0.35);
+        }
+        .dm .pay-app-chevron { color: rgba(255,245,232,0.35); }
+
+        /* Cash + Card grid — 2-col tiles below the "OR PAY AT TABLE"
+           label. Smaller icons (32px) than the UPI app rows. */
+        .pay-table-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+        .pay-table-tile {
+          display: flex; align-items: center; gap: 10px;
+          padding: 12px;
+          border: 1px solid rgba(30,27,24,0.10);
+          border-radius: 14px;
+          background: transparent;
+          cursor: pointer;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px; font-weight: 700;
+          color: #1E1B18;
+          transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .pay-table-tile:hover { background: rgba(30,27,24,0.03); }
+        .pay-table-tile.selected {
+          padding: 11px;
+          border: 2px solid #B8472D;
+          background: rgba(184,71,45,0.04);
+        }
+        .pay-table-tile .pay-app-icon { width: 32px; height: 32px; }
+        .dm .pay-table-tile { border-color: rgba(255,245,232,0.10); color: #FFF5E8; }
+        .dm .pay-table-tile:hover { background: rgba(255,245,232,0.04); }
+        .dm .pay-table-tile.selected {
+          border-color: #D7644A;
+          background: rgba(184,71,45,0.10);
+        }
+
+        /* Primary terracotta CTA. Disabled state when no method picked. */
+        .pay-cta {
+          width: 100%;
+          padding: 16px;
+          border: none; border-radius: 14px;
+          background: linear-gradient(135deg, #C2502E, #B8472D);
+          color: #FFF5E8;
+          font-family: 'Inter', sans-serif;
+          font-size: 15px; font-weight: 800;
+          letter-spacing: -0.1px;
+          cursor: pointer;
+          box-shadow: 0 4px 14px rgba(184,71,45,0.32);
+          transition: background 0.15s ease, box-shadow 0.15s ease;
+          margin-top: 12px;
+          min-height: 52px;
+        }
+        .pay-cta:hover:not(:disabled) {
+          background: linear-gradient(135deg, #B8472D, #A33B19);
+          box-shadow: 0 6px 18px rgba(184,71,45,0.42);
+        }
+        .pay-cta:disabled {
+          background: rgba(30,27,24,0.10);
+          color: rgba(30,27,24,0.30);
+          box-shadow: none;
+          cursor: not-allowed;
+        }
+        .dm .pay-cta { background: linear-gradient(135deg, #D7644A, #BD4F33); }
+        .dm .pay-cta:hover:not(:disabled) { background: linear-gradient(135deg, #BD4F33, #A33B19); }
+        .dm .pay-cta:disabled {
+          background: rgba(255,245,232,0.08);
+          color: rgba(255,245,232,0.30);
+        }
+
+        .pay-cta-helper {
+          text-align: center;
+          font-size: 11px;
+          color: rgba(30,27,24,0.45);
+          margin-top: 8px;
+        }
+        .dm .pay-cta-helper { color: rgba(255,245,232,0.45); }
+
         /* ─────────── MODAL ─────────── */
         .overlay {
           position: fixed; inset: 0; z-index: 50;
@@ -4209,10 +4380,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px;
           cursor: pointer;
           /* Long Tamil/Hindi labels need to wrap inside the chip rather than
-             overflow the grid cell — `min-width: 0` lets the grid item
-             shrink, `white-space: normal` + `text-align: center` lets the
-             label flow to a second line if needed without breaking the
-             pill shape. The 48px min-height grows naturally to fit. */
+             overflow the grid cell. min-width:0 lets the grid item shrink,
+             white-space:normal + text-align:center lets the label flow to a
+             second line if needed without breaking the pill shape. The 48px
+             min-height grows naturally to fit. */
           min-width: 0;
           white-space: normal;
           text-align: center;
@@ -7616,235 +7787,254 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         : 'Your waiter has been notified.'}
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>How would you like to pay?</div>
+                ) : (() => {
+                  // ── Swiggy-style payment picker (Problem 5 redesign) ──
+                  // Shows the UPI apps first (GPay, PhonePe, Paytm, Other)
+                  // OR a single "UPI Gateway" row if the restaurant has a
+                  // payment gateway active. Cash/Card sit below in a 2-col
+                  // grid under the "Or pay at table" label. The single
+                  // terracotta CTA at the bottom reads "Pay ₹X via {appName}"
+                  // — never generic.
+                  const gatewayActive = !!(liveRestaurant?.gatewayActive
+                    && liveRestaurant?.gatewayProvider
+                    && liveRestaurant?.gatewayProvider !== 'none');
+                  const upiAvailable = !!(restaurant?.upiId || gatewayActive);
 
-                    {/* Payment methods — professional vertical list.
-                        Phase H — UPI is shown if EITHER the restaurant has a
-                        manual UPI ID set OR they've configured a payment
-                        gateway (Paytm Business). Gateway-routed UPI auto-
-                        confirms via webhook; manual UPI still requires the
-                        "I've paid" tap. */}
-                    {(() => { /* gatewayActive flag, scoped to this block */ return null; })()}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                      {[
-                        { id: 'cash', icon: '💵', label: 'Cash', sub: 'Waiter will collect at your table', bg: darkMode ? 'rgba(45,139,78,0.15)' : 'rgba(45,139,78,0.08)' },
-                        { id: 'card', icon: '💳', label: 'Card', sub: 'Waiter will bring the card machine', bg: darkMode ? 'rgba(74,128,192,0.15)' : 'rgba(74,128,192,0.08)' },
-                        ...((restaurant?.upiId || (liveRestaurant?.gatewayActive && liveRestaurant?.gatewayProvider && liveRestaurant?.gatewayProvider !== 'none'))
-                          ? [{
-                              id: 'upi',
-                              icon: '📱',
-                              label: 'UPI',
-                              sub: (liveRestaurant?.gatewayActive
-                                ? 'Pay via secure gateway, auto-confirms'
-                                : 'GPay, PhonePe, Paytm & more'),
-                              bg: darkMode ? 'rgba(138,112,176,0.15)' : 'rgba(138,112,176,0.08)',
-                            }]
-                          : []),
-                      ].map(m => {
-                        const sel = paymentMethod === m.id;
-                        return (
-                          <button key={m.id} onClick={() => { setPaymentMethod(m.id); setUpiOpened(false); }}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 14,
-                              padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
-                              border: `2px solid ${sel ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.08)'}`,
-                              background: sel ? (darkMode ? 'rgba(184,71,45,0.1)' : 'rgba(184,71,45,0.06)') : 'transparent',
-                              transition: 'all 0.15s', textAlign: 'left',
-                            }}>
-                            <div style={{ width: 46, height: 46, borderRadius: 13, background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{m.icon}</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 2 }}>{m.label}</div>
-                              <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.45)' }}>{m.sub}</div>
-                            </div>
-                            <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${sel ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                              {sel && <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#B8472D' }} />}
-                            </div>
-                          </button>
+                  // Deep-link scheme per UPI app. Most Indian UPI apps
+                  // register an intent on these schemes; if the app isn't
+                  // installed Android falls through to a picker (or our
+                  // upi:// universal scheme).
+                  const UPI_SCHEME = {
+                    gpay:    'tez://upi/pay',
+                    phonepe: 'phonepe://pay',
+                    paytm:   'paytmmp://pay',
+                    other:   'upi://pay',
+                  };
+                  const APP_NAME = {
+                    gpay:    'Google Pay',
+                    phonepe: 'PhonePe',
+                    paytm:   'Paytm',
+                    other:   'UPI',
+                    gateway: 'UPI',
+                  };
+
+                  // Reference shown in the UPI app's transaction note —
+                  // either the bill ID (multi-order tab) or the latest
+                  // order ID. Lets the customer / cashier reconcile later.
+                  const tnRef = bill.isBill && currentBillId
+                    ? 'Bill ' + currentBillId.slice(-6).toUpperCase()
+                    : 'Order ' + (placedOrder?.orderId?.slice(-6).toUpperCase() || '');
+                  const buildUpiUrl = (scheme) =>
+                    restaurant?.upiId
+                      ? `${scheme}?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${bill.total}&cu=INR&tn=${encodeURIComponent(tnRef)}`
+                      : null;
+
+                  // CTA copy — Pay ₹X via {appName} when a method is picked.
+                  const ctaLabel = (() => {
+                    if (!paymentMethod) return 'Select a payment method';
+                    if (paymentMethod === 'cash')   return `Pay ₹${bill.total} in Cash`;
+                    if (paymentMethod === 'card')   return `Pay ₹${bill.total} by Card`;
+                    return `Pay ₹${bill.total} via ${APP_NAME[upiApp] || 'UPI'}`;
+                  })();
+
+                  // Pick handlers — set both paymentMethod and upiApp.
+                  // Tapping any row also resets the upiOpened flag so the
+                  // "I've paid" sub-step starts fresh.
+                  const pickUpi = (app) => { setPaymentMethod('upi'); setUpiApp(app); setUpiOpened(false); };
+                  const pickTable = (m)   => { setPaymentMethod(m); setUpiApp(null); setUpiOpened(false); };
+
+                  // Single Pay CTA handler — dispatches based on the
+                  // selected method. Cash/Card mark their respective
+                  // _requested status; gateway opens the gateway URL;
+                  // specific UPI apps open their deep link and advance
+                  // to the "I've paid" confirmation sub-step.
+                  const handlePay = async () => {
+                    if (!paymentMethod || !restaurant?.id || !bill?.orderIds?.length) return;
+
+                    if (paymentMethod === 'cash' || paymentMethod === 'card') {
+                      try {
+                        const newStatus = paymentMethod === 'cash' ? 'cash_requested' : 'card_requested';
+                        await Promise.all(
+                          bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, newStatus))
                         );
-                      })}
-                    </div>
+                        setPaymentDone(true);
+                        try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: bill.orderIds })); } catch {}
+                      } catch (e) {
+                        toast.error('Could not confirm payment. Try again.');
+                      }
+                      return;
+                    }
 
-                    {/* Phase H/I/J — UPI via configured gateway (Paytm).
-                        Replaces the manual upi:// flow entirely when the
-                        restaurant has gatewayConfig.isActive=true. Customer
-                        opens the gateway URL in a new window/tab; gateway
-                        sends a webhook to /api/payment/webhook which marks
-                        all orders on the bill paid_online. The Firestore
-                        listener then flips the modal to "Payment Confirmed"
-                        — no "I've paid" tap needed. */}
-                    {paymentMethod === 'upi'
-                      && liveRestaurant?.gatewayActive
-                      && liveRestaurant?.gatewayProvider
-                      && liveRestaurant?.gatewayProvider !== 'none'
-                      && (() => {
-                        const onTapPay = async () => {
-                          if (!restaurant?.id || !bill?.orderIds?.length) return;
-                          try {
-                            const r = await fetch('/api/payment/intent', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ restaurantId: restaurant.id, orderIds: bill.orderIds }),
-                            });
-                            const j = await r.json();
-                            if (!r.ok || !j.paymentUrl) {
-                              toast.error('Could not start UPI payment. Please try the manual UPI flow or pay at counter.');
-                              return;
-                            }
-                            // Open the gateway page. New tab so the customer
-                            // can come back to the bill modal afterwards.
-                            window.open(j.paymentUrl, '_blank', 'noopener,noreferrer');
-                          } catch (e) {
-                            console.error('UPI intent failed:', e);
-                            toast.error('Could not start UPI payment. Try again.');
-                          }
-                        };
-                        return (
-                          <div style={{ marginBottom: 14 }}>
-                            <button onClick={onTapPay}
-                              style={{
-                                width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
-                                background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
-                                fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                                boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
-                              }}>
-                              Pay ₹{bill.total} via UPI
-                            </button>
-                            <div style={{ marginTop: 10, fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', textAlign: 'center' }}>
-                              We'll auto-confirm once your bank releases the payment — no extra tap needed.
-                            </div>
+                    // UPI gateway flow — Razorpay / Paytm Business. Gateway
+                    // picks the app and webhook auto-confirms server-side.
+                    if (paymentMethod === 'upi' && upiApp === 'gateway') {
+                      try {
+                        const r = await fetch('/api/payment/intent', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ restaurantId: restaurant.id, orderIds: bill.orderIds }),
+                        });
+                        const j = await r.json();
+                        if (!r.ok || !j.paymentUrl) {
+                          toast.error('Could not start UPI payment. Please try Cash / Card or another option.');
+                          return;
+                        }
+                        window.open(j.paymentUrl, '_blank', 'noopener,noreferrer');
+                      } catch (e) {
+                        console.error('UPI intent failed:', e);
+                        toast.error('Could not start UPI payment. Try again.');
+                      }
+                      return;
+                    }
+
+                    // Manual UPI — open the chosen app via deep link, then
+                    // show the "I've paid" sub-step on return.
+                    if (paymentMethod === 'upi' && restaurant?.upiId) {
+                      const scheme = UPI_SCHEME[upiApp] || UPI_SCHEME.other;
+                      const upiUrl = buildUpiUrl(scheme);
+                      if (!upiUrl) { toast.error('No UPI ID configured on this restaurant.'); return; }
+                      setUpiOpened(true);
+                      window.open(upiUrl, '_self');
+                    }
+                  };
+
+                  // ── Manual-UPI sub-step ("I've paid" confirmation) ──
+                  // Only renders AFTER the customer tapped Pay for a non-
+                  // gateway UPI app. The UI is similar to the previous
+                  // step-2 view; the "Reopen UPI App" button uses the
+                  // same deep link as the initial tap.
+                  if (paymentMethod === 'upi' && upiOpened && !gatewayActive && restaurant?.upiId) {
+                    const scheme = UPI_SCHEME[upiApp] || UPI_SCHEME.other;
+                    const upiUrl = buildUpiUrl(scheme);
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ textAlign: 'center', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(184,71,45,0.10)' : 'rgba(184,71,45,0.06)', border: '1.5px solid rgba(184,71,45,0.25)' }}>
+                          <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 4 }}>Pay to UPI ID</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: darkMode ? '#FFF5E8' : '#1E1B18', letterSpacing: '0.03em' }}>{restaurant.upiId}</div>
+                          <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', marginTop: 6 }}>
+                            Amount: ₹{bill.total} · via {APP_NAME[upiApp] || 'UPI'}
                           </div>
-                        );
-                      })()}
+                        </div>
+                        <button
+                          className="pay-cta"
+                          onClick={async () => {
+                            if (!restaurant?.id || !bill?.orderIds?.length) return;
+                            try {
+                              await Promise.all(
+                                bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, 'online_requested'))
+                              );
+                              setPaymentDone(true);
+                              setUpiOpened(false);
+                              try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
+                            } catch (e) {
+                              toast.error('Could not confirm payment. Try again.');
+                            }
+                          }}>
+                          I've paid — Confirm Payment
+                        </button>
+                        <button
+                          onClick={() => window.open(upiUrl, '_self')}
+                          style={{
+                            width: '100%', padding: '12px', borderRadius: 14,
+                            border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`,
+                            background: 'transparent', color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)',
+                            fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer',
+                          }}>
+                          Reopen {APP_NAME[upiApp] || 'UPI App'}
+                        </button>
+                        <button
+                          onClick={() => { setUpiOpened(false); }}
+                          style={{
+                            width: '100%', padding: '8px',
+                            border: 'none', background: 'transparent',
+                            color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)',
+                            fontSize: 12, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer',
+                          }}>
+                          ← Back to payment options
+                        </button>
+                      </div>
+                    );
+                  }
 
-                    {/* UPI: Step-by-step flow (manual — no gateway configured) */}
-                    {paymentMethod === 'upi'
-                      && !(liveRestaurant?.gatewayActive && liveRestaurant?.gatewayProvider && liveRestaurant?.gatewayProvider !== 'none')
-                      && restaurant?.upiId && (() => {
-                      // Phase A — UPI URL uses the BILL total (sum of all orders
-                      // in the running tab), not the latest order's total. The
-                      // tn= reference shows the bill / order id so the receipt
-                      // is traceable.
-                      const tnRef = bill.isBill && currentBillId
-                        ? 'Bill ' + currentBillId.slice(-6).toUpperCase()
-                        : 'Order ' + (placedOrder?.orderId?.slice(-6).toUpperCase() || '');
-                      const upiUrl = `upi://pay?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${bill.total}&cu=INR&tn=${encodeURIComponent(tnRef)}`;
-                      return (
-                        <div style={{ marginBottom: 14 }}>
-                          {!upiOpened ? (
-                            /* Step 1: Open UPI App */
+                  return (
+                    <>
+                      {/* UPI section — 4 app rows, or 1 gateway row */}
+                      {upiAvailable && (
+                        <>
+                          <div className="pay-section-label">Pay with UPI</div>
+                          {gatewayActive ? (
                             <button
-                              onClick={() => { setUpiOpened(true); window.open(upiUrl, '_self'); }}
-                              style={{
-                                width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
-                                background: 'linear-gradient(135deg,#8A70B0,#6B4F91)', color: '#fff',
-                                fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                                boxShadow: '0 4px 18px rgba(138,112,176,0.4)',
-                              }}>
-                              Open UPI App — Pay ₹{bill.total}
+                              className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'gateway' ? ' selected' : ''}`}
+                              onClick={() => pickUpi('gateway')}>
+                              <span className="pay-app-icon gateway">📱</span>
+                              <span className="pay-app-name">UPI Gateway · GPay, PhonePe, Paytm</span>
+                              <span className="pay-radio" />
                             </button>
                           ) : (
-                            /* Step 2: After UPI app was opened */
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                              <div style={{ textAlign: 'center', padding: '14px 16px', borderRadius: 14, background: darkMode ? 'rgba(138,112,176,0.12)' : 'rgba(138,112,176,0.06)', border: '1.5px solid rgba(138,112,176,0.2)' }}>
-                                <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.5)', marginBottom: 4 }}>Pay to UPI ID</div>
-                                <div style={{ fontSize: 15, fontWeight: 700, fontFamily: 'monospace', color: darkMode ? '#FFF5E8' : '#1E1B18', letterSpacing: '0.03em' }}>{restaurant.upiId}</div>
-                                <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.35)' : 'rgba(42,31,16,0.35)', marginTop: 6 }}>Amount: ₹{bill.total}</div>
-                              </div>
+                            <>
                               <button
-                                onClick={async () => {
-                                  if (!restaurant?.id || !bill?.orderIds?.length) return;
-                                  // ── May 3 — Bill delivery is now DEFERRED
-                                  // until paymentStatus actually flips to a
-                                  // paid_* state (admin confirms cash/card, or
-                                  // gateway webhook fires for UPI). At this
-                                  // point the customer has only REQUESTED to
-                                  // pay — money hasn't changed hands. See the
-                                  // billPaymentState=='paid' useEffect below
-                                  // for the auto-deliver hook.
-                                  try {
-                                    // Phase A — mark every order in the running
-                                    // bill as awaiting UPI confirmation (not just
-                                    // the latest one). Otherwise a multi-order tab
-                                    // would have only the most recent order
-                                    // showing as paid even though the customer
-                                    // paid the FULL bill total in one UPI tap.
-                                    await Promise.all(
-                                      bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, 'online_requested'))
-                                    );
-                                    setPaymentDone(true);
-                                    setUpiOpened(false);
-                                    try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
-                                  } catch (e) {
-                                    toast.error('Could not confirm payment. Try again.');
-                                  }
-                                }}
-                                style={{
-                                  width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
-                                  background: 'linear-gradient(135deg,#2D8B4E,#1A6B38)', color: '#fff',
-                                  fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                                  boxShadow: '0 4px 20px rgba(45,139,78,0.4)',
-                                }}>
-                                I've paid — Confirm Payment
+                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'gpay' ? ' selected' : ''}`}
+                                onClick={() => pickUpi('gpay')}>
+                                <span className="pay-app-icon gpay">G</span>
+                                <span className="pay-app-name">Google Pay</span>
+                                <span className="pay-radio" />
                               </button>
                               <button
-                                onClick={() => window.open(upiUrl, '_self')}
-                                style={{
-                                  width: '100%', padding: '12px', borderRadius: 14,
-                                  border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(42,31,16,0.12)'}`,
-                                  background: 'transparent', color: darkMode ? 'rgba(255,245,232,0.5)' : 'rgba(42,31,16,0.45)',
-                                  fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif', cursor: 'pointer',
-                                }}>
-                                Reopen UPI App
+                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'phonepe' ? ' selected' : ''}`}
+                                onClick={() => pickUpi('phonepe')}>
+                                <span className="pay-app-icon phonepe">PP</span>
+                                <span className="pay-app-name">PhonePe</span>
+                                <span className="pay-radio" />
                               </button>
-                            </div>
+                              <button
+                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'paytm' ? ' selected' : ''}`}
+                                onClick={() => pickUpi('paytm')}>
+                                <span className="pay-app-icon paytm">Pay</span>
+                                <span className="pay-app-name">Paytm UPI</span>
+                                <span className="pay-radio" />
+                              </button>
+                              <button
+                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'other' ? ' selected' : ''}`}
+                                onClick={() => pickUpi('other')}>
+                                <span className="pay-app-icon other">↗</span>
+                                <span className="pay-app-name">Other UPI app</span>
+                                <span className="pay-app-chevron">›</span>
+                              </button>
+                            </>
                           )}
-                        </div>
-                      );
-                    })()}
+                        </>
+                      )}
 
-                    {/* Cash / Card: Confirm button */}
-                    {paymentMethod !== 'upi' && (
+                      {/* Cash + Card section — 2-col grid */}
+                      <div className="pay-section-label">{upiAvailable ? 'Or pay at table' : 'Pay at table'}</div>
+                      <div className="pay-table-grid">
+                        <button
+                          className={`pay-table-tile${paymentMethod === 'cash' ? ' selected' : ''}`}
+                          onClick={() => pickTable('cash')}>
+                          <span className="pay-app-icon cash">💵</span>
+                          <span>Cash</span>
+                        </button>
+                        <button
+                          className={`pay-table-tile${paymentMethod === 'card' ? ' selected' : ''}`}
+                          onClick={() => pickTable('card')}>
+                          <span className="pay-app-icon card">💳</span>
+                          <span>Card</span>
+                        </button>
+                      </div>
+
+                      {/* Single terracotta CTA — never generic */}
                       <button
-                        onClick={async () => {
-                          if (!paymentMethod || !restaurant?.id || !bill?.orderIds?.length) return;
-                          // Bill delivery deferred until paymentStatus actually
-                          // flips to paid_* (admin marks paid). See the
-                          // billPaymentState==='paid' useEffect below.
-                          try {
-                            // Phase A — mark every order in the running bill
-                            // (not just the latest) as awaiting cash/card
-                            // collection. Customer is paying the FULL bill
-                            // total in one go, so all linked orders flip in
-                            // sync.
-                            const statusMap = { cash: 'cash_requested', card: 'card_requested' };
-                            const newStatus = statusMap[paymentMethod] || 'cash_requested';
-                            await Promise.all(
-                              bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, newStatus))
-                            );
-                            setPaymentDone(true);
-                            try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: bill.orderIds })); } catch {}
-                          } catch (e) {
-                            toast.error('Could not confirm payment. Try again.');
-                          }
-                        }}
+                        className="pay-cta"
                         disabled={!paymentMethod}
-                        style={{
-                          width: '100%', padding: '16px', borderRadius: 14, border: 'none',
-                          background: paymentMethod ? 'linear-gradient(135deg,#2D8B4E,#1A6B38)' : (darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(42,31,16,0.1)'),
-                          color: paymentMethod ? '#fff' : (darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(42,31,16,0.3)'),
-                          fontSize: 16, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                          cursor: paymentMethod ? 'pointer' : 'not-allowed',
-                          boxShadow: paymentMethod ? '0 4px 20px rgba(45,139,78,0.4)' : 'none',
-                          transition: 'all 0.2s', minHeight: 52,
-                          position: 'relative', zIndex: 5,
-                        }}>
-                        {paymentMethod ? `Confirm ${paymentMethod === 'cash' ? 'Cash' : 'Card'} Payment` : 'Select a payment method'}
+                        onClick={handlePay}>
+                        {ctaLabel}
                       </button>
-                    )}
-                  </>
-                )}
+                      {paymentMethod === 'upi' && upiApp === 'gateway' && (
+                        <div className="pay-cta-helper">Auto-confirms once your bank releases the payment</div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Print Bill — May 3.
                     Gated on billPaymentState === 'paid' so it only
