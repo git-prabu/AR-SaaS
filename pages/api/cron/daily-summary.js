@@ -8,8 +8,14 @@
 // schedules at the top of an hour (minute=0). `30 18 * * *` (the
 // previous schedule) was silently rejected, which is why daily-summary
 // emails stopped going out. The 30-minute delay is harmless — yesterdayISTKey()
-// in lib/dailySummary.js already subtracts 60min to safely land in
-// "yesterday IST" regardless of when the cron fires within the hour.
+// in lib/dailySummary.js shifts -6 hours from IST-now to safely land in
+// the previous day regardless of whether Vercel fires the cron exactly
+// on time or up to a few hours late (which it routinely does under load).
+//
+// May 13 — verified that the previous "-60min" safety margin was the
+// reason summaries showed 0 orders/0 revenue: a 30-min-late cron landed
+// in "today" instead of "yesterday" and queried a window that hadn't
+// happened yet. Now -6h: always lands in the day that just closed.
 //
 // Auth: protected by CRON_SECRET env var. Vercel cron requests include
 // `Authorization: Bearer ${CRON_SECRET}` automatically. We reject anything
