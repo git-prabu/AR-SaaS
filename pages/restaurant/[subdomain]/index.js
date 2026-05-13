@@ -6813,23 +6813,42 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 const gatewayActive = !!(liveRestaurant?.gatewayActive
                   && liveRestaurant?.gatewayProvider
                   && liveRestaurant?.gatewayProvider !== 'none');
+                // Settle every still-unpaid order in the session, not
+                // just the placedOrder. If the customer has stacked up
+                // multiple takeaway orders, one tap on "Pay cash" covers
+                // all of them — matches what the customer-side UI was
+                // already implying ("Cash Payment Requested" showed up
+                // on every bill once they tapped pay).
+                const sessionTargetsForPayment = () => {
+                  const PAID = new Set(['paid_cash','paid_card','paid_online','paid']);
+                  const REQ  = new Set(['cash_requested','card_requested','online_requested']);
+                  const ids = sessionOrders
+                    .filter(o => !PAID.has(o.paymentStatus) && !REQ.has(o.paymentStatus))
+                    .map(o => o.orderId);
+                  // Always include the current placedOrder even if the
+                  // listener hasn't surfaced it in sessionOrders yet.
+                  if (placedOrder?.orderId && !ids.includes(placedOrder.orderId)) {
+                    ids.push(placedOrder.orderId);
+                  }
+                  return ids;
+                };
                 const onPickCash = async () => {
                   if (!restaurant?.id || !placedOrder?.orderId) return;
                   try {
-                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'cash_requested');
-                  } catch (e) { console.error(e); toast.error('Could not mark cash. Try again.'); }
+                    await updatePaymentStatusBatch(restaurant.id, sessionTargetsForPayment(), 'cash_requested');
+                  } catch (e) { console.error('[onPickCash]', e); toast.error('Could not mark cash. Try again.'); }
                 };
                 const onPickCard = async () => {
                   if (!restaurant?.id || !placedOrder?.orderId) return;
                   try {
-                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'card_requested');
-                  } catch (e) { console.error(e); toast.error('Could not mark card. Try again.'); }
+                    await updatePaymentStatusBatch(restaurant.id, sessionTargetsForPayment(), 'card_requested');
+                  } catch (e) { console.error('[onPickCard]', e); toast.error('Could not mark card. Try again.'); }
                 };
                 const onPickUpiManual = async () => {
                   if (!restaurant?.id || !placedOrder?.orderId) return;
                   try {
-                    await updatePaymentStatus(restaurant.id, placedOrder.orderId, 'online_requested');
-                  } catch (e) { console.error(e); toast.error('Could not mark UPI. Try again.'); }
+                    await updatePaymentStatusBatch(restaurant.id, sessionTargetsForPayment(), 'online_requested');
+                  } catch (e) { console.error('[onPickUpiManual]', e); toast.error('Could not mark UPI. Try again.'); }
                 };
                 const onPickUpiGateway = async () => {
                   if (!restaurant?.id || !placedOrder?.orderId) return;
@@ -7893,15 +7912,23 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     if (paymentMethod === 'cash' || paymentMethod === 'card') {
                       try {
                         const newStatus = paymentMethod === 'cash' ? 'cash_requested' : 'card_requested';
-                        // Atomic batch — every order on the bill flips
-                        // in one commit, or none of them do. Previously
-                        // this was Promise.all(updateOne…) which could
-                        // leave the bill in a mixed state (one order
-                        // flipped, the other still untouched) — exactly
-                        // the bug Prabu hit on the admin side.
-                        await updatePaymentStatusBatch(restaurant.id, bill.orderIds, newStatus);
+                        // Settle EVERY unpaid order in the customer's
+                        // session, not just the bill they're tabbed on.
+                        // Customer expects "one payment covers all my
+                        // orders" — and the UI was already showing every
+                        // bill as "Cash Payment Requested" once they
+                        // tapped Pay, so the data needs to match.
+                        // De-dup with a Set in case sessionOrders overlaps
+                        // with bill.orderIds.
+                        const PAID = new Set(['paid_cash','paid_card','paid_online','paid']);
+                        const REQ  = new Set(['cash_requested','card_requested','online_requested']);
+                        const sessionUnpaid = sessionOrders
+                          .filter(o => !PAID.has(o.paymentStatus) && !REQ.has(o.paymentStatus))
+                          .map(o => o.orderId);
+                        const allTargets = Array.from(new Set([...(bill.orderIds || []), ...sessionUnpaid]));
+                        await updatePaymentStatusBatch(restaurant.id, allTargets, newStatus);
                         setPaymentDone(true);
-                        try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: bill.orderIds })); } catch {}
+                        try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: allTargets })); } catch {}
                       } catch (e) {
                         console.error('[handlePay] batch payment update failed:', e);
                         toast.error('Could not confirm payment. Try again.');
@@ -7964,13 +7991,20 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           onClick={async () => {
                             if (!restaurant?.id || !bill?.orderIds?.length) return;
                             try {
-                              // Same atomic-batch reasoning as the Cash/Card
-                              // confirmation path — settle every order on
-                              // the bill or none of them.
-                              await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested');
+                              // Settle every unpaid order in the session —
+                              // same reasoning as the Cash/Card path. One
+                              // UPI payment should cover all the customer's
+                              // open orders.
+                              const PAID = new Set(['paid_cash','paid_card','paid_online','paid']);
+                              const REQ  = new Set(['cash_requested','card_requested','online_requested']);
+                              const sessionUnpaid = sessionOrders
+                                .filter(o => !PAID.has(o.paymentStatus) && !REQ.has(o.paymentStatus))
+                                .map(o => o.orderId);
+                              const allTargets = Array.from(new Set([...(bill.orderIds || []), ...sessionUnpaid]));
+                              await updatePaymentStatusBatch(restaurant.id, allTargets, 'online_requested');
                               setPaymentDone(true);
                               setUpiOpened(false);
-                              try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
+                              try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: allTargets })); } catch {}
                             } catch (e) {
                               console.error('[upi-confirm] batch payment update failed:', e);
                               toast.error('Could not confirm payment. Try again.');
