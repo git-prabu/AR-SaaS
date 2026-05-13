@@ -38,6 +38,27 @@ function savePhone(phone) {
   if (typeof window !== 'undefined' && phone) localStorage.setItem('ar_phone', phone);
 }
 
+// Defensive guard against the "20 mmiinnss" doubled-character bug —
+// usually caused by an i18n bundle interpolating the localized "mins"
+// string twice (once per character).
+//
+// Strategy: try collapsing every doubled letter (aa→a, bb→b…). If the
+// ORIGINAL doesn't match a strict prep-time pattern but the COLLAPSED
+// one does, the original was doubled — return the fix. Otherwise leave
+// it alone. The regex is anchored so it doesn't accidentally match the
+// substring "hr" inside "hhrr".
+//
+// Applied at the render call sites for `prepTime` only — never mutates
+// the underlying data.
+function safePrepTime(prep) {
+  if (!prep || typeof prep !== 'string') return prep;
+  const isClean = /^\s*\d+(?:[\s.,\-–]+\d+)*\s*(min|mins|hr|hrs|hour|hours|minute|minutes|sec|secs|second|seconds)\s*$/i;
+  if (isClean.test(prep)) return prep;
+  const collapsed = prep.replace(/([A-Za-z])\1/g, '$1');
+  if (collapsed !== prep && isClean.test(collapsed)) return collapsed;
+  return prep;
+}
+
 const FOOD_PLACEHOLDERS = [
   'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80',
   'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
@@ -4186,7 +4207,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           min-height: 48px;
           padding: 6px 14px; border-radius: 14px; border: none;
           font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px;
-          cursor: pointer; white-space: nowrap;
+          cursor: pointer;
+          /* Long Tamil/Hindi labels need to wrap inside the chip rather than
+             overflow the grid cell — `min-width: 0` lets the grid item
+             shrink, `white-space: normal` + `text-align: center` lets the
+             label flow to a second line if needed without breaking the
+             pill shape. The 48px min-height grows naturally to fit. */
+          min-width: 0;
+          white-space: normal;
+          text-align: center;
+          line-height: 1.2;
           letter-spacing: -0.1px;
           transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
           animation: fadeUp 0.4s ease both;
@@ -5697,7 +5727,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             {SPICE_MAP[item.spiceLevel].dot} {SPICE_MAP[item.spiceLevel].label}
                           </span>
                         )}
-                        {item.prepTime && <span className="c-prep">⏱ {item.prepTime}</span>}
+                        {item.prepTime && <span className="c-prep">⏱ {safePrepTime(item.prepTime)}</span>}
                       </div>
                     )}
                     {/* Duplicate "View in AR" CTA at the card bottom removed
@@ -6036,7 +6066,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 </div>
                 {(selectedItem.prepTime || (selectedItem.spiceLevel && selectedItem.spiceLevel !== 'None')) && (
                   <div className="m-pills">
-                    {selectedItem.prepTime && <span className="m-pill">⏱ {selectedItem.prepTime}</span>}
+                    {selectedItem.prepTime && <span className="m-pill">⏱ {safePrepTime(selectedItem.prepTime)}</span>}
                     {selectedItem.spiceLevel && selectedItem.spiceLevel !== 'None' && SPICE_MAP[selectedItem.spiceLevel] && (
                       <span className="m-pill" style={{ background: SPICE_MAP[selectedItem.spiceLevel].bg, color: SPICE_MAP[selectedItem.spiceLevel].color }}>
                         {SPICE_MAP[selectedItem.spiceLevel].dot} {selectedItem.spiceLevel}
@@ -8067,7 +8097,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                     {shareable && <span className="sma-item-chip sma-chip-share">🤲 Shareable</span>}
                                     {item.isPopular && <span className="sma-item-chip sma-chip-pop">✦ Popular</span>}
                                     {item.modelURL && <span className="sma-item-chip sma-chip-ar">🥽 AR</span>}
-                                    {item.prepTime && <span style={{ fontSize: 11, color: '#7A7A7A' }}>⏱ {item.prepTime}</span>}
+                                    {item.prepTime && <span style={{ fontSize: 11, color: '#7A7A7A' }}>⏱ {safePrepTime(item.prepTime)}</span>}
                                   </div>
                                 </div>
                                 <span style={{ fontSize: 16, color: '#D1D1D6', flexShrink: 0 }}>›</span>
