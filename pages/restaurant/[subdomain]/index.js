@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, cancelOrder, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, updatePaymentStatusBatch, cancelOrder, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
@@ -4295,17 +4295,20 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
            on them. */
         .fab-wrap {
           position: fixed;
-          bottom: max(16px, env(safe-area-inset-bottom, 16px));
+          /* Tighter offset so the dock hugs the bottom and frees up
+             vertical space for menu cards. Was 16px. */
+          bottom: max(10px, env(safe-area-inset-bottom, 10px));
           left: 12px; right: 12px;
           max-width: 540px; margin: 0 auto;
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          padding: 8px;
+          /* Half the previous gap + padding — dock is now ~40% shorter. */
+          gap: 5px;
+          padding: 5px;
           background: rgba(255,245,232,0.92);
           backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
           border: 1px solid rgba(42,31,16,0.10);
-          border-radius: 22px;
+          border-radius: 16px;
           box-shadow: 0 4px 24px rgba(0,0,0,0.10);
           z-index: 50;
         }
@@ -4327,15 +4330,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dock-chip-primary { grid-column: 1 / -1; order: -1; }
         .dock-chip-full    { grid-column: 1 / -1; }
 
-        /* Install banner — sibling of .fab-wrap, sits 116px above it
-           so it never collides with the dock (z-index 49 vs dock 50). */
+        /* Install banner — sibling of .fab-wrap, sits just above it
+           so it never collides with the dock (z-index 49 vs dock 50).
+           The 76px offset matches the now-shorter dock (≈10px bottom +
+           ≈54px dock height + ≈12px gap). */
         .install-banner {
           position: fixed;
-          bottom: 116px;
+          bottom: 76px;
           left: 12px; right: 12px;
           max-width: 540px; margin: 0 auto;
           z-index: 49;
-          padding: 12px 14px;
+          padding: 10px 12px;
           background: #FEFCF8;
           border: 1.5px solid rgba(42,31,16,0.10);
           border-radius: 14px;
@@ -4374,10 +4379,13 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .fab-wrap .bill-fab,
         .fab-wrap .sma-fab {
           pointer-events: all;
-          display: flex; align-items: center; justify-content: center; gap: 6px;
-          min-height: 48px;
-          padding: 6px 14px; border-radius: 14px; border: none;
-          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px;
+          display: flex; align-items: center; justify-content: center; gap: 4px;
+          /* Compact chips — thumb-friendly minimum 34px still works on
+             phones (Apple HIG recommends 44pt = ~33px CSS). Halves the
+             vertical footprint vs the 48px chips. */
+          min-height: 34px;
+          padding: 4px 10px; border-radius: 10px; border: none;
+          font-family: 'Inter', sans-serif; font-weight: 700; font-size: 12px;
           cursor: pointer;
           /* Long Tamil/Hindi labels need to wrap inside the chip rather than
              overflow the grid cell. min-width:0 lets the grid item shrink,
@@ -4418,12 +4426,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .dm .fab-wrap .sma-fab:hover { background: rgba(255,245,232,0.10); }
 
         /* Primary chip — terracotta gradient. Always overrides the
-           secondary defaults above when applied. */
+           secondary defaults above when applied. Slightly bigger
+           than secondaries so it still anchors the eye. */
         .fab-wrap .dock-chip-primary {
           background: linear-gradient(135deg, #C2502E, #B8472D);
           color: #FFF5E8;
           box-shadow: 0 4px 14px rgba(184,71,45,0.32);
-          font-weight: 800; font-size: 14px;
+          font-weight: 800; font-size: 13px;
+          min-height: 38px;
         }
         .fab-wrap .dock-chip-primary:hover {
           background: linear-gradient(135deg, #B8472D, #A33B19);
@@ -7883,12 +7893,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     if (paymentMethod === 'cash' || paymentMethod === 'card') {
                       try {
                         const newStatus = paymentMethod === 'cash' ? 'cash_requested' : 'card_requested';
-                        await Promise.all(
-                          bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, newStatus))
-                        );
+                        // Atomic batch — every order on the bill flips
+                        // in one commit, or none of them do. Previously
+                        // this was Promise.all(updateOne…) which could
+                        // leave the bill in a mixed state (one order
+                        // flipped, the other still untouched) — exactly
+                        // the bug Prabu hit on the admin side.
+                        await updatePaymentStatusBatch(restaurant.id, bill.orderIds, newStatus);
                         setPaymentDone(true);
                         try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: paymentMethod, orderIds: bill.orderIds })); } catch {}
                       } catch (e) {
+                        console.error('[handlePay] batch payment update failed:', e);
                         toast.error('Could not confirm payment. Try again.');
                       }
                       return;
@@ -7949,13 +7964,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           onClick={async () => {
                             if (!restaurant?.id || !bill?.orderIds?.length) return;
                             try {
-                              await Promise.all(
-                                bill.orderIds.map(oid => updatePaymentStatus(restaurant.id, oid, 'online_requested'))
-                              );
+                              // Same atomic-batch reasoning as the Cash/Card
+                              // confirmation path — settle every order on
+                              // the bill or none of them.
+                              await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested');
                               setPaymentDone(true);
                               setUpiOpened(false);
                               try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
                             } catch (e) {
+                              console.error('[upi-confirm] batch payment update failed:', e);
                               toast.error('Could not confirm payment. Try again.');
                             }
                           }}>
