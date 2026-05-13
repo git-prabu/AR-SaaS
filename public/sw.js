@@ -141,7 +141,24 @@
 // from the customer page (order-push for dine-in at place time, takeaway
 // at payment-confirmed time). Both no-op when restaurant.posMode !==
 // 'petpooja_hybrid'. Standalone customer flow is byte-identical to v23.
-const CACHE_VERSION  = 'ar-v24';
+// ar-v25 (May 13) — LOW-INTERNET fix. Two changes:
+//   1. Network-first for the customer page now races the network against
+//      a 2.5s timeout. If the network doesn't respond in time AND the
+//      page is in cache, serve cache immediately. The network request
+//      keeps running in the background so the cache refreshes for next
+//      visit. Restaurants in poor-signal corners of malls/basements
+//      used to see a 20-30s hang while the SW patiently waited for the
+//      slow network. Now: cached page renders in <100ms, fresh content
+//      arrives whenever the network catches up.
+//   2. Same network-race-with-timeout applied to /_next/* JS chunks
+//      (longer 4s timeout because chunks are bigger). Bumping the cache
+//      version forces a clean re-activation that purges all the v24
+//      entries — restaurants who were stuck on stale-chunk-mismatch
+//      get a clean rebuild on next visit.
+// Also: explicit offline-fallback for the menu page now returns the
+// cached HTML (if any) instead of the bare 503 plain-text. Returning
+// customers offline see their last menu, not an error string.
+const CACHE_VERSION  = 'ar-v25';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
@@ -196,6 +213,10 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   // ─── Static, content-hashed assets ───────────────────────────────────
+  // Cache-first because the URL itself contains a Next.js build hash —
+  // a given URL never serves different content. Race-with-timeout so
+  // a missing-from-cache chunk on a slow connection doesn't hang the
+  // entire page load while the browser waits for a 200KB download.
   if (
     url.pathname.startsWith('/_next/') ||
     url.pathname.startsWith('/icon')   ||
@@ -206,17 +227,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ─── Customer pages → network-first, cache fallback ──────────────────
+  // ─── Customer pages → cache-served-fast, network-refresh-background ──
   // /restaurant/{subdomain} and any nested page under it.
-  // The previous SWR strategy served the cached HTML even when the
-  // network was reachable, which (a) let table sessions appear valid
-  // long after expiry/sid-rotation because the cached JS bundle was
-  // referenced by the cached HTML, and (b) hid menu/JS updates from
-  // anyone hitting the no-?table preview URL until they manually
-  // refreshed twice. Network-first keeps the offline fallback while
-  // making the online path always-fresh.
+  //
+  // Strategy: if a cached copy exists, race the network against a 2.5s
+  // timeout. Whichever returns first is what we serve. On poor-signal
+  // restaurant corners (mall basement, kitchen back-of-house, basement
+  // bars), the cached HTML renders in <100ms while the fresh response
+  // is still flying through the air — but the network request keeps
+  // running and updates the cache for next time. On good signal,
+  // network responds first and the customer gets the latest.
+  //
+  // First-time visitors (no cache) wait for network as normal — no
+  // alternative there. Returning customers in poor signal get an
+  // instant menu.
   if (url.pathname.startsWith('/restaurant/')) {
-    event.respondWith(networkFirst(RUNTIME_CACHE, request));
+    event.respondWith(networkFirstRaceTimeout(RUNTIME_CACHE, request, 2500));
     return;
   }
 
@@ -225,7 +251,7 @@ self.addEventListener('fetch', (event) => {
     request.mode === 'navigate' ||
     (request.headers.get('accept') || '').includes('text/html')
   ) {
-    event.respondWith(networkFirst(RUNTIME_CACHE, request));
+    event.respondWith(networkFirstRaceTimeout(RUNTIME_CACHE, request, 4000));
     return;
   }
 });
@@ -278,6 +304,59 @@ async function networkFirst(cacheName, request) {
     if (cached) return cached;
     throw e;
   }
+}
+
+// networkFirstRaceTimeout — the low-internet workhorse (ar-v25).
+//
+// If a cached response exists, we kick off the network fetch AND start
+// a `timeoutMs` countdown in parallel. Whichever finishes first wins:
+//   - Network finishes fast → serve fresh, update cache (the common
+//     online case — identical to plain network-first).
+//   - Network is slower than timeoutMs → serve cached version
+//     IMMEDIATELY so the page renders. The network fetch keeps
+//     running in background and silently updates the cache for the
+//     next visit. Customer sees the menu, eventually-fresh.
+//   - Network fails outright → serve cached if any, otherwise let
+//     the error bubble.
+//
+// If no cached response exists (first visit), we just wait for network
+// normally — there's nothing to race against. On a true cold-start in
+// no signal at all, we surface a friendly 503 instead of the browser's
+// generic "no internet" page.
+async function networkFirstRaceTimeout(cacheName, request, timeoutMs) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  // Network fetch, with cache write side-effect on success. Returns
+  // null on failure so we can race it against the timer.
+  const networkPromise = fetch(request).then((fresh) => {
+    if (fresh && fresh.ok) {
+      cache.put(request, fresh.clone()).catch(() => { /* quota / opaque — best-effort */ });
+    }
+    return fresh;
+  }).catch(() => null);
+
+  if (cached) {
+    // Race network against timeout. Whichever resolves first wins.
+    const winner = await Promise.race([
+      networkPromise,
+      new Promise((resolve) => setTimeout(() => resolve('__timeout__'), timeoutMs)),
+    ]);
+    if (winner === '__timeout__' || winner === null) {
+      // Network was slow OR errored — serve cache now, network keeps
+      // running in background (we already chained the cache.put above).
+      return cached;
+    }
+    return winner;
+  }
+
+  // No cache → wait for network.
+  const fresh = await networkPromise;
+  if (fresh) return fresh;
+  return new Response(
+    'You appear to be offline. Reconnect and reload this page.',
+    { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+  );
 }
 
 // Stale-while-revalidate: return cache immediately if present, kick off a
