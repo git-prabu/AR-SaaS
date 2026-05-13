@@ -4476,14 +4476,40 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
           padding: 12px 0; border-bottom: 1px solid var(--divider, rgba(42,31,16,0.07));
         }
         .cart-item-row:last-child { border-bottom: none; }
-        .qty-btn {
-          width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--divider, rgba(42,31,16,0.15));
-          background: var(--bg-elevated, #F7F5F2); color: var(--text-1, #1E1B18);
-          font-size: 15px; font-weight: 700; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          transition: all 0.15s; flex-shrink: 0;
+
+        /* Cart qty stepper — single pill with -/qty/+ grouped (Problem 7).
+           Light terracotta tint background; buttons are borderless circles
+           inside it. The qty value uses JetBrains Mono so it lines up with
+           the rest of the price-display typography. */
+        .cart-qty-pill {
+          display: inline-flex; align-items: center; gap: 2px;
+          padding: 3px 4px;
+          border-radius: 99px;
+          background: rgba(184,71,45,0.10);
         }
-        .qty-btn:hover { border-color: #E05A3A; color: #E05A3A; }
+        .dm .cart-qty-pill { background: rgba(215,100,74,0.16); }
+        .qty-btn {
+          width: 26px; height: 26px;
+          border: none; border-radius: 50%;
+          background: transparent;
+          color: #B8472D;
+          font-size: 16px; font-weight: 800; line-height: 1;
+          cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: background 0.15s;
+          flex-shrink: 0;
+        }
+        .qty-btn:hover { background: rgba(184,71,45,0.18); }
+        .dm .qty-btn { color: #D7644A; }
+        .dm .qty-btn:hover { background: rgba(215,100,74,0.22); }
+        .qty-display {
+          min-width: 22px;
+          text-align: center;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 14px; font-weight: 800;
+          color: #1E1B18;
+        }
+        .dm .qty-display { color: #FFF5E8; }
 
         /* .sma-fab base appearance is inherited from the shared
            .fab-wrap .sma-fab rule above. The .dock-chip-primary class
@@ -6512,7 +6538,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 })()}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
-                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 17, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>🛒 {t.yourOrder}</div>
+                    <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 800, fontSize: 18, color: darkMode ? '#FFF5E8' : '#1E1B18', letterSpacing: '-0.3px' }}>🛒 {t.yourOrder}</div>
                     <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.45)' : 'rgba(42,31,16,0.45)', marginTop: 2 }}>{cartTotal} item{cartTotal !== 1 ? 's' : ''}</div>
                   </div>
                   <button onClick={() => { setCartOpen(false); setOrderStep('cart'); }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: darkMode ? 'rgba(255,245,232,0.4)' : 'rgba(42,31,16,0.4)', lineHeight: 1 }}>✕</button>
@@ -6549,9 +6575,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             style={{ width: '100%', marginTop: 4, padding: '5px 9px', borderRadius: 8, border: `1px solid ${darkMode ? 'rgba(255,245,232,0.15)' : 'rgba(42,31,16,0.15)'}`, background: darkMode ? 'rgba(255,255,255,0.07)' : '#fff', color: darkMode ? '#FFF5E8' : '#1E1B18', fontSize: 12, fontFamily: 'Inter,sans-serif', outline: 'none', boxSizing: 'border-box' }} />
                         )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <div className="cart-qty-pill" style={{ flexShrink: 0 }}>
                         <button className="qty-btn" onClick={() => removeFromCart(key)}>−</button>
-                        <span style={{ fontWeight: 800, fontSize: 15, color: darkMode ? '#FFF5E8' : '#1E1B18', minWidth: 18, textAlign: 'center' }}>{c.qty}</span>
+                        <span className="qty-display">{c.qty}</span>
                         <button className="qty-btn" onClick={() => addToCart({ id: c.id, name: c.name, price: c.basePrice ?? c.price, imageURL: c.imageURL }, (c.variant || c.addOns?.length) ? { variant: c.variant, addOns: c.addOns || [] } : null)}>+</button>
                       </div>
                     </div>
@@ -7164,15 +7190,20 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 // misleading when they're flipping through earlier orders
                 // — they're tracking, not just-placed.
                 const hasMultiOrders = sessionOrders.length > 1;
-                const headlineText = hasMultiOrders ? 'Your orders' : t.orderPlaced;
+                const headlineText = hasMultiOrders
+                  ? `${sessionOrders.length} orders placed`
+                  : t.orderPlaced;
                 const subMsg = hasMultiOrders
-                  ? 'Tap any order below to track its kitchen status.'
+                  ? 'Tap an order below to see its status'
                   : successMsg;
                 return (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 0', gap: 16, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
-                  <div style={{ fontSize: 56 }}>🎉</div>
-                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{headlineText}</div>
-                  <div style={{ fontSize: 14, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.6, maxWidth: 260 }}>{subMsg}</div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '12px 0', gap: 12, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+                  {/* 40px emoji per spec — used to be 56px which crowded the
+                      drag handle above. The smaller size leaves a clean
+                      visual rhythm: handle → emoji → headline → status. */}
+                  <div style={{ fontSize: 40, lineHeight: 1 }}>🎉</div>
+                  <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 800, fontSize: 22, letterSpacing: '-0.4px', color: darkMode ? '#FFF5E8' : '#1E1B18' }}>{headlineText}</div>
+                  <div style={{ fontSize: 13, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)', lineHeight: 1.55, maxWidth: 280 }}>{subMsg}</div>
 
                   {/* May 3 — Multi-order tab strip.
                       One tab per session order with a live status dot.
@@ -7197,23 +7228,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       cancelled: 'rgba(0,0,0,0.4)',
                     };
                     return (
-                      <div style={{ width: '100%', maxWidth: 380 }}>
+                      <div style={{ width: '100%', maxWidth: 420 }}>
+                        {/* Spec mock 4 — text-only tab strip with a 2px
+                            terracotta underline on the active tab. The
+                            status colour-dot from before is gone (the
+                            timeline below already shows status), keeping
+                            this strip clean. Horizontal scroll on small
+                            screens; centred when 3 or fewer tabs. */}
                         <div style={{
-                          display: 'flex', gap: 8, overflowX: 'auto',
+                          display: 'flex', gap: 4, overflowX: 'auto',
                           WebkitOverflowScrolling: 'touch',
-                          paddingBottom: 4,
                           scrollbarWidth: 'none',
                           msOverflowStyle: 'none',
                           justifyContent: sessionOrders.length <= 3 ? 'center' : 'flex-start',
+                          borderBottom: `1px solid ${darkMode ? 'rgba(255,245,232,0.08)' : 'rgba(42,31,16,0.08)'}`,
                         }}>
                           {sessionOrders.map((so, idx) => {
                             const isSel = so.orderId === selectedSuccessOrderId;
                             const status = so.liveStatus || 'pending';
                             const dotColor = TAB_STATUS_COLOR[status] || '#B8472D';
-                            const label = TAB_STATUS_LABEL[status] || status;
                             const ref = so.orderNumber
-                              ? `#${so.orderNumber}${idx > 0 && sessionOrders.some((t, i) => i < idx && t.orderNumber === so.orderNumber) ? `[${idx + 1}]` : ''}`
-                              : `#${(so.orderId || '').slice(-4).toUpperCase()}`;
+                              ? `Order #${so.orderNumber}${idx > 0 && sessionOrders.some((t, i) => i < idx && t.orderNumber === so.orderNumber) ? `[${idx + 1}]` : ''}`
+                              : `Order #${(so.orderId || '').slice(-4).toUpperCase()}`;
                             const isFinished = status === 'served' || status === 'cancelled';
                             return (
                               <button
@@ -7222,44 +7258,32 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                                 style={{
                                   flexShrink: 0,
                                   padding: '10px 14px',
-                                  borderRadius: 14,
-                                  border: `1.5px solid ${isSel ? '#B8472D' : darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(42,31,16,0.1)'}`,
-                                  background: isSel
-                                    ? (darkMode ? 'rgba(184,71,45,0.14)' : 'rgba(184,71,45,0.08)')
-                                    : 'transparent',
+                                  border: 'none',
+                                  borderBottom: `2px solid ${isSel ? '#B8472D' : 'transparent'}`,
+                                  background: 'transparent',
                                   cursor: 'pointer',
-                                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+                                  display: 'inline-flex', alignItems: 'center', gap: 6,
                                   fontFamily: 'Inter,sans-serif',
-                                  textAlign: 'left',
-                                  transition: 'all 0.15s',
+                                  fontSize: 13, fontWeight: 700,
+                                  letterSpacing: '-0.1px',
+                                  marginBottom: -1,
+                                  color: isSel
+                                    ? (darkMode ? '#FFF5E8' : '#1E1B18')
+                                    : (darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(42,31,16,0.55)'),
+                                  whiteSpace: 'nowrap',
+                                  transition: 'color 0.15s, border-color 0.15s',
                                   opacity: isFinished && !isSel ? 0.65 : 1,
                                 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {/* Small pulse dot only for active states to
+                                    catch the eye on the inactive tabs */}
+                                {(status === 'preparing' || status === 'pending' || status === 'ready')
+                                  && !isSel && (
                                   <span style={{
-                                    width: 8, height: 8, borderRadius: '50%',
+                                    width: 6, height: 6, borderRadius: '50%',
                                     background: dotColor, flexShrink: 0,
-                                    boxShadow: status === 'preparing' || status === 'pending'
-                                      ? `0 0 0 2px ${dotColor}30` : 'none',
                                   }} />
-                                  <span style={{
-                                    fontSize: 13, fontWeight: 700,
-                                    color: isSel
-                                      ? (darkMode ? '#FFF5E8' : '#1E1B18')
-                                      : (darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.7)'),
-                                    whiteSpace: 'nowrap',
-                                  }}>
-                                    {ref}
-                                  </span>
-                                </div>
-                                <span style={{
-                                  fontSize: 10, fontWeight: 700,
-                                  letterSpacing: '0.04em',
-                                  textTransform: 'uppercase',
-                                  color: dotColor,
-                                  whiteSpace: 'nowrap',
-                                }}>
-                                  {label}
-                                </span>
+                                )}
+                                {ref}
                               </button>
                             );
                           })}
@@ -7324,44 +7348,49 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       </div>
                     );
                   })()}
-                  <div style={{ marginTop: 4, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(45,139,78,0.12)' : 'rgba(45,139,78,0.08)', border: '1.5px solid rgba(45,139,78,0.3)', fontSize: 13, color: darkMode ? '#6EC98A' : '#1A6B38', fontWeight: 600 }}>
-                    🧾 Your bill is ready — tap the green "My Bill" button below
+                  {/* Spec-aligned: bill-ready notice now uses the
+                      terracotta tint family (was success-green which
+                      misread as "payment complete"). The pairing chip
+                      "tap View bill below" still points at the primary
+                      action just beneath. */}
+                  <div style={{ marginTop: 4, padding: '12px 18px', borderRadius: 14, background: darkMode ? 'rgba(184,71,45,0.12)' : 'rgba(184,71,45,0.08)', border: '1.5px solid rgba(184,71,45,0.28)', fontSize: 13, color: darkMode ? '#E89E7C' : '#9A371F', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>🧾</span>
+                    Your bill is ready — tap "View bill" below
                   </div>
 
                   {/* Past-orders block kept ONLY for the single-order
                       case as a no-op (it renders null when pastOrders is
                       empty). When tabs are visible they fully replace it. */}
                   {!hasMultiOrders && pastOrdersBlock}
-                  {/* Phase B.2 — Add more items / View Bill CTAs.
-                      Replaces the in-flow rating block (rating happens AFTER
-                      the meal in a later phase, not when the order is just
-                      placed). The drawer also auto-closes after 8s — see
-                      the timer useEffect — so this row is the natural exit. */}
+                  {/* Spec: View Bill is now PRIMARY (terracotta gradient,
+                      first/left), Add more is SECONDARY (outlined, right).
+                      Used to be reversed. */}
                   <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 380, marginTop: 6 }}>
-                    <button
-                      onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
-                      style={{
-                        flex: 1, padding: '13px 16px', borderRadius: 12, border: 'none',
-                        background: 'linear-gradient(135deg,#B8472D,#A33B19)', color: '#fff',
-                        fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 16px rgba(184,71,45,0.30)',
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      }}>
-                      <span style={{ fontSize: 16 }}>＋</span> Add more items
-                    </button>
                     <button
                       onClick={() => { setBillOpen(true); setCartOpen(false); setOrderStep('cart'); }}
                       style={{
-                        flex: 1, padding: '13px 16px', borderRadius: 12,
+                        flex: 1, padding: '14px 16px', borderRadius: 12, border: 'none',
+                        background: 'linear-gradient(135deg,#C2502E,#B8472D)', color: '#FFF5E8',
+                        fontSize: 14, fontWeight: 800, fontFamily: 'Inter,sans-serif',
+                        letterSpacing: '-0.1px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(184,71,45,0.32)',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      }}>
+                      <span style={{ fontSize: 16 }}>🧾</span> View bill
+                    </button>
+                    <button
+                      onClick={() => { setCartOpen(false); setOrderStep('cart'); if (!tableNumber) setOrderTableInput(''); setSpecialNote(''); }}
+                      style={{
+                        flex: 1, padding: '14px 16px', borderRadius: 12,
                         border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.16)'}`,
                         background: 'transparent',
                         color: darkMode ? '#FFF5E8' : '#1E1B18',
-                        fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                        fontSize: 14, fontWeight: 700, fontFamily: 'Inter,sans-serif',
                         cursor: 'pointer',
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       }}>
-                      <span style={{ fontSize: 14 }}>🧾</span> View Bill
+                      <span style={{ fontSize: 16 }}>＋</span> Add more
                     </button>
                   </div>
                 </div>
