@@ -8,7 +8,8 @@ import {
   announceCall, announceReady, announcePayment,
   unlockSound, isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
 } from '../../lib/sounds';
-import { db, staffDb, staffAuth } from '../../lib/firebase';
+import { db, staffDb } from '../../lib/firebase';
+import { staffAuth } from '../../lib/firebaseAuth';
 import { collection, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import toast from 'react-hot-toast';

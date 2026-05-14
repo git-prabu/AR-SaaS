@@ -7,7 +7,11 @@ import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(m => m.ARViewerEmbed), { ssr: false });
-import ConfirmModal from '../../../components/ConfirmModal';
+// ConfirmModal is lazy-loaded — it's only shown on a user action (cancel
+// order, etc.), never on first paint. Keeping it out of the initial bundle
+// (~19KB) + rendering it conditionally means the chunk is fetched the
+// moment the customer first triggers a confirm dialog, not on page load.
+const ConfirmModal = dynamic(() => import('../../../components/ConfirmModal'), { ssr: false });
 
 function getSessionId() {
   if (typeof window === 'undefined') return 'ssr';
@@ -3267,6 +3271,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         <title>{restaurant.name} — Menu</title>
         <meta name="description" content={`Explore ${restaurant.name}'s menu with AR previews. Order directly from your table.`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+        {/* PERF — warm the TCP+TLS handshake to the two domains the menu
+            page hits hardest, in parallel with HTML parse + JS download.
+            By the time the Firestore SDK opens its first connection / the
+            first dish photo is requested, the socket is already open —
+            shaves ~100-300ms off the first round-trip, more on high-
+            latency mobile networks (exactly the low-internet case we
+            care about).
+              · firestore.googleapis.com   — Firestore reads + onSnapshot
+              · firebasestorage.googleapis.com — every menu photo (CORS,
+                so crossOrigin is required for the hint to apply) */}
+        <link rel="preconnect" href="https://firestore.googleapis.com" />
+        <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+        <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
 
         {/* Phase L — per-restaurant PWA manifest. Overrides the global
             /manifest.json (which is admin-focused, start_url /admin).
@@ -8703,13 +8722,19 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
         {/* Card-style confirmation dialog. Replaces native confirm()
             calls (cancel order, etc.) so the prompt matches the rest
-            of the app's visual language. */}
-        <ConfirmModal
-          open={!!confirmDialog}
-          {...(confirmDialog || {})}
-          darkMode={darkMode}
-          onCancel={() => setConfirmDialog(null)}
-        />
+            of the app's visual language. Conditionally rendered so the
+            lazy-loaded chunk is only fetched once a confirm dialog is
+            actually triggered — ConfirmModal still self-gates on `open`,
+            we just don't keep it mounted (and its chunk in the initial
+            bundle) when there's nothing to confirm. */}
+        {confirmDialog && (
+          <ConfirmModal
+            open
+            {...confirmDialog}
+            darkMode={darkMode}
+            onCancel={() => setConfirmDialog(null)}
+          />
+        )}
       </div>
     </>
   );

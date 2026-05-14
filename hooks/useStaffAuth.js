@@ -20,7 +20,7 @@ import {
   signInWithCustomToken,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { staffAuth } from '../lib/firebase';
+import { staffAuth } from '../lib/firebaseAuth';
 
 // Default value covers the case where a component consumes this hook but
 // isn't (yet) inside a Provider — during SSR or error states. Destructuring

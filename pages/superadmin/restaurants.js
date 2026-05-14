@@ -6,7 +6,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { getAllRestaurants, createRestaurant, updateRestaurant, setUserDoc } from '../../lib/saDb';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 // auth (adminAuth) is correct here — new restaurant admins authenticate via adminAuth
-import { auth } from '../../lib/firebase';
+import { auth } from '../../lib/firebaseAuth';
 import toast from 'react-hot-toast';
 
 const BLANK = { name: '', subdomain: '', email: '', password: '' };

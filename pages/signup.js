@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { adminAuth } from '../lib/firebase';
+import { adminAuth } from '../lib/firebaseAuth';
 import { createRestaurant, createUserDoc, getRestaurantBySubdomain } from '../lib/db';
 import { getPlan, normalizePlanId, TRIAL_DAYS } from '../lib/plans';
 import toast from 'react-hot-toast';

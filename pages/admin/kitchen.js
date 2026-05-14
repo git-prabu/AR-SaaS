@@ -10,7 +10,7 @@ import {
 import { db, staffDb } from '../../lib/firebase';
 import { collection, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import { staffAuth } from '../../lib/firebase';
+import { staffAuth } from '../../lib/firebaseAuth';
 import toast from 'react-hot-toast';
 import {
   announceOrder, unlockSound, speak,

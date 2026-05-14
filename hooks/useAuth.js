@@ -6,7 +6,8 @@ import {
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
-import { adminAuth, superAdminAuth, superAdminDb } from '../lib/firebase';
+import { superAdminDb } from '../lib/firebase';
+import { adminAuth, superAdminAuth } from '../lib/firebaseAuth';
 import { getUserData } from '../lib/db';
 
 // ── Admin Auth ────────────────────────────────────────────────────

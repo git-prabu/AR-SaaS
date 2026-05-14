@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import toast from 'react-hot-toast';
-import { auth } from '../../lib/firebase';
+import { auth } from '../../lib/firebaseAuth';
 
 const A = {
   font: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",

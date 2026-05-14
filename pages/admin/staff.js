@@ -6,7 +6,7 @@ import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { getStaffMembers, getRestaurantById } from '../../lib/db';
 import toast from 'react-hot-toast';
-import { auth } from '../../lib/firebase';
+import { auth } from '../../lib/firebaseAuth';
 
 // ═══ Aspire palette — same tokens as analytics/kitchen/waiter ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
