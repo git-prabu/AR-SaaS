@@ -1341,6 +1341,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     if (typeof window === 'undefined') return;
     if (!restaurant?.id) return;
     if (sessionBlocked || restaurantGone) return;
+    // Wait for the session check to resolve before starting the tour on a
+    // QR-scoped page. Now that we no longer gate the whole render on
+    // sessionChecked, the menu shows during the check window — but we
+    // still don't want to start a coach-mark tour that might get yanked
+    // a second later if the session turns out blocked. The no-table
+    // public menu sets sessionChecked=true synchronously, so the
+    // marketing URL isn't delayed.
+    if (tableNumber && !sessionChecked) return;
     let seen = false;
     try {
       seen = localStorage.getItem(`ar_welcome_seen_${restaurant.id}`) === '1';
@@ -1350,7 +1358,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     // less jarring than slamming over an empty / loading screen.
     const t = setTimeout(() => setWelcomeOpen(true), 700);
     return () => clearTimeout(t);
-  }, [restaurant?.id, sessionBlocked, restaurantGone]);
+  }, [restaurant?.id, sessionBlocked, restaurantGone, tableNumber, sessionChecked]);
 
   const dismissWelcome = useCallback(() => {
     setWelcomeOpen(false);
@@ -3200,12 +3208,38 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // ─────────────────────────────────────────────────────────────────────
 
   // ── Session validation screens ────────────────────────────────────────
-  if (tableNumber && !sessionChecked) return (
-    <div style={{ minHeight: '100vh', background: '#0D0B08', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '3px solid #B8472D', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+  //
+  // PERF (May 14) — the `tableNumber && !sessionChecked` full-screen
+  // spinner gate USED to live here. It was the single biggest cause of
+  // "the menu loads slowly":
+  //
+  //   1. The ISR HTML already ships the fully-rendered menu (we hydrate
+  //      from getStaticProps — see useState(initialItems)). On a QR scan
+  //      the customer's browser paints that menu instantly.
+  //   2. Then React hydrated, router.query populated tableNumber, and
+  //      `!sessionChecked` was still true (the Firestore onSnapshot
+  //      session check hadn't resolved yet) — so the component threw the
+  //      whole menu away and rendered a bare spinner.
+  //   3. The spinner sat there for the full Firestore round-trip
+  //      (0.5–3s, worse on poor signal) before the menu came back.
+  //
+  // Net effect the customer saw: menu flash → spinner → menu. Removing
+  // the gate is safe because:
+  //   • Browsing the menu is harmless — it's public information.
+  //   • The ONLY thing that needs a valid session is placing an order,
+  //     and placeOrder() does its OWN fresh getTableSession() +
+  //     isSessionValid() check right before createOrder() (see the
+  //     session re-validation block in the placeOrder flow). A stale or
+  //     spoofed sid still can't get an order through.
+  //   • If the background check DOES come back invalid, `sessionBlocked`
+  //     flips true and the block screen below replaces the menu — same
+  //     terminal UX as before, just without making every valid customer
+  //     (the 95%+ case) stare at a spinner first.
+  //
+  // So: valid session → menu is instant, no spinner ever. Invalid
+  // session → brief menu, then the block screen. sessionChecked is still
+  // tracked (the bill-loading effect waits on it) — we just don't gate
+  // the whole render on it anymore.
 
   if (sessionBlocked) return (
     <div style={{ minHeight: '100vh', background: '#0D0B08', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter,sans-serif', padding: 24 }}>
