@@ -1144,14 +1144,24 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     try { const s = sessionStorage.getItem('ar_payment_done'); return s ? JSON.parse(s).method : null; } catch { return null; }
   });
   // Which UPI app the customer picked from the Swiggy-style picker.
-  // One of: 'gpay' | 'phonepe' | 'paytm' | 'other' | 'gateway'.
-  // 'gateway' is used when the restaurant has a payment gateway active —
-  // the gateway picks the actual app, so we just show one row.
-  // Combined with paymentMethod==='upi' to drive the deep-link scheme +
-  // the "Pay ₹X via {appName}" CTA copy.
+  // One of: 'gpay' | 'phonepe' | 'paytm' | 'amazonpay' | 'other' | 'gateway'.
+  // 'gateway' is used when the restaurant has a payment gateway active AND
+  // the customer used the legacy single "UPI Gateway" row (kept for the
+  // I've-paid sub-step flow). The new design taps a branded row directly.
   const [upiApp, setUpiApp] = useState(null);
   const [billOpen, setBillOpen] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
+  // VPA collect input + last-used UPI app (Layer 2 + Layer 1 polish).
+  // preferredUpiApp drives the "Preferred Payment" highlighted card at
+  // the top of the picker — set whenever the customer successfully starts
+  // a payment via a branded row, persists to localStorage so the next
+  // visit remembers it.
+  const [vpaInput, setVpaInput] = useState('');
+  const [vpaBusy, setVpaBusy] = useState(false);
+  const [preferredUpiApp, setPreferredUpiApp] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try { return localStorage.getItem('ar_pref_upi') || null; } catch { return null; }
+  });
   // May 1 — multi-order bill view. When the customer has placed several
   // takeaway orders this session, the bill modal renders ONE of them at
   // a time and a tab strip switches between them. Defaults to the most
@@ -4144,6 +4154,171 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         .pay-app-icon.gateway{ background: #5F259F; color: #FFF5E8; font-size: 18px; }
         .dm .pay-app-icon.other { background: rgba(255,245,232,0.08); color: rgba(255,245,232,0.65); }
         .dm .pay-app-icon.gpay  { background: #FFFFFF; }
+
+        /* New brand-logo wrapper — used by the redesigned UPI picker
+           that swaps the colored letter circles for inline SVG marks.
+           38x38 for UPI rows, 32x32 inside Cash/Card tiles (auto-scales
+           because the SVG itself sets explicit width/height). */
+        .pay-app-logo {
+          flex-shrink: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+
+        /* PREFERRED PAYMENT card — featured at the top of the picker
+           when the customer has used a UPI app on this device before.
+           White card with a thicker border, an inner "Pay via X" CTA
+           in brand-blue (matches the inspiration screenshot). */
+        .pay-preferred-card {
+          background: #FFFFFF;
+          border: 1px solid rgba(30,27,24,0.08);
+          border-radius: 14px;
+          padding: 14px 14px 14px 14px;
+          margin-bottom: 14px;
+          box-shadow: 0 2px 8px rgba(30,27,24,0.04);
+        }
+        .dm .pay-preferred-card {
+          background: rgba(255,245,232,0.04);
+          border-color: rgba(255,245,232,0.10);
+        }
+        .pay-preferred-row {
+          display: flex; align-items: center; gap: 12px;
+          margin-bottom: 12px;
+        }
+        .pay-check { flex-shrink: 0; line-height: 1; }
+        .pay-preferred-cta {
+          width: 100%;
+          padding: 12px;
+          border: none; border-radius: 10px;
+          background: #1A73E8;
+          color: #FFFFFF;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px; font-weight: 700;
+          letter-spacing: 0.01em;
+          cursor: pointer;
+          box-shadow: 0 2px 8px rgba(26,115,232,0.32);
+          transition: background 0.15s ease, box-shadow 0.15s ease;
+        }
+        .pay-preferred-cta:hover:not(:disabled) {
+          background: #1565C0;
+          box-shadow: 0 4px 12px rgba(26,115,232,0.42);
+        }
+        .pay-preferred-cta:disabled {
+          background: rgba(30,27,24,0.10);
+          color: rgba(30,27,24,0.30);
+          box-shadow: none;
+          cursor: not-allowed;
+        }
+
+        /* Grouped UPI rows — single white card with hairline dividers
+           between rows (RedBus / Razorpay style) instead of separate
+           bordered buttons stacked with margin-bottom gaps. */
+        .pay-row-group {
+          background: #FFFFFF;
+          border: 1px solid rgba(30,27,24,0.08);
+          border-radius: 14px;
+          overflow: hidden;
+          margin-bottom: 14px;
+        }
+        .dm .pay-row-group {
+          background: rgba(255,245,232,0.04);
+          border-color: rgba(255,245,232,0.10);
+        }
+        .pay-row-group .pay-app-row {
+          border: none;
+          border-radius: 0;
+          margin-bottom: 0;
+          padding: 14px;
+          border-bottom: 1px solid rgba(30,27,24,0.06);
+        }
+        .pay-row-group .pay-app-row.last { border-bottom: none; }
+        .dm .pay-row-group .pay-app-row { border-bottom-color: rgba(255,245,232,0.06); }
+
+        /* Chevron uses currentColor — inherit the muted text colour
+           rather than the explicit override the old chevron used. */
+        .pay-app-chevron {
+          flex-shrink: 0;
+          color: rgba(30,27,24,0.30);
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+        .dm .pay-app-chevron { color: rgba(255,245,232,0.30); }
+
+        /* OR divider between UPI app rows and the VPA collect input —
+           horizontal hairline with a centered pill saying "OR". */
+        .pay-or-divider {
+          display: flex; align-items: center;
+          margin: 18px 0 4px;
+        }
+        .pay-or-divider::before,
+        .pay-or-divider::after {
+          content: '';
+          flex: 1; height: 1px;
+          background: rgba(30,27,24,0.10);
+        }
+        .pay-or-divider span {
+          padding: 4px 14px;
+          margin: 0 12px;
+          border: 1px solid rgba(30,27,24,0.10);
+          border-radius: 99px;
+          font-size: 11px; font-weight: 700;
+          letter-spacing: 0.10em;
+          color: rgba(30,27,24,0.55);
+          background: transparent;
+        }
+        .dm .pay-or-divider::before,
+        .dm .pay-or-divider::after { background: rgba(255,245,232,0.10); }
+        .dm .pay-or-divider span {
+          border-color: rgba(255,245,232,0.10);
+          color: rgba(255,245,232,0.55);
+        }
+
+        /* VPA collect form — input + Pay Now button, inline. */
+        .pay-vpa-form {
+          display: flex; gap: 8px;
+          margin-bottom: 14px;
+        }
+        .pay-vpa-input {
+          flex: 1;
+          padding: 13px 14px;
+          background: #FFFFFF;
+          border: 1px solid rgba(30,27,24,0.10);
+          border-radius: 10px;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px;
+          color: #1E1B18;
+          outline: none;
+          box-sizing: border-box;
+          transition: border-color 0.15s ease;
+        }
+        .pay-vpa-input::placeholder { color: rgba(30,27,24,0.35); }
+        .pay-vpa-input:focus { border-color: #B8472D; }
+        .dm .pay-vpa-input {
+          background: rgba(255,245,232,0.04);
+          border-color: rgba(255,245,232,0.10);
+          color: #FFF5E8;
+        }
+        .dm .pay-vpa-input::placeholder { color: rgba(255,245,232,0.35); }
+        .dm .pay-vpa-input:focus { border-color: #D7644A; }
+        .pay-vpa-cta {
+          padding: 13px 22px;
+          border: none; border-radius: 10px;
+          background: linear-gradient(135deg, #C2502E, #B8472D);
+          color: #FFF5E8;
+          font-family: 'Inter', sans-serif;
+          font-size: 14px; font-weight: 700;
+          letter-spacing: 0.01em;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background 0.15s ease, opacity 0.15s ease;
+        }
+        .pay-vpa-cta:disabled {
+          background: rgba(30,27,24,0.10);
+          color: rgba(30,27,24,0.30);
+          cursor: not-allowed;
+        }
+        .dm .pay-vpa-cta:disabled {
+          background: rgba(255,245,232,0.08);
+          color: rgba(255,245,232,0.30);
+        }
 
         .pay-app-name {
           flex: 1;
@@ -8089,81 +8264,295 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     );
                   }
 
+                  // ── New picker (May 2026) — RedBus / Razorpay-style ────
+                  // Each branded row is a one-tap action: tapping Google Pay
+                  // immediately fires the deep-link / gateway flow for that
+                  // app (no separate confirm CTA). Cash/Card still use the
+                  // pick-then-confirm pattern because in-person settlement
+                  // needs a deliberate finalize step.
+                  //
+                  // Inline SVG brand marks live in `BRAND_LOGO` below — they
+                  // are stylized recognizable monograms (not pixel-perfect
+                  // copies) so we have zero external image dependencies and
+                  // stay in our own bundle. Swap to actual logos later if
+                  // brand fidelity matters more than load weight.
+                  const UPI_APPS = [
+                    { key: 'gpay',      name: 'Google Pay' },
+                    { key: 'phonepe',   name: 'PhonePe'    },
+                    { key: 'paytm',     name: 'Paytm'      },
+                    { key: 'amazonpay', name: 'Amazon Pay' },
+                  ];
+
+                  // One-tap UPI handler — fires the payment immediately for
+                  // the passed app. We don't wait for setState because
+                  // handlePay reads from React state which won't be updated
+                  // synchronously; instead we replicate the relevant
+                  // dispatch here with the explicit `app` argument.
+                  const runUpiPayment = async (app) => {
+                    setPaymentMethod('upi');
+                    setUpiApp(app);
+                    setUpiOpened(false);
+                    // Persist preference for next visit's "Preferred" card.
+                    try { localStorage.setItem('ar_pref_upi', app); } catch {}
+                    setPreferredUpiApp(app);
+
+                    // Gateway path — same-tab redirect to gateway checkout.
+                    // We pass `preferred_app` so the backend can hint the
+                    // gateway's UPI picker (Razorpay accepts a flow param;
+                    // Paytm ignores it, falls back to its own picker).
+                    if (gatewayActive) {
+                      try {
+                        const r = await fetch('/api/payment/intent', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            restaurantId: restaurant.id,
+                            orderIds: bill.orderIds,
+                            preferredApp: app,
+                          }),
+                        });
+                        const j = await r.json();
+                        if (!r.ok || !j.paymentUrl) {
+                          toast.error('Could not start UPI payment. Try another option.');
+                          return;
+                        }
+                        window.open(j.paymentUrl, '_blank', 'noopener,noreferrer');
+                      } catch (e) {
+                        console.error('UPI intent failed:', e);
+                        toast.error('Could not start UPI payment. Try again.');
+                      }
+                      return;
+                    }
+
+                    // Direct deep-link path — restaurant has a UPI ID and
+                    // no gateway. Open the chosen app via its scheme; on
+                    // mobile the app installs handle the intent. The
+                    // upiOpened flag advances to the "I've paid" sub-step.
+                    if (restaurant?.upiId) {
+                      const SCHEME = {
+                        gpay:      'tez://upi/pay',
+                        phonepe:   'phonepe://pay',
+                        paytm:     'paytmmp://pay',
+                        amazonpay: 'amazonpay://pay',
+                      };
+                      const scheme = SCHEME[app] || 'upi://pay';
+                      const upiUrl = `${scheme}?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${bill.total}&cu=INR&tn=${encodeURIComponent(tnRef)}`;
+                      setUpiOpened(true);
+                      window.open(upiUrl, '_self');
+                      return;
+                    }
+
+                    toast.error('UPI payment not available. Use Cash or Card.');
+                  };
+
+                  // VPA collect — customer types their own UPI ID and the
+                  // gateway pushes a collect request to it (no app-switch).
+                  // Only available with a gateway active; without one we
+                  // hide the input entirely.
+                  const handleVpaPay = async (e) => {
+                    e?.preventDefault?.();
+                    const vpa = vpaInput.trim().toLowerCase();
+                    // Loose VPA validation — name@handle, alphanumerics + .-_
+                    if (!/^[a-z0-9.\-_]{2,}@[a-z][a-z0-9.\-]{1,}$/i.test(vpa)) {
+                      toast.error('Enter a valid UPI ID (e.g. yourname@okicici).');
+                      return;
+                    }
+                    setVpaBusy(true);
+                    try {
+                      const r = await fetch('/api/payment/intent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          restaurantId: restaurant.id,
+                          orderIds: bill.orderIds,
+                          vpa,
+                        }),
+                      });
+                      const j = await r.json();
+                      if (!r.ok) {
+                        toast.error(j.error === 'GATEWAY_NOT_CONFIGURED'
+                          ? 'UPI ID payment needs a gateway. Try a UPI app or pay at table.'
+                          : 'Could not send collect request. Try again.');
+                        return;
+                      }
+                      toast.success(`Approve the payment request on ${vpa}`);
+                      // Mark online_requested so admin sees the customer is paying.
+                      await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested');
+                      setPaymentMethod('upi');
+                      setUpiApp('vpa');
+                    } catch (err) {
+                      console.error('vpa collect failed:', err);
+                      toast.error('Could not send collect request.');
+                    } finally {
+                      setVpaBusy(false);
+                    }
+                  };
+
+                  // Inline SVG brand monograms. White-bg square cards 38px
+                  // with the brand's primary color as the mark — chosen for
+                  // recognisability at small sizes. Real official logos can
+                  // be swapped in if brand-fidelity becomes important.
+                  const BRAND_LOGO = {
+                    gpay: (
+                      <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+                        <rect width="38" height="38" rx="9" fill="#FFFFFF" stroke="rgba(0,0,0,0.08)" />
+                        <text x="19" y="26" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="20" fontWeight="800" fill="#4285F4">G</text>
+                        <circle cx="9" cy="29" r="1.6" fill="#EA4335" />
+                        <circle cx="14" cy="30" r="1.6" fill="#FBBC05" />
+                        <circle cx="19" cy="30.5" r="1.6" fill="#34A853" />
+                        <circle cx="24" cy="30" r="1.6" fill="#4285F4" />
+                        <circle cx="29" cy="29" r="1.6" fill="#EA4335" />
+                      </svg>
+                    ),
+                    phonepe: (
+                      <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+                        <rect width="38" height="38" rx="9" fill="#5F259F" />
+                        <text x="19" y="25" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="18" fontWeight="800" fill="#FFFFFF">₹</text>
+                      </svg>
+                    ),
+                    paytm: (
+                      <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+                        <rect width="38" height="38" rx="9" fill="#00BAF2" />
+                        <text x="19" y="24" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="11" fontWeight="800" fill="#FFFFFF">paytm</text>
+                      </svg>
+                    ),
+                    amazonpay: (
+                      <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+                        <rect width="38" height="38" rx="9" fill="#232F3E" />
+                        <text x="19" y="20" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="9" fontWeight="800" fill="#FFFFFF">amazon</text>
+                        <path d="M 9 27 Q 19 33, 29 27" stroke="#FF9900" strokeWidth="2" fill="none" strokeLinecap="round" />
+                      </svg>
+                    ),
+                    cash: (
+                      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+                        <rect width="32" height="32" rx="8" fill="rgba(45,139,78,0.12)" />
+                        <text x="16" y="22" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="16" fontWeight="700" fill="#2D8B4E">₹</text>
+                      </svg>
+                    ),
+                    card: (
+                      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+                        <rect width="32" height="32" rx="8" fill="rgba(74,128,192,0.12)" />
+                        <rect x="7" y="11" width="18" height="12" rx="2" stroke="#4A80C0" strokeWidth="1.6" fill="none" />
+                        <line x1="7" y1="15" x2="25" y2="15" stroke="#4A80C0" strokeWidth="1.6" />
+                      </svg>
+                    ),
+                  };
+
+                  // Order the rows: preferred app (if any) goes into a
+                  // featured card at the top; the rest fall into the
+                  // "Pay by any UPI App" group below.
+                  const preferredApp = preferredUpiApp && UPI_APPS.find(a => a.key === preferredUpiApp);
+                  const otherApps    = UPI_APPS.filter(a => a.key !== preferredUpiApp);
+
                   return (
                     <>
-                      {/* UPI section — 4 app rows, or 1 gateway row */}
-                      {upiAvailable && (
+                      {/* PREFERRED PAYMENT — only when customer has used
+                          a UPI app on this device before. Big featured
+                          card with the brand colour CTA underneath. */}
+                      {upiAvailable && preferredApp && (
                         <>
-                          <div className="pay-section-label">Pay with UPI</div>
-                          {gatewayActive ? (
+                          <div className="pay-section-label">Preferred Payment</div>
+                          <div className="pay-preferred-card">
+                            <div className="pay-preferred-row">
+                              <span className="pay-app-logo">{BRAND_LOGO[preferredApp.key]}</span>
+                              <span className="pay-app-name">{preferredApp.name}</span>
+                              <span className="pay-check">
+                                <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                                  <circle cx="10" cy="10" r="9" fill="#1A73E8" />
+                                  <path d="M5.5 10 L8.5 13 L14.5 7" stroke="#FFF" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </span>
+                            </div>
                             <button
-                              className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'gateway' ? ' selected' : ''}`}
-                              onClick={() => pickUpi('gateway')}>
-                              <span className="pay-app-icon gateway">📱</span>
-                              <span className="pay-app-name">UPI Gateway · GPay, PhonePe, Paytm</span>
-                              <span className="pay-radio" />
+                              className="pay-preferred-cta"
+                              disabled={!bill?.orderIds?.length}
+                              onClick={() => runUpiPayment(preferredApp.key)}>
+                              Pay ₹{bill.total} via {preferredApp.name}
                             </button>
-                          ) : (
-                            <>
-                              <button
-                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'gpay' ? ' selected' : ''}`}
-                                onClick={() => pickUpi('gpay')}>
-                                <span className="pay-app-icon gpay">G</span>
-                                <span className="pay-app-name">Google Pay</span>
-                                <span className="pay-radio" />
-                              </button>
-                              <button
-                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'phonepe' ? ' selected' : ''}`}
-                                onClick={() => pickUpi('phonepe')}>
-                                <span className="pay-app-icon phonepe">PP</span>
-                                <span className="pay-app-name">PhonePe</span>
-                                <span className="pay-radio" />
-                              </button>
-                              <button
-                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'paytm' ? ' selected' : ''}`}
-                                onClick={() => pickUpi('paytm')}>
-                                <span className="pay-app-icon paytm">Pay</span>
-                                <span className="pay-app-name">Paytm UPI</span>
-                                <span className="pay-radio" />
-                              </button>
-                              <button
-                                className={`pay-app-row${paymentMethod === 'upi' && upiApp === 'other' ? ' selected' : ''}`}
-                                onClick={() => pickUpi('other')}>
-                                <span className="pay-app-icon other">↗</span>
-                                <span className="pay-app-name">Other UPI app</span>
-                                <span className="pay-app-chevron">›</span>
-                              </button>
-                            </>
-                          )}
+                          </div>
                         </>
                       )}
 
-                      {/* Cash + Card section — 2-col grid */}
-                      <div className="pay-section-label">{upiAvailable ? 'Or pay at table' : 'Pay at table'}</div>
+                      {/* PAY BY ANY UPI APP — branded one-tap rows. Always
+                          shown (whether gateway active or direct UPI ID);
+                          tap behaviour branches inside runUpiPayment. */}
+                      {upiAvailable && (
+                        <>
+                          <div className="pay-section-label">{preferredApp ? 'Pay by Any UPI App' : 'Pay with UPI'}</div>
+                          <div className="pay-row-group">
+                            {otherApps.map((app, i) => (
+                              <button
+                                key={app.key}
+                                className={`pay-app-row${i === otherApps.length - 1 ? ' last' : ''}`}
+                                onClick={() => runUpiPayment(app.key)}>
+                                <span className="pay-app-logo">{BRAND_LOGO[app.key]}</span>
+                                <span className="pay-app-name">{app.name}</span>
+                                <span className="pay-app-chevron">
+                                  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M6 4 L10 8 L6 12" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      {/* PAY USING UPI ID — VPA collect input, gated on
+                          a configured gateway (the only path that can
+                          actually push a collect request). */}
+                      {gatewayActive && (
+                        <>
+                          <div className="pay-or-divider"><span>OR</span></div>
+                          <div className="pay-section-label">Pay Using UPI ID</div>
+                          <form className="pay-vpa-form" onSubmit={handleVpaPay}>
+                            <input
+                              type="text"
+                              className="pay-vpa-input"
+                              placeholder="yourname@okicici"
+                              value={vpaInput}
+                              onChange={e => setVpaInput(e.target.value)}
+                              autoComplete="off"
+                              autoCorrect="off"
+                              spellCheck="false"
+                            />
+                            <button
+                              type="submit"
+                              className="pay-vpa-cta"
+                              disabled={vpaBusy || !vpaInput.trim()}>
+                              {vpaBusy ? 'Sending…' : 'Pay Now'}
+                            </button>
+                          </form>
+                        </>
+                      )}
+
+                      {/* CASH + CARD — pick + confirm pattern (the bottom
+                          CTA fires the action). Branded SVG icons match
+                          the UPI rows visually. */}
+                      <div className="pay-section-label">{upiAvailable ? 'Or Pay at Table' : 'Pay at Table'}</div>
                       <div className="pay-table-grid">
                         <button
                           className={`pay-table-tile${paymentMethod === 'cash' ? ' selected' : ''}`}
                           onClick={() => pickTable('cash')}>
-                          <span className="pay-app-icon cash">💵</span>
+                          <span className="pay-app-logo">{BRAND_LOGO.cash}</span>
                           <span>Cash</span>
                         </button>
                         <button
                           className={`pay-table-tile${paymentMethod === 'card' ? ' selected' : ''}`}
                           onClick={() => pickTable('card')}>
-                          <span className="pay-app-icon card">💳</span>
+                          <span className="pay-app-logo">{BRAND_LOGO.card}</span>
                           <span>Card</span>
                         </button>
                       </div>
 
-                      {/* Single terracotta CTA — never generic */}
-                      <button
-                        className="pay-cta"
-                        disabled={!paymentMethod}
-                        onClick={handlePay}>
-                        {ctaLabel}
-                      </button>
-                      {paymentMethod === 'upi' && upiApp === 'gateway' && (
-                        <div className="pay-cta-helper">Auto-confirms once your bank releases the payment</div>
+                      {/* Bottom CTA — only shown for cash/card (UPI rows
+                          fire directly on tap so they don't need it). */}
+                      {(paymentMethod === 'cash' || paymentMethod === 'card') && (
+                        <button
+                          className="pay-cta"
+                          onClick={handlePay}>
+                          {ctaLabel}
+                        </button>
                       )}
                     </>
                   );

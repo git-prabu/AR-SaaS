@@ -33,7 +33,7 @@ async function getCallerRestaurantId(req) {
   }
 }
 
-const ALLOWED_PROVIDERS = ['paytm', 'none'];
+const ALLOWED_PROVIDERS = ['paytm', 'razorpay', 'none'];
 
 function sanitizeConfig(input) {
   if (!input || typeof input !== 'object') return null;
@@ -52,6 +52,15 @@ function sanitizeConfig(input) {
       industryType: String(p.industryType || 'Retail').trim(),
     };
   }
+  if (provider === 'razorpay') {
+    const r = input.razorpay || {};
+    config.razorpay = {
+      keyId:         String(r.keyId         || '').trim(),
+      keySecret:     String(r.keySecret     || '').trim(),
+      webhookSecret: String(r.webhookSecret || '').trim(),
+      env:           r.env === 'live' ? 'live' : 'test',
+    };
+  }
   return config;
 }
 
@@ -67,6 +76,16 @@ export default async function handler(req, res) {
       cfg.paytm.merchantKey = `••••${cfg.paytm.merchantKey.slice(-4)}`;
       cfg.paytm.merchantKeyMasked = true;
     }
+    // Mask Razorpay secrets the same way — keyId is public so we leave
+    // it visible (it ships to the client anyway via the checkout call).
+    if (cfg?.razorpay?.keySecret) {
+      cfg.razorpay.keySecret = `••••${cfg.razorpay.keySecret.slice(-4)}`;
+      cfg.razorpay.keySecretMasked = true;
+    }
+    if (cfg?.razorpay?.webhookSecret) {
+      cfg.razorpay.webhookSecret = `••••${cfg.razorpay.webhookSecret.slice(-4)}`;
+      cfg.razorpay.webhookSecretMasked = true;
+    }
     return res.status(200).json({ config: cfg || null });
   }
 
@@ -81,6 +100,17 @@ export default async function handler(req, res) {
         incoming.paytm.merchantKey = existing.paytm.merchantKey;
       } else {
         return res.status(400).json({ error: 'Merchant Key is required on first save.' });
+      }
+    }
+    // Same for Razorpay — preserve the masked secret(s) on update if
+    // the admin didn't repaste them.
+    if (incoming.provider === 'razorpay') {
+      const existing = await getGatewayConfig(callerRid);
+      if (!incoming.razorpay.keySecret || incoming.razorpay.keySecret.startsWith('••••')) {
+        if (existing?.razorpay?.keySecret) incoming.razorpay.keySecret = existing.razorpay.keySecret;
+      }
+      if (!incoming.razorpay.webhookSecret || incoming.razorpay.webhookSecret.startsWith('••••')) {
+        if (existing?.razorpay?.webhookSecret) incoming.razorpay.webhookSecret = existing.razorpay.webhookSecret;
       }
     }
     await setGatewayConfig(callerRid, incoming);

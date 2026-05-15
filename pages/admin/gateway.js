@@ -42,6 +42,11 @@ export default function AdminGatewayPage() {
     provider: 'paytm',
     isActive: false,
     paytm: { merchantId: '', merchantKey: '', env: 'staging', websiteName: 'WEBSTAGING', industryType: 'Retail' },
+    // Razorpay placeholder credentials — user fills these in from
+    // their Razorpay dashboard (Settings → API Keys + Webhooks). The
+    // placeholder text is visible in the input; the form uses real
+    // values once the admin types/pastes them.
+    razorpay: { keyId: '', keySecret: '', webhookSecret: '', env: 'test' },
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -77,6 +82,12 @@ export default function AdminGatewayPage() {
               env:          j.config.paytm?.env          || 'staging',
               websiteName:  j.config.paytm?.websiteName  || 'WEBSTAGING',
               industryType: j.config.paytm?.industryType || 'Retail',
+            },
+            razorpay: {
+              keyId:         j.config.razorpay?.keyId         || '',
+              keySecret:     j.config.razorpay?.keySecret     || '',
+              webhookSecret: j.config.razorpay?.webhookSecret || '',
+              env:           j.config.razorpay?.env           || 'test',
             },
           });
         }
@@ -134,12 +145,13 @@ export default function AdminGatewayPage() {
             </div>
           ) : (
             <>
-              {/* Provider picker (only Paytm for now) */}
+              {/* Provider picker — Paytm or Razorpay */}
               <Card title="Provider">
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {[
-                    { k: 'paytm', label: 'Paytm Business' },
-                    { k: 'none',  label: 'None (manual)' },
+                    { k: 'paytm',    label: 'Paytm Business' },
+                    { k: 'razorpay', label: 'Razorpay' },
+                    { k: 'none',     label: 'None (manual)' },
                   ].map(p => {
                     const sel = config.provider === p.k;
                     return (
@@ -155,6 +167,65 @@ export default function AdminGatewayPage() {
                   })}
                 </div>
               </Card>
+
+              {config.provider === 'razorpay' && (
+                <Card title="Razorpay credentials"
+                  hint="Paste these from your Razorpay dashboard → Settings → API Keys (and Webhooks for the Webhook Secret). Test keys start with rzp_test_, live keys with rzp_live_. Until real keys are saved, customer UPI taps will fall back to direct UPI ID (if set in Settings).">
+                  <Field label="Key ID">
+                    <input value={config.razorpay.keyId}
+                      onChange={e => setConfig(c => ({ ...c, razorpay: { ...c.razorpay, keyId: e.target.value.trim() } }))}
+                      placeholder="rzp_test_PLACEHOLDER_REPLACE_ME"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label={config.razorpay.keySecret?.startsWith('••••') ? 'Key Secret (saved — repaste to change)' : 'Key Secret'}>
+                    <input value={config.razorpay.keySecret}
+                      onChange={e => setConfig(c => ({ ...c, razorpay: { ...c.razorpay, keySecret: e.target.value.trim() } }))}
+                      placeholder={config.razorpay.keySecret?.startsWith('••••') ? config.razorpay.keySecret : 'PLACEHOLDER_KEY_SECRET'}
+                      type="password" autoComplete="new-password"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label={config.razorpay.webhookSecret?.startsWith('••••') ? 'Webhook Secret (saved — repaste to change)' : 'Webhook Secret'}>
+                    <input value={config.razorpay.webhookSecret}
+                      onChange={e => setConfig(c => ({ ...c, razorpay: { ...c.razorpay, webhookSecret: e.target.value.trim() } }))}
+                      placeholder={config.razorpay.webhookSecret?.startsWith('••••') ? config.razorpay.webhookSecret : 'PLACEHOLDER_WEBHOOK_SECRET'}
+                      type="password" autoComplete="new-password"
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Environment">
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {[
+                        { k: 'test', label: 'Test mode' },
+                        { k: 'live', label: 'Live mode' },
+                      ].map(e => {
+                        const sel = config.razorpay.env === e.k;
+                        return (
+                          <button key={e.k} type="button" onClick={() => setConfig(c => ({ ...c, razorpay: { ...c.razorpay, env: e.k } }))}
+                            style={{
+                              padding: '8px 14px', borderRadius: 7,
+                              background: sel ? (e.k === 'live' ? A.success : A.warning) : A.subtleBg,
+                              color: sel ? A.shell : A.mutedText,
+                              border: 'none', cursor: 'pointer',
+                              fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                            }}>{e.label}</button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+                  <div style={{
+                    marginTop: 12, padding: '10px 12px',
+                    background: 'rgba(196,168,109,0.10)', border: '1px solid rgba(196,168,109,0.35)',
+                    borderRadius: 8, fontSize: 12, color: A.warningDim, lineHeight: 1.5,
+                  }}>
+                    Razorpay needs the Key ID + Key Secret to create payment orders. The
+                    Webhook Secret lets us verify the auto-confirmation event from
+                    Razorpay's servers — set both in your Razorpay Webhooks tab pointing
+                    to the URL below.
+                  </div>
+                </Card>
+              )}
 
               {config.provider === 'paytm' && (
                 <Card title="Paytm credentials">

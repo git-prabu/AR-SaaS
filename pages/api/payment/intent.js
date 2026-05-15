@@ -28,7 +28,7 @@ const PAID = ['paid_cash', 'paid_card', 'paid_online', 'paid'];
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { restaurantId, orderId, orderIds } = req.body || {};
+  const { restaurantId, orderId, orderIds, vpa, preferredApp } = req.body || {};
   if (!restaurantId) return res.status(400).json({ error: 'restaurantId is required' });
 
   // Accept either { orderId } (legacy / takeaway) or { orderIds } (bill).
@@ -64,13 +64,17 @@ export default async function handler(req, res) {
     // Synthesize a "bill order" for the gateway — total comes from
     // the sum, items come from the union, id is the first order so
     // single-order callers (takeaway) get the same provider txn id
-    // shape they always have.
+    // shape they always have. The optional `vpa` (VPA-collect input)
+    // and `preferredApp` (UPI app picker hint) ride along so providers
+    // that support them can use them; ones that don't, ignore.
     const billOrder = {
       ...orders[0],
       id: orders[0].id,
       total: totalAmount,
       items: orders.flatMap(o => o.items || []),
       subdomain,
+      vpa: vpa ? String(vpa).trim().toLowerCase() : null,
+      preferredApp: preferredApp || null,
     };
 
     const intent = await createPaymentIntent(restaurantId, billOrder);
@@ -104,6 +108,12 @@ export default async function handler(req, res) {
     }
     if (err?.code === 'PAYTM_CREDENTIALS_MISSING') {
       return res.status(409).json({ error: 'PAYTM_CREDENTIALS_MISSING' });
+    }
+    if (err?.code === 'RAZORPAY_CREDENTIALS_MISSING') {
+      return res.status(409).json({ error: 'RAZORPAY_CREDENTIALS_MISSING' });
+    }
+    if (err?.code === 'RAZORPAY_ORDER_CREATE_FAILED') {
+      return res.status(502).json({ error: err.message || 'RAZORPAY_ORDER_CREATE_FAILED' });
     }
     console.error('[/api/payment/intent] failed:', err);
     return res.status(500).json({ error: 'Internal error' });
