@@ -2,9 +2,15 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut as fbSignOut,
+} from 'firebase/auth';
 import { adminAuth } from '../lib/firebaseAuth';
-import { createRestaurant, createUserDoc, getRestaurantBySubdomain } from '../lib/db';
+import { createRestaurant, createUserDoc, getRestaurantBySubdomain, getUserData } from '../lib/db';
 import { getPlan, normalizePlanId, TRIAL_DAYS } from '../lib/plans';
 import toast from 'react-hot-toast';
 
@@ -37,9 +43,16 @@ export default function Signup() {
   const [city, setCity] = useState('');
 
   // State
-  const [step, setStep] = useState('form'); // 'form' | 'creating' | 'done'
+  const [step, setStep] = useState('form'); // 'form' | 'creating' | 'done' | 'verify'
   const [error, setError] = useState('');
   const [subdomainStatus, setSubdomainStatus] = useState(null); // null | 'checking' | 'available' | 'taken'
+  // Google-auth state — when present, we skip password creation and use the
+  // already-signed-in Firebase user. The form pre-fills name + email from the
+  // Google profile but still asks for restaurant info (name/subdomain/phone/city).
+  const [googleUser, setGoogleUser] = useState(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  // After-signup state for the "check your inbox" notice (email/password flow only).
+  const [verifyEmail, setVerifyEmail] = useState('');
 
   // Auto-generate subdomain from restaurant name
   useEffect(() => {
@@ -63,14 +76,58 @@ export default function Signup() {
     return () => clearTimeout(t);
   }, [subdomain]);
 
+  // ── Google sign-up ─────────────────────────────────────────────────
+  // Pop a Google chooser, then either:
+  //   (a) bounce them to /admin if they ALREADY have a restaurant doc, or
+  //   (b) keep them signed in and reveal the restaurant-info form (name,
+  //       subdomain, phone, city) so we can finish the restaurant + user
+  //       doc creation. We sign them out on cancel/error so a half-finished
+  //       attempt doesn't leave a stranded auth session.
+  const handleGoogleSignup = async () => {
+    setError('');
+    setGoogleBusy(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(adminAuth, provider);
+      const fbUser = result.user;
+
+      // Already a restaurant? Skip straight to /admin.
+      const existing = await getUserData(fbUser.uid);
+      if (existing && existing.role === 'restaurant' && existing.restaurantId) {
+        toast.success('Welcome back!');
+        router.push('/admin');
+        return;
+      }
+
+      // First time — pre-fill what Google gave us, reveal restaurant fields.
+      setGoogleUser(fbUser);
+      setOwnerName(fbUser.displayName || '');
+      setEmail(fbUser.email || '');
+    } catch (err) {
+      console.error('Google signup error:', err);
+      // Sign out so the partially-authed session doesn't persist.
+      try { await fbSignOut(adminAuth); } catch {}
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User just dismissed the popup — silent, no error banner.
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Browser blocked the Google popup. Please allow popups and try again.');
+      } else {
+        setError(err.message || 'Google sign-up failed. Please try again.');
+      }
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // Validation
+    // Validation — password only required for the email/password flow.
     if (!ownerName.trim()) { setError('Enter your name'); return; }
     if (!email.trim()) { setError('Enter your email'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (!googleUser && password.length < 6) { setError('Password must be at least 6 characters'); return; }
     if (!restaurantName.trim()) { setError('Enter your restaurant name'); return; }
     if (!subdomain || subdomain.length < 3) { setError('Subdomain must be at least 3 characters'); return; }
     if (subdomainStatus === 'taken') { setError('This subdomain is already taken'); return; }
@@ -78,9 +135,16 @@ export default function Signup() {
     setStep('creating');
 
     try {
-      // 1. Create Firebase Auth account
-      const cred = await createUserWithEmailAndPassword(adminAuth, email.trim(), password);
-      const uid = cred.user.uid;
+      // 1. Get the Firebase user. For Google flow they're already signed in;
+      //    for email/password we create the account here.
+      let fbUser;
+      if (googleUser) {
+        fbUser = googleUser;
+      } else {
+        const cred = await createUserWithEmailAndPassword(adminAuth, email.trim(), password);
+        fbUser = cred.user;
+      }
+      const uid = fbUser.uid;
 
       // 2. Create restaurant document
       const trialEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -98,6 +162,9 @@ export default function Signup() {
         isActive: true,
         paymentStatus: 'trial',
         trialEndsAt: trialEnd,
+        // Track which provider created the account so the security page
+        // knows whether to show "Change Password" or not.
+        authProvider: googleUser ? 'google' : 'password',
       });
 
       // 3. Create user document (links user to restaurant)
@@ -108,13 +175,25 @@ export default function Signup() {
         restaurantId: ref.id,
       });
 
-      // 4. Phase M — Fire-and-forget welcome email. We don't block the
+      // 4. Send email verification — only for the email/password flow.
+      //    Google accounts come pre-verified (Firebase trusts the Google
+      //    identity) so calling sendEmailVerification on them is a no-op.
+      if (!googleUser) {
+        try {
+          await sendEmailVerification(fbUser);
+        } catch (err) {
+          // Non-fatal — they can resend from /admin/settings/security later.
+          console.warn('sendEmailVerification failed:', err?.message);
+        }
+      }
+
+      // 5. Phase M — Fire-and-forget welcome email. We don't block the
       //    redirect on this: signup itself already succeeded, the email
       //    is ancillary. The endpoint is idempotent (stamps welcomeEmailSentAt
       //    on the restaurant doc) so a retry during a flaky network
       //    doesn't double-mail. We log failures to the console only.
       try {
-        const idToken = await cred.user.getIdToken();
+        const idToken = await fbUser.getIdToken();
         fetch('/api/email/send-welcome', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -124,13 +203,18 @@ export default function Signup() {
         console.warn('idToken fetch for welcome email failed:', err?.message);
       }
 
-      setStep('done');
-      toast.success('Restaurant created!');
-
-      // 5. Redirect to admin dashboard
-      setTimeout(() => {
-        router.push('/admin');
-      }, 1500);
+      // 6. Show the right success screen. Email/password gets a verify-inbox
+      //    notice; Google goes straight to "all set" since email is already
+      //    verified.
+      if (googleUser) {
+        setStep('done');
+        toast.success('Restaurant created!');
+        setTimeout(() => router.push('/admin'), 1500);
+      } else {
+        setVerifyEmail(email.trim());
+        setStep('verify');
+        toast.success('Restaurant created — verify your email');
+      }
     } catch (err) {
       console.error('Signup error:', err);
       setStep('form');
@@ -205,6 +289,32 @@ export default function Signup() {
             </div>
           )}
 
+          {step === 'verify' && (
+            <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>📬</div>
+              <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 22, color: '#FFF5E8', marginBottom: 10 }}>Check your inbox</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,245,232,0.55)', marginBottom: 6, lineHeight: 1.55 }}>
+                We sent a verification link to
+              </div>
+              <div style={{ fontSize: 14, color: '#F79B3D', fontWeight: 700, marginBottom: 24, wordBreak: 'break-all' }}>
+                {verifyEmail}
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(255,245,232,0.4)', marginBottom: 28, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 28px' }}>
+                Click the link in the email to verify your address. You can continue to your dashboard now and verify later from <span style={{ color: '#FFF5E8', fontWeight: 600 }}>Settings → Security</span>.
+              </div>
+              <button
+                onClick={() => router.push('/admin')}
+                style={{
+                  padding: '14px 28px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                  background: 'linear-gradient(135deg,#E05A3A,#F79B3D)', color: '#fff',
+                  fontSize: 14, fontWeight: 700, fontFamily: 'Poppins,sans-serif',
+                  boxShadow: '0 6px 24px rgba(224,90,58,0.4)',
+                }}>
+                Go to Dashboard →
+              </button>
+            </div>
+          )}
+
           {/* Form */}
           {step === 'form' && (
             <form onSubmit={handleSubmit}>
@@ -219,6 +329,77 @@ export default function Signup() {
                   </div>
                 )}
 
+                {/* Google sign-up button — only shown BEFORE the user has
+                    completed Google sign-in. Once they're authed via Google,
+                    we hide it and show the Google-account chip below instead. */}
+                {!googleUser && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignup}
+                      disabled={googleBusy}
+                      style={{
+                        width: '100%', padding: '13px 16px',
+                        borderRadius: 12, border: '1.5px solid rgba(255,245,232,0.18)',
+                        background: '#FFFFFF', color: '#1A1A1A',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                        cursor: googleBusy ? 'not-allowed' : 'pointer',
+                        opacity: googleBusy ? 0.6 : 1,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                        marginBottom: 14, transition: 'transform 0.15s, box-shadow 0.15s',
+                      }}
+                    >
+                      {/* Google "G" logo */}
+                      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+                        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.583-5.036-3.71H.957v2.332A8.997 8.997 0 0 0 9 18z" />
+                        <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" />
+                        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" />
+                      </svg>
+                      {googleBusy ? 'Connecting…' : 'Sign up with Google'}
+                    </button>
+
+                    {/* Divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '14px 0 18px' }}>
+                      <div style={{ flex: 1, height: 1, background: 'rgba(255,245,232,0.08)' }} />
+                      <span style={{ fontSize: 11, color: 'rgba(255,245,232,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Or</span>
+                      <div style={{ flex: 1, height: 1, background: 'rgba(255,245,232,0.08)' }} />
+                    </div>
+                  </>
+                )}
+
+                {/* When signed in via Google, show a chip instead of the auth fields */}
+                {googleUser && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '12px 14px', marginBottom: 18,
+                    background: 'rgba(63,158,90,0.08)',
+                    border: '1px solid rgba(63,158,90,0.30)',
+                    borderRadius: 12,
+                  }}>
+                    <span style={{ fontSize: 18 }}>✓</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: 'rgba(255,245,232,0.55)', fontWeight: 600 }}>Signed in with Google</div>
+                      <div style={{ fontSize: 13, color: '#FFF5E8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{googleUser.email}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try { await fbSignOut(adminAuth); } catch {}
+                        setGoogleUser(null);
+                        setOwnerName('');
+                        setEmail('');
+                      }}
+                      style={{
+                        background: 'transparent', border: 'none', color: 'rgba(255,245,232,0.45)',
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 4,
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
+
                 {/* Owner Name */}
                 <div style={{ marginBottom: 14 }}>
                   <label style={labelStyle}>Your Name</label>
@@ -226,19 +407,23 @@ export default function Signup() {
                     placeholder="e.g. Prabu" style={inputStyle} required />
                 </div>
 
-                {/* Email */}
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Email</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    placeholder="you@example.com" style={inputStyle} required />
-                </div>
+                {/* Email — read-only when signed in via Google (Google identity is the source of truth) */}
+                {!googleUser && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Email</label>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                      placeholder="you@example.com" style={inputStyle} required />
+                  </div>
+                )}
 
-                {/* Password */}
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Password</label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                    placeholder="Min. 6 characters" style={inputStyle} required minLength={6} />
-                </div>
+                {/* Password — only shown for the email/password flow */}
+                {!googleUser && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Password</label>
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                      placeholder="Min. 6 characters" style={inputStyle} required minLength={6} />
+                  </div>
+                )}
 
                 {/* Phone */}
                 <div style={{ marginBottom: 20 }}>

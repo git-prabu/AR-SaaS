@@ -6,7 +6,14 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import {
+  sendPasswordResetEmail,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut as fbSignOut,
+} from 'firebase/auth';
 import { useAuth } from '../../hooks/useAuth';
+import { adminAuth } from '../../lib/firebaseAuth';
 import { getUserData } from '../../lib/db';
 import toast from 'react-hot-toast';
 
@@ -39,6 +46,14 @@ export default function AdminLogin() {
   const { signIn, signOut } = useAuth();
   const router = useRouter();
 
+  // Forgot-password inline panel state
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotBusy, setForgotBusy] = useState(false);
+
+  // Google sign-in state
+  const [googleBusy, setGoogleBusy] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -56,6 +71,72 @@ export default function AdminLogin() {
     } catch (err) {
       toast.error(err.code === 'auth/invalid-credential' ? 'Invalid email or password.' : 'Login failed.');
       setLoading(false);
+    }
+  };
+
+  // Forgot password — sends a reset link to the email Firebase has on file.
+  // Only works for accounts created with email+password (Google accounts
+  // don't have a password to reset; they're told to use "Sign in with Google").
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    const target = (forgotEmail || email).trim();
+    if (!target) { toast.error('Enter your email first.'); return; }
+    setForgotBusy(true);
+    try {
+      await sendPasswordResetEmail(adminAuth, target);
+      toast.success('Reset link sent — check your inbox.');
+      setShowForgot(false);
+      setForgotEmail('');
+    } catch (err) {
+      console.error('forgot password error:', err);
+      // We DON'T leak "user not found" — that would let attackers probe
+      // for valid emails. Always show the same generic success-ish message.
+      // (Firebase errors here are usually rate-limit or invalid-email.)
+      if (err.code === 'auth/invalid-email') {
+        toast.error('That email looks invalid.');
+      } else if (err.code === 'auth/too-many-requests') {
+        toast.error('Too many attempts. Try again in a few minutes.');
+      } else {
+        // Show success even if user-not-found to prevent enumeration.
+        toast.success('If an account exists, a reset link was sent.');
+        setShowForgot(false);
+        setForgotEmail('');
+      }
+    } finally {
+      setForgotBusy(false);
+    }
+  };
+
+  // Google sign-in — only succeeds for accounts that already have a
+  // restaurant doc. New Google accounts get bounced to /signup with a
+  // friendly message so they can complete the restaurant info collection.
+  const handleGoogleSignIn = async () => {
+    setGoogleBusy(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(adminAuth, provider);
+      const userData = await getUserData(result.user.uid);
+      if (!userData || userData.role !== 'restaurant' || !userData.restaurantId) {
+        // Not a registered restaurant — sign out and route to signup.
+        try { await fbSignOut(adminAuth); } catch {}
+        toast.error("No restaurant linked to that Google account. Sign up first.");
+        router.push('/signup?plan=growth');
+        return;
+      }
+      toast.success('Welcome back!');
+      router.push('/admin');
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // Silent — user dismissed.
+      } else if (err.code === 'auth/popup-blocked') {
+        toast.error('Browser blocked the popup. Allow popups and try again.');
+      } else {
+        toast.error('Google sign-in failed.');
+      }
+    } finally {
+      setGoogleBusy(false);
     }
   };
 
@@ -254,7 +335,87 @@ export default function AdminLogin() {
                   </>
                 ) : 'Sign in →'}
               </button>
+
+              {/* Forgot password link — toggles an inline mini-form below. */}
+              <div style={{ marginTop: 14, textAlign: 'right' }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowForgot(s => !s); setForgotEmail(email); }}
+                  style={{
+                    background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                    fontSize: 12, fontWeight: 600, color: A.mutedText, fontFamily: A.font,
+                  }}>
+                  Forgot password?
+                </button>
+              </div>
+
+              {showForgot && (
+                <div style={{
+                  marginTop: 14, padding: 16,
+                  background: A.subtleBg, border: A.border, borderRadius: 10,
+                }}>
+                  <div style={{ fontSize: 12, color: A.mutedText, lineHeight: 1.5, marginBottom: 10 }}>
+                    Enter your email — we'll send a reset link.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      placeholder="you@restaurant.com"
+                      style={{
+                        flex: 1, padding: '10px 12px', boxSizing: 'border-box',
+                        background: A.shell, border: A.borderStrong, borderRadius: 8,
+                        fontSize: 13, color: A.ink, fontFamily: A.font, outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleForgot}
+                      disabled={forgotBusy}
+                      style={{
+                        padding: '10px 16px', borderRadius: 8, border: 'none',
+                        background: A.warning, color: A.ink,
+                        fontSize: 13, fontWeight: 600, fontFamily: A.font,
+                        cursor: forgotBusy ? 'not-allowed' : 'pointer',
+                        opacity: forgotBusy ? 0.6 : 1, whiteSpace: 'nowrap',
+                      }}>
+                      {forgotBusy ? 'Sending…' : 'Send link'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </form>
+
+            {/* OR divider + Google sign-in */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0 16px' }}>
+              <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.08)' }} />
+              <span style={{ fontSize: 11, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>Or</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.08)' }} />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={googleBusy}
+              style={{
+                width: '100%', padding: '13px',
+                borderRadius: 10, border: A.borderStrong,
+                background: A.shell, color: A.ink,
+                fontSize: 14, fontWeight: 600, fontFamily: A.font,
+                cursor: googleBusy ? 'not-allowed' : 'pointer',
+                opacity: googleBusy ? 0.6 : 1,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                transition: 'transform 0.15s, box-shadow 0.15s',
+              }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.583-5.036-3.71H.957v2.332A8.997 8.997 0 0 0 9 18z" />
+                <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" />
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" />
+              </svg>
+              {googleBusy ? 'Connecting…' : 'Sign in with Google'}
+            </button>
 
             <div style={{ marginTop: 28, paddingTop: 24, borderTop: A.border, textAlign: 'center' }}>
               <span style={{ fontSize: 13, color: A.mutedText }}>Not a restaurant yet? </span>

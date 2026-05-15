@@ -51,8 +51,9 @@ const navSections = [
       // plans never see it. Server still enforces, this is the
       // cosmetic gate.
       { href: '/admin/petpooja-connect', label: 'Petpooja',  icon: 'plug', proOnly: true },
-      { href: '/admin/settings',     label: 'Settings',     icon: 'gear' },
-      { href: '/admin/subscription', label: 'Subscription', icon: 'crown' },
+      { href: '/admin/settings',          label: 'Settings',     icon: 'gear' },
+      { href: '/admin/settings/security', label: 'Security',     icon: 'shield' },
+      { href: '/admin/subscription',      label: 'Subscription', icon: 'crown' },
     ]
   },
 ];
@@ -79,6 +80,7 @@ const NavIcon = ({ name }) => {
     case 'gear':      return <svg {...props}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>;
     case 'crown':     return <svg {...props}><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" /><path d="M5 20h14" /></svg>;
     case 'plug':      return <svg {...props}><path d="M9 2v4M15 2v4M7 8h10v4a5 5 0 0 1-10 0z" /><path d="M12 17v5" /></svg>;
+    case 'shield':    return <svg {...props}><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" /></svg>;
     default:          return <svg {...props}><circle cx="12" cy="12" r="3" /></svg>;
   }
 };
