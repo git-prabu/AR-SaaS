@@ -122,6 +122,11 @@ export default function WaiterDashboard() {
   // don't want to scan the QR (or don't have a phone handy) without
   // leaving the live action queue.
   const [newOrderOpen, setNewOrderOpen] = useState(false);
+  // Orders-tab filter — lets the waiter narrow the list to what's
+  // currently in the kitchen vs. everything done today vs. everything.
+  // Defaults to 'active' because that's what they reference most often
+  // ("which table ordered the biryani that's about to come out?").
+  const [ordersTabFilter, setOrdersTabFilter] = useState('active');
   const [tick, setTick] = useState(0);
   // Phase C.2 — cash payment confirmation modal
   // When the waiter taps "Mark Paid" on a cash_requested order, we ask
@@ -793,6 +798,10 @@ export default function WaiterDashboard() {
         <div style={{ display: 'inline-flex', background: A.shell, border: A.border, borderRadius: 10, padding: 3, boxShadow: A.shadowCard }}>
           {[
             { key: 'queue',   label: 'Action Queue', badge: actionQueue.length },
+            // Orders tab — a read-only reference of what's being made and
+            // what was already served, so the waiter can answer "what did
+            // table 5 order?" without leaving the page or hunting in admin.
+            { key: 'orders',  label: 'Orders',       badge: null },
             { key: 'history', label: 'History',      badge: null },
           ].map(t => {
             const active = tab === t.key;
@@ -1022,6 +1031,195 @@ export default function WaiterDashboard() {
             </div>
           )
         )}
+
+        {/* ─── Orders tab — read-only ledger of what's being made + what's done ─── */}
+        {tab === 'orders' && (() => {
+          // Filter today's orders out of the same allOrders feed the
+          // queue uses. Cancelled/awaiting-payment hidden by default —
+          // they're not "real" orders the waiter should reference.
+          const todaySec = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() / 1000; })();
+          const ACTIVE_STATUSES = new Set(['pending', 'preparing', 'ready']);
+          const list = allOrders
+            .filter(o => (o.createdAt?.seconds || 0) >= todaySec)
+            .filter(o => o.status !== 'cancelled' && o.status !== 'awaiting_payment')
+            .filter(o => {
+              if (ordersTabFilter === 'active')   return ACTIVE_STATUSES.has(o.status);
+              if (ordersTabFilter === 'served')   return o.status === 'served';
+              return true; // 'all'
+            })
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+          // Counts for each filter chip — gives the waiter at-a-glance
+          // visibility into kitchen load without changing tabs.
+          const todayAll = allOrders.filter(o => (o.createdAt?.seconds || 0) >= todaySec && o.status !== 'cancelled' && o.status !== 'awaiting_payment');
+          const counts = {
+            active: todayAll.filter(o => ACTIVE_STATUSES.has(o.status)).length,
+            served: todayAll.filter(o => o.status === 'served').length,
+            all:    todayAll.length,
+          };
+
+          // Status colour mapping — same family as the action queue uses
+          // so the visual language is consistent.
+          const statusBadge = (status) => {
+            const map = {
+              pending:   { bg: 'rgba(196,168,109,0.18)', fg: A.warningDim, label: 'Placed' },
+              preparing: { bg: 'rgba(196,168,109,0.28)', fg: A.warningDim, label: 'Preparing' },
+              ready:     { bg: 'rgba(63,158,90,0.16)',   fg: A.success,    label: 'Ready' },
+              served:    { bg: 'rgba(0,0,0,0.06)',       fg: A.mutedText,  label: 'Served' },
+            };
+            const m = map[status] || { bg: A.subtleBg, fg: A.mutedText, label: status || '—' };
+            return (
+              <span style={{
+                padding: '3px 10px', borderRadius: 12,
+                background: m.bg, color: m.fg,
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+              }}>{m.label}</span>
+            );
+          };
+
+          const fmtTime = (sec) => {
+            if (!sec) return '';
+            const d = new Date(sec * 1000);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+          };
+
+          return (
+            <>
+              {/* Filter chips + total count line */}
+              <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'inline-flex', background: A.shell, border: A.border, borderRadius: 10, padding: 3, boxShadow: A.shadowCard }}>
+                  {[
+                    { k: 'active', label: 'In kitchen', n: counts.active },
+                    { k: 'served', label: 'Done',       n: counts.served },
+                    { k: 'all',    label: 'All today',  n: counts.all },
+                  ].map(c => {
+                    const on = ordersTabFilter === c.k;
+                    return (
+                      <button key={c.k} onClick={() => setOrdersTabFilter(c.k)}
+                        style={{
+                          padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                          background: on ? A.ink : 'transparent',
+                          color: on ? A.cream : A.mutedText,
+                          fontSize: 12, fontWeight: on ? 700 : 600, fontFamily: A.font,
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                        }}>
+                        {c.label}
+                        <span style={{
+                          padding: '1px 7px', borderRadius: 10,
+                          background: on ? 'rgba(237,237,237,0.18)' : 'rgba(0,0,0,0.05)',
+                          color: on ? A.cream : A.mutedText,
+                          fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                        }}>{c.n}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 12, color: A.faintText }}>
+                  {list.length} order{list.length === 1 ? '' : 's'} shown
+                </div>
+              </div>
+
+              {list.length === 0 ? (
+                <div style={{
+                  background: A.shell, borderRadius: 14, border: A.border,
+                  padding: '60px 32px', textAlign: 'center', boxShadow: A.shadowCard,
+                }}>
+                  <div style={{ fontSize: 24, marginBottom: 12 }}>📋</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: A.ink, marginBottom: 6 }}>
+                    {ordersTabFilter === 'active' && 'No orders in the kitchen right now'}
+                    {ordersTabFilter === 'served' && 'No served orders yet today'}
+                    {ordersTabFilter === 'all'    && 'No orders today'}
+                  </div>
+                  <div style={{ fontSize: 13, color: A.mutedText }}>
+                    New orders will appear here as soon as they're placed.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+                  {list.map(o => {
+                    const items = o.items || [];
+                    const tableLabel = o.orderType === 'takeaway'
+                      ? `📦 Takeaway · ${o.customerName || 'Customer'}`
+                      : `🍽️ Table ${o.tableNumber || '—'}`;
+                    const orderRef = o.orderNumber ? `#${o.orderNumber}` : `#${(o.id || '').slice(-6).toUpperCase()}`;
+                    return (
+                      <div key={o.id} style={{
+                        background: A.shell, borderRadius: 12, border: A.border,
+                        boxShadow: A.shadowCard, overflow: 'hidden',
+                        display: 'flex', flexDirection: 'column',
+                      }}>
+                        {/* Card header — table/customer + status + order # + time */}
+                        <div style={{ padding: '12px 14px', borderBottom: A.border, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: A.ink, letterSpacing: '-0.1px', marginBottom: 4 }}>
+                              {tableLabel}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              {statusBadge(o.status)}
+                              <span style={{ fontSize: 11, color: A.faintText, fontFamily: "'JetBrains Mono', monospace" }}>{orderRef}</span>
+                              <span style={{ fontSize: 11, color: A.faintText }}>· {fmtTime(o.createdAt?.seconds)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Items list — the "proof of what was ordered" */}
+                        <div style={{ padding: '10px 14px', flex: 1 }}>
+                          {items.length === 0 ? (
+                            <div style={{ fontSize: 12, color: A.faintText, fontStyle: 'italic' }}>
+                              No items recorded.
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {items.map((it, i) => (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'baseline', fontSize: 12 }}>
+                                  <span style={{ fontFamily: "'JetBrains Mono', monospace", color: A.warningDim, fontWeight: 700, minWidth: 28 }}>
+                                    {it.qty || 1}×
+                                  </span>
+                                  <span style={{ color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {it.name}
+                                    {it.note ? <span style={{ color: A.faintText, fontStyle: 'italic' }}> — {it.note}</span> : null}
+                                  </span>
+                                  <span style={{ color: A.mutedText, fontFamily: "'JetBrains Mono', monospace" }}>
+                                    ₹{Math.round((Number(it.price) || 0) * (Number(it.qty) || 1)).toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {o.specialInstructions && (
+                            <div style={{ marginTop: 8, padding: '6px 10px', background: A.subtleBg, borderRadius: 6, fontSize: 11, color: A.mutedText, fontStyle: 'italic' }}>
+                              📝 {o.specialInstructions}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Card footer — total + payment status */}
+                        <div style={{ padding: '10px 14px', borderTop: A.border, background: A.subtleBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, color: A.mutedText, letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>
+                            {(() => {
+                              const ps = o.paymentStatus;
+                              if (ps === 'paid_cash')        return '✓ Cash paid';
+                              if (ps === 'paid_card')        return '✓ Card paid';
+                              if (ps === 'paid_online' || ps === 'paid') return '✓ UPI paid';
+                              if (ps === 'cash_requested')   return '⏳ Cash pending';
+                              if (ps === 'card_requested')   return '⏳ Card pending';
+                              if (ps === 'online_requested') return '⏳ UPI pending';
+                              return 'Unpaid';
+                            })()}
+                          </span>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '-0.4px' }}>
+                            ₹{Math.round(Number(o.total) || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* ─── History ─── */}
         {tab === 'history' && (
