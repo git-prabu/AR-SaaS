@@ -1,6 +1,6 @@
 {
-  "name": "Advert Radical",
-  "short_name": "Advert Radical",
+  "name": "HaloHelm",
+  "short_name": "HaloHelm",
   "description": "AR-enabled restaurant menu + admin + POS.",
   "start_url": "/admin",
   "scope": "/",

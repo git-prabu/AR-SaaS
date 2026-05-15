@@ -1251,7 +1251,7 @@ export default function KitchenDisplay() {
   if (isAdmin) {
     return (
       <AdminLayout>
-        <Head><title>Kitchen Display | Advert Radical</title></Head>
+        <Head><title>Kitchen Display | HaloHelm</title></Head>
         {body}
       </AdminLayout>
     );
@@ -1259,7 +1259,7 @@ export default function KitchenDisplay() {
 
   return (
     <>
-      <Head><title>Kitchen Display | Advert Radical</title></Head>
+      <Head><title>Kitchen Display | HaloHelm</title></Head>
       {/* Staff top bar for branding + logout */}
       <div style={{
         background: A.shell, borderBottom: A.border,
@@ -1268,8 +1268,8 @@ export default function KitchenDisplay() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontFamily: A.font, fontWeight: 800, fontSize: 15 }}>
-            <span style={{ color: A.ink }}>Advert </span>
-            <span style={{ color: A.warning }}>Radical</span>
+            <span style={{ color: A.ink }}>Halo</span>
+            <span style={{ color: A.warning, fontStyle: 'italic' }}>Helm</span>
           </div>
           <div style={{ width: 1, height: 18, background: 'rgba(0,0,0,0.10)' }} />
           <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 500 }}>{staffSession?.restaurantName}</div>

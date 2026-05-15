@@ -249,7 +249,7 @@ export default function AdminFeedback() {
 
   return (
     <AdminLayout>
-      <Head><title>Customer Feedback — Advert Radical</title></Head>
+      <Head><title>Customer Feedback — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }

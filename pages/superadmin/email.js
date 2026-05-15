@@ -43,7 +43,7 @@ const A = {
   forestBorder: '1px solid rgba(255,255,255,0.06)',
 };
 
-const EMPTY = { senderEmail: '', senderName: 'Advert Radical', appPassword: '', enabled: true };
+const EMPTY = { senderEmail: '', senderName: 'HaloHelm', appPassword: '', enabled: true };
 
 const inputStyle = {
   width: '100%', padding: '11px 14px', boxSizing: 'border-box',
@@ -90,7 +90,7 @@ export default function SuperAdminEmail() {
           const d = snap.data();
           const next = {
             senderEmail: d.senderEmail || '',
-            senderName:  d.senderName  || 'Advert Radical',
+            senderName:  d.senderName  || 'HaloHelm',
             appPassword: d.appPassword || '',
             enabled:     d.enabled !== false,
           };
@@ -120,7 +120,7 @@ export default function SuperAdminEmail() {
     try {
       const payload = {
         senderEmail: form.senderEmail.trim(),
-        senderName:  form.senderName.trim() || 'Advert Radical',
+        senderName:  form.senderName.trim() || 'HaloHelm',
         appPassword: form.appPassword.replace(/\s/g, ''), // Google shows the password with spaces; Gmail SMTP rejects spaces
         enabled:     form.enabled !== false,
         updatedAt:   new Date().toISOString(),
@@ -321,7 +321,7 @@ export default function SuperAdminEmail() {
                   <input className="em-inp" style={inputStyle}
                     value={form.senderName}
                     onChange={e => setForm(f => ({ ...f, senderName: e.target.value }))}
-                    placeholder="Advert Radical" />
+                    placeholder="HaloHelm" />
                 </div>
 
                 <div style={{ marginBottom: 18 }}>

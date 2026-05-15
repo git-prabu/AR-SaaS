@@ -54,7 +54,7 @@ export default function SuperAdminDashboard() {
 
   return (
     <SuperAdminLayout>
-      <Head><title>Super Admin — Advert Radical</title></Head>
+      <Head><title>Super Admin — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -73,7 +73,7 @@ export default function SuperAdminDashboard() {
               Platform <span style={{ color: A.mutedText, fontWeight: 500 }}>Overview</span>
             </div>
             <div style={{ fontSize: 13, color: A.mutedText, marginTop: 4 }}>
-              Advert Radical · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              HaloHelm · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
           </div>
 
@@ -173,7 +173,7 @@ export default function SuperAdminDashboard() {
                       onMouseOut={e => e.currentTarget.style.color = A.ink}>
                       {r.name}
                     </Link>
-                    <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText }}>{r.subdomain}.advertradical.com</div>
+                    <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText }}>{r.subdomain}.HaloHelm.com</div>
                   </div>
                   <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, textTransform: 'capitalize', marginRight: 8 }}>{r.plan}</span>
                   <span style={{

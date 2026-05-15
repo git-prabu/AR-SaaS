@@ -55,7 +55,7 @@ export default function SuperAdminLogin() {
 
   return (
     <>
-      <Head><title>Super Admin — Advert Radical</title></Head>
+      <Head><title>Super Admin — HaloHelm</title></Head>
       <div style={{
         minHeight: '100vh', background: A.cream, fontFamily: A.font,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -113,7 +113,7 @@ export default function SuperAdminLogin() {
                 {/* Brand */}
                 <Link href="/" style={{ textDecoration: 'none' }}>
                   <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 20, color: A.forestText, letterSpacing: '-0.3px' }}>
-                    Advert <span style={{ color: A.warning, fontStyle: 'italic' }}>Radical</span>
+                    Halo<span style={{ color: A.warning, fontStyle: 'italic' }}>Helm</span>
                   </div>
                 </Link>
                 <div style={{ fontSize: 10, color: A.warning, marginTop: 6, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Super Admin Console</div>
@@ -155,7 +155,7 @@ export default function SuperAdminLogin() {
               <form onSubmit={handleSubmit}>
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Email</label>
-                  <input className="sa-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@advertradical.com" required />
+                  <input className="sa-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@HaloHelm.com" required />
                 </div>
                 <div style={{ marginBottom: 22 }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Password</label>

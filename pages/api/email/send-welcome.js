@@ -17,7 +17,7 @@ import { sendEmail, welcomeEmailTemplate } from '../../../lib/email';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
   || process.env.SITE_URL
-  || 'https://advertradical.vercel.app';
+  || 'https://HaloHelm.vercel.app';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
 
   const result = await sendEmail({
     to: user.email || decoded.email,
-    subject: `Welcome to Advert Radical, ${restaurant.name || 'your restaurant'}`,
+    subject: `Welcome to HaloHelm, ${restaurant.name || 'your restaurant'}`,
     html,
   });
 

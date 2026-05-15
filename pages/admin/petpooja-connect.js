@@ -190,7 +190,7 @@ export default function PetpoojaConnect() {
   const handleDisconnect = () => {
     setConfirmDialog({
       title: 'Disconnect Petpooja?',
-      body: 'Your menu, orders, and history stay in Advert Radical. We just stop pushing new orders to Petpooja and unlock menu editing on your Items page. You can reconnect anytime.',
+      body: 'Your menu, orders, and history stay in HaloHelm. We just stop pushing new orders to Petpooja and unlock menu editing on your Items page. You can reconnect anytime.',
       confirmLabel: 'Disconnect',
       cancelLabel: 'Keep connected',
       destructive: true,
@@ -229,7 +229,7 @@ export default function PetpoojaConnect() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, marginBottom: 6 }}>Pro plan required</div>
                 <div style={{ fontSize: 13.5, color: A.mutedText, lineHeight: 1.6, marginBottom: 18 }}>
-                  Petpooja hybrid integration is available on the <strong style={{ color: A.warningDim }}>Pro plan</strong>. Connect Petpooja to push your customer-facing orders straight into your existing POS — kitchen, billing, GST and aggregator integrations stay on Petpooja, the modern customer experience runs on Advert Radical.
+                  Petpooja hybrid integration is available on the <strong style={{ color: A.warningDim }}>Pro plan</strong>. Connect Petpooja to push your customer-facing orders straight into your existing POS — kitchen, billing, GST and aggregator integrations stay on Petpooja, the modern customer experience runs on HaloHelm.
                 </div>
                 <Link href="/admin/subscription" style={{ display: 'inline-block', padding: '10px 18px', borderRadius: 9, background: A.ink, color: A.shell, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
                   Upgrade to Pro
@@ -328,7 +328,7 @@ export default function PetpoojaConnect() {
         <div style={{ fontSize: 11, color: A.faintText, letterSpacing: '0.05em', marginBottom: 6 }}>Admin · Integrations</div>
         <h1 style={{ fontSize: 26, fontWeight: 600, color: A.ink, letterSpacing: '-0.4px', margin: '0 0 8px' }}>Connect Petpooja</h1>
         <div style={{ fontSize: 13.5, color: A.mutedText, lineHeight: 1.6, marginBottom: 24 }}>
-          Push customer-facing orders from Advert Radical straight into your Petpooja POS. Your kitchen, billing, GST and aggregator integrations keep working as-is. We pull your menu from Petpooja so you only edit it in one place.
+          Push customer-facing orders from HaloHelm straight into your Petpooja POS. Your kitchen, billing, GST and aggregator integrations keep working as-is. We pull your menu from Petpooja so you only edit it in one place.
         </div>
 
         <div style={{ background: A.shell, border: A.borderStrong, borderRadius: 12, padding: 24, marginBottom: 18, boxShadow: A.cardShadow }}>

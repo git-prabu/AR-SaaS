@@ -1556,7 +1556,7 @@ export default function WaiterDashboard() {
   if (isAdmin) {
     return (
       <AdminLayout>
-        <Head><title>Waiter Dashboard | Advert Radical</title></Head>
+        <Head><title>Waiter Dashboard | HaloHelm</title></Head>
         {body}
       </AdminLayout>
     );
@@ -1564,7 +1564,7 @@ export default function WaiterDashboard() {
 
   return (
     <>
-      <Head><title>Waiter Dashboard | Advert Radical</title></Head>
+      <Head><title>Waiter Dashboard | HaloHelm</title></Head>
       <div style={{
         background: A.shell, borderBottom: A.border,
         padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1572,8 +1572,8 @@ export default function WaiterDashboard() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontFamily: A.font, fontWeight: 800, fontSize: 15 }}>
-            <span style={{ color: A.ink }}>Advert </span>
-            <span style={{ color: A.warning }}>Radical</span>
+            <span style={{ color: A.ink }}>Halo</span>
+            <span style={{ color: A.warning, fontStyle: 'italic' }}>Helm</span>
           </div>
           <div style={{ width: 1, height: 18, background: 'rgba(0,0,0,0.10)' }} />
           <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 500 }}>{staffSession?.restaurantName}</div>

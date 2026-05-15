@@ -402,7 +402,7 @@ export default function AdminDayClose() {
 
               {/* Footer note (shows in print too) */}
               <div style={{ fontSize: 11, color: A.faintText, textAlign: 'center', marginTop: 18 }}>
-                Z-report · {new Date().toLocaleString('en-IN')} · Printed from Advert Radical admin
+                Z-report · {new Date().toLocaleString('en-IN')} · Printed from HaloHelm admin
               </div>
             </>
           )}

@@ -2,7 +2,7 @@
 // Phase H — Gateway webhook receiver. Each restaurant configures
 // this URL in their Paytm dashboard with their RID as a query param:
 //
-//   https://advertradical.vercel.app/api/payment/webhook?rid=<RID>
+//   https://HaloHelm.vercel.app/api/payment/webhook?rid=<RID>
 //
 // The webhook arrives as a server-to-server POST with a checksum.
 // We verify the checksum against the merchant key for `rid`, look up

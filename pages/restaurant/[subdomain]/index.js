@@ -2546,7 +2546,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       ${pmLabel ? `<div class="center" style="margin-top:4px;font-size:11px">Payment: ${pmLabel}</div>` : ''}
       ${rFssai ? `<div class="center" style="margin-top:6px;font-size:10px">FSSAI Lic. No. ${rFssai}</div>` : ''}
       <div class="center" style="margin-top:8px;font-size:10px">${rFooter}</div>
-      <div class="center" style="margin-top:4px;font-size:9px">Powered by Advert Radical</div>
+      <div class="center" style="margin-top:4px;font-size:9px">Powered by HaloHelm</div>
       <div class="actions">
         <button onclick="window.print()">Print</button>
         <button onclick="window.close()">Close</button>
@@ -3166,7 +3166,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             This restaurant's digital menu is currently not available. Please check back later or ask a staff member for assistance.
           </div>
         </div>
-        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>Powered by Advert Radical</div>
+        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>Powered by HaloHelm</div>
       </div>
     </div>
   );
@@ -3205,7 +3205,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             This restaurant's digital menu is currently unavailable. Please ask a staff member for the physical menu or contact the restaurant directly.
           </div>
         </div>
-        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>Powered by Advert Radical</div>
+        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(42,31,16,0.35)' }}>Powered by HaloHelm</div>
       </div>
     </div>
   );
@@ -3260,7 +3260,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             Please ask your waiter to activate this table so you can view the menu and place orders.
           </div>
         </div>
-        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,245,220,0.25)' }}>Powered by Advert Radical</div>
+        <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,245,220,0.25)' }}>Powered by HaloHelm</div>
       </div>
     </div>
   );

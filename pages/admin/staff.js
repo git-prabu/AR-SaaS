@@ -423,7 +423,7 @@ export default function StaffManagement() {
 
   return (
     <AdminLayout>
-      <Head><title>Staff Management — Advert Radical</title></Head>
+      <Head><title>Staff Management — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
@@ -486,7 +486,7 @@ export default function StaffManagement() {
                     {subdomain}
                   </span>
                   <span style={{ fontSize: 12, color: A.mutedText }}>
-                    Share with staff so they can sign in at <strong>{typeof window !== 'undefined' ? window.location.host : 'advertradical.vercel.app'}/staff/login</strong>
+                    Share with staff so they can sign in at <strong>{typeof window !== 'undefined' ? window.location.host : 'HaloHelm.vercel.app'}/staff/login</strong>
                   </span>
                 </div>
               </div>

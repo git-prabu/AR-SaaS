@@ -277,7 +277,7 @@ export default function Signup() {
   return (
     <>
       <Head>
-        <title>Start Your Free Trial | Advert Radical</title>
+        <title>Start Your Free Trial | HaloHelm</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet" />
       </Head>
@@ -289,8 +289,8 @@ export default function Signup() {
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <Link href="/" style={{ textDecoration: 'none' }}>
               <span style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 900, fontSize: 22 }}>
-                <span style={{ color: '#FFF5E8' }}>Advert </span>
-                <span style={{ color: '#F79B3D' }}>Radical</span>
+                <span style={{ color: '#FFF5E8' }}>Halo</span>
+                <span style={{ color: '#F79B3D', fontStyle: 'italic' }}>Helm</span>
               </span>
             </Link>
           </div>
@@ -478,7 +478,7 @@ export default function Signup() {
                 <div style={{ marginBottom: 14 }}>
                   <label style={labelStyle}>Your Menu URL</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(255,255,255,0.06)', border: '1.5px solid rgba(255,245,232,0.1)', borderRadius: 12, overflow: 'hidden' }}>
-                    <div style={{ padding: '13px 0 13px 14px', fontSize: 13, color: 'rgba(255,245,232,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}>advertradical.com/restaurant/</div>
+                    <div style={{ padding: '13px 0 13px 14px', fontSize: 13, color: 'rgba(255,245,232,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}>HaloHelm.com/restaurant/</div>
                     <input
                       value={subdomain}
                       onChange={e => { setSubdomain(slugify(e.target.value)); setSubdomainEdited(true); }}

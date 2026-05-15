@@ -295,7 +295,7 @@ export default function Pitch() {
   if (!authed) return (
     <>
       <Head>
-        <title>Advert Radical · Partner Brief</title>
+        <title>HaloHelm · Partner Brief</title>
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
         <meta name="robots" content="noindex,nofollow" />
       </Head>
@@ -337,7 +337,7 @@ export default function Pitch() {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.brass, boxShadow: `0 0 8px ${C.brass}` }} />
           <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 'clamp(11px,1vw,13px)', letterSpacing: '0.28em', color: C.brass, textTransform: 'uppercase' }}>
-            Advert Radical · AR + AI Revenue Platform
+            HaloHelm · AR + AI Revenue Platform
           </span>
         </div>
         <h1 style={{ ...headlineStyle, fontSize: 'clamp(72px,10vw,140px)', color: C.bone, marginBottom: 8 }}>
@@ -765,7 +765,7 @@ export default function Pitch() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ width: 58, height: 58, borderRadius: 14, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>🍽️</div>
-                  <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 12, letterSpacing: '0.10em', color: C.bone }}>ADVERT RADICAL</div>
+                  <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 12, letterSpacing: '0.10em', color: C.bone }}>HaloHelm</div>
                 </div>
                 <div style={{ flex: 0.6, position: 'relative', height: 30 }}>
                   <div style={{ position: 'absolute', top: 6, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,${C.primary},${C.brass})` }} />
@@ -979,20 +979,20 @@ export default function Pitch() {
           <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" style={{ padding: '16px 36px', borderRadius: 12, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block', boxShadow: `0 8px 32px rgba(200,85,60,0.40)` }}>
             BOOK A DEMO →
           </a>
-          <a href="mailto:hello@advertradical.com" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.borderHi}`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
+          <a href="mailto:hello@HaloHelm.com" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.borderHi}`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
             EMAIL US
           </a>
-          <a href="https://advertradical.vercel.app/restaurant/spot" target="_blank" rel="noreferrer" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.border}`, color: C.dim, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
+          <a href="https://HaloHelm.vercel.app/restaurant/spot" target="_blank" rel="noreferrer" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.border}`, color: C.dim, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
             SEE LIVE DEMO
           </a>
         </div>
 
         <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.dimmer, lineHeight: 1.7, fontWeight: 400 }}>
-          <div>Prabu · Founder, Advert Radical · Chennai</div>
+          <div>Prabu · Founder, HaloHelm · Chennai</div>
           <div style={{ marginTop: 4, fontFamily: 'JetBrains Mono,monospace', fontSize: 12 }}>
             <a href="tel:+919876543210" style={{ color: C.dim }}>+91 98765 43210</a>
             &nbsp;·&nbsp;
-            <a href="mailto:hello@advertradical.com" style={{ color: C.dim }}>hello@advertradical.com</a>
+            <a href="mailto:hello@HaloHelm.com" style={{ color: C.dim }}>hello@HaloHelm.com</a>
           </div>
         </div>
       </div>
@@ -1013,7 +1013,7 @@ export default function Pitch() {
   return (
     <>
       <Head>
-        <title>Advert Radical · Partner Brief</title>
+        <title>HaloHelm · Partner Brief</title>
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
         <meta name="robots" content="noindex,nofollow" />
       </Head>

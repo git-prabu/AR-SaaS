@@ -1,4 +1,4 @@
-# Advert Radical 🥗
+# HaloHelm 🥗
 
 **AR-Based Multi-Tenant Restaurant SaaS Platform**
 
@@ -51,13 +51,13 @@ firebase deploy --only firestore:rules
 ### 4. Create Super Admin Account
 
 In Firebase Console → Authentication → Add User:
-- Email: `admin@advertradical.com`
+- Email: `admin@HaloHelm.com`
 - Password: (your choice)
 
 Then in Firestore → `users` collection → Add document with ID = `{uid}`:
 ```json
 {
-  "email": "admin@advertradical.com",
+  "email": "admin@HaloHelm.com",
   "role": "superadmin",
   "createdAt": "<timestamp>"
 }
@@ -119,9 +119,9 @@ advert-radical/
 
 ## How Subdomain Routing Works
 
-1. DNS wildcard: `*.advertradical.com → your hosting IP`
+1. DNS wildcard: `*.HaloHelm.com → your hosting IP`
 2. Next.js `middleware.js` intercepts every request
-3. Extracts subdomain from hostname (e.g., `spot` from `spot.advertradical.com`)
+3. Extracts subdomain from hostname (e.g., `spot` from `spot.HaloHelm.com`)
 4. Rewrites the URL to `/restaurant/spot` internally
 5. The menu page fetches the restaurant by subdomain from Firestore
 
@@ -136,7 +136,7 @@ http://localhost:3000?sub=spot
 
 ### Customer
 1. Scan QR code at restaurant
-2. Opens `restaurantname.advertradical.com`
+2. Opens `restaurantname.HaloHelm.com`
 3. Browse menu by category
 4. Tap item → see nutrition + ingredients
 5. Tap "View in AR" → camera opens → place food in real world
@@ -176,12 +176,12 @@ npm i -g vercel
 vercel
 
 # Set environment variables in Vercel dashboard
-# Configure wildcard domain: *.advertradical.com
+# Configure wildcard domain: *.HaloHelm.com
 ```
 
 **Vercel Domain Setup:**
-1. Add `advertradical.com` to your Vercel project
-2. Add wildcard: `*.advertradical.com`
+1. Add `HaloHelm.com` to your Vercel project
+2. Add wildcard: `*.HaloHelm.com`
 3. Update DNS at your domain registrar with Vercel's nameservers
 
 ---
@@ -209,4 +209,4 @@ vercel
 
 ## License
 
-Private — Advert Radical © 2024
+Private — HaloHelm © 2024

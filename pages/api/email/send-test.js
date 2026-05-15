@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const html = testEmailTemplate({ recipientLabel: to });
   const result = await sendEmail({
     to,
-    subject: 'Advert Radical — email test',
+    subject: 'HaloHelm — email test',
     html,
   });
 

@@ -323,7 +323,7 @@ export default function AdminSettings() {
   // ═════════════════════════════════════════════════════════════════════
   return (
     <AdminLayout>
-      <Head><title>Settings — Advert Radical</title></Head>
+      <Head><title>Settings — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font, paddingBottom: isDirty ? 80 : 0 }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
@@ -749,7 +749,7 @@ export default function AdminSettings() {
                       </div>
                     )}
                     <div style={{ textAlign: 'center', fontSize: 10, marginTop: 8 }}>{billPreview.footer}</div>
-                    <div style={{ textAlign: 'center', fontSize: 9, marginTop: 4, color: '#777' }}>Powered by Advert Radical</div>
+                    <div style={{ textAlign: 'center', fontSize: 9, marginTop: 4, color: '#777' }}>Powered by HaloHelm</div>
                   </div>
 
                   <div style={{ fontSize: 11, color: A.faintText, marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>

@@ -417,7 +417,7 @@ export default function AdminReports() {
 
   return (
     <AdminLayout>
-      <Head><title>Revenue Reports — Advert Radical</title></Head>
+      <Head><title>Revenue Reports — HaloHelm</title></Head>
       <div className="print-page" style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin{to{transform:rotate(360deg)}}
@@ -453,7 +453,7 @@ export default function AdminReports() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontFamily: A.font }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#000' }}>Revenue Report</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#000', marginTop: 2 }}>Advert Radical</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#000', marginTop: 2 }}>HaloHelm</div>
               <div style={{ fontSize: 11, color: '#333', marginTop: 3 }}>Period: {periodLabel}</div>
             </div>
             <div style={{ textAlign: 'right', fontSize: 10, color: '#333' }}>

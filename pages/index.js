@@ -206,8 +206,8 @@ export default function HomePage() {
   return (
     <>
       <Head>
-        <title>Advert Radical — AR Menus for Restaurants</title>
-        <meta name="description" content="Give your restaurant an AR-powered menu. Customers scan, see food in 3D, and order more."/>
+        <title>HaloHelm — Your restaurant. At the helm.</title>
+        <meta name="description" content="HaloHelm — your restaurant, at the helm. AR-powered menus that let customers see your food in 3D and order more. No app. No friction."/>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
       </Head>
 
@@ -997,7 +997,7 @@ export default function HomePage() {
         {/* ══ NAV ══ */}
         <nav className="nav">
           <span style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:17, color:'var(--nav-logo)', letterSpacing:'-0.01em'}}>
-            Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
+            Halo<span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Helm</span>
           </span>
           <div style={{display:'flex', alignItems:'center', gap:2}}>
             <a href="#how"      className="nav-link nl-hide">How it works</a>
@@ -1055,7 +1055,7 @@ export default function HomePage() {
                     </div>
                     <div>
                       <div style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:14, color:'#FFF5E8', lineHeight:1}}>500+ restaurants</div>
-                      <div style={{fontSize:12, color:'rgba(255,245,220,0.42)', marginTop:3}}>already growing with Advert Radical</div>
+                      <div style={{fontSize:12, color:'rgba(255,245,220,0.42)', marginTop:3}}>already growing with HaloHelm</div>
                     </div>
                   </div>
                   {/* Scroll nudge */}
@@ -1548,7 +1548,7 @@ export default function HomePage() {
                   <div style={{background:'#1A1208', padding:'14px 20px', display:'flex', alignItems:'center', gap:8}}>
                     {['#FF5F57','#FEBC2E','#28C840'].map(c=><div key={c} style={{width:11,height:11,borderRadius:'50%',background:c}}/>)}
                     <div style={{flex:1}}/>
-                    <div style={{fontSize:10, fontWeight:600, color:'rgba(255,245,220,0.35)', letterSpacing:'0.04em'}}>Advert Radical Dashboard</div>
+                    <div style={{fontSize:10, fontWeight:600, color:'rgba(255,245,220,0.35)', letterSpacing:'0.04em'}}>HaloHelm Dashboard</div>
                   </div>
                   <div style={{padding:22}}>
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:18}}>
@@ -1744,10 +1744,10 @@ export default function HomePage() {
               </p>
               <div style={{display:'flex', justifyContent:'center', gap:12, flexWrap:'wrap', marginBottom:48}}>
                 <Link href="/signup?plan=growth"><button className="btn-amber" style={{fontSize:16, padding:'16px 36px'}}>Start free trial →</button></Link>
-                <a href="mailto:hello@advertradical.com"><button className="btn-ghost" style={{fontSize:16, padding:'16px 28px'}}>Talk to us</button></a>
+                <a href="mailto:hello@HaloHelm.com"><button className="btn-ghost" style={{fontSize:16, padding:'16px 28px'}}>Talk to us</button></a>
               </div>
               <div style={{display:'flex', justifyContent:'center', gap:32, flexWrap:'wrap'}}>
-                {[{icon:'✉️',label:'hello@advertradical.com',href:'mailto:hello@advertradical.com'},{icon:'📞',label:'+91 98765 43210',href:'tel:+919876543210'}].map(c=>(
+                {[{icon:'✉️',label:'hello@HaloHelm.com',href:'mailto:hello@HaloHelm.com'},{icon:'📞',label:'+91 98765 43210',href:'tel:+919876543210'}].map(c=>(
                   <a key={c.href} href={c.href} style={{display:'flex', alignItems:'center', gap:8, fontSize:14, color:'rgba(255,245,220,0.45)', fontWeight:500}}
                     onMouseOver={e=>e.currentTarget.style.color='rgba(255,245,220,0.8)'}
                     onMouseOut={e=>e.currentTarget.style.color='rgba(255,245,220,0.45)'}>
@@ -1763,9 +1763,9 @@ export default function HomePage() {
         <footer style={{background:'#0C0A08', borderTop:'1px solid rgba(255,245,220,0.07)', padding:'24px 56px'}}>
           <div style={{maxWidth:1400, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:16}}>
             <span style={{fontFamily:'Poppins,sans-serif', fontWeight:800, fontSize:15, color:'#FFF5E8'}}>
-              Advert <span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Radical</span>
+              Halo<span style={{background:'linear-gradient(135deg,#E05A3A,#F79B3D)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>Helm</span>
             </span>
-            <span style={{fontSize:13, color:'rgba(255,245,220,0.25)'}}>© {new Date().getFullYear()} Advert Radical. All rights reserved.</span>
+            <span style={{fontSize:13, color:'rgba(255,245,220,0.25)'}}>© {new Date().getFullYear()} HaloHelm. All rights reserved.</span>
             <div style={{display:'flex', gap:24, alignItems:'center'}}>
               {['Privacy','Terms'].map(l=>(
                 <a key={l} href="#" style={{fontSize:13, color:'rgba(255,245,220,0.3)'}}

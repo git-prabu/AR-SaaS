@@ -126,7 +126,7 @@ export default function SuperAdminLayout({ children }) {
         <div style={{ padding: '20px 22px 18px', borderBottom: A.border }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
             <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 18, color: A.ink, letterSpacing: '-0.3px' }}>
-              Advert <span style={{ color: A.warning, fontStyle: 'italic' }}>Radical</span>
+              Halo<span style={{ color: A.warning, fontStyle: 'italic' }}>Helm</span>
             </div>
           </Link>
           <div style={{ fontSize: 10, color: A.faintText, marginTop: 5, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase' }}>Super Admin</div>
@@ -174,7 +174,7 @@ export default function SuperAdminLayout({ children }) {
           fontSize: 16, color: A.ink, fontFamily: A.font,
         }}>☰</button>
         <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 14, color: A.ink }}>
-          Advert <span style={{ color: A.warning, fontStyle: 'italic' }}>Radical</span>
+          Halo<span style={{ color: A.warning, fontStyle: 'italic' }}>Helm</span>
         </div>
         <span style={{ width: 36 }} />
       </div>

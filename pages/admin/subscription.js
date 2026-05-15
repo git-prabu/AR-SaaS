@@ -113,7 +113,7 @@ export default function AdminSubscription() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: plan.priceInPaise,
         currency: 'INR',
-        name: 'Advert Radical',
+        name: 'HaloHelm',
         description: `${plan.name} Plan — monthly`,
         order_id: data.orderId,
         handler: async (response) => {
@@ -209,7 +209,7 @@ export default function AdminSubscription() {
   return (
     <AdminLayout>
       <Head>
-        <title>Subscription — Advert Radical</title>
+        <title>Subscription — HaloHelm</title>
         <script src="https://checkout.razorpay.com/v1/checkout.js" />
       </Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
@@ -611,7 +611,7 @@ export default function AdminSubscription() {
                 }}>
                   <span style={{ fontSize: 14, lineHeight: 1 }}>ℹ</span>
                   <span>
-                    Need a custom plan or annual billing? Email <strong style={{ color: A.ink }}>support@advertradical.com</strong>. Plans renew automatically; you can change anytime.
+                    Need a custom plan or annual billing? Email <strong style={{ color: A.ink }}>support@HaloHelm.com</strong>. Plans renew automatically; you can change anytime.
                   </span>
                 </div>
               </div>

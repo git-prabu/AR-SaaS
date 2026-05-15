@@ -127,7 +127,7 @@ export default function QrRedirectPage({ restaurantName, table, blocked, reason 
             </div>
           </div>
           <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,245,220,0.25)' }}>
-            Powered by Advert Radical
+            Powered by HaloHelm
           </div>
         </div>
       </div>

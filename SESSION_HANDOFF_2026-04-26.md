@@ -1,4 +1,4 @@
-# Advert Radical — Session Handoff (2026-04-26)
+# HaloHelm — Session Handoff (2026-04-26)
 
 This is a fresh handoff doc for the **second** Claude session that worked
 on the project (the first session's handoff is `CHAT_CONTEXT.md`).
@@ -15,7 +15,7 @@ foundational context — read both.
 
 - **Project root:** `C:\Users\Prabu D\OneDrive\Desktop\advert-radical-v6\advert-radical\`
 - **Repo:** https://github.com/git-prabu/AR-SaaS
-- **Live:** https://ar-saa-s-kbzn.vercel.app  →  https://advertradical.vercel.app
+- **Live:** https://ar-saa-s-kbzn.vercel.app  →  https://HaloHelm.vercel.app
 - **Current branch:** `main` (also `claude/nostalgic-black-40e297` is the active feature branch — both at same HEAD)
 - **Latest commit:** `89ed728` — "Fix waiter History day grouping + analytics chart snap on period change"
 - **Rollback anchor:** tag `v0.9-stable` at commit `57b1f84` (still valid)
@@ -162,7 +162,7 @@ Prabu authorized me to **sign up a test restaurant on production** (he has 14-da
 - 1 code TODO in `pages/api/coupons/validate.js` — coupon `usedCount` increment should move from client to server. Small (~30 min).
 - v1.0 prep notes from §15 of `CHAT_CONTEXT.md`:
   - Razorpay subscription button still has placeholder env vars on Vercel (Prabu hasn't signed up for Razorpay yet)
-  - `NEXT_PUBLIC_BASE_DOMAIN` is `advertradical.com` but the domain isn't purchased yet
+  - `NEXT_PUBLIC_BASE_DOMAIN` is `HaloHelm.com` but the domain isn't purchased yet
   - `planExpiresAt` enforcement is lazy (intentional for v1.0)
 
 ---

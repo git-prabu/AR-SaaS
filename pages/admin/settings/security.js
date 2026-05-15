@@ -242,7 +242,7 @@ export default function SecuritySettings() {
 
   return (
     <>
-      <Head><title>Security — Advert Radical</title></Head>
+      <Head><title>Security — HaloHelm</title></Head>
       <AdminLayout>
         <div style={{ padding: '32px 28px', maxWidth: 720, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
 

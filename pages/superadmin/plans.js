@@ -198,7 +198,7 @@ export default function SuperAdminPlans() {
 
   return (
     <SuperAdminLayout>
-      <Head><title>Plan Manager — Advert Radical</title></Head>
+      <Head><title>Plan Manager — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
@@ -313,7 +313,7 @@ export default function SuperAdminPlans() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div>
                       <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 14, color: A.ink }}>{r.name}</div>
-                      <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, marginTop: 2 }}>{r.subdomain}.advertradical.com</div>
+                      <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, marginTop: 2 }}>{r.subdomain}.HaloHelm.com</div>
                     </div>
                   </div>
                   <span style={{

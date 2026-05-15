@@ -488,7 +488,7 @@ export default function NotificationsPage() {
 
   return (
     <AdminLayout>
-      <Head><title>Live Activity — Advert Radical</title></Head>
+      <Head><title>Live Activity — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }

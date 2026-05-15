@@ -330,7 +330,7 @@ export default function AdminLayout({ children }) {
           ☰
         </button>
         <div style={{ fontFamily: INTER, fontWeight: 600, fontSize: 17, color: A_INK, letterSpacing: '-0.3px' }}>
-          Advert <span style={{ color: A_GOLD, fontStyle: 'italic', fontWeight: 500 }}>Radical</span>
+          Halo<span style={{ color: A_GOLD, fontStyle: 'italic', fontWeight: 500 }}>Helm</span>
         </div>
       </div>
 
@@ -351,7 +351,7 @@ export default function AdminLayout({ children }) {
         <div style={{ padding: '24px 22px 20px' }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
             <div style={{ fontFamily: INTER, fontWeight: 600, fontSize: 20, color: A_INK, letterSpacing: '-0.4px', lineHeight: 1.1 }}>
-              Advert <span style={{ color: A_GOLD, fontStyle: 'italic', fontWeight: 500 }}>Radical</span>
+              Halo<span style={{ color: A_GOLD, fontStyle: 'italic', fontWeight: 500 }}>Helm</span>
             </div>
           </Link>
           <div style={{ fontFamily: INTER, fontSize: 9, color: A_FAINT, marginTop: 6, fontWeight: 600, letterSpacing: '2.5px', textTransform: 'uppercase' }}>

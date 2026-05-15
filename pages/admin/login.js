@@ -186,7 +186,7 @@ export default function AdminLogin() {
   return (
     <>
       <Head>
-        <title>Sign In — Advert Radical</title>
+        <title>Sign In — HaloHelm</title>
       </Head>
 
       <div style={{ minHeight: '100vh', background: A.cream, fontFamily: A.font, color: A.ink, display: 'flex' }}>
@@ -222,7 +222,7 @@ export default function AdminLogin() {
         }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
             <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 22, color: A.ink, letterSpacing: '-0.4px' }}>
-              Advert <span style={{ color: A.warning, fontStyle: 'italic', fontWeight: 500 }}>Radical</span>
+              Halo<span style={{ color: A.warning, fontStyle: 'italic', fontWeight: 500 }}>Helm</span>
             </div>
           </Link>
 
@@ -309,7 +309,7 @@ export default function AdminLogin() {
             <div className="login-mobile-brand">
               <Link href="/" style={{ textDecoration: 'none' }}>
                 <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 20, color: A.ink, letterSpacing: '-0.4px', marginBottom: 32 }}>
-                  Advert <span style={{ color: A.warning, fontStyle: 'italic', fontWeight: 500 }}>Radical</span>
+                  Halo<span style={{ color: A.warning, fontStyle: 'italic', fontWeight: 500 }}>Helm</span>
                 </div>
               </Link>
             </div>

@@ -106,7 +106,7 @@ export default function StaffLogin() {
   return (
     <>
       <Head>
-        <title>Staff Sign In — Advert Radical</title>
+        <title>Staff Sign In — HaloHelm</title>
       </Head>
 
       <div style={{ minHeight: '100vh', background: A.cream, fontFamily: A.font, color: A.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
@@ -122,7 +122,7 @@ export default function StaffLogin() {
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <Link href="/" style={{ textDecoration: 'none' }}>
               <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 22, color: A.ink, letterSpacing: '-0.4px' }}>
-                Advert <span style={{ color: A.warning, fontStyle: 'italic', fontWeight: 500 }}>Radical</span>
+                Halo<span style={{ color: A.warning, fontStyle: 'italic', fontWeight: 500 }}>Helm</span>
               </div>
             </Link>
             <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 10 }}>

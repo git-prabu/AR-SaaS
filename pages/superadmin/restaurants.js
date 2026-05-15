@@ -187,7 +187,7 @@ export default function SuperAdminRestaurants() {
                     <label style={labelStyle}>Subdomain *</label>
                     <div style={{ position: 'relative' }}>
                       <input className="sa-inp" style={{ ...inputStyle, paddingRight: 140 }} value={form.subdomain} onChange={e => setForm(f => ({ ...f, subdomain: e.target.value.toLowerCase() }))} placeholder="spot" required />
-                      <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: A.faintText, pointerEvents: 'none' }}>.advertradical.com</span>
+                      <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: A.faintText, pointerEvents: 'none' }}>.HaloHelm.com</span>
                     </div>
                   </div>
                   <div>

@@ -391,7 +391,7 @@ export default function AdminOrders() {
 
   return (
     <AdminLayout>
-      <Head><title>Orders — Advert Radical</title></Head>
+      <Head><title>Orders — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
           <style>{`
             @keyframes spin    { to { transform: rotate(360deg); } }

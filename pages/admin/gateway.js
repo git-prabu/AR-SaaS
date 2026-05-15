@@ -113,7 +113,7 @@ export default function AdminGatewayPage() {
 
   return (
     <AdminLayout>
-      <Head><title>Payment Gateway | Advert Radical</title></Head>
+      <Head><title>Payment Gateway | HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font, padding: '24px 28px' }}>
         <div style={{ maxWidth: 720 }}>
           <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em' }}>

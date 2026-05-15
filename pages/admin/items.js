@@ -981,7 +981,7 @@ export default function AdminItems() {
 
   return (
     <AdminLayout>
-      <Head><title>Menu Items | Advert Radical</title></Head>
+      <Head><title>Menu Items | HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }

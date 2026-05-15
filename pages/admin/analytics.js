@@ -896,7 +896,7 @@ export default function AdminAnalytics() {
 
   return (
     <AdminLayout>
-      <Head><title>Analytics — Advert Radical</title></Head>
+      <Head><title>Analytics — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin{to{transform:rotate(360deg)}}

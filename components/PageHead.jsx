@@ -1,6 +1,6 @@
 // components/PageHead.jsx
 // Tiny wrapper around next/head that enforces a single, consistent page-title
-// format: "PageName — Advert Radical". Replaces a bunch of ad-hoc <Head><title>
+// format: "PageName — HaloHelm". Replaces a bunch of ad-hoc <Head><title>
 // declarations that had drifted between em-dash (—) and pipe (|) separators.
 //
 // Usage:
@@ -13,7 +13,7 @@
 //   </PageHead>
 import Head from 'next/head';
 
-const BRAND = 'Advert Radical';
+const BRAND = 'HaloHelm';
 const SEPARATOR = '—';  // em-dash, not pipe. Single source for titles.
 
 export default function PageHead({ title, children }) {

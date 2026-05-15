@@ -8,14 +8,14 @@ export const config = {
 export function middleware(req) {
   const url       = req.nextUrl.clone();
   const hostname  = req.headers.get('host') || '';
-  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'advertradical.com';
+  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'HaloHelm.com';
 
   // Strip port for local dev
   const cleanHost = hostname.replace(':3000', '').replace(':3001', '');
 
   // Detect subdomain
-  // e.g. "spot.advertradical.com" → subdomain = "spot"
-  // "advertradical.com" or "www.advertradical.com" → no subdomain
+  // e.g. "spot.HaloHelm.com" → subdomain = "spot"
+  // "HaloHelm.com" or "www.HaloHelm.com" → no subdomain
   const isLocalhost = cleanHost === 'localhost' || cleanHost === '127.0.0.1';
 
   let subdomain = null;
