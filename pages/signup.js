@@ -6,6 +6,8 @@ import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut as fbSignOut,
 } from 'firebase/auth';
@@ -77,48 +79,79 @@ export default function Signup() {
   }, [subdomain]);
 
   // ── Google sign-up ─────────────────────────────────────────────────
-  // Pop a Google chooser, then either:
-  //   (a) bounce them to /admin if they ALREADY have a restaurant doc, or
-  //   (b) keep them signed in and reveal the restaurant-info form (name,
-  //       subdomain, phone, city) so we can finish the restaurant + user
-  //       doc creation. We sign them out on cancel/error so a half-finished
-  //       attempt doesn't leave a stranded auth session.
+  // Helper: handle a freshly-authed Google user. Either bounce to /admin if
+  // they already have a restaurant doc, or pre-fill the form so they can
+  // finish the restaurant info collection.
+  const handleGoogleResult = async (fbUser) => {
+    const existing = await getUserData(fbUser.uid);
+    if (existing && existing.role === 'restaurant' && existing.restaurantId) {
+      toast.success('Welcome back!');
+      router.push('/admin');
+      return;
+    }
+    // First time — pre-fill what Google gave us, reveal restaurant fields.
+    setGoogleUser(fbUser);
+    setOwnerName(fbUser.displayName || '');
+    setEmail(fbUser.email || '');
+  };
+
+  // Try popup first; fall back to a full-page redirect if the browser
+  // blocks the popup (common in iframes / embedded webviews / strict
+  // popup blockers). The redirect result is picked up by the useEffect
+  // below on the next page load.
   const handleGoogleSignup = async () => {
     setError('');
     setGoogleBusy(true);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(adminAuth, provider);
-      const fbUser = result.user;
-
-      // Already a restaurant? Skip straight to /admin.
-      const existing = await getUserData(fbUser.uid);
-      if (existing && existing.role === 'restaurant' && existing.restaurantId) {
-        toast.success('Welcome back!');
-        router.push('/admin');
-        return;
-      }
-
-      // First time — pre-fill what Google gave us, reveal restaurant fields.
-      setGoogleUser(fbUser);
-      setOwnerName(fbUser.displayName || '');
-      setEmail(fbUser.email || '');
+      await handleGoogleResult(result.user);
     } catch (err) {
-      console.error('Google signup error:', err);
-      // Sign out so the partially-authed session doesn't persist.
-      try { await fbSignOut(adminAuth); } catch {}
+      console.error('Google signup (popup) error:', err);
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
-        // User just dismissed the popup — silent, no error banner.
-      } else if (err.code === 'auth/popup-blocked') {
-        setError('Browser blocked the Google popup. Please allow popups and try again.');
+        setGoogleBusy(false);
+      } else if (err.code === 'auth/popup-blocked' || err.code === 'auth/web-storage-unsupported') {
+        toast('Opening Google sign-in…');
+        try {
+          await signInWithRedirect(adminAuth, provider);
+          // Page navigates away — no further code runs here.
+        } catch (redirErr) {
+          console.error('Google signup (redirect) error:', redirErr);
+          setError('Google sign-up failed. Please try again.');
+          setGoogleBusy(false);
+        }
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Google sign-in is not enabled. Please contact support.');
+        setGoogleBusy(false);
       } else {
         setError(err.message || 'Google sign-up failed. Please try again.');
+        setGoogleBusy(false);
       }
-    } finally {
-      setGoogleBusy(false);
     }
   };
+
+  // After a redirect-based Google sign-up, Firebase persists the result so
+  // calling getRedirectResult() on the page that loads after the redirect
+  // returns the user. Returns null on normal page loads (no-op).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getRedirectResult(adminAuth);
+        if (cancelled || !result) return;
+        setGoogleBusy(true);
+        await handleGoogleResult(result.user);
+      } catch (err) {
+        console.error('getRedirectResult error:', err);
+        if (!cancelled) setError('Google sign-up did not complete.');
+      } finally {
+        if (!cancelled) setGoogleBusy(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
