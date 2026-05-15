@@ -14,6 +14,7 @@ import { collection, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { signOut } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import DateRangePicker from '../../components/DateRangePicker';
+import NewOrderModal from '../../components/NewOrderModal';
 
 // ═══ Aspire palette — same tokens as analytics/reports/orders/kitchen ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -116,6 +117,11 @@ export default function WaiterDashboard() {
   const [historySearch, setHistorySearch] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabledState] = useState(false);
+  // Walk-in / takeaway order entry modal — opens when waiter taps the
+  // "+ New Order" button. Lets staff punch in orders for diners who
+  // don't want to scan the QR (or don't have a phone handy) without
+  // leaving the live action queue.
+  const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [tick, setTick] = useState(0);
   // Phase C.2 — cash payment confirmation modal
   // When the waiter taps "Mark Paid" on a cash_requested order, we ask
@@ -664,6 +670,25 @@ export default function WaiterDashboard() {
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start' }}>
+            {/* + New Order — primary action. Opens the walk-in / takeaway
+                order entry modal so the waiter can take an order on
+                behalf of a customer (elderly diner without a phone, a
+                walk-in who hasn't scanned the QR yet, a takeaway counter
+                customer, etc.) WITHOUT leaving the action queue. */}
+            <button
+              onClick={() => setNewOrderOpen(true)}
+              title="Take a walk-in or takeaway order"
+              style={{
+                padding: '8px 14px', borderRadius: 10, border: 'none',
+                background: A.ink, color: A.cream,
+                fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                marginRight: 4,
+              }}>
+              <span style={{ fontSize: 15, lineHeight: 1, fontWeight: 700 }}>+</span>
+              New Order
+            </button>
+
             {/* Sound toggle — also unlocks the AudioContext on first tap so
                 subsequent automatic plays aren't blocked by autoplay policy. */}
             <button className="waiter-icon-btn"
@@ -1305,6 +1330,26 @@ export default function WaiterDashboard() {
           </div>
         );
       })()}
+
+      {/* New-order modal — fixed-position overlay; rendered inside body
+          so it appears whether the page is in the admin AdminLayout
+          wrap OR the bare staff/tablet wrap. The modal pulls menu +
+          tax config off `rid`, which is already resolved above for
+          either auth (admin: userData.restaurantId, staff:
+          staffSession.restaurantId). actorLabel feeds the order's
+          sessionId for the audit trail. */}
+      {newOrderOpen && (
+        <NewOrderModal
+          rid={rid}
+          actorLabel={
+            isAdmin
+              ? `captain:${userData?.email || 'admin'}`
+              : `captain:staff:${staffSession?.username || staffSession?.staffId || 'staff'}`
+          }
+          onClose={() => setNewOrderOpen(false)}
+          onPlaced={() => setNewOrderOpen(false)}
+        />
+      )}
     </div>
   );
 
