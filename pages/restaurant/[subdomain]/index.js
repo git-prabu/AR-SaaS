@@ -1168,6 +1168,19 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // qrPayload holds the data-URL PNG; qrFor labels the modal heading.
   const [qrPayload, setQrPayload] = useState(null);   // dataURL string or null
   const [qrFor, setQrFor]         = useState(null);   // { app, amount, vpa }
+  // Auto-confirm fallback: when auto-confirm UPI is active we don't show
+  // a trust button — instead we wait for the webhook to flip the order
+  // paid_online. After 30 seconds we show a manual-confirm fallback in
+  // case the webhook didn't land (provider downtime, customer paid from
+  // an unrelated VPA, etc.). Reset whenever a new UPI flow starts.
+  const [showManualFallback, setShowManualFallback] = useState(false);
+  useEffect(() => {
+    if (qrPayload || upiOpened) {
+      setShowManualFallback(false);
+      const t = setTimeout(() => setShowManualFallback(true), 30000);
+      return () => clearTimeout(t);
+    }
+  }, [qrPayload, upiOpened]);
   // Detected at first render — Touch capability + UA = good enough proxy
   // for "this device probably has UPI apps". Desktop = no touch / no
   // mobile UA → we steer to QR.
@@ -8101,6 +8114,17 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   const gatewayActive = !!(liveRestaurant?.gatewayActive
                     && liveRestaurant?.gatewayProvider
                     && liveRestaurant?.gatewayProvider !== 'none');
+                  // Auto-confirm UPI is on when the restaurant has wired
+                  // up a merchant webhook (Paytm Business / PhonePe Business
+                  // / Razorpay Smart Collect). When ON we DON'T show the
+                  // trust-based "I've paid" button — the webhook flips
+                  // the order paid_online and the bill view auto-flips to
+                  // "Payment Confirmed" via the existing Firestore listener.
+                  // The customer sees a "Waiting for payment confirmation…"
+                  // spinner instead, with a 30s fallback to manual confirm.
+                  const autoConfirmActive = !!(liveRestaurant?.autoConfirmActive
+                    && liveRestaurant?.autoConfirmProvider
+                    && liveRestaurant?.autoConfirmProvider !== 'none');
                   const upiAvailable = !!(restaurant?.upiId || gatewayActive);
 
                   // Deep-link scheme per UPI app. Most Indian UPI apps
@@ -8237,32 +8261,91 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             Amount: ₹{bill.total} · via {APP_NAME[upiApp] || 'UPI'}
                           </div>
                         </div>
-                        <button
-                          className="pay-cta"
-                          onClick={async () => {
-                            if (!restaurant?.id || !bill?.orderIds?.length) return;
-                            try {
-                              // Settle every unpaid order in the session —
-                              // same reasoning as the Cash/Card path. One
-                              // UPI payment should cover all the customer's
-                              // open orders.
-                              const PAID = new Set(['paid_cash','paid_card','paid_online','paid']);
-                              const REQ  = new Set(['cash_requested','card_requested','online_requested']);
-                              const sessionUnpaid = sessionOrders
-                                .filter(o => !PAID.has(o.paymentStatus) && !REQ.has(o.paymentStatus))
-                                .map(o => o.orderId);
-                              const allTargets = Array.from(new Set([...(bill.orderIds || []), ...sessionUnpaid]));
-                              await updatePaymentStatusBatch(restaurant.id, allTargets, 'online_requested');
-                              setPaymentDone(true);
-                              setUpiOpened(false);
-                              try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: allTargets })); } catch {}
-                            } catch (e) {
-                              console.error('[upi-confirm] batch payment update failed:', e);
-                              toast.error('Could not confirm payment. Try again.');
-                            }
-                          }}>
-                          I've paid — Confirm Payment
-                        </button>
+                        {/* Auto-confirm path: spinner + wait for webhook,
+                            no trust button. Same as the QR sub-step. */}
+                        {autoConfirmActive ? (
+                          <>
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                              padding: '18px 16px', borderRadius: 14,
+                              background: darkMode ? 'rgba(255,245,232,0.04)' : 'rgba(30,27,24,0.03)',
+                              border: `1px solid ${darkMode ? 'rgba(255,245,232,0.10)' : 'rgba(30,27,24,0.08)'}`,
+                            }}>
+                              <div style={{
+                                width: 22, height: 22, borderRadius: '50%',
+                                border: `2.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(30,27,24,0.14)'}`,
+                                borderTopColor: '#B8472D',
+                                animation: 'spin 0.9s linear infinite',
+                              }} />
+                              <div style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+                                Waiting for payment confirmation…
+                              </div>
+                              <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(30,27,24,0.55)', textAlign: 'center', lineHeight: 1.5 }}>
+                                We'll detect it automatically once the
+                                payment lands in your account.
+                              </div>
+                              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                            </div>
+                            {showManualFallback && (
+                              <button
+                                onClick={async () => {
+                                  if (!restaurant?.id || !bill?.orderIds?.length) return;
+                                  try {
+                                    const PAID = new Set(['paid_cash','paid_card','paid_online','paid']);
+                                    const REQ  = new Set(['cash_requested','card_requested','online_requested']);
+                                    const sessionUnpaid = sessionOrders
+                                      .filter(o => !PAID.has(o.paymentStatus) && !REQ.has(o.paymentStatus))
+                                      .map(o => o.orderId);
+                                    const allTargets = Array.from(new Set([...(bill.orderIds || []), ...sessionUnpaid]));
+                                    await updatePaymentStatusBatch(restaurant.id, allTargets, 'online_requested');
+                                    setPaymentDone(true);
+                                    setUpiOpened(false);
+                                    try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: allTargets })); } catch {}
+                                  } catch (e) {
+                                    console.error('[upi-fallback] batch update failed:', e);
+                                    toast.error('Could not confirm payment. Try again.');
+                                  }
+                                }}
+                                style={{
+                                  width: '100%', padding: '12px',
+                                  border: `1px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(30,27,24,0.14)'}`,
+                                  background: 'transparent',
+                                  color: darkMode ? 'rgba(255,245,232,0.75)' : 'rgba(30,27,24,0.65)',
+                                  fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                                  borderRadius: 12, cursor: 'pointer',
+                                }}>
+                                Took too long? I've already paid — confirm manually
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <button
+                            className="pay-cta"
+                            onClick={async () => {
+                              if (!restaurant?.id || !bill?.orderIds?.length) return;
+                              try {
+                                // Settle every unpaid order in the session —
+                                // same reasoning as the Cash/Card path. One
+                                // UPI payment should cover all the customer's
+                                // open orders.
+                                const PAID = new Set(['paid_cash','paid_card','paid_online','paid']);
+                                const REQ  = new Set(['cash_requested','card_requested','online_requested']);
+                                const sessionUnpaid = sessionOrders
+                                  .filter(o => !PAID.has(o.paymentStatus) && !REQ.has(o.paymentStatus))
+                                  .map(o => o.orderId);
+                                const allTargets = Array.from(new Set([...(bill.orderIds || []), ...sessionUnpaid]));
+                                await updatePaymentStatusBatch(restaurant.id, allTargets, 'online_requested');
+                                setPaymentDone(true);
+                                setUpiOpened(false);
+                                try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: allTargets })); } catch {}
+                              } catch (e) {
+                                console.error('[upi-confirm] batch payment update failed:', e);
+                                toast.error('Could not confirm payment. Try again.');
+                              }
+                            }}>
+                            I've paid — Confirm Payment
+                          </button>
+                        )}
                         <button
                           onClick={() => window.open(upiUrl, '_self')}
                           style={{
@@ -8595,30 +8678,83 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                             Open Google Pay / PhonePe / Paytm on your phone, tap Scan & Pay, point at this code.
                           </div>
                         </div>
-                        <button
-                          className="pay-cta"
-                          onClick={async () => {
-                            // 1. Stamp the orders online_requested so the
-                            //    admin sees the payment request. This used
-                            //    to fire when we showed the QR, which broke
-                            //    the picker render (the bill-level
-                            //    "requested" view took over and the QR
-                            //    never rendered). Now it fires only on
-                            //    explicit "I've paid" — same pattern as
-                            //    the mobile manual-UPI confirm step.
-                            if (restaurant?.id && bill?.orderIds?.length) {
-                              try {
-                                await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested');
-                              } catch (e) {
-                                console.error('[scanqr-confirm] status update failed:', e);
+                        {/* Auto-confirm path: no trust button — wait
+                            for the webhook to flip the bill paid. The
+                            existing Firestore listener on bill orders
+                            picks up the paid_online status and the
+                            parent render flips to "Payment Confirmed"
+                            automatically. After 30s we surface a
+                            manual-confirm fallback in case the webhook
+                            didn't land. */}
+                        {autoConfirmActive ? (
+                          <>
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                              padding: '18px 16px', borderRadius: 14,
+                              background: darkMode ? 'rgba(255,245,232,0.04)' : 'rgba(30,27,24,0.03)',
+                              border: `1px solid ${darkMode ? 'rgba(255,245,232,0.10)' : 'rgba(30,27,24,0.08)'}`,
+                            }}>
+                              <div style={{
+                                width: 22, height: 22, borderRadius: '50%',
+                                border: `2.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(30,27,24,0.14)'}`,
+                                borderTopColor: '#B8472D',
+                                animation: 'spin 0.9s linear infinite',
+                              }} />
+                              <div style={{ fontSize: 14, fontWeight: 700, color: darkMode ? '#FFF5E8' : '#1E1B18' }}>
+                                Waiting for payment confirmation…
+                              </div>
+                              <div style={{ fontSize: 12, color: darkMode ? 'rgba(255,245,232,0.55)' : 'rgba(30,27,24,0.55)', textAlign: 'center', lineHeight: 1.5 }}>
+                                We'll detect it automatically once the
+                                payment lands in your account.
+                              </div>
+                              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                            </div>
+                            {showManualFallback && (
+                              <button
+                                onClick={async () => {
+                                  if (restaurant?.id && bill?.orderIds?.length) {
+                                    try {
+                                      await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested');
+                                    } catch (e) { console.error('[scanqr-fallback] status update failed:', e); }
+                                  }
+                                  setPaymentDone(true);
+                                  try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
+                                  setQrPayload(null); setQrFor(null);
+                                }}
+                                style={{
+                                  width: '100%', padding: '12px',
+                                  border: `1px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(30,27,24,0.14)'}`,
+                                  background: 'transparent',
+                                  color: darkMode ? 'rgba(255,245,232,0.75)' : 'rgba(30,27,24,0.65)',
+                                  fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                                  borderRadius: 12, cursor: 'pointer',
+                                }}>
+                                Took too long? I've already paid — confirm manually
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <button
+                            className="pay-cta"
+                            onClick={async () => {
+                              // No-auto-confirm path: trust-based confirm.
+                              // Stamps online_requested so admin sees the
+                              // request, then flips the bill view to the
+                              // "show your waiter" state.
+                              if (restaurant?.id && bill?.orderIds?.length) {
+                                try {
+                                  await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested');
+                                } catch (e) {
+                                  console.error('[scanqr-confirm] status update failed:', e);
+                                }
                               }
-                            }
-                            setPaymentDone(true);
-                            try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
-                            setQrPayload(null); setQrFor(null);
-                          }}>
-                          I've paid — Confirm Payment
-                        </button>
+                              setPaymentDone(true);
+                              try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
+                              setQrPayload(null); setQrFor(null);
+                            }}>
+                            I've paid — Confirm Payment
+                          </button>
+                        )}
                         <button
                           onClick={() => { setQrPayload(null); setQrFor(null); }}
                           style={{
