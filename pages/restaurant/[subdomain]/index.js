@@ -3345,11 +3345,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         <meta property="og:title" content={`${restaurant.name} — Menu`} />
         <meta property="og:description" content={`Explore ${restaurant.name}'s menu with AR previews. Order directly from your table.`} />
         <meta property="og:type" content="restaurant" />
-        <meta property="og:url" content={`https://advertradical.com/restaurant/${restaurant.subdomain || ''}`} />
-        <meta property="og:image" content="https://advertradical.com/og-default.png" />
+        <meta property="og:url" content={`https://halohelm.com/restaurant/${restaurant.subdomain || ''}`} />
+        <meta property="og:image" content="https://halohelm.com/og-default.png" />
 
         {/* Canonical URL */}
-        <link rel="canonical" href={`https://advertradical.com/restaurant/${restaurant.subdomain || ''}`} />
+        <link rel="canonical" href={`https://halohelm.com/restaurant/${restaurant.subdomain || ''}`} />
 
         {/* JSON-LD structured data */}
         <script
@@ -3358,12 +3358,12 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             '@context': 'https://schema.org',
             '@type': 'Restaurant',
             name: restaurant.name,
-            url: `https://advertradical.com/restaurant/${restaurant.subdomain || ''}`,
+            url: `https://halohelm.com/restaurant/${restaurant.subdomain || ''}`,
             servesCuisine: restaurant.cuisine || undefined,
             address: restaurant.city ? { '@type': 'PostalAddress', addressLocality: restaurant.city } : undefined,
             hasMenu: {
               '@type': 'Menu',
-              url: `https://advertradical.com/restaurant/${restaurant.subdomain || ''}`,
+              url: `https://halohelm.com/restaurant/${restaurant.subdomain || ''}`,
             },
           }) }}
         />

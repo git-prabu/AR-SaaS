@@ -982,7 +982,7 @@ export default function Pitch() {
           <a href="mailto:hello@HaloHelm.com" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.borderHi}`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
             EMAIL US
           </a>
-          <a href="https://HaloHelm.vercel.app/restaurant/spot" target="_blank" rel="noreferrer" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.border}`, color: C.dim, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
+          <a href="https://halohelm.com/restaurant/spot" target="_blank" rel="noreferrer" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.border}`, color: C.dim, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
             SEE LIVE DEMO
           </a>
         </div>

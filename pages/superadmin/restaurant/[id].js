@@ -16,7 +16,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import toast from 'react-hot-toast';
 
 // ── Temp URL until domain is purchased & DNS configured ──────────
-// When you buy advertradical.com, change this to: 'https://{subdomain}.advertradical.com'
+// When you buy halohelm.com, change this to: 'https://{subdomain}.halohelm.com'
 const getMenuURL = (subdomain) =>
   `${process.env.NEXT_PUBLIC_VERCEL_URL
     ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
@@ -344,7 +344,7 @@ export default function RestaurantDetail() {
                 <div>
                   <h1 style={{ fontFamily:'Inter,sans-serif', fontWeight:800, fontSize:22, color:'#1A1A1A', margin:0 }}>{restaurant.name}</h1>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:4, flexWrap:'wrap' }}>
-                    <span style={{ fontSize:12, color:'rgba(0,0,0,0.45)', fontFamily:'monospace' }}>{restaurant.subdomain}.advertradical.com</span>
+                    <span style={{ fontSize:12, color:'rgba(0,0,0,0.45)', fontFamily:'monospace' }}>{restaurant.subdomain}.halohelm.com</span>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background: restaurant.isActive?'rgba(63,158,90,0.2)':'rgba(217,83,79,0.2)', color: restaurant.isActive?'#3F9E5A':'#D9534F', border:`1px solid ${restaurant.isActive?'rgba(63,158,90,0.4)':'rgba(217,83,79,0.4)'}` }}>
                       {restaurant.isActive ? '● Active' : '● Inactive'}
                     </span>
@@ -415,7 +415,7 @@ export default function RestaurantDetail() {
                     <label style={S.label}>Subdomain</label>
                     <div style={{ position:'relative' }}>
                       <input className="inp" style={{ ...S.input, paddingRight:140 }} value={editData.subdomain} onChange={e=>setEditData(d=>({...d,subdomain:e.target.value.toLowerCase()}))} />
-                      <span style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'rgba(0,0,0,0.4)', pointerEvents:'none' }}>.advertradical.com</span>
+                      <span style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'rgba(0,0,0,0.4)', pointerEvents:'none' }}>.halohelm.com</span>
                     </div>
                   </div>
                 </div>
@@ -501,7 +501,7 @@ export default function RestaurantDetail() {
                   <div style={{ fontFamily:'Inter,sans-serif', fontWeight:700, fontSize:14, color:'#1A1A1A', marginBottom:16 }}>Restaurant Info</div>
                   {[
                     ['Name',      restaurant.name],
-                    ['Subdomain', restaurant.subdomain + '.advertradical.com'],
+                    ['Subdomain', restaurant.subdomain + '.halohelm.com'],
                     ['Plan',      restaurant.plan || 'basic'],
                     ['Status',    restaurant.isActive ? 'Active' : 'Inactive'],
                     ['Payment',   restaurant.paymentStatus || 'inactive'],

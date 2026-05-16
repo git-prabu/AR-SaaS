@@ -2,11 +2,11 @@
 // Phase K — Permanent QR redirect.
 //
 // The customer-facing QR encodes a STABLE URL like
-//   https://advertradical.vercel.app/r/spot/4
+//   https://halohelm.com/r/spot/4
 // that never changes for the life of the table. When the customer
 // scans it, this endpoint reads the current `sid` from the
 // tableSession server-side and redirects to the canonical menu URL:
-//   https://advertradical.vercel.app/restaurant/spot?table=4&sid=<current_sid>
+//   https://halohelm.com/restaurant/spot?table=4&sid=<current_sid>
 //
 // Why: previously the QR encoded `?sid=...` directly, so every time
 // the admin tapped Clear & Activate (which rotates the sid for fraud

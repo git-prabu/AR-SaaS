@@ -486,7 +486,7 @@ export default function StaffManagement() {
                     {subdomain}
                   </span>
                   <span style={{ fontSize: 12, color: A.mutedText }}>
-                    Share with staff so they can sign in at <strong>{typeof window !== 'undefined' ? window.location.host : 'HaloHelm.vercel.app'}/staff/login</strong>
+                    Share with staff so they can sign in at <strong>{typeof window !== 'undefined' ? window.location.host : 'halohelm.com'}/staff/login</strong>
                   </span>
                 </div>
               </div>

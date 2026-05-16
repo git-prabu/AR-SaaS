@@ -17,7 +17,7 @@ import { sendEmail, welcomeEmailTemplate } from '../../../lib/email';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
   || process.env.SITE_URL
-  || 'https://HaloHelm.vercel.app';
+  || 'https://halohelm.com';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
