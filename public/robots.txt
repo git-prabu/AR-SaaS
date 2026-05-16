@@ -1,0 +1,33 @@
+# robots.txt for halohelm.com
+#
+# Tells search engine crawlers which parts of the site to index.
+# Public marketing + legal pages are crawlable; admin / superadmin /
+# staff / api / customer-table sessions are explicitly blocked.
+
+User-agent: *
+
+# Public, marketing-friendly pages — index these
+Allow: /$
+Allow: /privacy
+Allow: /terms
+Allow: /pitch
+Allow: /signup
+Allow: /restaurant/
+
+# Admin chrome — never index. These pages require auth and have no SEO value.
+Disallow: /admin/
+Disallow: /superadmin/
+Disallow: /staff/
+Disallow: /seed
+
+# API endpoints — never index. These return JSON, not HTML.
+Disallow: /api/
+
+# Table QR redirect endpoint — has per-table session URLs, don't index.
+Disallow: /r/
+
+# Payment checkout host page — transactional, don't index.
+Disallow: /pay/
+
+# Sitemap location (Google reads this to find pages quickly)
+Sitemap: https://halohelm.com/sitemap.xml

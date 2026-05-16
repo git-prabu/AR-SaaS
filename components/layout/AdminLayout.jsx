@@ -7,6 +7,8 @@ import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore'
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
 import { playOrderSound, playCallSound, playPaymentSound } from '../../lib/sounds';
 import { canUsePetpoojaIntegration } from '../../lib/plans';
+import EmailVerifyBanner from '../EmailVerifyBanner';
+import PwaInstallPrompt from '../PwaInstallPrompt';
 
 const navSections = [
   {
@@ -54,6 +56,7 @@ const navSections = [
       { href: '/admin/settings',          label: 'Settings',     icon: 'gear' },
       { href: '/admin/settings/security', label: 'Security',     icon: 'shield' },
       { href: '/admin/subscription',      label: 'Subscription', icon: 'crown' },
+      { href: '/admin/help',              label: 'Help & FAQ',   icon: 'help' },
     ]
   },
 ];
@@ -81,6 +84,7 @@ const NavIcon = ({ name }) => {
     case 'crown':     return <svg {...props}><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" /><path d="M5 20h14" /></svg>;
     case 'plug':      return <svg {...props}><path d="M9 2v4M15 2v4M7 8h10v4a5 5 0 0 1-10 0z" /><path d="M12 17v5" /></svg>;
     case 'shield':    return <svg {...props}><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" /></svg>;
+    case 'help':      return <svg {...props}><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
     default:          return <svg {...props}><circle cx="12" cy="12" r="3" /></svg>;
   }
 };
@@ -424,7 +428,19 @@ export default function AdminLayout({ children }) {
 
       <AdminDataProvider value={{ orders: allOrders, waiterCalls: allWaiterCalls, ordersLoaded, callsLoaded }}>
         <main className="admin-main" style={{ flex: 1, marginLeft: 240, minHeight: '100vh', overflowY: 'auto' }}>
+          {/* Persistent banner — shows only when the signed-in admin's
+              email isn't yet verified. Self-dismisses for the session
+              once the X is clicked, and the Resend button has a 60s
+              cooldown to avoid spamming Firebase. */}
+          <EmailVerifyBanner />
           {children}
+          {/* Bottom-right card asking admins to install HaloHelm as a
+              PWA. Renders only when the browser fires
+              beforeinstallprompt (Chrome/Edge/Brave/Samsung), the app
+              isn't already installed, and the user hasn't dismissed
+              it recently. iOS Safari never triggers this — that's a
+              browser limitation. */}
+          <PwaInstallPrompt />
         </main>
       </AdminDataProvider>
     </div>
