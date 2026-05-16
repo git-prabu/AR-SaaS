@@ -104,7 +104,7 @@ function sanitizeConfig(input) {
   return config;
 }
 
-export default async function handler(req, res) {
+async function handlerImpl(req, res) {
   const callerRid = await getCallerRestaurantId(req);
   if (!callerRid) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -174,11 +174,22 @@ export default async function handler(req, res) {
 
     // Auto-Confirm secrets — same masked-preserve dance for each
     // provider the admin might be editing.
+    //
+    // CRITICAL: preserve() must NEVER return `undefined`. Firestore
+    // rejects any write that contains an undefined value with a 500
+    // (which the client sees as the cryptic "Unexpected token 'I',
+    // 'Internal S'..." JSON.parse error). When neither the new value
+    // nor the existing value is set, fall back to the empty string so
+    // the field is still defined.
     if (incoming.autoConfirm) {
       const existing = await getGatewayConfig(callerRid);
       const ex = existing?.autoConfirm || {};
-      const preserve = (val, exVal) =>
-        (!val || (typeof val === 'string' && val.startsWith('••••'))) ? exVal : val;
+      const preserve = (val, exVal) => {
+        if (!val || (typeof val === 'string' && val.startsWith('••••'))) {
+          return exVal || '';
+        }
+        return val;
+      };
 
       if (incoming.autoConfirm.razorpay) {
         incoming.autoConfirm.razorpay.keySecret     = preserve(incoming.autoConfirm.razorpay.keySecret,     ex.razorpay?.keySecret);
@@ -196,4 +207,22 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// Top-level wrapper — guarantees a JSON 500 on any uncaught throw
+// instead of Next.js's default HTML "Internal Server Error" page
+// (which the client tries to JSON.parse and chokes on, surfacing as
+// the cryptic "Unexpected token 'I', 'Internal S'..." message).
+export default async function handler(req, res) {
+  try {
+    return await handlerImpl(req, res);
+  } catch (err) {
+    console.error('[/api/payment/config] uncaught error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: err?.message || 'Internal server error',
+        code:  err?.code   || null,
+      });
+    }
+  }
 }
