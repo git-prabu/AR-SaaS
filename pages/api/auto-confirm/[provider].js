@@ -83,7 +83,9 @@ export default async function handler(req, res) {
 
   const saltIndex = providerKey === 'phonepe' ? (providerCfg.saltIndex || '1') : undefined;
 
-  const parsed = PROVIDERS[providerKey].parseWebhook({
+  // Paytm's parseWebhook is async (uses the paytmchecksum lib which
+  // returns a Promise); razorpay + phonepe are sync. await handles both.
+  const parsed = await PROVIDERS[providerKey].parseWebhook({
     headers: req.headers,
     rawBody,
     secret,
