@@ -8124,9 +8124,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   // Reference shown in the UPI app's transaction note —
                   // either the bill ID (multi-order tab) or the latest
                   // order ID. Lets the customer / cashier reconcile later.
+                  // Hyphen-separated so the auto-confirm webhook matcher
+                  // (lib/autoConfirm.js → extractRef) can pull it back
+                  // reliably regardless of whether the provider strips,
+                  // URL-decodes, or trims spaces. Format: "Order-A4F2B7"
+                  // or "Bill-A4F2B7" using the last 6 hex chars of the id.
                   const tnRef = bill.isBill && currentBillId
-                    ? 'Bill ' + currentBillId.slice(-6).toUpperCase()
-                    : 'Order ' + (placedOrder?.orderId?.slice(-6).toUpperCase() || '');
+                    ? 'Bill-' + currentBillId.slice(-6).toUpperCase()
+                    : 'Order-' + (placedOrder?.orderId?.slice(-6).toUpperCase() || '');
                   const buildUpiUrl = (scheme) =>
                     restaurant?.upiId
                       ? `${scheme}?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${bill.total}&cu=INR&tn=${encodeURIComponent(tnRef)}`

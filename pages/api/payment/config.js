@@ -61,6 +61,40 @@ function sanitizeConfig(input) {
       env:           r.env === 'live' ? 'live' : 'test',
     };
   }
+
+  // ── Auto-Confirm UPI sub-config ────────────────────────────────
+  // Independent of the full-gateway provider above. Restaurants can
+  // run both (full gateway for cards, auto-confirm for UPI to their
+  // own VPA) or just one. Schema is per-provider so admins can paste
+  // creds for multiple providers and toggle between them.
+  if (input.autoConfirm && typeof input.autoConfirm === 'object') {
+    const a = input.autoConfirm;
+    const acProvider = ['razorpay', 'paytm', 'phonepe', 'none'].includes(a.provider) ? a.provider : 'none';
+    config.autoConfirm = {
+      provider: acProvider,
+      isActive: !!a.isActive,
+    };
+    if (a.razorpay) {
+      config.autoConfirm.razorpay = {
+        keyId:         String(a.razorpay.keyId         || '').trim(),
+        keySecret:     String(a.razorpay.keySecret     || '').trim(),
+        webhookSecret: String(a.razorpay.webhookSecret || '').trim(),
+      };
+    }
+    if (a.paytm) {
+      config.autoConfirm.paytm = {
+        merchantId:    String(a.paytm.merchantId    || '').trim(),
+        merchantKey:   String(a.paytm.merchantKey   || '').trim(),
+      };
+    }
+    if (a.phonepe) {
+      config.autoConfirm.phonepe = {
+        merchantId: String(a.phonepe.merchantId || '').trim(),
+        saltKey:    String(a.phonepe.saltKey    || '').trim(),
+        saltIndex:  String(a.phonepe.saltIndex  || '1').trim(),
+      };
+    }
+  }
   return config;
 }
 
@@ -85,6 +119,24 @@ export default async function handler(req, res) {
     if (cfg?.razorpay?.webhookSecret) {
       cfg.razorpay.webhookSecret = `••••${cfg.razorpay.webhookSecret.slice(-4)}`;
       cfg.razorpay.webhookSecretMasked = true;
+    }
+    // Mask Auto-Confirm UPI secrets too.
+    const acMask = (s) => s ? `••••${s.slice(-4)}` : s;
+    if (cfg?.autoConfirm?.razorpay?.keySecret) {
+      cfg.autoConfirm.razorpay.keySecret = acMask(cfg.autoConfirm.razorpay.keySecret);
+      cfg.autoConfirm.razorpay.keySecretMasked = true;
+    }
+    if (cfg?.autoConfirm?.razorpay?.webhookSecret) {
+      cfg.autoConfirm.razorpay.webhookSecret = acMask(cfg.autoConfirm.razorpay.webhookSecret);
+      cfg.autoConfirm.razorpay.webhookSecretMasked = true;
+    }
+    if (cfg?.autoConfirm?.paytm?.merchantKey) {
+      cfg.autoConfirm.paytm.merchantKey = acMask(cfg.autoConfirm.paytm.merchantKey);
+      cfg.autoConfirm.paytm.merchantKeyMasked = true;
+    }
+    if (cfg?.autoConfirm?.phonepe?.saltKey) {
+      cfg.autoConfirm.phonepe.saltKey = acMask(cfg.autoConfirm.phonepe.saltKey);
+      cfg.autoConfirm.phonepe.saltKeyMasked = true;
     }
     return res.status(200).json({ config: cfg || null });
   }
@@ -111,6 +163,26 @@ export default async function handler(req, res) {
       }
       if (!incoming.razorpay.webhookSecret || incoming.razorpay.webhookSecret.startsWith('••••')) {
         if (existing?.razorpay?.webhookSecret) incoming.razorpay.webhookSecret = existing.razorpay.webhookSecret;
+      }
+    }
+
+    // Auto-Confirm secrets — same masked-preserve dance for each
+    // provider the admin might be editing.
+    if (incoming.autoConfirm) {
+      const existing = await getGatewayConfig(callerRid);
+      const ex = existing?.autoConfirm || {};
+      const preserve = (val, exVal) =>
+        (!val || (typeof val === 'string' && val.startsWith('••••'))) ? exVal : val;
+
+      if (incoming.autoConfirm.razorpay) {
+        incoming.autoConfirm.razorpay.keySecret     = preserve(incoming.autoConfirm.razorpay.keySecret,     ex.razorpay?.keySecret);
+        incoming.autoConfirm.razorpay.webhookSecret = preserve(incoming.autoConfirm.razorpay.webhookSecret, ex.razorpay?.webhookSecret);
+      }
+      if (incoming.autoConfirm.paytm) {
+        incoming.autoConfirm.paytm.merchantKey = preserve(incoming.autoConfirm.paytm.merchantKey, ex.paytm?.merchantKey);
+      }
+      if (incoming.autoConfirm.phonepe) {
+        incoming.autoConfirm.phonepe.saltKey = preserve(incoming.autoConfirm.phonepe.saltKey, ex.phonepe?.saltKey);
       }
     }
     await setGatewayConfig(callerRid, incoming);

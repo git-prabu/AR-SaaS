@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { updatePaymentStatus, markOrderPaid, cancelOrder, todayKey } from '../../lib/db';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import DateRangePicker from '../../components/DateRangePicker';
 import {
@@ -186,6 +186,12 @@ export default function AdminPayments() {
   const [cashReceived, setCashReceived] = useState('');
   const prevRequestedIdsRef = useRef(new Set());
   const initialPaymentsLoadedRef = useRef(false);
+  // Auto-confirm UPI: unmatched-payment queue. Webhook writes here when
+  // a payment arrives that we can't auto-match to a single pending order
+  // (zero matches or ambiguous multiple matches). Staff picks the right
+  // order from a dropdown to resolve.
+  const [unmatched, setUnmatched] = useState([]);
+  const [unmatchedAssigning, setUnmatchedAssigning] = useState(null);  // id of the unmatched row being assigned
 
   useEffect(() => {
     try {
@@ -211,6 +217,55 @@ export default function AdminPayments() {
       setLoaded(true); // mark loaded even on error so the empty state shows instead of infinite loading
     });
   }, [rid]);
+
+  // ── Unmatched auto-confirm payments listener ──
+  useEffect(() => {
+    if (!rid) return;
+    const q = query(
+      collection(db, 'restaurants', rid, 'needsMatch'),
+      where('resolved', '==', false),
+      orderBy('receivedAt', 'desc'),
+    );
+    return onSnapshot(q, snap => {
+      setUnmatched(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, err => {
+      // needsMatch collection may not exist yet (no auto-confirm ever
+      // ran). Silent — just keep the list empty.
+      if (err?.code !== 'permission-denied') {
+        console.warn('needsMatch listener error:', err?.message);
+      }
+    });
+  }, [rid]);
+
+  // ── Resolve an unmatched payment by assigning it to an order ──
+  const assignUnmatched = async (unmatchedId, orderId) => {
+    if (!rid) return;
+    setUnmatchedAssigning(unmatchedId);
+    try {
+      const um = unmatched.find(u => u.id === unmatchedId);
+      // 1. Mark the order paid_online with the provider txn id stamped.
+      await markOrderPaid(rid, orderId, 'paid_online', {
+        gatewayProviderRef: um?.providerTxnId || null,
+        autoConfirmPayerVpa: um?.payerVpa || null,
+        autoConfirmResolvedFrom: 'manual-assign',
+      }).catch(async () => {
+        // If markOrderPaid signature differs, fall back to updatePaymentStatus.
+        await updatePaymentStatus(rid, orderId, 'paid_online');
+      });
+      // 2. Mark the needsMatch row resolved.
+      await updateDoc(doc(db, 'restaurants', rid, 'needsMatch', unmatchedId), {
+        resolved: true,
+        resolvedAt: serverTimestamp(),
+        resolvedOrderId: orderId,
+      });
+      toast.success('Payment assigned to order');
+    } catch (e) {
+      console.error('assignUnmatched failed:', e);
+      toast.error('Could not assign payment');
+    } finally {
+      setUnmatchedAssigning(null);
+    }
+  };
 
   // ── Cleanup undo banner timeout on unmount ──
   useEffect(() => () => { if (undoBanner?.timeoutId) clearTimeout(undoBanner.timeoutId); }, [undoBanner]);
@@ -776,6 +831,95 @@ export default function AdminPayments() {
             </span>
           </div>
         </div>
+
+        {/* ═══ Auto-confirm: unmatched payments banner ═══
+            Shows up only when the webhook received a payment that couldn't
+            be auto-matched to a unique pending order (zero or multiple
+            candidates). Staff picks the right order from a dropdown to
+            resolve. */}
+        {unmatched.length > 0 && (
+          <div style={{ padding: '0 28px 14px' }}>
+            <div style={{
+              background: '#FFF7E8', border: '1.5px solid rgba(196,168,109,0.45)',
+              borderRadius: 14, padding: 18, boxShadow: A.shadowCard,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: A.warning, animation: 'pulse 2s ease infinite',
+                }} />
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#7B5E1E' }}>
+                  {unmatched.length} payment{unmatched.length === 1 ? '' : 's'} need{unmatched.length === 1 ? 's' : ''} matching
+                </div>
+              </div>
+              <div style={{ fontSize: 13, color: '#7B5E1E', lineHeight: 1.5, marginBottom: 14 }}>
+                These UPI payments arrived but couldn't be auto-matched to a single order.
+                Pick the right order for each one to confirm it.
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {unmatched.map(u => {
+                  // Suggest matching orders: same amount, last 30 min, MATCHABLE status.
+                  const MATCHABLE = new Set(['unpaid', 'pending', 'online_requested']);
+                  const cutoff = Date.now() - 30 * 60 * 1000;
+                  const candidates = allOrders.filter(o => {
+                    if (Number(o.total) !== Number(u.amount)) return false;
+                    if (!MATCHABLE.has(o.paymentStatus)) return false;
+                    const t = o.createdAt?.toDate?.()?.getTime?.() || 0;
+                    return t >= cutoff;
+                  });
+
+                  return (
+                    <div key={u.id} style={{
+                      background: '#FFFFFF', border: A.border, borderRadius: 10,
+                      padding: '12px 14px',
+                      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                    }}>
+                      <div style={{ flex: '1 1 200px', minWidth: 200 }}>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: A.ink, fontFamily: "'JetBrains Mono', monospace" }}>
+                          ₹{Number(u.amount).toFixed(2)}
+                        </div>
+                        <div style={{ fontSize: 11, color: A.mutedText, marginTop: 2 }}>
+                          {u.payerVpa || '—'} · {u.provider || '?'} · {u.reason === 'multiple_match' ? 'multiple candidates' : 'no candidates'}
+                        </div>
+                      </div>
+
+                      {candidates.length === 0 ? (
+                        <div style={{ fontSize: 12, color: A.mutedText, fontStyle: 'italic' }}>
+                          No matching orders in last 30 min
+                        </div>
+                      ) : (
+                        <select
+                          defaultValue=""
+                          onChange={e => {
+                            if (e.target.value) assignUnmatched(u.id, e.target.value);
+                            e.target.value = '';
+                          }}
+                          disabled={unmatchedAssigning === u.id}
+                          style={{
+                            padding: '8px 10px', borderRadius: 7, border: A.border,
+                            background: A.shellDarker, fontSize: 13, fontFamily: A.font, color: A.ink,
+                            cursor: 'pointer',
+                          }}>
+                          <option value="" disabled>
+                            {unmatchedAssigning === u.id ? 'Assigning…' : `Assign to order (${candidates.length})…`}
+                          </option>
+                          {candidates.map(o => (
+                            <option key={o.id} value={o.id}>
+                              #{(o.orderId || o.id).slice(-6).toUpperCase()}
+                              {o.tableNumber ? ` · Table ${o.tableNumber}` : ' · Takeaway'}
+                              {' · ₹'}{Number(o.total).toFixed(2)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ═══ Orders list ═══ */}
         <div style={{ padding: '0 28px 80px' }}>

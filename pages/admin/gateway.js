@@ -47,7 +47,19 @@ export default function AdminGatewayPage() {
     // placeholder text is visible in the input; the form uses real
     // values once the admin types/pastes them.
     razorpay: { keyId: '', keySecret: '', webhookSecret: '', env: 'test' },
+    // Auto-Confirm UPI — the no-routing, restaurant-keeps-the-money flow.
+    // Independent of the full-gateway provider/credentials above.
+    autoConfirm: {
+      provider: 'razorpay',                                                       // 'razorpay' | 'paytm' | 'phonepe' | 'none'
+      isActive: false,
+      razorpay: { keyId: '', keySecret: '', webhookSecret: '' },
+      paytm:    { merchantId: '', merchantKey: '' },
+      phonepe:  { merchantId: '', saltKey: '', saltIndex: '1' },
+    },
   });
+  // Top-level tabs: Auto-Confirm UPI (new, recommended) vs Full Gateway
+  // (legacy Razorpay/Paytm routed-money — kept but de-emphasised).
+  const [topTab, setTopTab] = useState('autoConfirm'); // 'autoConfirm' | 'fullGateway'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -88,6 +100,24 @@ export default function AdminGatewayPage() {
               keySecret:     j.config.razorpay?.keySecret     || '',
               webhookSecret: j.config.razorpay?.webhookSecret || '',
               env:           j.config.razorpay?.env           || 'test',
+            },
+            autoConfirm: {
+              provider: j.config.autoConfirm?.provider || 'razorpay',
+              isActive: !!j.config.autoConfirm?.isActive,
+              razorpay: {
+                keyId:         j.config.autoConfirm?.razorpay?.keyId         || '',
+                keySecret:     j.config.autoConfirm?.razorpay?.keySecret     || '',
+                webhookSecret: j.config.autoConfirm?.razorpay?.webhookSecret || '',
+              },
+              paytm: {
+                merchantId:    j.config.autoConfirm?.paytm?.merchantId  || '',
+                merchantKey:   j.config.autoConfirm?.paytm?.merchantKey || '',
+              },
+              phonepe: {
+                merchantId: j.config.autoConfirm?.phonepe?.merchantId || '',
+                saltKey:    j.config.autoConfirm?.phonepe?.saltKey    || '',
+                saltIndex:  j.config.autoConfirm?.phonepe?.saltIndex  || '1',
+              },
             },
           });
         }
@@ -133,16 +163,58 @@ export default function AdminGatewayPage() {
           <h1 style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', marginBottom: 6 }}>
             Payment Gateway
           </h1>
-          <p style={{ color: A.mutedText, fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
-            Connect your own Paytm Business merchant account. Customers who tap UPI on the bill modal
-            will be redirected to your gateway, and we auto-confirm the payment via webhook — no more
-            manually marking UPI orders paid.
+          <p style={{ color: A.mutedText, fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+            Two ways to handle customer UPI payments. <strong>Auto-Confirm UPI</strong> uses the
+            merchant account behind your existing soundbox (money stays with you, we just listen for
+            the "paid" signal). <strong>Full Gateway</strong> routes money through Razorpay/Paytm
+            checkout for cards + UPI + netbanking (~2% fee, settled T+1).
           </p>
+
+          {/* Top-level tabs */}
+          <div style={{
+            display: 'inline-flex', padding: 4, marginBottom: 20,
+            background: A.subtleBg, borderRadius: 10, gap: 4,
+          }}>
+            {[
+              { k: 'autoConfirm', label: 'Auto-Confirm UPI', badge: 'Recommended' },
+              { k: 'fullGateway', label: 'Full Gateway' },
+            ].map(t => {
+              const sel = topTab === t.k;
+              return (
+                <button key={t.k} onClick={() => setTopTab(t.k)}
+                  style={{
+                    padding: '9px 16px', borderRadius: 7,
+                    background: sel ? A.shell : 'transparent',
+                    color: sel ? A.ink : A.mutedText,
+                    border: 'none', cursor: 'pointer',
+                    fontFamily: A.font, fontSize: 13, fontWeight: 600,
+                    boxShadow: sel ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                  }}>
+                  {t.label}
+                  {t.badge && (
+                    <span style={{
+                      padding: '2px 7px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+                      background: sel ? 'rgba(196,168,109,0.18)' : 'rgba(196,168,109,0.12)',
+                      color: A.warningDim, letterSpacing: '0.04em', textTransform: 'uppercase',
+                    }}>{t.badge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
           {loading ? (
             <div style={{ background: A.shell, border: A.border, borderRadius: 14, padding: 32, textAlign: 'center', color: A.mutedText }}>
               Loading…
             </div>
+          ) : topTab === 'autoConfirm' ? (
+            <AutoConfirmTab
+              config={config}
+              setConfig={setConfig}
+              webhookUrl={webhookUrl}
+              rid={rid}
+            />
           ) : (
             <>
               {/* Provider picker — Paytm or Razorpay */}
@@ -304,21 +376,180 @@ export default function AdminGatewayPage() {
                   or /admin/waiter). When ON, taps redirect to your gateway and auto-confirm.
                 </div>
               </Card>
-
-              <button onClick={save} disabled={saving}
-                style={{
-                  marginTop: 14, padding: '12px 24px', background: A.ink, color: A.cream,
-                  border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14,
-                  fontFamily: A.font, cursor: saving ? 'not-allowed' : 'pointer',
-                  opacity: saving ? 0.6 : 1,
-                }}>
-                {saving ? 'Saving…' : 'Save Settings'}
-              </button>
             </>
+          )}
+
+          {/* Save button — shared across both tabs (POST sends the
+              entire config object so both sets of settings persist on
+              every save). */}
+          {!loading && (
+            <button onClick={save} disabled={saving}
+              style={{
+                marginTop: 14, padding: '12px 24px', background: A.ink, color: A.cream,
+                border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14,
+                fontFamily: A.font, cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.6 : 1,
+              }}>
+              {saving ? 'Saving…' : 'Save Settings'}
+            </button>
           )}
         </div>
       </div>
     </AdminLayout>
+  );
+}
+
+// ─── Auto-Confirm UPI tab ─────────────────────────────────────────
+// Independent of the full-gateway provider. Restaurant connects the
+// merchant account behind their existing soundbox (Razorpay / Paytm
+// Business / PhonePe Business), pastes the API keys + webhook secret,
+// toggles "Enable" and saves. From then on, every UPI payment to
+// their VPA fires a webhook to /api/auto-confirm/<provider>?rid=X
+// which marks the corresponding order paid automatically.
+function AutoConfirmTab({ config, setConfig, webhookUrl, rid }) {
+  const ac = config.autoConfirm || {};
+  const acProvider = ac.provider || 'razorpay';
+  const acWebhook = (webhookUrl || '').replace('/api/payment/webhook', `/api/auto-confirm/${acProvider}`);
+  const setAC = (next) => setConfig(c => ({ ...c, autoConfirm: typeof next === 'function' ? next(c.autoConfirm) : next }));
+
+  return (
+    <>
+      <Card title="How this works"
+        hint="Money flows directly customer-bank → your bank (or your existing soundbox merchant account). HaloHelm just listens for the webhook that says 'payment received' and marks the matching order paid. Zero MDR for direct UPI on Paytm Business / PhonePe Business. ~0% for Razorpay Smart Collect direct UPI.">
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '8px 0' }}>
+          {['✓ Money stays with you', '✓ Auto-confirms on payment', '✓ Works with your soundbox'].map(t => (
+            <div key={t} style={{
+              fontSize: 12, fontWeight: 600, color: A.success,
+              padding: '6px 10px', borderRadius: 7,
+              background: 'rgba(63,158,90,0.08)', border: '1px solid rgba(63,158,90,0.25)',
+            }}>{t}</div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Provider">
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { k: 'razorpay', label: 'Razorpay'        },
+            { k: 'paytm',    label: 'Paytm Business'  },
+            { k: 'phonepe',  label: 'PhonePe Business'},
+          ].map(p => {
+            const sel = acProvider === p.k;
+            return (
+              <button key={p.k} type="button"
+                onClick={() => setAC(a => ({ ...a, provider: p.k }))}
+                style={{
+                  padding: '10px 16px', borderRadius: 8,
+                  background: sel ? A.ink : A.subtleBg,
+                  color: sel ? A.cream : A.mutedText,
+                  border: 'none', cursor: 'pointer',
+                  fontFamily: A.font, fontSize: 13, fontWeight: 600,
+                }}>{p.label}</button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {acProvider === 'razorpay' && (
+        <Card title="Razorpay credentials"
+          hint="Razorpay Dashboard → Settings → API Keys (Key ID + Key Secret) and Webhooks (Webhook Secret). Add a webhook subscribed to 'payment.captured' pointing to the URL shown below.">
+          <Field label="Key ID">
+            <input value={ac.razorpay?.keyId || ''}
+              onChange={e => setAC(a => ({ ...a, razorpay: { ...a.razorpay, keyId: e.target.value.trim() } }))}
+              placeholder="rzp_test_PLACEHOLDER_REPLACE_ME"
+              style={inputStyle} />
+          </Field>
+          <Field label={ac.razorpay?.keySecret?.startsWith('••••') ? 'Key Secret (saved — repaste to change)' : 'Key Secret'}>
+            <input value={ac.razorpay?.keySecret || ''}
+              onChange={e => setAC(a => ({ ...a, razorpay: { ...a.razorpay, keySecret: e.target.value.trim() } }))}
+              placeholder={ac.razorpay?.keySecret?.startsWith('••••') ? ac.razorpay.keySecret : 'PLACEHOLDER_KEY_SECRET'}
+              type="password" autoComplete="new-password"
+              style={inputStyle} />
+          </Field>
+          <Field label={ac.razorpay?.webhookSecret?.startsWith('••••') ? 'Webhook Secret (saved — repaste to change)' : 'Webhook Secret'}>
+            <input value={ac.razorpay?.webhookSecret || ''}
+              onChange={e => setAC(a => ({ ...a, razorpay: { ...a.razorpay, webhookSecret: e.target.value.trim() } }))}
+              placeholder={ac.razorpay?.webhookSecret?.startsWith('••••') ? ac.razorpay.webhookSecret : 'PLACEHOLDER_WEBHOOK_SECRET'}
+              type="password" autoComplete="new-password"
+              style={inputStyle} />
+          </Field>
+        </Card>
+      )}
+
+      {acProvider === 'paytm' && (
+        <Card title="Paytm Business credentials"
+          hint="Paytm for Business dashboard → Developer Settings → API Keys. Add a webhook subscribed to 'Payment Status Update' pointing to the URL below.">
+          <Field label="Merchant ID (MID)">
+            <input value={ac.paytm?.merchantId || ''}
+              onChange={e => setAC(a => ({ ...a, paytm: { ...a.paytm, merchantId: e.target.value.trim() } }))}
+              placeholder="e.g. ABCXYZ12345"
+              style={inputStyle} />
+          </Field>
+          <Field label={ac.paytm?.merchantKey?.startsWith('••••') ? 'Merchant Key (saved — repaste to change)' : 'Merchant Key'}>
+            <input value={ac.paytm?.merchantKey || ''}
+              onChange={e => setAC(a => ({ ...a, paytm: { ...a.paytm, merchantKey: e.target.value.trim() } }))}
+              placeholder={ac.paytm?.merchantKey?.startsWith('••••') ? ac.paytm.merchantKey : 'Paste from Paytm dashboard'}
+              type="password" autoComplete="new-password"
+              style={inputStyle} />
+          </Field>
+        </Card>
+      )}
+
+      {acProvider === 'phonepe' && (
+        <Card title="PhonePe Business credentials"
+          hint="PhonePe Business dashboard → Developer Settings → API Keys. Paste the Salt Key + Salt Index (typically '1'). Configure the webhook URL below in the Payouts → Webhooks section.">
+          <Field label="Merchant ID">
+            <input value={ac.phonepe?.merchantId || ''}
+              onChange={e => setAC(a => ({ ...a, phonepe: { ...a.phonepe, merchantId: e.target.value.trim() } }))}
+              placeholder="e.g. MERCHANTUAT"
+              style={inputStyle} />
+          </Field>
+          <Field label={ac.phonepe?.saltKey?.startsWith('••••') ? 'Salt Key (saved — repaste to change)' : 'Salt Key'}>
+            <input value={ac.phonepe?.saltKey || ''}
+              onChange={e => setAC(a => ({ ...a, phonepe: { ...a.phonepe, saltKey: e.target.value.trim() } }))}
+              placeholder={ac.phonepe?.saltKey?.startsWith('••••') ? ac.phonepe.saltKey : 'Paste from PhonePe dashboard'}
+              type="password" autoComplete="new-password"
+              style={inputStyle} />
+          </Field>
+          <Field label="Salt Index">
+            <input value={ac.phonepe?.saltIndex || '1'}
+              onChange={e => setAC(a => ({ ...a, phonepe: { ...a.phonepe, saltIndex: e.target.value.trim() } }))}
+              placeholder="1"
+              style={{ ...inputStyle, maxWidth: 100 }} />
+          </Field>
+        </Card>
+      )}
+
+      <Card title="Webhook URL"
+        hint="Copy this and paste it into your provider's webhook configuration page. The provider will POST here whenever a customer payment is received — we verify the signature, match it to a pending order, and mark it paid automatically.">
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: '12px 14px',
+          background: A.subtleBg, borderRadius: 8, color: A.ink, wordBreak: 'break-all',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          <span>{acWebhook}</span>
+          <button type="button" onClick={() => { navigator.clipboard.writeText(acWebhook); toast.success('Copied'); }}
+            style={{ padding: '6px 10px', background: A.ink, color: A.cream, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+            Copy
+          </button>
+        </div>
+      </Card>
+
+      <Card title="Status">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 14 }}>
+          <input type="checkbox" checked={!!ac.isActive}
+            onChange={e => setAC(a => ({ ...a, isActive: e.target.checked }))}
+            style={{ width: 18, height: 18, accentColor: A.success, cursor: 'pointer' }}
+          />
+          <span style={{ fontWeight: 600 }}>Enable Auto-Confirm UPI</span>
+        </label>
+        <div style={{ marginTop: 6, fontSize: 12, color: A.mutedText, lineHeight: 1.5 }}>
+          When ON, every UPI payment to your merchant account auto-confirms the matching order
+          (customer's screen flips to "Payment Confirmed" within seconds, no staff action needed).
+          When OFF, you stay on the existing flow where staff manually marks paid orders.
+        </div>
+      </Card>
+    </>
   );
 }
 
