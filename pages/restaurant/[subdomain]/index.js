@@ -8122,9 +8122,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   // "Payment Confirmed" via the existing Firestore listener.
                   // The customer sees a "Waiting for payment confirmation…"
                   // spinner instead, with a 30s fallback to manual confirm.
-                  const autoConfirmActive = !!(liveRestaurant?.autoConfirmActive
-                    && liveRestaurant?.autoConfirmProvider
-                    && liveRestaurant?.autoConfirmProvider !== 'none');
+                  //
+                  // Preview mode: admin can flip this on without a real
+                  // webhook so we render the waiting UI for demos /
+                  // screenshots. The 30s manual fallback still kicks in
+                  // since no webhook ever fires in preview mode.
+                  const autoConfirmActive = !!(
+                    (liveRestaurant?.autoConfirmActive && liveRestaurant?.autoConfirmProvider && liveRestaurant?.autoConfirmProvider !== 'none')
+                    || liveRestaurant?.autoConfirmPreview
+                  );
                   const upiAvailable = !!(restaurant?.upiId || gatewayActive);
 
                   // Deep-link scheme per UPI app. Most Indian UPI apps

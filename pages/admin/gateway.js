@@ -52,6 +52,7 @@ export default function AdminGatewayPage() {
     autoConfirm: {
       provider: 'razorpay',                                                       // 'razorpay' | 'paytm' | 'phonepe' | 'none'
       isActive: false,
+      previewMode: false,                                                         // Forces customer-page waiting UI for demos
       razorpay: { keyId: '', keySecret: '', webhookSecret: '' },
       paytm:    { merchantId: '', merchantKey: '' },
       phonepe:  { merchantId: '', saltKey: '', saltIndex: '1' },
@@ -104,6 +105,7 @@ export default function AdminGatewayPage() {
             autoConfirm: {
               provider: j.config.autoConfirm?.provider || 'razorpay',
               isActive: !!j.config.autoConfirm?.isActive,
+              previewMode: !!j.config.autoConfirm?.previewMode,
               razorpay: {
                 keyId:         j.config.autoConfirm?.razorpay?.keyId         || '',
                 keySecret:     j.config.autoConfirm?.razorpay?.keySecret     || '',
@@ -547,6 +549,35 @@ function AutoConfirmTab({ config, setConfig, webhookUrl, rid }) {
           When ON, every UPI payment to your merchant account auto-confirms the matching order
           (customer's screen flips to "Payment Confirmed" within seconds, no staff action needed).
           When OFF, you stay on the existing flow where staff manually marks paid orders.
+        </div>
+
+        {/* Preview mode — flips the customer-page UI to show the
+            auto-confirm waiting state without requiring a real merchant
+            webhook. Useful for demos / pitch screenshots / sanity-
+            checking the UX. The 30s manual-confirm fallback still
+            appears since no real webhook fires in preview mode. */}
+        <div style={{
+          marginTop: 16, paddingTop: 14,
+          borderTop: A.border,
+        }}>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', fontSize: 13 }}>
+            <input type="checkbox" checked={!!ac.previewMode}
+              onChange={e => setAC(a => ({ ...a, previewMode: e.target.checked }))}
+              style={{ width: 16, height: 16, accentColor: A.warning, cursor: 'pointer', marginTop: 2, flexShrink: 0 }}
+            />
+            <div>
+              <span style={{ fontWeight: 600, color: A.warningDim }}>
+                Preview auto-confirm UI (no real webhook)
+              </span>
+              <div style={{ marginTop: 4, fontSize: 12, color: A.mutedText, lineHeight: 1.5 }}>
+                Forces the customer's bill modal to show the &ldquo;Waiting for payment
+                confirmation…&rdquo; spinner instead of the trust button — even without a
+                real merchant account configured. Useful for demos and pitch screenshots.
+                The 30-second &ldquo;confirm manually&rdquo; fallback still appears since
+                no webhook fires in preview mode.
+              </div>
+            </div>
+          </label>
         </div>
       </Card>
     </>

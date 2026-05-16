@@ -73,6 +73,12 @@ function sanitizeConfig(input) {
     config.autoConfirm = {
       provider: acProvider,
       isActive: !!a.isActive,
+      // Preview mode — forces the customer page to render the
+      // auto-confirm waiting UI even without a real webhook configured.
+      // For demos, screenshots, and sanity-checking the UX. The webhook
+      // still won't fire (no real merchant account), so the 30s manual
+      // fallback button appears as the safety net.
+      previewMode: !!a.previewMode,
     };
     if (a.razorpay) {
       config.autoConfirm.razorpay = {
