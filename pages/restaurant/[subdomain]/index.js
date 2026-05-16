@@ -8117,6 +8117,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     gpay:    'Google Pay',
                     phonepe: 'PhonePe',
                     paytm:   'Paytm',
+                    scanqr:  'UPI QR',
                     other:   'UPI',
                     gateway: 'UPI',
                   };
@@ -8298,11 +8299,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   // copies) so we have zero external image dependencies and
                   // stay in our own bundle. Swap to actual logos later if
                   // brand fidelity matters more than load weight.
+                  // ╭─ How to add a new UPI app in the future ─╮
+                  // 1. Append an entry to UPI_APPS below: { key, name }.
+                  //    The `key` is your internal id (alphanumeric, no
+                  //    spaces). The `name` is what shows under the logo.
+                  // 2. Add a BRAND_LOGO entry (see further down — inline
+                  //    SVG, 40x40 viewBox).
+                  // 3. If it has its own app deep-link scheme, add an
+                  //    entry to the SCHEME map inside runUpiPayment().
+                  //    Otherwise the universal `upi://pay` is used.
+                  // To REMOVE an app: just delete its UPI_APPS line.
+                  // The logo + scheme entries become dead and can be
+                  // cleaned up later — orphan keys won't break anything.
+                  // ╰──────────────────────────────────────────────╯
+                  // 'scanqr' is a special pseudo-app: tapping it shows
+                  // the UPI QR code on-screen so the customer can scan
+                  // with any UPI app of their choice (BHIM, Cred, their
+                  // bank's app, etc.). Useful for apps not in the list.
                   const UPI_APPS = [
-                    { key: 'gpay',      name: 'Google Pay' },
-                    { key: 'phonepe',   name: 'PhonePe'    },
-                    { key: 'paytm',     name: 'Paytm'      },
-                    { key: 'amazonpay', name: 'Amazon Pay' },
+                    { key: 'gpay',    name: 'Google Pay' },
+                    { key: 'phonepe', name: 'PhonePe'    },
+                    { key: 'paytm',   name: 'Paytm'      },
+                    { key: 'scanqr',  name: 'Scan QR to Pay' },
                   ];
 
                   // One-tap UPI handler — fires the payment immediately for
@@ -8352,21 +8370,28 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     // to handle the intent, so we render a QR code with
                     // the same UPI URL the customer can scan with their
                     // phone's UPI app instead.
+                    //
+                    // Special case: app === 'scanqr' ALWAYS shows the QR
+                    // regardless of device — that's the whole point of
+                    // that option (let the customer pick their own UPI
+                    // app via QR scan, including ones we don't list).
                     if (restaurant?.upiId) {
+                      // To add support for a new UPI app's deep link, add
+                      // its scheme below. e.g. BHIM uses 'upi://pay'
+                      // (universal), Cred uses 'credpay://pay'.
                       const SCHEME = {
-                        gpay:      'tez://upi/pay',
-                        phonepe:   'phonepe://pay',
-                        paytm:     'paytmmp://pay',
-                        amazonpay: 'amazonpay://pay',
+                        gpay:    'tez://upi/pay',
+                        phonepe: 'phonepe://pay',
+                        paytm:   'paytmmp://pay',
                       };
-                      // On desktop ALWAYS use the universal upi:// scheme
-                      // — app-specific schemes won't make a phone scanner
-                      // any happier and the universal scheme is what the
-                      // phone's UPI picker actually expects.
-                      const scheme = isDesktop ? 'upi://pay' : (SCHEME[app] || 'upi://pay');
+                      // On desktop or for 'scanqr', skip the app-specific
+                      // scheme and use the universal upi:// (the QR
+                      // encodes that URL so any UPI app can scan it).
+                      const wantsQr = isDesktop || app === 'scanqr';
+                      const scheme = wantsQr ? 'upi://pay' : (SCHEME[app] || 'upi://pay');
                       const upiUrl = `${scheme}?pa=${encodeURIComponent(restaurant.upiId)}&pn=${encodeURIComponent(restaurant.name || 'Restaurant')}&am=${bill.total}&cu=INR&tn=${encodeURIComponent(tnRef)}`;
 
-                      if (isDesktop) {
+                      if (wantsQr) {
                         // Generate the QR PNG inline. `qrcode` package is
                         // already a project dep (used by /admin/qrcode).
                         try {
@@ -8469,11 +8494,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     phonepe: (
                       <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
                         <rect width="40" height="40" rx="9" fill="#5F259F" />
-                        {/* White rounded "Pe" — emulates PhonePe's mark */}
-                        <path d="M11 13 h7 a4 4 0 0 1 4 4 v0 a4 4 0 0 1 -4 4 h-3 v8 h-4 z M15 16 v3 h2 a1.5 1.5 0 0 0 0 -3 z" fill="#FFFFFF" />
-                        <path d="M22 21 h7 v3 h-3 v5 h-4 v-5 h-3 v-3 h3 z" fill="#FFFFFF" opacity="0.9" />
-                        {/* ₹ inside the P loop — small, off-white */}
-                        <text x="14.5" y="19" fontFamily="Arial,sans-serif" fontSize="5" fontWeight="900" fill="#5F259F" textAnchor="middle">₹</text>
+                        {/* White circle (PhonePe's signature inner badge) */}
+                        <circle cx="20" cy="20" r="11" fill="#FFFFFF" />
+                        {/* Stylized purple "Pe" wordmark inside the white circle */}
+                        <text x="20" y="24" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="13" fontWeight="900" fill="#5F259F" letterSpacing="-0.5">Pe</text>
                       </svg>
                     ),
                     paytm: (
@@ -8489,13 +8513,23 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         <text x="20" y="32" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="6" fontWeight="700" fill="#FFFFFF" opacity="0.85" letterSpacing="0.5">UPI</text>
                       </svg>
                     ),
-                    amazonpay: (
+                    scanqr: (
                       <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
-                        <rect width="40" height="40" rx="9" fill="#232F3E" />
-                        <text x="20" y="17" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="7.5" fontWeight="900" fill="#FFFFFF" letterSpacing="-0.2">amazon</text>
-                        {/* Smile — a wider arc that ends in a small arrow tip on the right, like the actual Amazon smile */}
-                        <path d="M 8 22 Q 20 30, 30 22 L 28 21 M 30 22 L 30 20" stroke="#FF9900" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                        <text x="20" y="34" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="7" fontWeight="800" fill="#FF9900" letterSpacing="0.2">pay</text>
+                        <rect width="40" height="40" rx="9" fill="#1A1A1A" />
+                        {/* Three QR-style corner finder squares + a centre dot */}
+                        <rect x="9"  y="9"  width="9" height="9" rx="1" fill="none" stroke="#FFFFFF" strokeWidth="1.6" />
+                        <rect x="11" y="11" width="5" height="5" rx="0.5" fill="#FFFFFF" />
+                        <rect x="22" y="9"  width="9" height="9" rx="1" fill="none" stroke="#FFFFFF" strokeWidth="1.6" />
+                        <rect x="24" y="11" width="5" height="5" rx="0.5" fill="#FFFFFF" />
+                        <rect x="9"  y="22" width="9" height="9" rx="1" fill="none" stroke="#FFFFFF" strokeWidth="1.6" />
+                        <rect x="11" y="24" width="5" height="5" rx="0.5" fill="#FFFFFF" />
+                        {/* Speckle dots in the bottom-right quadrant */}
+                        <rect x="22" y="22" width="2" height="2" fill="#FFFFFF" />
+                        <rect x="26" y="22" width="2" height="2" fill="#FFFFFF" />
+                        <rect x="24" y="26" width="2" height="2" fill="#FFFFFF" />
+                        <rect x="28" y="26" width="2" height="2" fill="#FFFFFF" />
+                        <rect x="22" y="28" width="2" height="2" fill="#FFFFFF" />
+                        <rect x="28" y="22" width="2" height="2" fill="#FFFFFF" />
                       </svg>
                     ),
                     cash: (
