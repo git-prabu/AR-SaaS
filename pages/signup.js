@@ -542,6 +542,17 @@ export default function Signup() {
                 </button>
               </div>
 
+              {/* Legal — implicit acceptance notice. The "Start Free
+                  Trial" button above acts as the acceptance event; this
+                  copy makes that explicit and links the documents so
+                  customers can review BEFORE clicking. */}
+              <div style={{ textAlign: 'center', marginTop: 16, fontSize: 11, color: 'rgba(255,245,232,0.45)', lineHeight: 1.6 }}>
+                By starting your trial you agree to our{' '}
+                <Link href="/terms" style={{ color: '#F79B3D', fontWeight: 500, textDecoration: 'none' }}>Terms of Service</Link>
+                {' '}and{' '}
+                <Link href="/privacy" style={{ color: '#F79B3D', fontWeight: 500, textDecoration: 'none' }}>Privacy Policy</Link>.
+              </div>
+
               {/* Sign in link */}
               <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'rgba(255,245,232,0.35)' }}>
                 Already have an account?{' '}

@@ -1767,10 +1767,10 @@ export default function HomePage() {
             </span>
             <span style={{fontSize:13, color:'rgba(255,245,220,0.25)'}}>© {new Date().getFullYear()} HaloHelm. All rights reserved.</span>
             <div style={{display:'flex', gap:24, alignItems:'center'}}>
-              {['Privacy','Terms'].map(l=>(
-                <a key={l} href="#" style={{fontSize:13, color:'rgba(255,245,220,0.3)'}}
+              {[{label:'Privacy',href:'/privacy'},{label:'Terms',href:'/terms'}].map(l=>(
+                <a key={l.label} href={l.href} style={{fontSize:13, color:'rgba(255,245,220,0.3)', textDecoration:'none'}}
                   onMouseOver={e=>e.currentTarget.style.color='rgba(255,245,220,0.6)'}
-                  onMouseOut={e=>e.currentTarget.style.color='rgba(255,245,220,0.3)'}>{l}</a>
+                  onMouseOut={e=>e.currentTarget.style.color='rgba(255,245,220,0.3)'}>{l.label}</a>
               ))}
               <Link href="/admin/login" style={{fontSize:13, color:'rgba(255,245,220,0.3)'}}>Sign in</Link>
               <Link href="/superadmin/login" style={{fontSize:13, color:'rgba(255,245,220,0.2)'}}>Super Admin</Link>
