@@ -30,24 +30,68 @@
 import Head from 'next/head';
 import { adminDb } from '../../../lib/firebaseAdmin';
 
+// Module-level cache for subdomain → { restaurantId, restaurantName }.
+// Vercel keeps serverless functions "warm" for ~5-15 minutes between
+// invocations, during which module-level state survives. So after the
+// first scan to a given table, the next scans within ~15 minutes skip
+// the restaurant lookup entirely — only the tableSession read remains.
+//
+// Cache is intentionally small + short-lived:
+// - Keyed by subdomain (lowercased)
+// - 5-minute TTL so admins who rename a restaurant or toggle isActive
+//   see the change within 5 min (not stuck on a stale cached value)
+// - In-memory only — a cold function start re-fetches, no problem
+//
+// Why not Redis / Upstash: that'd add a cross-network call to read the
+// cache itself, defeating the point. The in-memory map is free + zero
+// roundtrip + dies with the function (no stale data risk beyond 5 min).
+const SUBDOMAIN_CACHE = new Map();
+const SUBDOMAIN_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function readSubdomainCache(subdomain) {
+  const entry = SUBDOMAIN_CACHE.get(subdomain);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    SUBDOMAIN_CACHE.delete(subdomain);
+    return null;
+  }
+  return entry;
+}
+
+function writeSubdomainCache(subdomain, restaurantId, restaurantName) {
+  SUBDOMAIN_CACHE.set(subdomain, {
+    restaurantId,
+    restaurantName,
+    expiresAt: Date.now() + SUBDOMAIN_CACHE_TTL_MS,
+  });
+}
+
 export async function getServerSideProps(ctx) {
   const subdomain = String(ctx.params?.subdomain || '').toLowerCase().trim();
   const table     = String(ctx.params?.table     || '').trim();
   if (!subdomain || !table) return { notFound: true };
 
   // Look up the restaurant by subdomain. Indexed via firestore.indexes.json
-  // (subdomain ASC + isActive ASC) so this is a single keyed read.
+  // (subdomain ASC + isActive ASC) so this is a single keyed read — but
+  // we first check the in-memory cache to skip it on warm functions.
   let restaurantId, restaurantName;
-  try {
-    const rs = await adminDb.collection('restaurants')
-      .where('subdomain', '==', subdomain)
-      .limit(1).get();
-    if (rs.empty) return { notFound: true };
-    restaurantId   = rs.docs[0].id;
-    restaurantName = rs.docs[0].data().name || subdomain;
-  } catch (e) {
-    console.error('[qr-redirect] restaurant lookup failed:', e?.message);
-    return { props: { restaurantName: subdomain, table, blocked: true, reason: 'lookup_failed' } };
+  const cached = readSubdomainCache(subdomain);
+  if (cached) {
+    restaurantId   = cached.restaurantId;
+    restaurantName = cached.restaurantName;
+  } else {
+    try {
+      const rs = await adminDb.collection('restaurants')
+        .where('subdomain', '==', subdomain)
+        .limit(1).get();
+      if (rs.empty) return { notFound: true };
+      restaurantId   = rs.docs[0].id;
+      restaurantName = rs.docs[0].data().name || subdomain;
+      writeSubdomainCache(subdomain, restaurantId, restaurantName);
+    } catch (e) {
+      console.error('[qr-redirect] restaurant lookup failed:', e?.message);
+      return { props: { restaurantName: subdomain, table, blocked: true, reason: 'lookup_failed' } };
+    }
   }
 
   // Read the table session.
