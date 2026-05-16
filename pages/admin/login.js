@@ -124,26 +124,44 @@ export default function AdminLogin() {
     router.push('/admin');
   };
 
-  // Google sign-in — tries popup first, falls back to redirect when the
-  // browser blocks popups (common in iframes, embedded webviews, and some
-  // Chrome configs). The redirect result is picked up by the useEffect
-  // below on page load.
+  // Detect mobile — same reasoning as signup.js: popup-first +
+  // redirect-fallback breaks on mobile browsers because the user
+  // gesture is consumed by the popup attempt. Going straight to
+  // redirect on mobile sidesteps the entire popup-blocker dance.
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const mobileUA = /android|iphone|ipad|ipod|opera mini|iemobile|blackberry|webos/i.test(ua);
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    return mobileUA || hasTouch;
+  };
+
+  // Google sign-in — popup on desktop (nicer UX), redirect on mobile
+  // (more reliable). Both flows funnel through routeAfterGoogle().
   const handleGoogleSignIn = async () => {
     setGoogleBusy(true);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+
+    if (isMobileDevice()) {
+      try {
+        await signInWithRedirect(adminAuth, provider);
+      } catch (redirErr) {
+        console.error('Google sign-in (redirect) error:', redirErr);
+        toast.error('Google sign-in failed. Please try again.');
+        setGoogleBusy(false);
+      }
+      return;
+    }
+
     try {
       const result = await signInWithPopup(adminAuth, provider);
       await routeAfterGoogle(result.user);
     } catch (err) {
       console.error('Google sign-in (popup) error:', err);
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
-        // Silent — user dismissed.
         setGoogleBusy(false);
       } else if (err.code === 'auth/popup-blocked' || err.code === 'auth/web-storage-unsupported') {
-        // Popup blocked — fall back to a full-page redirect. This won't
-        // resolve here; the page will navigate to Google and back, and
-        // getRedirectResult() in the useEffect below picks it up.
         toast('Opening Google sign-in…');
         try {
           await signInWithRedirect(adminAuth, provider);

@@ -95,15 +95,45 @@ export default function Signup() {
     setEmail(fbUser.email || '');
   };
 
-  // Try popup first; fall back to a full-page redirect if the browser
-  // blocks the popup (common in iframes / embedded webviews / strict
-  // popup blockers). The redirect result is picked up by the useEffect
-  // below on the next page load.
+  // Detect mobile UA + touch capability. The previous popup-first +
+  // redirect-fallback flow broke on mobile because the user-gesture
+  // context is consumed by the popup attempt — by the time the catch
+  // block tries signInWithRedirect, Chrome on Android has already
+  // discarded the gesture and blocks the redirect too. Detecting
+  // mobile upfront and going STRAIGHT to redirect sidesteps the issue
+  // (redirect doesn't need an active gesture, just any user-initiated
+  // event handler call). Desktop keeps the nicer popup UX.
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const mobileUA = /android|iphone|ipad|ipod|opera mini|iemobile|blackberry|webos/i.test(ua);
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    return mobileUA || hasTouch;
+  };
+
   const handleGoogleSignup = async () => {
     setError('');
     setGoogleBusy(true);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+
+    // Mobile path — always redirect. No popup attempt, no race with
+    // browser gesture timeout. The result is picked up by the
+    // useEffect below on the page that loads after the redirect.
+    if (isMobileDevice()) {
+      try {
+        await signInWithRedirect(adminAuth, provider);
+        // Page navigates away — no further code runs here.
+      } catch (redirErr) {
+        console.error('Google signup (redirect) error:', redirErr);
+        setError('Google sign-up failed. Please try again.');
+        setGoogleBusy(false);
+      }
+      return;
+    }
+
+    // Desktop path — popup is nicer UX; fall back to redirect if a
+    // strict popup blocker / iframe context blocks it.
     try {
       const result = await signInWithPopup(adminAuth, provider);
       await handleGoogleResult(result.user);
@@ -115,7 +145,6 @@ export default function Signup() {
         toast('Opening Google sign-in…');
         try {
           await signInWithRedirect(adminAuth, provider);
-          // Page navigates away — no further code runs here.
         } catch (redirErr) {
           console.error('Google signup (redirect) error:', redirErr);
           setError('Google sign-up failed. Please try again.');
