@@ -113,7 +113,11 @@ export default function AdminQRCode() {
   // ─── Reset table QRs when style changes so they stay in sync ───────
   useEffect(() => { setTableQRs([]); setTablesDone(false); }, [selectedStyle]);
 
-  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ar-saa-s-kbzn.vercel.app';
+  // Uses NEXT_PUBLIC_SITE_URL (set in Vercel) so generated QR codes always
+  // point at the live customer domain. Fallback to halohelm.com if the env
+  // var is missing (local dev / preview branches without the var set) —
+  // safer than falling back to a Vercel-issued URL that may not exist.
+  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://halohelm.com';
 
   const getMenuURL = (table = null, sid = null) => {
     const base = `${BASE_URL}/restaurant/${restaurant?.subdomain || ''}`;

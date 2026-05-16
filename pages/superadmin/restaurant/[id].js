@@ -15,12 +15,10 @@ import { uploadFile, buildImagePath, buildModelPath, fileSizeMB, deleteFile } fr
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 
-// ── Temp URL until domain is purchased & DNS configured ──────────
-// When you buy halohelm.com, change this to: 'https://{subdomain}.halohelm.com'
+// Customer-facing menu URL. Uses NEXT_PUBLIC_SITE_URL (set in Vercel to
+// https://halohelm.com) with a halohelm.com fallback for local dev.
 const getMenuURL = (subdomain) =>
-  `${process.env.NEXT_PUBLIC_VERCEL_URL
-    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-    : 'https://ar-saa-s-kbzn.vercel.app'}/restaurant/${subdomain}`;
+  `${process.env.NEXT_PUBLIC_SITE_URL || 'https://halohelm.com'}/restaurant/${subdomain}`;
 
 // Plans now match lib/plans.js: starter / growth / pro
 const PLANS = [

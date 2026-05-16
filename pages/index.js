@@ -1038,7 +1038,7 @@ export default function HomePage() {
                   </p>
                   <div style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', animation:'heroFade 0.7s ease 0.3s both'}}>
                     <Link href="/signup?plan=growth"><button className="btn-amber">Start free trial</button></Link>
-                    <a href="https://ar-saa-s-kbzn.vercel.app/restaurant/spot" target="_blank" rel="noreferrer">
+                    <a href="https://halohelm.com/restaurant/spot" target="_blank" rel="noreferrer">
                       <button className="btn-ghost">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                         See live demo
@@ -1294,7 +1294,7 @@ export default function HomePage() {
               <p className="s-sub" style={{marginBottom:22}}>Average across our partners in the first 90 days on the platform.</p>
               <div style={{display:'flex', gap:12, flexWrap:'wrap', justifyContent:'center'}}>
                 <Link href="/admin/login"><button className="btn-amber">Start free trial →</button></Link>
-                <a href="https://ar-saa-s-kbzn.vercel.app/restaurant/spot" target="_blank" rel="noreferrer">
+                <a href="https://halohelm.com/restaurant/spot" target="_blank" rel="noreferrer">
                   <button className="btn-ghost">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                     See live demo
@@ -1674,7 +1674,7 @@ export default function HomePage() {
               <div style={{fontFamily:'Poppins,sans-serif', fontWeight:700, fontSize:18, color:'var(--demo-title)'}}>See a real AR menu in action — open on your phone</div>
               <div style={{fontSize:13, color:'var(--demo-sub)', marginTop:4}}>No account needed. Works on any smartphone.</div>
             </div>
-            <a href="https://ar-saa-s-kbzn.vercel.app/restaurant/spot" target="_blank" rel="noreferrer">
+            <a href="https://halohelm.com/restaurant/spot" target="_blank" rel="noreferrer">
               <button style={{padding:'13px 26px', borderRadius:12, border:`1px solid var(--demo-btn-bd)`, background:'var(--demo-btn-bg)', color:'var(--demo-btn-tx)', fontSize:14, fontWeight:700, fontFamily:'Poppins,sans-serif', cursor:'pointer', transition:'all 0.2s', whiteSpace:'nowrap'}}>
                 Open Live Demo →
               </button>

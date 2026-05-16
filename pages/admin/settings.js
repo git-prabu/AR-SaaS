@@ -264,7 +264,8 @@ export default function AdminSettings() {
 
   const handleCopySubdomain = () => {
     if (!subdomain) return;
-    navigator.clipboard.writeText(`https://ar-saa-s-kbzn.vercel.app/restaurant/${subdomain}`);
+    const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://halohelm.com';
+    navigator.clipboard.writeText(`${base}/restaurant/${subdomain}`);
     toast.success('Menu URL copied!');
   };
 
