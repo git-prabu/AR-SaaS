@@ -8394,6 +8394,14 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       if (wantsQr) {
                         // Generate the QR PNG inline. `qrcode` package is
                         // already a project dep (used by /admin/qrcode).
+                        // IMPORTANT: do NOT mark online_requested here.
+                        // The parent render checks billPaymentState ===
+                        // 'requested' BEFORE the picker IIFE, so stamping
+                        // the status now would flip the screen to "UPI
+                        // Payment Done" before the customer ever sees the
+                        // QR. The status stamp belongs on the "I've paid"
+                        // tap below (inside the qrPayload sub-step) —
+                        // same pattern as the manual-UPI mobile flow.
                         try {
                           const QRCode = (await import('qrcode')).default;
                           const dataUrl = await QRCode.toDataURL(upiUrl, {
@@ -8402,8 +8410,6 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                           });
                           setQrPayload(dataUrl);
                           setQrFor({ app, amount: bill.total, vpa: restaurant.upiId });
-                          // Mark online_requested so admin sees the customer is paying.
-                          await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested').catch(() => {});
                         } catch (e) {
                           console.error('QR generation failed:', e);
                           toast.error('Could not show QR code. Try another payment method.');
@@ -8492,12 +8498,16 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       </svg>
                     ),
                     phonepe: (
+                      // PhonePe's actual brand mark uses the DEVANAGARI
+                      // character "पे" (Hindi 'Pe'), not Latin letters.
+                      // The character renders via the system Devanagari
+                      // font (every modern OS ships one — no asset load).
                       <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
                         <rect width="40" height="40" rx="9" fill="#5F259F" />
-                        {/* White circle (PhonePe's signature inner badge) */}
                         <circle cx="20" cy="20" r="11" fill="#FFFFFF" />
-                        {/* Stylized purple "Pe" wordmark inside the white circle */}
-                        <text x="20" y="24" textAnchor="middle" fontFamily="Inter,Arial,sans-serif" fontSize="13" fontWeight="900" fill="#5F259F" letterSpacing="-0.5">Pe</text>
+                        <text x="20" y="26" textAnchor="middle"
+                              fontFamily="'Noto Sans Devanagari','Mangal','Sakkal Devanagari',sans-serif"
+                              fontSize="17" fontWeight="800" fill="#5F259F">पे</text>
                       </svg>
                     ),
                     paytm: (
@@ -8588,6 +8598,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         <button
                           className="pay-cta"
                           onClick={async () => {
+                            // 1. Stamp the orders online_requested so the
+                            //    admin sees the payment request. This used
+                            //    to fire when we showed the QR, which broke
+                            //    the picker render (the bill-level
+                            //    "requested" view took over and the QR
+                            //    never rendered). Now it fires only on
+                            //    explicit "I've paid" — same pattern as
+                            //    the mobile manual-UPI confirm step.
+                            if (restaurant?.id && bill?.orderIds?.length) {
+                              try {
+                                await updatePaymentStatusBatch(restaurant.id, bill.orderIds, 'online_requested');
+                              } catch (e) {
+                                console.error('[scanqr-confirm] status update failed:', e);
+                              }
+                            }
                             setPaymentDone(true);
                             try { sessionStorage.setItem('ar_payment_done', JSON.stringify({ method: 'upi', orderIds: bill.orderIds })); } catch {}
                             setQrPayload(null); setQrFor(null);
