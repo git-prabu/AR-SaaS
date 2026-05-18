@@ -577,7 +577,13 @@ service cloud.firestore {
 
     // ── Plans ─────────────────────────────────────────────────────
     match /plans/{planId} {
-      // Public: anyone can read plans (landing page + subscription page)
+      // Public: anyone can read plans (landing page + subscription page).
+      // F18 (17 May 2026): intentional. Plan pricing + limits are
+      // public marketing data (rendered on /pricing and /subscription
+      // unauthenticated). lib/plans.js is the source-of-truth for
+      // code paths; this Firestore mirror only exists so the
+      // superadmin can adjust pricing without a redeploy. No PII
+      // or business secrets here.
       allow read: if true;
       // Only super admin can manage plans
       allow write: if isSuperAdmin();
@@ -600,6 +606,16 @@ service cloud.firestore {
     // can still reach the doc.
     match /systemConfig/{configId} {
       allow read, write: if isSuperAdmin();
+    }
+
+    // ── Rate Limit Counters ──────────────────────────────────────
+    // Phase 4 hardening (F2, 17 May 2026): explicit deny so the
+    // intent is documented in-code (was previously implicit via
+    // default-deny). Written exclusively by lib/staffAuth.js +
+    // lib/rateLimit.js via the Admin SDK (bypasses these rules);
+    // no client ever has a reason to read or write here.
+    match /rateLimit/{docId} {
+      allow read, write: if false;
     }
 
   }

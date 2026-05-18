@@ -29,10 +29,35 @@
 // Response: { ok: true, billId } or { ok: false, error }
 
 import { adminDb } from '../../../lib/firebaseAdmin';
+import { checkRateLimit, getClientIp } from '../../../lib/rateLimit';
+
+// Phase 4 hardening (F5, 17 May 2026): tableNumber regex. The
+// previous code did `String(tableNumber)` and used the result as
+// a Firestore document ID (tableSessions/{tNum}). Without
+// validation, an attacker could pass `tableNumber: "__proto__"`
+// (rejected by Firestore but generates noise), or excessively
+// long strings (up to 1500 bytes per Firestore doc-id limits).
+// Real table numbers in restaurant QR codes are short integers.
+const TABLE_NUMBER_REGEX = /^\d{1,5}$/;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
+
+  // Phase 4 hardening (F5, 17 May 2026): per-IP rate limit. The
+  // endpoint creates new tableBill documents — without a limit,
+  // an attacker who scans (or guesses) a table session sid can
+  // spam bill creation by repeatedly cycling currentBillId. 30/min
+  // is generous for a real customer (they might re-open the menu
+  // tab a few times during a meal).
+  const ip = getClientIp(req);
+  if (ip) {
+    const lim = await checkRateLimit(`tablebill_ip_${ip}`, 30, 60);
+    if (!lim.ok) {
+      res.setHeader('Retry-After', String(lim.waitSec));
+      return res.status(429).json({ ok: false, error: 'Too many requests. Try again shortly.' });
+    }
   }
 
   const { restaurantId, tableNumber, sid } = req.body || {};
@@ -47,6 +72,9 @@ export default async function handler(req, res) {
   }
 
   const tNum = String(tableNumber);
+  if (!TABLE_NUMBER_REGEX.test(tNum)) {
+    return res.status(400).json({ ok: false, error: 'Invalid table number.' });
+  }
   const sessionRef = adminDb.doc(`restaurants/${restaurantId}/tableSessions/${tNum}`);
   const billsCol   = adminDb.collection(`restaurants/${restaurantId}/tableBills`);
 
