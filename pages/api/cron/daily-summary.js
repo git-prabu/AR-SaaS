@@ -25,6 +25,7 @@
 // re-run on demand from /superadmin/email via /api/email/trigger-daily-summary.
 
 import { runDailySummary } from '../../../lib/dailySummary';
+import { withCronStatus } from '../../../lib/cronStatus';
 
 export default async function handler(req, res) {
   // Auth — only Vercel cron (or a manual call with the secret).
@@ -37,7 +38,11 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: 'Unauthorized.' });
   }
 
-  try {
+  // withCronStatus wraps the work + records outcome to systemConfig/cronStatus
+  // so the superadmin can see if the cron is healthy. `partial` is true when
+  // some restaurants got their email but others failed — useful signal that
+  // SMTP is flaky or a specific restaurant has a bad config.
+  return withCronStatus('daily-summary', async () => {
     const results = await runDailySummary();
     console.log('[cron/daily-summary]', JSON.stringify({
       dateKey: results.dateKey,
@@ -46,9 +51,15 @@ export default async function handler(req, res) {
       skipped: results.skipped,
       failed:  results.failed,
     }));
-    return res.status(200).json({ ok: true, ...results });
-  } catch (err) {
-    console.error('[cron/daily-summary] fatal:', err);
-    return res.status(500).json({ ok: false, error: err.message });
-  }
+    return {
+      summary: {
+        dateKey: results.dateKey,
+        total:   results.total,
+        sent:    results.sent,
+        skipped: results.skipped,
+        failed:  results.failed,
+      },
+      partial: results.failed > 0,
+    };
+  }, res);
 }

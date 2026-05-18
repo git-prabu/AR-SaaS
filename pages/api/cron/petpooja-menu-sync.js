@@ -20,6 +20,7 @@
 
 import { adminDb } from '../../../lib/firebaseAdmin';
 import { syncMenu } from '../../../lib/petpoojaSync';
+import { withCronStatus } from '../../../lib/cronStatus';
 
 export default async function handler(req, res) {
   const auth = req.headers.authorization || '';
@@ -31,7 +32,11 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, error: 'Unauthorized.' });
   }
 
-  try {
+  // withCronStatus records the run outcome in systemConfig/cronStatus so
+  // the superadmin can spot silent failures. `partial: true` is returned
+  // when at least one restaurant's sync failed — useful signal even if
+  // the cron as a whole "succeeded".
+  return withCronStatus('petpooja-menu-sync', async () => {
     // Find all hybrid restaurants. We don't filter by plan here —
     // syncMenu()'s loadAndGate() will refuse work for any restaurant
     // that's flipped off Pro. Belt-and-braces.
@@ -56,9 +61,6 @@ export default async function handler(req, res) {
       failed:   results.filter(r => !r.ok && !r.skipped).length,
     };
     console.log('[cron/petpooja-menu-sync]', JSON.stringify(summary));
-    return res.status(200).json({ ok: true, summary, results });
-  } catch (err) {
-    console.error('[cron/petpooja-menu-sync] failed:', err);
-    return res.status(500).json({ ok: false, error: err?.message });
-  }
+    return { summary, partial: summary.failed > 0 };
+  }, res);
 }

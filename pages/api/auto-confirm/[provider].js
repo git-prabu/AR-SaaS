@@ -95,6 +95,19 @@ export default async function handler(req, res) {
   if (!parsed) {
     // Bad signature or non-actionable event — 400 so the provider
     // dashboard surfaces it as a config problem.
+    //
+    // Log enough detail to detect probing attacks (someone trying
+    // arbitrary signatures to forge a "paid" event) without leaking
+    // payload contents. The body could contain sensitive payment
+    // data; log only the size + a short hash so legitimate failures
+    // (Razorpay config drift, secret rotation) can be diagnosed but
+    // attacker payloads aren't recorded verbatim.
+    const bodyLen = (rawBody || '').length;
+    const bodyFingerprint = bodyLen > 0
+      ? require('crypto').createHash('sha256').update(rawBody).digest('hex').slice(0, 12)
+      : '<empty>';
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    console.warn(`[auto-confirm:${providerKey}] signature verify failed rid=${restaurantId} ip=${clientIp} bytes=${bodyLen} bodyHash=${bodyFingerprint}`);
     return res.status(400).send('Invalid or non-actionable event');
   }
 

@@ -20,6 +20,7 @@
 // the dev's machine, never in production).
 
 import { adminDb, adminStorage } from '../../../lib/firebaseAdmin';
+import { recordCronRun } from '../../../lib/cronStatus';
 
 // Top-level collections to export. (Don't include `systemConfig` — keeping
 // the sender App Password out of backups by default is safer.)
@@ -116,6 +117,13 @@ export default async function handler(req, res) {
       filename, bytes, restaurantCount: payload.restaurantCount, elapsedMs,
     }));
 
+    // Record success in cron status so superadmin sees a healthy heartbeat.
+    await recordCronRun('firestore-backup', {
+      ok: true,
+      durationMs: elapsedMs,
+      summary: { filename, bytes, restaurantCount: payload.restaurantCount },
+    });
+
     return res.status(200).json({
       ok: true,
       filename,
@@ -124,7 +132,13 @@ export default async function handler(req, res) {
       elapsedMs,
     });
   } catch (err) {
+    const elapsedMs = Date.now() - startedAt;
     console.error('[cron/firestore-backup] fatal:', err);
+    await recordCronRun('firestore-backup', {
+      ok: false,
+      durationMs: elapsedMs,
+      error: err?.message,
+    });
     return res.status(500).json({ ok: false, error: err.message });
   }
 }

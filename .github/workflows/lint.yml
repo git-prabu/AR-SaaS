@@ -1,0 +1,78 @@
+# .github/workflows/lint.yml
+#
+# Runs ESLint + `next build` on every push to main and every pull request.
+# Catches:
+#   - syntax errors that slipped past local testing
+#   - unused-vars / unused-imports
+#   - type-of issues caught by Next's built-in lint config
+#   - build failures (missing imports, broken JSX) before they hit Vercel
+#
+# Free on GitHub Actions for public repos. Private repos get 2,000 free
+# minutes/month — way more than we'd ever consume with this workflow.
+#
+# To enable: this file just needs to exist in main; GitHub auto-discovers
+# it. Check the Actions tab on the repo to see runs.
+
+name: Lint + Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # Cache npm modules across runs — speeds up the workflow
+          # from ~3 minutes to ~1 minute on a cache hit.
+          cache: 'npm'
+
+      - name: Install dependencies
+        # `npm ci` is reproducible — fails if package.json + package-lock
+        # are out of sync, which is what we want in CI.
+        run: npm ci
+
+      - name: Run ESLint
+        # `next lint` uses the eslint-config-next preset which is already
+        # in devDependencies. Doesn't fail the build on warnings, only
+        # errors. Catches syntax issues, unused imports, etc.
+        run: npm run lint
+
+      - name: Build (Next.js production)
+        # Catches build-time errors that only surface during actual
+        # compilation (missing imports, broken JSX, getStaticProps
+        # type mismatches). Same command Vercel runs, so if this
+        # passes, Vercel will too.
+        run: npm run build
+        env:
+          # Build needs SOME env vars to not blow up at module-load.
+          # These are dummy values — actual production env vars stay
+          # in Vercel's secrets, not in CI. The build doesn't make
+          # outbound Firebase calls during static generation of
+          # marketing pages, so dummies suffice for the lint pass.
+          NEXT_PUBLIC_FIREBASE_API_KEY: dummy
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: dummy.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: dummy
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: dummy.appspot.com
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '123456789'
+          NEXT_PUBLIC_FIREBASE_APP_ID: '1:123:web:abc'
+          NEXT_PUBLIC_SITE_URL: https://halohelm.com
+          # Firebase Admin SDK only initialised on first API call (lazy),
+          # so static build doesn't need real credentials.
+          FIREBASE_ADMIN_PROJECT_ID: dummy
+          FIREBASE_ADMIN_CLIENT_EMAIL: dummy@dummy.iam.gserviceaccount.com
+          # Multi-line private keys need escaped newlines in env values.
+          # This is a syntactically-valid dummy key (won't authenticate
+          # anywhere — just lets firebase-admin's parse step succeed).
+          FIREBASE_ADMIN_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n"
