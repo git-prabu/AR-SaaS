@@ -65,7 +65,12 @@ export default async function handler(req, res) {
     }
     staffDoc = snap.docs[0];
   } catch (e) {
-    console.error('Staff lookup error:', e);
+    // Phase 4 hardening (F12, 17 May 2026): log without the error
+    // object — Firestore error messages can include query details
+    // (collection paths, document IDs, sometimes the matched field
+    // value) which is mildly fingerprint-y. We don't need the
+    // detail in the log; the alert that something failed is enough.
+    console.error('[staff/login] lookup failed');
     return res.status(500).json({ error: 'Server error. Please try again.' });
   }
 

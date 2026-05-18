@@ -32,6 +32,26 @@ service cloud.firestore {
         request.auth.token.rid == restaurantId;
     }
 
+    // Phase 4 hardening (F17, 17 May 2026): live-checked staff.
+    // pages/api/staff/update.js calls adminAuth.revokeRefreshTokens
+    // + updateUser({disabled:true}) when an admin toggles a staff
+    // member's isActive to false, but the staff's CURRENT id token
+    // remains valid until its 1-hour TTL expires — during that
+    // window they can still hit Firestore. This helper adds an
+    // exact-doc Firestore read to the rule eval so a write from a
+    // disabled staff is refused immediately (the read is cached
+    // per-evaluation by Firestore, so a single rule eval that
+    // calls isActiveStaff() twice only pays for it once).
+    //
+    // Used ONLY on update/delete/write rules. Reads still go through
+    // plain isStaff() — a disabled staff briefly seeing stale data
+    // on their dashboard is acceptable; them WRITING into the
+    // restaurant's orders/tableBills/etc. after being disabled is not.
+    function isActiveStaff(restaurantId) {
+      return isStaff(restaurantId) &&
+        get(/databases/$(database)/documents/restaurants/$(restaurantId)/staff/$(request.auth.token.staffId)).data.isActive == true;
+    }
+
     // ── Restaurants ──────────────────────────────────────────────
     match /restaurants/{restaurantId} {
       // Public: read any restaurant (for subdomain routing + real-time status detection)
@@ -157,20 +177,63 @@ service cloud.firestore {
 
       // ── Waiter Calls ──────────────────────────────────────────
       match /waiterCalls/{callId} {
-        // Public: customers can create waiter call (from menu page)
-        allow create: if true;
+        // Public: customers can create waiter call (from menu page).
+        // Phase 4 hardening (F6, 17 May 2026): schema-locked. Pre-
+        // hardening, `allow create: if true` accepted ANY shape with
+        // ANY field sizes — a spammer could insert 1 MB strings into
+        // arbitrary fields, pollute analytics, or inject script tags
+        // that ride into the admin waiterCalls UI. The allow-list
+        // below mirrors lib/db.js createWaiterCall + the customer
+        // page call site at pages/restaurant/[subdomain]/index.js.
+        // status MUST be 'pending' (admin/staff transition it from
+        // there via the update rule above).
+        allow create: if request.resource.data.keys().hasOnly([
+                        'reason', 'tableNumber', 'restaurantName',
+                        'status', 'createdAt',
+                      ]) &&
+                      request.resource.data.reason is string &&
+                      request.resource.data.reason.size() > 0 &&
+                      request.resource.data.reason.size() < 80 &&
+                      request.resource.data.tableNumber is string &&
+                      request.resource.data.tableNumber.size() < 32 &&
+                      request.resource.data.restaurantName is string &&
+                      request.resource.data.restaurantName.size() < 120 &&
+                      request.resource.data.status == 'pending';
         // Restaurant admin: read + update (mark resolved)
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
-        // Staff (kitchen or waiter): read + update so waiter dashboards work
-        // when staff are signed in via the staff Firebase app.
-        allow read, update, delete: if isStaff(restaurantId);
+        // Staff (kitchen or waiter): read for dashboards (cheap),
+        // update/delete via isActiveStaff so a just-disabled staff
+        // can't resolve calls until their token expires (F17).
+        allow read:                  if isStaff(restaurantId);
+        allow update, delete:        if isActiveStaff(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
       }
 
-      // ── Feedback ──
+      // ── Feedback ──────────────────────────────────────────────
+      // Phase 4 hardening (F6, 17 May 2026): same schema-lock
+      // rationale as waiterCalls above. Customer write site is
+      // pages/restaurant/[subdomain]/index.js submitFeedback() —
+      // every field in that call appears in the allow-list below.
+      // isRead is forced to false on create so admins can rely on
+      // it as a server-truth "new feedback" flag; they flip it true
+      // via the update rule when they read it.
       match /feedback/{feedbackId} {
-        allow create: if true;
+        allow create: if request.resource.data.keys().hasOnly([
+                        'rating', 'comment', 'orderItems',
+                        'tableNumber', 'orderId', 'orderTotal',
+                        'isRead', 'createdAt',
+                      ]) &&
+                      request.resource.data.rating is int &&
+                      request.resource.data.rating >= 1 &&
+                      request.resource.data.rating <= 5 &&
+                      request.resource.data.comment is string &&
+                      request.resource.data.comment.size() <= 500 &&
+                      request.resource.data.orderItems is list &&
+                      request.resource.data.orderItems.size() <= 50 &&
+                      request.resource.data.orderTotal is number &&
+                      request.resource.data.orderTotal >= 0 &&
+                      request.resource.data.isRead == false;
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
         allow read, write: if isSuperAdmin();
       }
@@ -296,7 +359,11 @@ service cloud.firestore {
 
         // ── Restaurant admin + staff + super admin full access ───
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
-        allow read, update, delete: if isStaff(restaurantId);
+        // F17: split staff into read (cheap, plain isStaff) +
+        // update/delete (isActiveStaff so a just-disabled staff
+        // can't mutate orders during their token's grace period).
+        allow read:                 if isStaff(restaurantId);
+        allow update, delete:       if isActiveStaff(restaurantId);
         allow read, write: if isSuperAdmin();
       }
 
@@ -367,7 +434,9 @@ service cloud.firestore {
         // pointer when all orders in a bill are paid. sid + isActive +
         // expiresAt remain admin-only — staff cannot deactivate tables
         // or rotate the security token.
-        allow update: if isStaff(restaurantId) &&
+        // F17 (17 May 2026): isActiveStaff so a disabled staff can't
+        // re-point the bill within the 1h token grace window.
+        allow update: if isActiveStaff(restaurantId) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentBillId']);
       }
 
@@ -411,8 +480,10 @@ service cloud.firestore {
 
         // Restaurant admin: full access (close, manage, audit)
         allow read, write: if isRestaurantAdmin(restaurantId);
-        // Staff (kitchen/waiter): full access for the running-bill UI
-        allow read, write: if isStaff(restaurantId);
+        // Staff (kitchen/waiter): read for the bill UI, write only
+        // when their account is currently active (F17, 17 May 2026).
+        allow read: if isStaff(restaurantId);
+        allow write: if isActiveStaff(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
       }

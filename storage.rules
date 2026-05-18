@@ -7,40 +7,113 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // ── Menu Item Images ──────────────────────────────────────────
-    // Path: menuImages/{restaurantId}/{filename}
+    // Looks up the caller's users/{uid} doc in Firestore (one read per
+    // write — uploads are infrequent so cost is negligible). Used to
+    // prove that the caller is the owner of the restaurant whose
+    // bucket they're writing to. Anonymous callers (no auth) return
+    // false on the get, which makes both ownership and superadmin
+    // checks safe to short-circuit on.
+    function getUserData() {
+      return firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+    function isOwnRestaurant(restaurantId) {
+      return isAuth() && getUserData().restaurantId == restaurantId;
+    }
+    function isSuperAdmin() {
+      return isAuth() && getUserData().role == 'superadmin';
+    }
+
+    // File-size + content-type guards. Sized generously for the kinds
+    // of files our admin UI actually uploads — anything bigger almost
+    // certainly indicates an attacker probing for a storage-quota
+    // exhaustion attack.
+    function isAcceptableImage() {
+      // 10MB — admin/items.js resizes browser-side to ~800px / 80% JPEG
+      // (resizeImage in lib/storage.js), which lands around 100-300 KB.
+      // 10MB caps the un-resized fallback path generously.
+      return request.resource.size < 10 * 1024 * 1024 &&
+             request.resource.contentType.matches('image/.*');
+    }
+    function isAcceptableModel() {
+      // 100MB — Meshy AR .glb output is typically 5-30 MB; cap leaves
+      // headroom for the occasional dense model without inviting abuse.
+      return request.resource.size < 100 * 1024 * 1024 &&
+             (request.resource.contentType == 'model/gltf-binary' ||
+              request.resource.contentType == 'application/octet-stream');
+    }
+
+    // ── Restaurant assets ────────────────────────────────────────
+    // Phase 4 hardening (16 May 2026): the previous rule was
+    //   allow write: if isAuth();
+    // which let ANY authenticated user — including a freshly-signed-up
+    // restaurant — upload into ANY OTHER restaurant's bucket path.
+    // Combined with no size/type cap that gave a free
+    //   1. cross-tenant storage-pollution vector,
+    //   2. cost-amplification attack (upload 5GB / 50× to drive up the
+    //      Firebase Storage egress bill), and
+    //   3. malware-hosting vector (upload .exe disguised as image,
+    //      serve it from our domain).
+    //
+    // Now: writes require ownership of the matching restaurantId
+    // (verified via Firestore users/{uid}.restaurantId), bounded
+    // size, and an allow-listed content type. Reads stay public
+    // because the customer menu page is anonymous and needs to
+    // fetch every restaurant's menu images / 3D models.
+    //
+    // Path layout (mirrors lib/storage.js + lib/saStorage.js):
+    //   restaurants/{rid}/images/{Date.now()}_{filename}  — menu + category images
+    //   restaurants/{rid}/models/{Date.now()}_{filename}  — AR .glb files
+
+    match /restaurants/{restaurantId}/images/{allPaths=**} {
+      allow read: if true;
+      // Restaurant admin: only their own restaurant.
+      allow write: if isOwnRestaurant(restaurantId) && isAcceptableImage();
+      // Super admin: any restaurant (uploads via /superadmin/requests
+      // when approving AR submissions where the model came with a
+      // dish photo to re-host).
+      allow write: if isSuperAdmin() && isAcceptableImage();
+      // Delete with the same gate (no size check needed for delete).
+      allow delete: if isOwnRestaurant(restaurantId) || isSuperAdmin();
+    }
+
+    match /restaurants/{restaurantId}/models/{allPaths=**} {
+      allow read: if true;
+      // Restaurant admin: their own AR model uploads (e.g.
+      // self-uploaded .glb via /admin/items).
+      allow write: if isOwnRestaurant(restaurantId) && isAcceptableModel();
+      // Super admin: any restaurant (most common path —
+      // /superadmin/requests approves a submission and uploads the
+      // .glb returned by Meshy).
+      allow write: if isSuperAdmin() && isAcceptableModel();
+      allow delete: if isOwnRestaurant(restaurantId) || isSuperAdmin();
+    }
+
+    // ── Legacy / one-off paths ───────────────────────────────────
+    // These paths are NOT used by any current code path (grep
+    // confirmed). Locked down to read-only so existing files (if
+    // any) still load; no new writes accepted. Will be deleted in
+    // a follow-up sweep once Storage console shows no files remain.
     match /menuImages/{restaurantId}/{allPaths=**} {
-      // Public: read all menu images (customer menu page)
       allow read: if true;
-      // Only authenticated users (admins) can upload
-      allow write: if isAuth();
+      allow write: if false;
     }
-
-    // ── AR / 3D Models ────────────────────────────────────────────
-    // Path: models/{restaurantId}/{filename}
     match /models/{restaurantId}/{allPaths=**} {
-      // Public: read 3D models (WebAR viewer in customer menu)
       allow read: if true;
-      // Only authenticated users (admins/superadmin) can upload
-      allow write: if isAuth();
+      allow write: if false;
     }
 
-    // ── Restaurant Assets (logos, banners) ────────────────────────
-    // Path: restaurants/{restaurantId}/{filename}
-    match /restaurants/{restaurantId}/{allPaths=**} {
-      // Public: read restaurant assets
-      allow read: if true;
-      // Only authenticated users can upload
-      allow write: if isAuth();
-    }
-
-    // ── General Public Assets (fallback) ──────────────────────────
+    // ── Catch-all ────────────────────────────────────────────────
+    // Anything not matched above is read-only public, no writes.
+    // Previously this fallback let any authenticated user write to
+    // arbitrary bucket paths. Now: superadmin only, with size +
+    // type guards. Keeps the door open for one-off ops uploads
+    // (e.g. a global welcome image) without re-opening it for the
+    // attack surface above.
     match /{allPaths=**} {
-      // Public read for everything else
       allow read: if true;
-      // Only authenticated users can write
-      allow write: if isAuth();
+      allow write: if isSuperAdmin() && isAcceptableImage();
     }
-
   }
 }

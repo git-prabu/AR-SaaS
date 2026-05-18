@@ -23,10 +23,26 @@
 // orders doesn't push usedCount past maxUses.
 
 import { adminDb } from '../../../lib/firebaseAdmin';
+import { checkRateLimit, getClientIp } from '../../../lib/rateLimit';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
+
+  // Phase 4 hardening (F4, 17 May 2026): per-IP rate limit. Lower
+  // ceiling than /validate because /use is only called when actually
+  // placing an order — legitimate customers won't trip 10/min unless
+  // they're abusing the order flow itself. Doesn't prevent a
+  // distributed attack against one coupon's maxUses, but the in-tx
+  // re-validation below already keeps usedCount capped at maxUses.
+  const ip = getClientIp(req);
+  if (ip) {
+    const lim = await checkRateLimit(`coupon_use_ip_${ip}`, 10, 60);
+    if (!lim.ok) {
+      res.setHeader('Retry-After', String(lim.waitSec));
+      return res.status(429).json({ ok: false, error: 'Too many requests. Try again shortly.' });
+    }
   }
 
   const { restaurantId, couponId } = req.body || {};

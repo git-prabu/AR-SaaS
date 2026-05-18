@@ -9,10 +9,25 @@
 // it's a fire-and-forget client update that already silently fails under
 // the tightened rule).
 import { adminDb } from '../../../lib/firebaseAdmin';
+import { checkRateLimit, getClientIp } from '../../../lib/rateLimit';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ valid: false, error: 'Method not allowed' });
+  }
+
+  // Phase 4 hardening (F4, 17 May 2026): per-IP rate limit. Without
+  // it an attacker could brute-force coupon code enumeration (try
+  // 1000 codes/minute against /api/coupons/validate) or just hammer
+  // the endpoint to spike Firestore read costs. 30/min covers
+  // genuine customers re-validating as they edit cart contents.
+  const ip = getClientIp(req);
+  if (ip) {
+    const lim = await checkRateLimit(`coupon_validate_ip_${ip}`, 30, 60);
+    if (!lim.ok) {
+      res.setHeader('Retry-After', String(lim.waitSec));
+      return res.status(429).json({ valid: false, error: 'Too many requests. Try again shortly.' });
+    }
   }
 
   const { restaurantId, code, subtotal } = req.body || {};

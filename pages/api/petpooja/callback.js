@@ -30,6 +30,7 @@
 
 import { adminDb } from '../../../lib/firebaseAdmin';
 import admin from 'firebase-admin';
+import { checkRateLimit } from '../../../lib/rateLimit';
 
 const STATUS_MAP = {
   '-1': 'cancelled',
@@ -47,6 +48,20 @@ export default async function handler(req, res) {
   const { restID, orderID, status, cancel_reason, minimum_prep_time, rider_name, rider_phone_number, is_modified } = req.body || {};
   if (!restID || !orderID || !status) {
     return res.status(400).json({ error: 'Missing required fields (restID, orderID, status)' });
+  }
+
+  // Phase 4 hardening (F9, 17 May 2026): per-(restID, orderID) rate
+  // limit. Petpooja itself doesn't sign callbacks, so an attacker
+  // who learns a restID + orderID could spam status flips
+  // (pending → preparing → ready → preparing → …), polluting the
+  // petpoojaLogs subcollection and confusing the customer page's
+  // live-status listener. Legitimate Petpooja callbacks fire at
+  // most once per state transition (~3-5 per order over its
+  // lifetime, minutes apart), so 5/min/order is generous.
+  const rlim = await checkRateLimit(`petpooja_cb_${restID}_${orderID}`, 5, 60);
+  if (!rlim.ok) {
+    res.setHeader('Retry-After', String(rlim.waitSec));
+    return res.status(429).json({ http_code: 429, status: 'error', message: 'Too many callbacks for this order. Retry in a moment.' });
   }
 
   // Find the restaurant by restID. Petpooja's restID is per-restaurant,
