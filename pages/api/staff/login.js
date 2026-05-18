@@ -7,7 +7,7 @@ import { adminDb, adminAuth } from '../../../lib/firebaseAdmin';
 import admin from 'firebase-admin';
 import {
   checkIpRateLimit, checkUsernameLockout, recordUsernameFailure, clearUsernameFailures,
-  verifyPin, ensureStaffAuthUser, getClientIp,
+  verifyPin, hashPin, ensureStaffAuthUser, getClientIp,
 } from '../../../lib/staffAuth';
 
 export default async function handler(req, res) {
@@ -72,21 +72,54 @@ export default async function handler(req, res) {
   const staff = staffDoc.data();
 
   // ─── Verify PIN — supports both hashed (new) and plain (legacy) ───
-  // During migration, some docs will still have `pin` (plaintext) while
-  // new ones have `pinHash`. We accept both but plainPINs should be
-  // migrated ASAP via /api/staff/migrate.
+  // Phase 3 hardening (H7, 16 May 2026): the plaintext fallback path
+  // now also LAZY-MIGRATES the doc on a successful match — we hash
+  // the PIN, write pinHash, and delete the plain `pin` field in a
+  // single update. After every active staff member logs in once,
+  // no plaintext remains in Firestore. /api/staff/migrate is still
+  // the way to bulk-migrate inactive accounts.
+  //
+  // Why not refuse plaintext outright? Restaurants who haven't run
+  // /api/staff/migrate would lock their staff out on the next deploy
+  // — a regression worse than the leak it would prevent (the staff
+  // doc is admin-readable anyway, so a malicious admin already sees
+  // the PIN; the threat is Firestore exports / accidental backup
+  // leaks, which lazy migration fixes within one login cycle).
   let pinValid = false;
+  let migratedFromPlaintext = false;
   if (staff.pinHash) {
     pinValid = await verifyPin(normalizedPin, staff.pinHash);
   } else if (staff.pin) {
-    // Legacy plain PIN path — still works so we don't lock out existing
-    // restaurants who haven't run the migration yet.
     pinValid = (String(staff.pin).trim() === normalizedPin);
+    migratedFromPlaintext = pinValid;
   }
 
   if (!pinValid) {
     await recordUsernameFailure(restaurantId, normalizedUsername);
     return res.status(401).json({ error: 'Incorrect username or PIN' });
+  }
+
+  // ─── H7: lazy hash-on-success migration ─────────────────────────
+  // Fire-and-forget — login succeeds regardless of whether the
+  // migration write lands. Worst case: next login also lazily
+  // migrates. The console.warn makes the path visible in Vercel
+  // logs so we can spot when (if ever) the fallback stops being
+  // hit and the plaintext branch can be deleted entirely.
+  if (migratedFromPlaintext) {
+    console.warn('[staff/login] H7 lazy-migrating plaintext PIN', {
+      rid: restaurantId, staffId: staffDoc.id, username: normalizedUsername,
+    });
+    try {
+      const newHash = await hashPin(normalizedPin);
+      staffDoc.ref.update({
+        pinHash: newHash,
+        pin: admin.firestore.FieldValue.delete(),
+        pinMigratedAt: admin.firestore.FieldValue.serverTimestamp(),
+        pinMigrationSource: 'lazy-login',
+      }).catch(e => console.warn('[staff/login] lazy migrate write failed:', e?.message));
+    } catch (e) {
+      console.warn('[staff/login] lazy migrate hash failed:', e?.message);
+    }
   }
 
   // ─── Check account is active ─────────────────────────────
