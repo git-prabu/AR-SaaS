@@ -188,22 +188,31 @@ service cloud.firestore {
         // why we haven't split into get/list yet.
         allow read: if true;
 
-        // ── UPDATE: public payment confirmation (C1 hardening) ───
-        // Customers can advance their order from unpaid/pending to
-        // 'online_requested' — that's the "I've paid, please verify"
-        // signal. They CANNOT set paid_online / paid_cash / paid_card
-        // / refunded directly. Real payment confirmation happens
-        // server-side via the webhook (Admin SDK bypasses rules) or
-        // staff manual mark (admin/staff auth).
+        // ── UPDATE: public payment selection (C1 hardening) ──────
+        // Customers can:
+        //   1. Pick a payment method → set paymentStatus to one of
+        //      cash_requested / card_requested / online_requested
+        //      (the "_requested" signal tells admin "customer is paying").
+        //   2. Switch methods → reset paymentStatus back to 'unpaid'
+        //      first, then pick a new one.
+        // Customers CANNOT directly set paid_cash / paid_card /
+        // paid_online / paid / refunded — those are the actual money-
+        // received states, reached only via the gateway webhook
+        // (Admin SDK bypasses rules) or admin/staff confirming the
+        // payment manually (authenticated paths).
+        //
+        // Belt-and-braces: also block transitions FROM a paid state,
+        // so an attacker can't "un-pay" their own order even by
+        // setting paymentStatus back to unpaid.
         //
         // lastModifiedBy + lastModifiedAt are audit fields stamped
-        // by lib/db.js.withActor() on every mutation — included in
-        // affectedKeys() so the rule passes when withActor runs.
+        // by lib/db.js.withActor() on every mutation — they ride
+        // along in affectedKeys() so the rule passes.
         allow update: if
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['paymentStatus', 'paymentUpdatedAt', 'lastModifiedBy', 'lastModifiedAt']) &&
-          resource.data.paymentStatus in ['unpaid', 'pending', null] &&
-          request.resource.data.paymentStatus == 'online_requested';
+          !(resource.data.paymentStatus in ['paid_cash', 'paid_card', 'paid_online', 'paid', 'refunded']) &&
+          request.resource.data.paymentStatus in ['unpaid', 'cash_requested', 'card_requested', 'online_requested'];
 
         // ── UPDATE: public takeaway cancel ────────────────────────
         // Customers can cancel their OWN takeaway order while it's
@@ -213,11 +222,20 @@ service cloud.firestore {
         //   - current status MUST be 'awaiting_payment'
         //   - new status MUST be 'cancelled'
         //   - only the cancel-related fields can change
+        //   - if paymentStatus is updated in this write, it MUST go
+        //     to 'unpaid' (releases any stale *_requested signal that
+        //     was set when the customer picked a method earlier —
+        //     prevents the admin payments page from showing a
+        //     cancelled order as "still waiting for payment").
         allow update: if
           resource.data.status == 'awaiting_payment' &&
           request.resource.data.status == 'cancelled' &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'lastModifiedBy', 'lastModifiedAt']);
+            .hasOnly(['status', 'cancelledAt', 'cancelledBy', 'paymentStatus', 'paymentUpdatedAt', 'lastModifiedBy', 'lastModifiedAt']) &&
+          (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['paymentStatus']) ||
+            request.resource.data.paymentStatus == 'unpaid'
+          );
 
         // ── Restaurant admin + staff + super admin full access ───
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
