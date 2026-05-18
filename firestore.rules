@@ -145,18 +145,17 @@ service cloud.firestore {
       //        an attacker plant fake-paid orders that staff would
       //        fulfill thinking they were real.
       //
-      //   C2 — Bulk-read vulnerability (anyone can `getDocs(collection(...))`
-      //        to dump all orders for any restaurant) is NOT fully
-      //        fixed here. Splitting `read` into `get` + `list`
-      //        breaks the customer bill listener which uses
-      //        `where('billId', '==', X)` to track running tabs.
-      //        Firestore rule semantics on list operations (rule is
-      //        evaluated against ALL potential docs, not just the
-      //        ones the query filter matches) make a clever
-      //        partial fix infeasible. Tracking as Phase 3 work:
-      //        refactor the bill listener to read orders
-      //        individually (the bill doc would need to track
-      //        orderIds for this to work).
+      //   C2 — Bulk-read vulnerability (anyone could
+      //        `getDocs(collection(...))` to dump all orders + PII
+      //        for any restaurant) FIXED in Phase 2.5 (16 May 2026):
+      //        - `allow get` (single-doc) still public so customers
+      //          can read their own order by ID for the confirmation
+      //          screen + per-doc listeners on the bill view.
+      //        - `allow list` restricted to authenticated admin /
+      //          staff / superadmin. The customer bill listener no
+      //          longer needs `list` — it reads `tableBills.orderIds`
+      //          and sets up per-doc onSnapshot listeners for each.
+      //          Same real-time UX, no bulk-dump exposure.
 
       match /orders/{orderId} {
         // ── CREATE (C3 hardening) ────────────────────────────────
@@ -183,10 +182,20 @@ service cloud.firestore {
           request.resource.data.items.size() <= 100;
 
         // ── READ ─────────────────────────────────────────────────
-        // Public read — customer needs to confirm their order +
-        // listen for kitchen status updates. See C2 comment above for
-        // why we haven't split into get/list yet.
-        allow read: if true;
+        // Single-doc reads (`get`) are public — customer needs to read
+        // their own order by ID for the confirmation screen + per-doc
+        // listeners on the bill view. Reading a single doc requires
+        // knowing its 20-char unguessable Firestore-generated ID.
+        allow get: if true;
+
+        // List queries are admin/staff only (Phase 2.5 — C2 fix). The
+        // customer bill listener no longer needs `list` because the
+        // tableBills doc tracks orderIds (see tableBills rule above)
+        // and the listener iterates them via per-doc reads instead of
+        // a `where('billId', '==', X)` query.
+        allow list: if isRestaurantAdmin(restaurantId)
+                    || isStaff(restaurantId)
+                    || isSuperAdmin();
 
         // ── UPDATE: public payment selection (C1 hardening) ──────
         // Customers can:
@@ -318,11 +327,40 @@ service cloud.firestore {
       // One bill per table session — multiple orders at the same table
       // attach to the same bill via order.billId. Bill creation runs
       // server-side via /api/tableBill/get-or-create (Admin SDK, bypasses
-      // these rules) so we don't allow public writes here. Customers and
+      // these rules) so we don't allow public CREATE here. Customers and
       // staff just need to READ the bill to see their running total.
+      //
+      // Phase 2.5 (16 May 2026): Customer also needs to UPDATE the bill's
+      // orderIds array — appending each new orderId via arrayUnion — so
+      // the bill listener can discover orders via the bill doc instead of
+      // a public-list query on orders (CRITICAL audit C2). We restrict
+      // this write tightly:
+      //   1. Only the orderIds field may change (no touching status,
+      //      tableNumber, etc.)
+      //   2. The new array must be a SUPERSET of the old (arrayUnion
+      //      semantics — customer can append but not delete).
+      //   3. Size cap: 200 orderIds — prevents a bot from pumping
+      //      thousands of fake ids into a bill (cost attack on listener
+      //      fan-out). Real tables would never accumulate this many.
       match /tableBills/{billId} {
         // Public: read so the customer can see their running bill
         allow read: if true;
+
+        // Public: arrayUnion of orderIds only (Phase 2.5 — see comment above).
+        // Uses .get('orderIds', []) to handle pre-Phase-2.5 bills that
+        // don't have the field at all — first arrayUnion call lands and
+        // the field is created on write. New array must be a superset
+        // of the old (arrayUnion semantics — customer can append but
+        // never delete). Capped at 200 entries to prevent a malicious
+        // client from inflating one bill into a million-orderId monster
+        // (cost attack on listener fan-out).
+        allow update: if
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderIds']) &&
+          request.resource.data.orderIds is list &&
+          request.resource.data.orderIds.size() <= 200 &&
+          request.resource.data.orderIds.size() >= resource.data.get('orderIds', []).size() &&
+          resource.data.get('orderIds', []).toSet().difference(request.resource.data.orderIds.toSet()).size() == 0;
+
         // Restaurant admin: full access (close, manage, audit)
         allow read, write: if isRestaurantAdmin(restaurantId);
         // Staff (kitchen/waiter): full access for the running-bill UI

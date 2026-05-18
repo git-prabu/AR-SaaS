@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, updatePaymentStatus, updatePaymentStatusBatch, cancelOrder, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
+import { getRestaurantBySubdomainAny, getMenuItems, getActiveOffers, getCombos, getAllRestaurants, trackVisit, incrementItemView, incrementARView, rateMenuItem, createWaiterCall, createOrder, attachOrderToBill, updatePaymentStatus, updatePaymentStatusBatch, cancelOrder, getTableSession, isSessionValid, isSessionValidWithSid, incrementCouponUse, submitFeedback, sortMenuItems, todayKey, getOrCreateOpenTableBill, getTableBill } from '../../../lib/db';
 import { db } from '../../../lib/firebase';
 import toast from 'react-hot-toast';
 import { doc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
@@ -2065,18 +2065,102 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // Subscribe to every order in the current bill — this is what powers the
   // running-total bill modal. New orders placed at the same table get
   // appended in real-time.
+  // Phase 2.5 — bill listener refactor (16 May 2026).
+  //
+  // PREVIOUS implementation (one query, real-time):
+  //   onSnapshot(query(collection(rid, 'orders'),
+  //              where('billId', '==', currentBillId)), ...)
+  //
+  // Worked great UX-wise but required `allow list: if true` on orders
+  // in firestore.rules, which let anyone dump every order for every
+  // restaurant (CRITICAL audit finding C2 — PII leak: customer phones,
+  // VPAs, items, totals).
+  //
+  // NEW implementation:
+  //   1. Listen to the bill doc itself (tableBills/{billId}) — public
+  //      read is fine, bills don't carry customer PII.
+  //   2. Each time the bill's `orderIds` array changes, reconcile a
+  //      Map<orderId, unsubscribe> of per-doc onSnapshot listeners.
+  //      Add a listener for any new orderId; tear down listeners for
+  //      removed orderIds (rare; mostly arrayUnion).
+  //   3. Each per-doc listener writes into a Map<orderId, orderData>;
+  //      flushing that map to billOrders state on every update.
+  //
+  // Result: same real-time UX, no `list` permission required → orders
+  // rule can be locked to admin/staff only.
   useEffect(() => {
     if (!currentBillId || !restaurant?.id) return;
-    const q = query(
-      collection(db, 'restaurants', restaurant.id, 'orders'),
-      where('billId', '==', currentBillId),
-      orderBy('createdAt', 'asc')
-    );
-    return onSnapshot(
-      q,
-      snap => setBillOrders(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-      err => console.warn('[billOrders] listener error:', err.message)
-    );
+
+    const billRef = doc(db, 'restaurants', restaurant.id, 'tableBills', currentBillId);
+    const orderUnsubs = new Map();         // orderId -> unsubscribe fn
+    const orderData   = new Map();         // orderId -> {id, ...orderDoc data}
+
+    const flushBillOrders = () => {
+      // Preserve creation order so the bill UI lists orders in the same
+      // sequence the customer placed them (mirrors the old orderBy
+      // createdAt asc behavior).
+      const arr = Array.from(orderData.values()).sort((a, b) => {
+        const ta = a.createdAt?.seconds ?? a.createdAt?._seconds ?? 0;
+        const tb = b.createdAt?.seconds ?? b.createdAt?._seconds ?? 0;
+        return ta - tb;
+      });
+      setBillOrders(arr);
+    };
+
+    const unsubBill = onSnapshot(billRef, billSnap => {
+      // Bill doc may not exist yet (race with /api/tableBill/get-or-create)
+      // OR may not have orderIds (pre-Phase-2.5 bills won't until the next
+      // customer order arrayUnions into it).
+      const billData = billSnap.exists() ? billSnap.data() : null;
+      const incomingIds = Array.isArray(billData?.orderIds) ? billData.orderIds : [];
+
+      // Reconcile per-doc listeners against the new orderIds set.
+      const incomingSet = new Set(incomingIds);
+
+      // Tear down listeners for orderIds that disappeared (rare, but
+      // possible if admin manually edits bill or unattaches an order).
+      for (const [oid, unsub] of orderUnsubs) {
+        if (!incomingSet.has(oid)) {
+          try { unsub(); } catch {}
+          orderUnsubs.delete(oid);
+          orderData.delete(oid);
+        }
+      }
+
+      // Add listeners for new orderIds.
+      for (const oid of incomingIds) {
+        if (orderUnsubs.has(oid)) continue;
+        const orderRef = doc(db, 'restaurants', restaurant.id, 'orders', oid);
+        const unsub = onSnapshot(
+          orderRef,
+          snap => {
+            if (snap.exists()) {
+              orderData.set(oid, { id: snap.id, ...snap.data() });
+              flushBillOrders();
+            } else {
+              // Doc was deleted (e.g. admin purged). Drop from map.
+              orderData.delete(oid);
+              flushBillOrders();
+            }
+          },
+          err => console.warn('[billOrders] per-doc listener error:', oid, err.message)
+        );
+        orderUnsubs.set(oid, unsub);
+      }
+
+      // Initial flush even if no orderIds yet (clears stale state on
+      // bill change).
+      flushBillOrders();
+    }, err => console.warn('[billOrders] bill doc listener error:', err.message));
+
+    return () => {
+      try { unsubBill(); } catch {}
+      for (const unsub of orderUnsubs.values()) {
+        try { unsub(); } catch {}
+      }
+      orderUnsubs.clear();
+      orderData.clear();
+    };
   }, [currentBillId, restaurant?.id]);
 
   // After a valid table-QR scan, see if a bill is already open at this
@@ -2997,6 +3081,20 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         restaurantName: restaurant.name,
         paymentStatus: 'unpaid',
       });
+
+      // Phase 2.5 — attach the new order to its bill's orderIds array.
+      // The bill listener (further down in this file) reads bill.orderIds
+      // and sets up per-doc onSnapshot listeners for each — replaces the
+      // old `where('billId', '==', X)` list query that required public
+      // list permission on orders (CRITICAL audit C2). Safe to fire after
+      // createOrder() because the customer's own placedOrder listener
+      // (per-doc, by orderId) already covers their own view; this
+      // arrayUnion is what makes the order visible to OTHER customers at
+      // the same table (split-bill scenario). Fire-and-forget — see
+      // attachOrderToBill comment for failure semantics.
+      if (billIdForOrder) {
+        attachOrderToBill(restaurant.id, billIdForOrder, orderId).catch(() => {});
+      }
 
       // Increment coupon usage
       if (appliedCoupon?.id) {

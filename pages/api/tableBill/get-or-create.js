@@ -90,6 +90,14 @@ export default async function handler(req, res) {
         openedAt:       nowISO,
         closedAt:       null,
         lastActivityAt: nowISO,
+        // orderIds: the source of truth for which orders are on this
+        // bill. Customer page's placeOrder() arrayUnions each new
+        // orderId here right after createOrder() succeeds. The bill
+        // listener (Phase 2.5 refactor) reads this array and sets up
+        // per-doc onSnapshot listeners — replaces the old
+        // where('billId', '==', X) query which required public list
+        // permission on the orders collection (CRITICAL audit C2).
+        orderIds:       [],
         // Audit fields — same shape as withActor() writes from client code,
         // so future readers can treat this consistently.
         lastModifiedBy: 'public',
