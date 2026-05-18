@@ -13,10 +13,16 @@
 //      account hasn't been verified yet.
 //
 // We intentionally don't update the Firestore restaurants/{rid} email field
-// here on email change, because verifyBeforeUpdateEmail is async — the user
-// doc only catches up when they next log in (the AdminAuthProvider re-loads
-// userData fresh on every onAuthStateChanged event). Storing the pending new
-// email in Firestore early would create a confusing mismatch.
+// here on email change, because verifyBeforeUpdateEmail is async — storing
+// the pending new email in Firestore early would create a confusing
+// mismatch if the user never clicks the verification link.
+//
+// W2 (16 May 2026): the users/{uid}.email field IS now auto-synced —
+// hooks/useAuth.js writes it back to match firebaseUser.email on every
+// onAuthStateChanged event after the verification link is clicked. This
+// matters because lib/dailySummary.js falls back to users.email when a
+// restaurant hasn't set notificationsEmail; previously summaries kept
+// going to the old address indefinitely.
 import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';

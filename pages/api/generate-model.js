@@ -1,10 +1,45 @@
 // pages/api/generate-model.js
-// Calls Meshy AI Image-to-3D API to generate a .glb from a dish photo
+// Calls Meshy AI Image-to-3D API to generate a .glb from a dish photo.
+//
+// Phase 3 hardening (H6, 16 May 2026): added superadmin auth gate.
+// Previously unauthenticated — anyone hitting this URL with a POST could
+// drain the MESHY_API_KEY quota (which bills us at ~$0.10 per generation).
+// Now requires a Firebase ID token for a user with role: 'superadmin' in
+// the users/{uid} doc. Mirrors the auth pattern in
+// /api/email/trigger-daily-summary.
+
+import { adminAuth, adminDb } from '../../lib/firebaseAdmin';
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
 
+async function verifySuperAdmin(req) {
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) return null;
+  const idToken = authHeader.slice(7).trim();
+  if (!idToken) return null;
+  try {
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    const userSnap = await adminDb.doc(`users/${decoded.uid}`).get();
+    if (!userSnap.exists) return null;
+    if (userSnap.data()?.role !== 'superadmin') return null;
+    return { uid: decoded.uid, email: decoded.email };
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // ── Gate: superadmin only ─────────────────────────────────────────
+  // AR generation is paid (Meshy ~$0.10/req) + an internal review tool —
+  // only the superadmin approving menu requests calls this. No customer
+  // / restaurant-admin flow needs it. Without this gate, a random
+  // attacker spamming the endpoint would drain the Meshy quota.
+  const caller = await verifySuperAdmin(req);
+  if (!caller) {
+    return res.status(401).json({ error: 'Unauthorized — superadmin required' });
+  }
 
   const MESHY_KEY = process.env.MESHY_API_KEY;
   if (!MESHY_KEY) {

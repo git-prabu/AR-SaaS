@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import ConfirmModal from '../../components/ConfirmModal';
+import { useSuperAdminAuth } from '../../hooks/useAuth';
 import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants, saDb } from '../../lib/saDb';
 import { withActor } from '../../lib/db';
 import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/saStorage';
@@ -37,6 +38,12 @@ const STATUS_PILL = {
 };
 
 export default function SuperAdminRequests() {
+  // Need the signed-in superadmin to obtain a Firebase ID token for the
+  // /api/generate-model call (H6 hardening — endpoint now requires
+  // Authorization: Bearer <idToken> for a superadmin user). Hook returns
+  // null user until the auth listener fires; the generate handler guards
+  // against that case.
+  const { user } = useSuperAdminAuth();
   const [requests,   setRequests]   = useState([]);
   const [restaurants,setRestaurants]= useState([]);
   const [menuItems,  setMenuItems]  = useState([]);
@@ -105,13 +112,19 @@ export default function SuperAdminRequests() {
 
   const handleGenerateModel = async (req) => {
     if (!req.imageURL) { toast.error('No dish photo found — upload a photo to the item first'); return; }
+    // /api/generate-model now requires a superadmin Firebase ID token
+    // (Phase 3 H6 — endpoint was previously unauthenticated and would
+    // drain the paid Meshy quota if abused). Guard against the hook
+    // not having resolved yet.
+    if (!user) { toast.error('Not signed in — please refresh and try again.'); return; }
     setGenerating(req.id);
     setGenStatus(s => ({ ...s, [req.id]: 'generating' }));
     const toastId = toast.loading('Generating 3D model (this takes ~2 min)…');
     try {
+      const idToken = await user.getIdToken(true);
       const res = await fetch('/api/generate-model', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ imageUrl: req.imageURL, itemName: req.name }),
       });
       const data = await res.json();

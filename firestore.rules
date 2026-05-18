@@ -38,12 +38,48 @@ service cloud.firestore {
       allow read: if true;
       // Restaurant admin: read their own restaurant doc
       allow read: if isRestaurantAdmin(restaurantId);
-      // Restaurant admin: update their own settings & metadata
-      // Blocked fields: isActive, plan, paymentStatus, maxItems, maxStorageMB
-      // (those are controlled by super admin only)
+      // Restaurant admin: update their own settings & metadata.
+      //
+      // Phase 3 hardening (H1, 16 May 2026): switched from BLOCKLIST to
+      // ALLOWLIST. The old blocklist only blocked 5 fields (isActive,
+      // plan, paymentStatus, maxItems, maxStorageMB), letting admin
+      // self-modify dangerous fields like:
+      //   - trialEndsAt (extend their own trial)
+      //   - subdomain (steal another restaurant's subdomain)
+      //   - gatewayActive / autoConfirmActive (flip on payment flows
+      //     without configuring real credentials)
+      //   - welcomeEmailSentAt (manipulate audit timestamps)
+      //   - ownerUid (transfer their account to someone else's UID)
+      // The allowlist below is the COMPLETE set of fields the admin
+      // legitimately edits via the admin UI. Every entry was verified
+      // by grepping every updateRestaurant() call site in the codebase
+      // (pages/admin/settings.js, items.js, notifications.js,
+      // admin/index.js, qrcode.js). Petpooja sync + payment config
+      // writes happen via the Admin SDK in API routes (bypass these
+      // rules) so they're unaffected.
+      //
+      // Adding a new admin-editable field? Add it to this list AND
+      // make sure the corresponding admin UI exists. Forgetting the
+      // list will surface as "permission denied" in the toast.
       allow update: if isRestaurantAdmin(restaurantId) &&
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['isActive', 'plan', 'paymentStatus', 'maxItems', 'maxStorageMB']);
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          // Core info (admin/settings.js)
+          'name', 'address', 'phone', 'city', 'cuisine',
+          // Tax + billing (admin/settings.js)
+          'gstPercent', 'serviceChargePercent', 'gstNumber', 'hsnCode', 'fssaiNo',
+          // Payment + branding (admin/settings.js)
+          'upiId', 'billFooter', 'notificationsEmail',
+          // Menu organisation (admin/items.js)
+          'categoryOrder', 'categoryImages',
+          // Operational toggles (admin/notifications.js)
+          'waiterCallsEnabled',
+          // Onboarding (admin/index.js)
+          'onboardingComplete',
+          // Future / defensive fields admin code references
+          'tableCount', 'logoUrl', 'isAcceptingOrders',
+          // Audit stamp from lib/db.js withActor() — rides on every write
+          'lastModifiedBy', 'lastModifiedAt'
+        ]);
       // Authenticated users: create restaurant (signup/onboarding)
       allow create: if isAuth();
       // Super admin: full access
@@ -432,8 +468,28 @@ service cloud.firestore {
       allow read: if isSuperAdmin();
       // Allow user creation during restaurant onboarding
       allow create: if isAuth();
-      // Only super admin can update roles
+      // Only super admin can update roles / arbitrary fields
       allow update: if isSuperAdmin();
+      // Phase 3 hardening (W2, 16 May 2026): allow a signed-in user to
+      // sync their own users/{uid}.email field to match Firebase Auth.
+      // Background: admins change their email via
+      // pages/admin/settings/security.js using verifyBeforeUpdateEmail
+      // — Firebase swaps the auth email only after the verification
+      // link is clicked. Before W2, nothing wrote the new email back to
+      // users/{uid}.email, so lib/dailySummary.js (which uses that
+      // field as the fallback summary recipient when notificationsEmail
+      // is empty) kept delivering to the OLD inbox indefinitely.
+      // hooks/useAuth.js now writes here on every onAuthStateChanged
+      // when firebaseUser.email differs from userData.email.
+      // Allowlist is strict: only `email` (the synced value) and an
+      // audit stamp `emailSyncedAt`. Role / restaurantId / anything
+      // else still requires superadmin.
+      allow update: if isAuth() && request.auth.uid == userId &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['email', 'emailSyncedAt']) &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
+        request.resource.data.email.size() < 200;
     }
 
     // ── Plans ─────────────────────────────────────────────────────
