@@ -62,6 +62,23 @@ function clean(v, maxLen = 200) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // ─── Rate limit FIRST (per IP, 3/60s) ──────────────────────────
+  // Runs before token verification so bot floods with garbage tokens
+  // don't burn the verifyIdToken cycles. The bucket fails OPEN on
+  // Firestore blips (see lib/rateLimit.js) so legitimate users are
+  // never blocked by a transient outage.
+  const ip = getClientIp(req);
+  if (ip) {
+    const limit = await checkRateLimit(`restaurant_create_ip_${ip}`, 3, 60);
+    if (!limit.ok) {
+      res.setHeader('Retry-After', String(limit.waitSec));
+      return res.status(429).json({
+        error: 'Too many signups from this network. Try again shortly.',
+        retryAfterSec: limit.waitSec,
+      });
+    }
+  }
+
   // ─── Auth: verify the caller's Firebase ID token ───────────────
   const authHeader = req.headers.authorization || '';
   const idToken = authHeader.startsWith('Bearer ')
@@ -78,24 +95,6 @@ export default async function handler(req, res) {
   }
   const uid = decoded.uid;
   const verifiedEmail = decoded.email || '';
-
-  // ─── Rate limit: per IP (3 signups / 60s) ──────────────────────
-  // Signups are rare but bot floods would slot-spam our subdomain
-  // namespace. The limit fires PER IP so distributed signup flows
-  // (e.g. franchise admin creating multiple legitimate accounts from
-  // the same office) won't be blocked beyond reason — they'd just
-  // pace themselves to one every 20 seconds.
-  const ip = getClientIp(req);
-  if (ip) {
-    const limit = await checkRateLimit(`restaurant_create_ip_${ip}`, 3, 60);
-    if (!limit.ok) {
-      res.setHeader('Retry-After', String(limit.waitSec));
-      return res.status(429).json({
-        error: 'Too many signups from this network. Try again shortly.',
-        retryAfterSec: limit.waitSec,
-      });
-    }
-  }
 
   // ─── Validate body ─────────────────────────────────────────────
   const body = req.body || {};
@@ -128,39 +127,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Body email does not match the authenticated user.' });
   }
 
-  // ─── Pre-flight uniqueness checks ──────────────────────────────
-  // (1) Subdomain not already taken.
-  try {
-    const dupe = await adminDb.collection('restaurants')
-      .where('subdomain', '==', subdomain)
-      .limit(1)
-      .get();
-    if (!dupe.empty) {
-      return res.status(409).json({ error: 'This subdomain is already taken. Please choose another.' });
-    }
-  } catch (e) {
-    console.error('[restaurant/create] subdomain check failed:', e);
-    return res.status(500).json({ error: 'Subdomain check failed. Please try again.' });
-  }
-
-  // (2) Caller doesn't already own a restaurant. Otherwise a single
-  //     Firebase user could spawn multiple restaurants by hitting the
-  //     endpoint repeatedly — a quota/abuse vector. Genuine multi-
-  //     location chains should contact us for a superadmin-issued
-  //     additional account.
-  try {
-    const existingUser = await adminDb.doc(`users/${uid}`).get();
-    if (existingUser.exists && existingUser.data()?.restaurantId) {
-      return res.status(409).json({
-        error: 'This account already has a restaurant. Sign in to your existing account instead.',
-        restaurantId: existingUser.data().restaurantId,
-      });
-    }
-  } catch (e) {
-    console.error('[restaurant/create] user pre-check failed:', e);
-    return res.status(500).json({ error: 'Account check failed. Please try again.' });
-  }
-
   // ─── Build the server-canonical restaurant doc ─────────────────
   // EVERY field below is server-decided. The client supplies user
   // text (name, address, etc.) but cannot inflate plan limits,
@@ -171,6 +137,9 @@ export default async function handler(req, res) {
 
   const restaurantRef = adminDb.collection('restaurants').doc();
   const userRef       = adminDb.doc(`users/${uid}`);
+  const subdomainQ    = adminDb.collection('restaurants')
+                          .where('subdomain', '==', subdomain)
+                          .limit(1);
 
   const restaurantDoc = {
     // User-supplied text
@@ -205,16 +174,53 @@ export default async function handler(req, res) {
     createdAt:    admin.firestore.FieldValue.serverTimestamp(),
   };
 
-  // ─── Atomic write: restaurant + user doc together ──────────────
-  // Batched write so we never end up with a restaurant that has no
-  // owning user (or vice versa). If either set throws, neither lands.
+  // ─── Atomic transaction: read uniqueness, then write both docs ──
+  // Pre-review caught a race: two concurrent requests with the same
+  // subdomain (or the same uid double-clicking signup) could each
+  // pass a non-transactional `.get()` check, then both write —
+  // duplicate subdomain or duplicate restaurant per uid.
+  //
+  // Wrapping the reads (subdomain query + user doc) and writes
+  // (restaurant set + user set) in a single transaction makes the
+  // commit fail with a contention error if either read result
+  // changes between read and commit. Firestore retries the
+  // transaction up to 5 times automatically, so the legitimate
+  // first-write wins and the second-write retry sees the dupe.
+  //
+  // Failure modes are mapped to specific HTTP codes so the client
+  // can surface the right message; the catch-all 500 covers
+  // everything else (network/admin SDK errors).
   try {
-    const batch = adminDb.batch();
-    batch.set(restaurantRef, restaurantDoc);
-    batch.set(userRef, userDoc, { merge: true });
-    await batch.commit();
+    await adminDb.runTransaction(async (tx) => {
+      const [dupeSnap, userSnap] = await Promise.all([
+        tx.get(subdomainQ),
+        tx.get(userRef),
+      ]);
+      if (!dupeSnap.empty) {
+        const err = new Error('SUBDOMAIN_TAKEN');
+        err.code = 'SUBDOMAIN_TAKEN';
+        throw err;
+      }
+      if (userSnap.exists && userSnap.data()?.restaurantId) {
+        const err = new Error('USER_HAS_RESTAURANT');
+        err.code = 'USER_HAS_RESTAURANT';
+        err.restaurantId = userSnap.data().restaurantId;
+        throw err;
+      }
+      tx.set(restaurantRef, restaurantDoc);
+      tx.set(userRef, userDoc, { merge: true });
+    });
   } catch (e) {
-    console.error('[restaurant/create] batch commit failed:', e);
+    if (e?.code === 'SUBDOMAIN_TAKEN') {
+      return res.status(409).json({ error: 'This subdomain is already taken. Please choose another.' });
+    }
+    if (e?.code === 'USER_HAS_RESTAURANT') {
+      return res.status(409).json({
+        error: 'This account already has a restaurant. Sign in to your existing account instead.',
+        restaurantId: e.restaurantId,
+      });
+    }
+    console.error('[restaurant/create] transaction failed:', e);
     return res.status(500).json({ error: 'Could not create restaurant. Please try again.' });
   }
 
