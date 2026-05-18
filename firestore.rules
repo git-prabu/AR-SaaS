@@ -80,9 +80,21 @@ service cloud.firestore {
           // Audit stamp from lib/db.js withActor() — rides on every write
           'lastModifiedBy', 'lastModifiedAt'
         ]);
-      // Authenticated users: create restaurant (signup/onboarding)
-      allow create: if isAuth();
-      // Super admin: full access
+      // Phase 3 hardening (H4 + W1, 16 May 2026): client-side create
+      // is now BANNED. The previous `allow create: if isAuth();` let
+      // any signed-in user write a restaurant doc with arbitrary
+      // values for plan / maxItems / paymentStatus / trialEndsAt /
+      // ownerUid — they could mint a free Pro plan with inflated
+      // limits, mark themselves paid, or claim another user's UID.
+      // All signups now go through /api/restaurant/create which
+      // validates inputs server-side and forces the trial defaults.
+      // Superadmin creation (allow read, write below) is untouched —
+      // /superadmin/restaurants still creates via saDb client SDK
+      // since the superadmin token bypasses this rule.
+      //
+      // No explicit `allow create` here = default deny. The endpoint
+      // uses Admin SDK which bypasses rules entirely.
+      // Super admin: full access (covers create/update/delete via `write`)
       allow read, write: if isSuperAdmin();
 
       // ── Menu Items ────────────────────────────────────────────

@@ -12,8 +12,15 @@ import {
   signOut as fbSignOut,
 } from 'firebase/auth';
 import { adminAuth } from '../lib/firebaseAuth';
-import { createRestaurant, createUserDoc, getRestaurantBySubdomain, getUserData } from '../lib/db';
+import { getRestaurantBySubdomain, getUserData } from '../lib/db';
 import { getPlan, normalizePlanId, TRIAL_DAYS } from '../lib/plans';
+// Phase 3 hardening (H4 + W1, 16 May 2026): the restaurant + user-doc
+// writes used to happen client-side via createRestaurant() / createUserDoc()
+// — that's what let any signed-in user mint a free 'pro' plan with
+// inflated limits. Both writes now go through /api/restaurant/create,
+// which validates inputs, looks up plan limits server-side, and writes
+// both docs atomically. The Firestore rule for restaurants/create has
+// been removed (only superadmin can create from the client now).
 import toast from 'react-hot-toast';
 
 function slugify(text) {
@@ -208,34 +215,37 @@ export default function Signup() {
       }
       const uid = fbUser.uid;
 
-      // 2. Create restaurant document
-      const trialEnd = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-      const ref = await createRestaurant({
-        name: restaurantName.trim(),
-        subdomain: subdomain.trim().toLowerCase(),
-        ownerName: ownerName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        city: city.trim(),
-        ownerUid: uid,
-        plan: plan.id,
-        maxItems: plan.maxItems,
-        maxStorageMB: plan.maxStorageMB,
-        isActive: true,
-        paymentStatus: 'trial',
-        trialEndsAt: trialEnd,
-        // Track which provider created the account so the security page
-        // knows whether to show "Change Password" or not.
-        authProvider: googleUser ? 'google' : 'password',
+      // 2. Create restaurant + user doc atomically via the server.
+      //    The endpoint validates inputs, looks up plan limits from
+      //    lib/plans.js (so client-supplied maxItems / paymentStatus
+      //    / trialEndsAt are ignored), refuses reserved subdomains
+      //    and duplicate restaurants per uid, and writes both docs
+      //    in a single batched commit so failure leaves no half-state.
+      const idToken = await fbUser.getIdToken();
+      const createRes = await fetch('/api/restaurant/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          name:         restaurantName.trim(),
+          subdomain:    subdomain.trim().toLowerCase(),
+          ownerName:    ownerName.trim(),
+          email:        email.trim(),
+          phone:        phone.trim(),
+          city:         city.trim(),
+          planId:       plan.id,
+          authProvider: googleUser ? 'google' : 'password',
+        }),
       });
-
-      // 3. Create user document (links user to restaurant)
-      await createUserDoc(uid, {
-        role: 'restaurant',
-        email: email.trim(),
-        name: ownerName.trim(),
-        restaurantId: ref.id,
-      });
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createData.ok) {
+        // Surface server-side validation errors to the user. The endpoint
+        // already covers subdomain duplicate / reserved / format / plan
+        // / per-user duplicates with friendly messages.
+        throw new Error(createData.error || `Signup failed (HTTP ${createRes.status})`);
+      }
+      // restaurantId returned in createData.restaurantId — not currently
+      // used downstream (admin/index.js re-reads via getUserData), but
+      // available if a future step needs it without an extra round trip.
 
       // 4. Send email verification — only for the email/password flow.
       //    Google accounts come pre-verified (Firebase trusts the Google
