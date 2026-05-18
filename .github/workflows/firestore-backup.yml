@@ -1,0 +1,99 @@
+# .github/workflows/firestore-backup.yml
+#
+# Weekly Firestore backup. Runs Sundays at 23:30 UTC (Mondays 05:00 IST)
+# from GitHub's free Actions infrastructure. Free for private repos
+# within the 2,000 min/month allowance — this workflow uses ~30 seconds
+# per run, so 4 runs/month = ~2 min total.
+#
+# Why GitHub Actions and not Vercel Cron:
+#   Vercel Hobby plan caps cron jobs at 2. Those slots are taken by
+#   daily-summary (00:30 IST) and petpooja-menu-sync (09:30 IST). We
+#   need a third schedule for the backup. Options were:
+#     1. Upgrade to Vercel Pro ($20/mo) and add it to vercel.json
+#     2. Use an external cron service (cron-job.org — free)
+#     3. Use GitHub Actions (free) ← chose this
+#   GitHub Actions wins because we already use Actions for CI lint and
+#   the workflow code lives next to the codebase it's backing up.
+#
+# What it does:
+#   1. Checks out the repo
+#   2. Installs Node + npm deps (uses the existing scripts/run-backup-once.js)
+#   3. Writes the Firebase Admin credentials from GitHub Secrets into
+#      a .env.local file
+#   4. Runs node scripts/run-backup-once.js
+#   5. Backup lands in Cloud Storage at backups/manual-YYYY-MM-DD-HH-mm-full.json
+#
+# REQUIRED SETUP (one-time, user side):
+#   Add these 4 secrets to the repo's GitHub Secrets (Settings → Secrets
+#   and variables → Actions → New repository secret):
+#     - FIREBASE_ADMIN_PROJECT_ID
+#     - FIREBASE_ADMIN_CLIENT_EMAIL
+#     - FIREBASE_ADMIN_PRIVATE_KEY (the full multi-line key, GitHub handles newlines)
+#     - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+#   These are the SAME values from your local .env.local — just copy/paste.
+#
+# Manual trigger: GitHub repo → Actions tab → "Firestore weekly backup"
+# → "Run workflow" → confirm. Useful if you want a backup right now
+# without waiting for the schedule.
+
+name: Firestore weekly backup
+
+on:
+  schedule:
+    # Sundays at 23:30 UTC = Mondays 05:00 IST. Chose a low-traffic window
+    # so the read load on Firestore doesn't compete with daily customer
+    # activity.
+    - cron: '30 23 * * 0'
+  # Allow manual triggering from the Actions tab — useful for ad-hoc
+  # "I'm about to do something risky, snapshot first" backups.
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Write env file from secrets
+        # GitHub Secrets are exposed as env vars to workflow steps. We
+        # write them to .env.local because that's where the script
+        # expects to read them (via dotenv).
+        #
+        # IMPORTANT: the private key contains real newlines (PEM format).
+        # GitHub Secrets preserve them; we wrap the value in single quotes
+        # so bash doesn't interpret special chars. Writing to a file
+        # (rather than echo) keeps newlines intact.
+        run: |
+          cat > .env.local << EOF
+          FIREBASE_ADMIN_PROJECT_ID=${{ secrets.FIREBASE_ADMIN_PROJECT_ID }}
+          FIREBASE_ADMIN_CLIENT_EMAIL=${{ secrets.FIREBASE_ADMIN_CLIENT_EMAIL }}
+          FIREBASE_ADMIN_PRIVATE_KEY="${{ secrets.FIREBASE_ADMIN_PRIVATE_KEY }}"
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          EOF
+
+      - name: Run backup
+        # Times out after 5 min — backups at our scale finish in ~10
+        # seconds, so anything close to 5 min indicates a problem
+        # (Firestore down? quota hit? Storage bucket misconfigured?).
+        # Failing fast is better than hanging the Actions runner.
+        timeout-minutes: 5
+        run: node scripts/run-backup-once.js
+
+      - name: Clean up env file
+        # Defensive — workflow artifacts don't preserve the working dir
+        # by default, but explicit cleanup is cheap insurance against
+        # any future change that might cache or upload artifacts.
+        if: always()
+        run: rm -f .env.local
