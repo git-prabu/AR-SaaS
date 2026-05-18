@@ -6,12 +6,100 @@ numbers follow loosely-semantic dating: `YYYY.MM.PATCH`.
 
 ## [Unreleased]
 
+## [2026.05.17] — Production audit Phases 1B–5 (security hardening)
+
+A sustained sweep through the 59-finding production audit. Closed all
+CRITICAL + HIGH + MEDIUM items live on main; LOW items either fixed
+or explicitly deferred with reasoning (see commits for full detail).
+
+### Added — server-side endpoints
+- `/api/restaurant/create` — token-gated, plan-validated, atomic
+  restaurant + user-doc creation. Replaces the old client-side
+  `createRestaurant()` + `createUserDoc()` pair that let any signed-in
+  user mint a free Pro plan with inflated limits. Subdomain regex,
+  reserved-list check, one-restaurant-per-uid invariant enforced in
+  a single Firestore transaction. IP rate-limit at 3/min.
+- `lib/rateLimit.js` — generic Firestore-backed sliding-window
+  limiter used across `/api/payment/intent` (IP 20/min + RID 120/min),
+  `/api/coupons/{validate,use}`, `/api/restaurant/create`,
+  `/api/tableBill/get-or-create`, and `/api/petpooja/callback`.
+- `lib/cronStatus.js` + cron-status dashboard card on
+  `/superadmin/email` — every cron run records `systemConfig/cronStatus`
+  so missed runs surface visually. Wraps `daily-summary`,
+  `firestore-backup`, `petpooja-menu-sync`.
+- GitHub Actions weekly Firestore backup (`firestore-backup.yml`)
+  + one-shot `scripts/run-backup-once.js` runnable from a developer
+  machine using firebase-admin.
+- CI lint + build on every push (`.github/workflows/lint.yml`).
+- Idempotency cache on `/api/payment/intent`:
+  `restaurants/{rid}/paymentIntents/{sha256}` holds the previous
+  intent for 60 s so double-click / browser-retry returns the same
+  intent instead of a fresh gateway charge.
+
+### Changed — Firestore rules (deployed live)
+- `restaurants/{rid}` update: switched from 5-field BLOCKLIST to
+  strict ALLOWLIST. Admin can no longer self-extend `trialEndsAt`,
+  hijack `subdomain`, flip `gatewayActive`, or rewrite `ownerUid`.
+- `restaurants/{rid}` create: rule removed — server endpoint only.
+- `orders` paymentStatus + create schema locked (C1+C3).
+- `orders` `list` denied for public (C2); customer bill listener
+  refactored to per-doc reads driven by `tableBills.orderIds`.
+- `tableBills.orderIds` arrayUnion-only, capped at 200.
+- `waiterCalls` + `feedback` create rules schema-locked (field
+  whitelist, size caps, status='pending'/isRead=false forced).
+- `users/{uid}` self-update permitted for `email` + `emailSyncedAt`
+  only — auth providers now write the new email back when
+  Firebase Auth's value diverges from Firestore.
+- `staff` writes gated by new `isActiveStaff()` helper that reads
+  `staff.isActive==true` per-eval; closes the 1 h token grace
+  window after admin disables a staff member.
+- Explicit deny on `/rateLimit` and `/systemConfig` for clients.
+
+### Changed — Storage rules (deployed live)
+- Replaced `allow write: if isAuth();` (any signed-in user could
+  upload into ANY restaurant's bucket) with restaurantId-bound
+  + content-type-allowlisted + size-capped rules:
+  `restaurants/{rid}/images/*` (10 MB, image/*),
+  `restaurants/{rid}/models/*` (100 MB, model/gltf-binary or
+  application/octet-stream). Catch-all locked to superadmin.
+
+### Changed — endpoint hardening
+- `/api/generate-model` — superadmin Bearer token required (was
+  unauthenticated; Meshy quota was burnable by anyone).
+- `/api/payment/intent` — rejects cancelled / paid / non-eligible-
+  paymentStatus orders; rejects orders >6 h old.
+- `/api/staff/login` — plaintext PIN fallback now LAZY-MIGRATES on
+  success (hash + delete plain field atomically); generic error
+  log on lookup failure removes fingerprint risk.
+- `/api/tableBill/get-or-create` — `tableNumber` regex `/^\d{1,5}$/`.
+- `/api/manifest` — `table` regex tightened to `/^\d{1,5}$/`;
+  truncated restaurant names now end with `…`.
+- `/api/petpooja/callback` — per-(restID, orderID) rate limit
+  closes the status-flip spam vector.
+- `/api/auto-confirm/[provider]` — signature failures now log the
+  client IP + body hash (not content).
+- Signup page (`pages/signup.js`) — calls `/api/restaurant/create`
+  with Bearer ID token; surfaces server validation errors.
+- Superadmin AR generate (`pages/superadmin/requests.js`) — sends
+  Bearer ID token to `/api/generate-model`.
+
+### Added — landing page polish
+- OG + Twitter Card metadata on `/` so unfurled links show
+  hero card + title instead of a bare URL.
+
+### Operational
+- Manual Firestore backup taken 16 May 2026 (815 KB snapshot in
+  Cloud Storage at `backups/manual-…-full.json`).
+
+## [2026.05.16-Phase-1A] — Security headers + indexes + security.txt
+
 ### Added
-- **Production audit Phase 1A** — security headers (HSTS, X-Frame-Options,
-  Content-Type-Options, Referrer-Policy, Permissions-Policy) wired into
-  `next.config.js`; explicit Firestore composite indexes for the
-  auto-confirm matcher + needs-match queue; RFC 9116 security.txt at
-  `/.well-known/security.txt` for responsible disclosure.
+- Security headers (HSTS, X-Frame-Options, Content-Type-Options,
+  Referrer-Policy, Permissions-Policy) wired into `next.config.js`.
+- Explicit Firestore composite indexes for the auto-confirm matcher
+  + needs-match queue.
+- RFC 9116 security.txt at `/.well-known/security.txt` for
+  responsible disclosure.
 
 ## [2026.05.16] — Domain + Brand + Polish
 

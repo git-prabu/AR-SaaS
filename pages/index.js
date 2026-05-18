@@ -208,6 +208,23 @@ export default function HomePage() {
       <Head>
         <title>HaloHelm — Your restaurant. At the helm.</title>
         <meta name="description" content="HaloHelm — your restaurant, at the helm. AR-powered menus that let customers see your food in 3D and order more. No app. No friction."/>
+        {/* Phase 5 polish (F7, 17 May 2026): OG + Twitter card metadata.
+            Without these, links to halohelm.com unfurl in WhatsApp /
+            LinkedIn / Twitter as a bare URL with no image or title —
+            costing us early-funnel conversion. */}
+        <meta property="og:type"        content="website" />
+        <meta property="og:site_name"   content="HaloHelm" />
+        <meta property="og:title"       content="HaloHelm — Your restaurant. At the helm." />
+        <meta property="og:description" content="AR-powered menus that let customers see your food in 3D and order more. No app. No friction." />
+        <meta property="og:url"         content="https://www.halohelm.com/" />
+        <meta property="og:image"       content="https://www.halohelm.com/og-hero.png" />
+        <meta property="og:image:width"  content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card"        content="summary_large_image" />
+        <meta name="twitter:title"       content="HaloHelm — Your restaurant. At the helm." />
+        <meta name="twitter:description" content="AR-powered menus that let customers see your food in 3D and order more." />
+        <meta name="twitter:image"       content="https://www.halohelm.com/og-hero.png" />
+        <link rel="canonical" href="https://www.halohelm.com/" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
       </Head>
 

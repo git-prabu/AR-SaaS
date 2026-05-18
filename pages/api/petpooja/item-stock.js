@@ -34,6 +34,18 @@ export default async function handler(req, res) {
   const raw = body.itemID;
   const itemIDs = Array.isArray(raw) ? raw : (raw ? [raw] : []);
 
+  // Phase 5 polish (F10, 17 May 2026): pre-polish, an empty itemIDs
+  // array would silently fall through `toggleItemStock` returning
+  // `count: 0` and the endpoint would respond 200 "Updated 0 item(s)"
+  // — confusing in Petpooja's debug logs. Returning 400 makes the
+  // "no items specified" case explicit and actionable.
+  if (itemIDs.length === 0) {
+    return res.status(400).json({
+      http_code: 400, status: 'error',
+      message: 'itemID is required (string or non-empty array).',
+    });
+  }
+
   try {
     const result = await toggleItemStock(auth.restaurant.id, {
       type:    type === 'addon' ? 'addon' : 'item',

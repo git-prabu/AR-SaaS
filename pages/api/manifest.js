@@ -32,13 +32,17 @@ export default async function handler(req, res) {
   // Sanitise inputs (May 5): subdomain is restricted to the same
   // character set our restaurant signup allows (lowercase letters,
   // digits, hyphens) and capped at 63 chars (DNS label limit); table
-  // is digits only and capped at 8. Anything else gets dropped
-  // silently — we'd rather serve the fallback manifest than echo
-  // arbitrary attacker-controlled strings into start_url / scope.
+  // is digits only and capped at 5 (matches /api/tableBill validation
+  // — real restaurants have <100k tables, anything bigger is junk).
+  // Phase 5 polish (F14, 17 May 2026): tightened from 1-8 to 1-5
+  // for consistency with the tableBill endpoint.
+  // Anything else gets dropped silently — we'd rather serve the
+  // fallback manifest than echo arbitrary attacker-controlled
+  // strings into start_url / scope.
   const rawSub = String(req.query?.subdomain || '').toLowerCase().trim();
   const subdomain = /^[a-z0-9-]{1,63}$/.test(rawSub) ? rawSub : '';
   const rawTable = req.query?.table ? String(req.query.table).trim() : '';
-  const table = /^[0-9]{1,8}$/.test(rawTable) ? rawTable : '';
+  const table = /^[0-9]{1,5}$/.test(rawTable) ? rawTable : '';
 
   let restaurant = null;
   if (subdomain) {
@@ -52,8 +56,16 @@ export default async function handler(req, res) {
     }
   }
 
-  const restName  = (restaurant?.name || FALLBACK.name).slice(0, 45);
-  const shortName = restName.length > 12 ? restName.slice(0, 12) : restName;
+  // Phase 5 polish (F5, 17 May 2026): truncate with an ellipsis when
+  // the restaurant name is too long. Pre-polish, a name like
+  // "Sangeetha Vegetarian Restaurant — Mylapore Branch" would silently
+  // become "Sangeetha Vegetarian Restaurant — Mylapor" mid-word. The
+  // ellipsis makes it obvious to the user that the rendered short
+  // name was clipped, so they can shorten their restaurant name in
+  // /admin/settings if it matters for their PWA install card.
+  const rawName  = restaurant?.name || FALLBACK.name;
+  const restName  = rawName.length > 45 ? rawName.slice(0, 44) + '…' : rawName;
+  const shortName = rawName.length > 12 ? rawName.slice(0, 11) + '…' : rawName;
   const themeColor = restaurant?.themeColor || FALLBACK.theme_color;
   const bgColor    = restaurant?.bgColor    || FALLBACK.background_color;
 

@@ -4,10 +4,12 @@
 // rule — anyone with DevTools could dump every code. Reads are now admin-only
 // at the rule layer and customers go through this endpoint.
 //
-// The endpoint does validation only. Use count increments happen separately
-// at order-placement time (TODO: move that write to the server too — today
-// it's a fire-and-forget client update that already silently fails under
-// the tightened rule).
+// The endpoint does validation only. Use-count increments happen on
+// the server too — see /api/coupons/use (called from the customer page
+// when an order is actually placed). The stale "TODO move to server"
+// comment that used to live here was retired 17 May 2026 since the
+// /use endpoint already exists and handles the increment in a
+// transaction with maxUses re-check.
 import { adminDb } from '../../../lib/firebaseAdmin';
 import { checkRateLimit, getClientIp } from '../../../lib/rateLimit';
 
