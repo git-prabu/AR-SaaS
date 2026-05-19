@@ -27,6 +27,24 @@
 import { runDailySummary } from '../../../lib/dailySummary';
 import { withCronStatus } from '../../../lib/cronStatus';
 
+// 18 May 2026 — DIAGNOSED ROOT CAUSE of "no daily summary email" report.
+// Default Vercel function timeout is 10s. runDailySummary loops every
+// active restaurant SERIALLY: for each, it reads orders, builds the
+// summary HTML, and sends via Gmail SMTP. SMTP send alone is ~1-3s per
+// recipient. With even 4-5 restaurants the function timed out, the
+// withCronStatus catch block never ran, no entry landed in
+// systemConfig/cronStatus, and no emails went out. Petpooja menu-sync
+// works because each restaurant takes ~100ms and 5 restaurants finish
+// well under 10s.
+//
+// Hobby plan allows up to 60s on configured routes. 60s comfortably
+// covers ~20 restaurants at 3s each — beyond that we'll need to either
+// parallelise the per-restaurant work (Promise.allSettled with a small
+// concurrency cap) or upgrade to Pro for the 300s ceiling.
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req, res) {
   // Auth — only Vercel cron (or a manual call with the secret).
   const auth = req.headers.authorization || '';

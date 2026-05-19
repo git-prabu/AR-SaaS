@@ -15,6 +15,13 @@
 import { adminDb, adminAuth } from '../../../lib/firebaseAdmin';
 import { runDailySummary } from '../../../lib/dailySummary';
 
+// Same 60s bump as the nightly cron — manual trigger runs the same
+// pipeline and would hit the same 10s default timeout. See
+// /api/cron/daily-summary.js for the full diagnosis.
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' });
 
