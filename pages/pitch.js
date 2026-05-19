@@ -35,47 +35,54 @@ const SLIDE_TITLES = [
   'The Ask',
 ];
 
-/* ─── Palette — "Midnight Atelier" ───────────────────────────────
-   Cool slate-black surfaces, confident terracotta primary, antique
-   brass accents (used sparingly), bone-white type. Designed to feel
-   contemporary-SaaS-meets-fine-dining: not generic gold, not generic
-   indigo. Terracotta primary ties subtly to the customer menu
-   palette (#B8472D family) so the deck reads as an extension of
-   the product. */
+/* ─── Palette v2 — "Heraldic Midnight" ──────────────────────────
+   20 May 2026 — redesigned away from the previous terracotta-on-
+   slate "Midnight Atelier" scheme, which read more startup-blog
+   than premium. The new palette is built around the design-brief
+   adjectives directly:
+     · Heraldic         → deep navy (azure) + warm gold (or)
+     · Premium          → cream typography (argent), gold accents
+     · Modern-classical → navy+gold is the classic luxury pairing
+     · Calm + Confident → no loud reds; reds reserved for danger
+   The "Halo" in HaloHelm gets a literal interpretation here: the
+   warm gold acts like a halo against the deep navy.
+   Customer-page palette stays separate; pitch is its own world. */
 const C = {
-  /* Surfaces — cool slate with subtle warm undertone */
-  bg:        '#0C0E13',  /* Slate-black, slightly blue-grey */
-  bgLayer:   '#141720',  /* Card panel, slight elevation */
-  bgWarm:    '#171420',  /* Warmer panel for emphasis areas */
-  bgFar:     '#06070A',  /* Vignette edges */
+  /* Surfaces — deep heraldic navy with gentle warm undertone */
+  bg:        '#0D1B2A',  /* Azure midnight — calmer than slate-black */
+  bgLayer:   '#152A40',  /* Card panel, one step up */
+  bgWarm:    '#1B2438',  /* Warmer panel for emphasis areas */
+  bgFar:     '#050C18',  /* Deepest vignette */
 
-  /* Primary — confident terracotta */
-  primary:   '#C8553C',
-  primaryLt: '#E07452',
-  primaryDk: '#8C2818',
-  primaryGlow: 'rgba(200,85,60,0.32)',
+  /* Primary — warm heraldic gold ("or"). Replaces terracotta. */
+  primary:   '#D4A14A',
+  primaryLt: '#E8BD63',
+  primaryDk: '#9C6E1C',
+  primaryGlow: 'rgba(212,161,74,0.32)',
 
-  /* Accent — antique brass (small refined accents only) */
-  brass:     '#C8A968',
-  brassLt:   '#E0C28C',
-  brassDk:   '#7A6028',
+  /* Brass — now a soft pearl-cream ("argent"), used for very
+     small refined accents only. Differentiated from primary gold
+     so they don't clash. */
+  brass:     '#D9CFA8',
+  brassLt:   '#E8DFC0',
+  brassDk:   '#A89E76',
 
-  /* Typography — bone white */
-  bone:      '#EFE6D2',
-  boneSoft:  'rgba(239,230,210,0.72)',
-  dim:       'rgba(239,230,210,0.55)',
-  dimmer:    'rgba(239,230,210,0.32)',
-  dimmest:   'rgba(239,230,210,0.16)',
+  /* Typography — warm cream */
+  bone:      '#F1EAD9',
+  boneSoft:  'rgba(241,234,217,0.78)',
+  dim:       'rgba(241,234,217,0.58)',
+  dimmer:    'rgba(241,234,217,0.36)',
+  dimmest:   'rgba(241,234,217,0.18)',
 
   /* Glass / borders */
-  glass:     'rgba(12,14,19,0.74)',
-  glassWarm: 'rgba(200,85,60,0.05)',
-  border:    'rgba(239,230,210,0.10)',
-  borderHi:  'rgba(239,230,210,0.22)',
-  borderAcc: 'rgba(200,85,60,0.32)',
-  borderBrass: 'rgba(200,169,104,0.30)',
+  glass:     'rgba(13,27,42,0.74)',
+  glassWarm: 'rgba(212,161,74,0.06)',
+  border:    'rgba(241,234,217,0.10)',
+  borderHi:  'rgba(241,234,217,0.22)',
+  borderAcc: 'rgba(212,161,74,0.32)',
+  borderBrass: 'rgba(217,207,168,0.30)',
 
-  /* Semantic */
+  /* Semantic — kept from previous palette */
   success:   '#5DA068',
   danger:    '#C44438',
 };
@@ -166,8 +173,8 @@ export default function Pitch() {
 
     /* Two large soft glow orbs — slate-warm, slow drift */
     const orbs = [
-      { x: 0.22, y: 0.30, r: 280, c: 'rgba(200,85,60,0.07)',  vx:  0.05, vy:  0.03 },
-      { x: 0.78, y: 0.70, r: 320, c: 'rgba(200,169,104,0.05)', vx: -0.04, vy:  0.04 },
+      { x: 0.22, y: 0.30, r: 280, c: 'rgba(212,161,74,0.07)',  vx:  0.05, vy:  0.03 },
+      { x: 0.78, y: 0.70, r: 320, c: 'rgba(217,207,168,0.05)', vx: -0.04, vy:  0.04 },
     ];
 
     let raf;
@@ -213,8 +220,8 @@ export default function Pitch() {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = p.tint === 'br'
-          ? `rgba(200,169,104,${p.o})`
-          : `rgba(239,230,210,${p.o})`;
+          ? `rgba(217,207,168,${p.o})`
+          : `rgba(241,234,217,${p.o})`;
         ctx.fill();
       });
 
@@ -343,20 +350,20 @@ export default function Pitch() {
      slides feel distinct without being noisy. */
   const slideGradient = (i) => {
     const variants = [
-      `radial-gradient(ellipse at 60% 30%, rgba(200,85,60,0.10) 0%, transparent 55%), radial-gradient(ellipse at 25% 75%, rgba(200,169,104,0.06) 0%, transparent 50%)`,
-      `radial-gradient(ellipse at 78% 50%, rgba(180,40,20,0.10) 0%, transparent 55%)`,
-      `radial-gradient(ellipse at 50% 50%, rgba(200,85,60,0.10) 0%, transparent 60%)`,
-      `linear-gradient(135deg, rgba(12,14,19,0.50), transparent 60%)`,
-      `radial-gradient(ellipse at 28% 30%, rgba(200,85,60,0.08) 0%, transparent 55%), radial-gradient(ellipse at 75% 75%, rgba(200,169,104,0.06) 0%, transparent 50%)`,
-      `radial-gradient(ellipse at 50% 30%, rgba(200,85,60,0.07) 0%, transparent 55%)`,
-      `radial-gradient(ellipse at 50% 0%, rgba(200,169,104,0.06) 0%, transparent 55%)`,
-      `radial-gradient(ellipse at 20% 50%, rgba(200,85,60,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 50%, rgba(200,169,104,0.05) 0%, transparent 50%)`,
-      `radial-gradient(ellipse at 70% 30%, rgba(200,85,60,0.07) 0%, transparent 55%)`,
-      `radial-gradient(ellipse at 25% 50%, rgba(200,85,60,0.08) 0%, transparent 50%), radial-gradient(ellipse at 75% 50%, rgba(200,169,104,0.06) 0%, transparent 50%)`,
-      `radial-gradient(ellipse at 50% 70%, rgba(200,85,60,0.08) 0%, transparent 55%)`,
-      `radial-gradient(ellipse at 50% 50%, rgba(200,85,60,0.10) 0%, transparent 60%)`,
-      `radial-gradient(ellipse at 50% 40%, rgba(200,85,60,0.08) 0%, transparent 55%)`,
-      `radial-gradient(ellipse at 50% 40%, rgba(200,85,60,0.14) 0%, transparent 55%)`,
+      `radial-gradient(ellipse at 60% 30%, rgba(212,161,74,0.10) 0%, transparent 55%), radial-gradient(ellipse at 25% 75%, rgba(217,207,168,0.06) 0%, transparent 50%)`,
+      `radial-gradient(ellipse at 78% 50%, rgba(156,110,28,0.10) 0%, transparent 55%)`,
+      `radial-gradient(ellipse at 50% 50%, rgba(212,161,74,0.10) 0%, transparent 60%)`,
+      `linear-gradient(135deg, rgba(13,27,42,0.50), transparent 60%)`,
+      `radial-gradient(ellipse at 28% 30%, rgba(212,161,74,0.08) 0%, transparent 55%), radial-gradient(ellipse at 75% 75%, rgba(217,207,168,0.06) 0%, transparent 50%)`,
+      `radial-gradient(ellipse at 50% 30%, rgba(212,161,74,0.07) 0%, transparent 55%)`,
+      `radial-gradient(ellipse at 50% 0%, rgba(217,207,168,0.06) 0%, transparent 55%)`,
+      `radial-gradient(ellipse at 20% 50%, rgba(212,161,74,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 50%, rgba(217,207,168,0.05) 0%, transparent 50%)`,
+      `radial-gradient(ellipse at 70% 30%, rgba(212,161,74,0.07) 0%, transparent 55%)`,
+      `radial-gradient(ellipse at 25% 50%, rgba(212,161,74,0.08) 0%, transparent 50%), radial-gradient(ellipse at 75% 50%, rgba(217,207,168,0.06) 0%, transparent 50%)`,
+      `radial-gradient(ellipse at 50% 70%, rgba(212,161,74,0.08) 0%, transparent 55%)`,
+      `radial-gradient(ellipse at 50% 50%, rgba(212,161,74,0.10) 0%, transparent 60%)`,
+      `radial-gradient(ellipse at 50% 40%, rgba(212,161,74,0.08) 0%, transparent 55%)`,
+      `radial-gradient(ellipse at 50% 40%, rgba(212,161,74,0.14) 0%, transparent 55%)`,
     ];
     return variants[i] || variants[0];
   };
@@ -385,14 +392,14 @@ export default function Pitch() {
         <meta name="twitter:image"       content="https://www.halohelm.com/ar-experience.png" />
       </Head>
       <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 35%, rgba(200,85,60,0.12) 0%, transparent 55%), radial-gradient(ellipse at 30% 80%, rgba(200,169,104,0.06) 0%, transparent 50%)` }} />
+        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 35%, rgba(212,161,74,0.12) 0%, transparent 55%), radial-gradient(ellipse at 30% 80%, rgba(217,207,168,0.06) 0%, transparent 50%)` }} />
         <style>{`
           @keyframes shake { 0%,100%{transform:translateX(0)} 25%,75%{transform:translateX(-10px)} 50%{transform:translateX(10px)} }
-          .pin { width:100%; padding:16px 22px; background:rgba(200,85,60,0.05); border:1.5px solid rgba(200,85,60,0.20); border-radius:12px; font-size:18px; color:${C.bone}; font-family:'Inter',sans-serif; letter-spacing:0.22em; text-align:center; outline:none; font-weight:500; }
-          .pin:focus { border-color:rgba(200,85,60,0.60); background:rgba(200,85,60,0.08); }
+          .pin { width:100%; padding:16px 22px; background:rgba(212,161,74,0.05); border:1.5px solid rgba(212,161,74,0.20); border-radius:12px; font-size:18px; color:${C.bone}; font-family:'Inter',sans-serif; letter-spacing:0.22em; text-align:center; outline:none; font-weight:500; }
+          .pin:focus { border-color:rgba(212,161,74,0.60); background:rgba(212,161,74,0.08); }
           .pin.err { animation:shake 0.4s ease; border-color:#C44; }
           .pgo { width:100%; padding:16px; border-radius:12px; border:none; background:linear-gradient(135deg,${C.primaryDk},${C.primary}); color:${C.bone}; font-size:14px; font-weight:800; cursor:pointer; letter-spacing:0.16em; font-family:'Bebas Neue',sans-serif; margin-top:14px; }
-          .pgo:hover { filter:brightness(1.10); box-shadow: 0 8px 28px rgba(200,85,60,0.35); }
+          .pgo:hover { filter:brightness(1.10); box-shadow: 0 8px 28px rgba(212,161,74,0.35); }
         `}</style>
         <div style={{ width: 380, textAlign: 'center', position: 'relative', zIndex: 2 }}>
           <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 40, letterSpacing: '0.14em', color: C.bone, marginBottom: 4 }}>
@@ -419,7 +426,7 @@ export default function Pitch() {
     /* ─── 00 TITLE ────────────────────────────────────────────── */
     <div key="s0" style={{ ...S, textAlign: 'center', overflow: 'hidden', padding: '0 60px' }}>
       <div style={{ position: 'absolute', inset: 0, background: slideGradient(0) }} />
-      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontFamily: 'Bebas Neue,sans-serif', fontSize: 'clamp(180px,22vw,300px)', letterSpacing: '-0.02em', color: 'rgba(200,85,60,0.04)', lineHeight: 0.85, whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none' }}>AR MENU</div>
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontFamily: 'Bebas Neue,sans-serif', fontSize: 'clamp(180px,22vw,300px)', letterSpacing: '-0.02em', color: 'rgba(212,161,74,0.04)', lineHeight: 0.85, whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none' }}>AR MENU</div>
 
       <div style={{ position: 'relative', zIndex: 2, ...tilt(6, 4) }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
@@ -435,7 +442,7 @@ export default function Pitch() {
           ...headlineStyle, fontSize: 'clamp(72px,10vw,140px)', marginBottom: 36,
           background: `linear-gradient(90deg,${C.primaryDk},${C.primary} 35%,${C.primaryLt} 55%,${C.primary} 80%,${C.brass})`,
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          filter: reducedMotion ? 'none' : 'drop-shadow(0 0 24px rgba(200,85,60,0.25))',
+          filter: reducedMotion ? 'none' : 'drop-shadow(0 0 24px rgba(212,161,74,0.25))',
         }}>
           MAKES THEM ORDER.
         </h1>
@@ -459,7 +466,7 @@ export default function Pitch() {
           <div style={{ ...headlineStyle, fontSize: 'clamp(56px,7vw,96px)', marginBottom: 32 }}>
             <div style={{ WebkitTextStroke: `2px ${C.dim}`, WebkitTextFillColor: 'transparent' }}>YOUR CUSTOMERS</div>
             <div style={{ color: C.bone }}>ARE ORDERING</div>
-            <div style={{ color: C.primary, textShadow: `0 0 40px rgba(200,85,60,0.30)` }}>BLIND.</div>
+            <div style={{ color: C.primary, textShadow: `0 0 40px rgba(212,161,74,0.30)` }}>BLIND.</div>
           </div>
           <p style={{ fontFamily: 'Inter,sans-serif', fontSize: 'clamp(15px,1.5vw,18px)', color: C.dim, lineHeight: 1.75, maxWidth: 440, fontWeight: 400 }}>
             A text-only menu tells a customer nothing about what the food looks like, the portion size, or the presentation. They guess — and they pick the safe option. You lose the upsell.
@@ -478,9 +485,9 @@ export default function Pitch() {
               <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20, background: 'rgba(196,68,56,0.16)', color: '#E5867C', fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '0.10em' }}>TEXT ONLY</span>
             </div>
             {[['Chicken Biryani', '₹280'], ['Paneer Tikka Masala', '₹320'], ['Dal Makhani', '₹180'], ['Garlic Butter Naan', '₹60'], ['Mango Lassi', '₹120'], ['Gulab Jamun', '₹80']].map(([n, p], i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px', borderBottom: i === 5 ? 'none' : `1px solid rgba(239,230,210,0.04)` }}>
-                <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 14, color: 'rgba(239,230,210,0.42)', fontWeight: 400 }}>{n}</span>
-                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 700, fontSize: 13, color: 'rgba(239,230,210,0.28)' }}>{p}</span>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px', borderBottom: i === 5 ? 'none' : `1px solid rgba(241,234,217,0.04)` }}>
+                <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 14, color: 'rgba(241,234,217,0.42)', fontWeight: 400 }}>{n}</span>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 700, fontSize: 13, color: 'rgba(241,234,217,0.28)' }}>{p}</span>
               </div>
             ))}
             <div style={{ padding: '12px 22px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(196,68,56,0.06)' }}>
@@ -499,7 +506,7 @@ export default function Pitch() {
         {sectionLabel('The Solution')}
         <div style={{ ...headlineStyle, lineHeight: 0.82 }}>
           <div style={{ fontSize: 'clamp(80px,13vw,180px)', WebkitTextStroke: `2px ${C.dim}`, WebkitTextFillColor: 'transparent' }}>SCAN.</div>
-          <div style={{ fontSize: 'clamp(80px,13vw,180px)', color: C.primary, textShadow: `0 0 80px rgba(200,85,60,0.40)` }}>SEE.</div>
+          <div style={{ fontSize: 'clamp(80px,13vw,180px)', color: C.primary, textShadow: `0 0 80px rgba(212,161,74,0.40)` }}>SEE.</div>
           <div style={{ fontSize: 'clamp(80px,13vw,180px)', WebkitTextStroke: `2px ${C.bone}`, WebkitTextFillColor: 'transparent' }}>ORDER MORE.</div>
         </div>
         <p style={{ fontFamily: 'Inter,sans-serif', fontSize: 'clamp(15px,1.5vw,18px)', color: C.dim, maxWidth: 560, margin: '40px auto 0', lineHeight: 1.7, fontWeight: 400 }}>
@@ -511,11 +518,11 @@ export default function Pitch() {
     /* ─── 03 AR EXPERIENCE ────────────────────────────────────── */
     <div key="s3" style={{ ...S, overflow: 'hidden', padding: 0 }}>
       <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('/ar-experience.png')", backgroundSize: 'cover', backgroundPosition: 'center' }} />
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(110deg, rgba(12,14,19,0.94) 0%, rgba(12,14,19,0.62) 42%, rgba(12,14,19,0.20) 75%, rgba(12,14,19,0.04) 100%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(110deg, rgba(13,27,42,0.94) 0%, rgba(13,27,42,0.62) 42%, rgba(13,27,42,0.20) 75%, rgba(13,27,42,0.04) 100%)' }} />
 
       <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 1200, padding: '0 80px', display: 'flex', alignItems: 'flex-end', paddingBottom: '80px', height: '100%', justifyContent: 'flex-start' }}>
         <div style={{ maxWidth: 580 }}>
-          <div className="ar-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 30, background: 'rgba(200,85,60,0.20)', border: `1px solid ${C.borderAcc}`, marginBottom: 24, backdropFilter: 'blur(8px)' }}>
+          <div className="ar-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 30, background: 'rgba(212,161,74,0.20)', border: `1px solid ${C.borderAcc}`, marginBottom: 24, backdropFilter: 'blur(8px)' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.primaryLt, display: 'inline-block', boxShadow: `0 0 12px ${C.primaryLt}` }} />
             <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 12, color: C.primaryLt, letterSpacing: '0.18em', textTransform: 'uppercase' }}>AR Live · Zero App Download</span>
           </div>
@@ -524,7 +531,7 @@ export default function Pitch() {
             <span style={{ background: `linear-gradient(90deg,${C.primary},${C.primaryLt},${C.brass})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>REAL ENOUGH</span><br />
             TO ORDER.
           </h2>
-          <p style={{ fontFamily: 'Inter,sans-serif', fontSize: 'clamp(15px,1.5vw,18px)', color: 'rgba(239,230,210,0.78)', lineHeight: 1.75, maxWidth: 460, fontWeight: 400 }}>
+          <p style={{ fontFamily: 'Inter,sans-serif', fontSize: 'clamp(15px,1.5vw,18px)', color: 'rgba(241,234,217,0.78)', lineHeight: 1.75, maxWidth: 460, fontWeight: 400 }}>
             Photorealistic 3D models land on the customer's actual table through their phone camera. No headset. No app download. Just point, see, and order.
           </p>
         </div>
@@ -576,7 +583,7 @@ export default function Pitch() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {card.questions.map((it, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12, paddingBottom: 10, borderBottom: i === card.questions.length - 1 ? 'none' : `1px solid rgba(239,230,210,0.06)` }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12, paddingBottom: 10, borderBottom: i === card.questions.length - 1 ? 'none' : `1px solid rgba(241,234,217,0.06)` }}>
                     <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, color: C.brass, minWidth: 22 }}>0{i + 1}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 600, fontSize: 14, color: C.bone, marginBottom: 2 }}>{it.q}</div>
@@ -585,7 +592,7 @@ export default function Pitch() {
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 20, padding: '12px 14px', background: 'rgba(200,85,60,0.07)', border: `1px solid ${C.borderAcc}`, borderRadius: 10, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500 }}>
+              <div style={{ marginTop: 20, padding: '12px 14px', background: 'rgba(212,161,74,0.07)', border: `1px solid ${C.borderAcc}`, borderRadius: 10, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500 }}>
                 ✦ Claude picks the 3–6 best matches from your menu.
               </div>
             </div>
@@ -617,10 +624,10 @@ export default function Pitch() {
             <div key={i} style={{ ...tilt((i - 1) * 4, 3), background: C.glass, border: `1px solid ${C.border}`, borderRadius: 18, padding: 22, backdropFilter: 'blur(16px)', textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 13, letterSpacing: '0.12em', color: C.brass }}>{card.lang}</span>
-                <span style={{ fontSize: 9, padding: '3px 8px', borderRadius: 6, background: 'rgba(200,85,60,0.18)', color: C.primaryLt, fontFamily: 'Bebas Neue,sans-serif', letterSpacing: '0.12em' }}>◆ AR</span>
+                <span style={{ fontSize: 9, padding: '3px 8px', borderRadius: 6, background: 'rgba(212,161,74,0.18)', color: C.primaryLt, fontFamily: 'Bebas Neue,sans-serif', letterSpacing: '0.12em' }}>◆ AR</span>
               </div>
-              <div style={{ aspectRatio: '4/3', borderRadius: 12, background: `linear-gradient(135deg,rgba(200,85,60,0.22),rgba(200,169,104,0.16))`, marginBottom: 14, position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 60%, rgba(200,85,60,0.40) 0%, transparent 65%)' }} />
+              <div style={{ aspectRatio: '4/3', borderRadius: 12, background: `linear-gradient(135deg,rgba(212,161,74,0.22),rgba(217,207,168,0.16))`, marginBottom: 14, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 60%, rgba(212,161,74,0.40) 0%, transparent 65%)' }} />
               </div>
               <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 14, color: C.bone, lineHeight: 1.35, marginBottom: 6 }}>{card.name}</div>
               <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.dim, marginBottom: 10, fontWeight: 400 }}>{card.meta}</div>
@@ -674,7 +681,7 @@ export default function Pitch() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 14px',
                   fontSize: 22,
-                  boxShadow: `0 4px 16px ${i % 2 === 0 ? 'rgba(200,85,60,0.35)' : 'rgba(200,169,104,0.28)'}`,
+                  boxShadow: `0 4px 16px ${i % 2 === 0 ? 'rgba(212,161,74,0.35)' : 'rgba(217,207,168,0.28)'}`,
                   border: `1.5px solid ${C.bg}`,
                 }}>{st.icon}</div>
                 <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: C.brass, marginBottom: 6 }}>{st.n}</div>
@@ -712,7 +719,7 @@ export default function Pitch() {
             { icon: '📊', tag: 'Activity Feed',          points: ['Real-time stream of everything happening', 'Order placed · Status changed · Payment received', 'Audit trail for every staff action'] },
           ].map((b, i) => (
             <div key={i} style={{ ...tilt((i - 1) * 4, 3), background: C.glass, border: `1px solid ${C.border}`, borderRadius: 22, padding: 30, backdropFilter: 'blur(18px)', boxShadow: '0 24px 60px rgba(0,0,0,0.42)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 18, right: 22, fontFamily: 'Bebas Neue,sans-serif', fontSize: 72, color: 'rgba(200,85,60,0.06)', lineHeight: 1 }}>0{i + 1}</div>
+              <div style={{ position: 'absolute', top: 18, right: 22, fontFamily: 'Bebas Neue,sans-serif', fontSize: 72, color: 'rgba(212,161,74,0.06)', lineHeight: 1 }}>0{i + 1}</div>
               <div style={{ width: 50, height: 50, borderRadius: 14, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 18, boxShadow: `0 4px 16px ${C.primaryGlow}` }}>{b.icon}</div>
               <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 17, letterSpacing: '0.10em', color: C.bone, marginBottom: 16 }}>{b.tag}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -757,7 +764,7 @@ export default function Pitch() {
               { icon: '🎟️', t: 'Coupons & offers',       s: 'Discount codes, promo flags, Chef\'s Special / Popular badges.' },
             ].map((row, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '12px 16px', background: i === 1 ? C.glassWarm : 'transparent', border: `1px solid ${i === 1 ? C.borderAcc : 'transparent'}`, borderRadius: 12 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(200,85,60,0.10)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{row.icon}</div>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(212,161,74,0.10)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{row.icon}</div>
                 <div>
                   <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 14, color: C.bone, marginBottom: 3 }}>{row.t}</div>
                   <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.dim, lineHeight: 1.6, fontWeight: 400 }}>{row.s}</div>
@@ -768,7 +775,7 @@ export default function Pitch() {
 
           <div style={{ ...tilt(8, 5) }}>
             <div style={{ background: C.bgLayer, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.55)' }}>
-              <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(200,85,60,0.04)' }}>
+              <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(212,161,74,0.04)' }}>
                 <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 13, letterSpacing: '0.10em', color: C.primaryLt }}>MENU ITEMS</span>
                 <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20, background: 'rgba(93,160,104,0.16)', color: '#7EC089', fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '0.08em' }}>● LIVE</span>
               </div>
@@ -779,13 +786,13 @@ export default function Pitch() {
                 { veg: '🟢', name: 'Dal Makhani',      cat: 'Mains',     price: '₹220', tag: null },
                 { veg: '🟢', name: 'Gulab Jamun',      cat: 'Dessert',   price: '₹120', tag: '★ Chef' },
               ].map((it, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < 4 ? `1px solid rgba(239,230,210,0.05)` : 'none' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < 4 ? `1px solid rgba(241,234,217,0.05)` : 'none' }}>
                   <span style={{ fontSize: 12 }}>{it.veg}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 600, fontSize: 13, color: C.bone }}>{it.name}</div>
                     <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 11, color: C.dim, marginTop: 1, fontWeight: 400 }}>{it.cat}</div>
                   </div>
-                  {it.tag && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(200,85,60,0.18)', color: C.primaryLt, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '0.02em' }}>{it.tag}</span>}
+                  {it.tag && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(212,161,74,0.18)', color: C.primaryLt, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '0.02em' }}>{it.tag}</span>}
                   <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 700, color: C.primaryLt }}>{it.price}</span>
                 </div>
               ))}
@@ -821,7 +828,7 @@ export default function Pitch() {
                 { name: 'Paytm UPI',  mark: 'Pay',col: '#FFFFFF', bg: '#00BAF2' },
                 { name: 'Other UPI',  mark: '↗',  col: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.08)' },
               ].map((m, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, border: `${m.sel ? 2 : 1}px solid ${m.sel ? C.primary : 'rgba(255,255,255,0.06)'}`, background: m.sel ? 'rgba(200,85,60,0.07)' : 'transparent', marginBottom: 6 }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, border: `${m.sel ? 2 : 1}px solid ${m.sel ? C.primary : 'rgba(255,255,255,0.06)'}`, background: m.sel ? 'rgba(212,161,74,0.07)' : 'transparent', marginBottom: 6 }}>
                   <div style={{ width: 30, height: 30, borderRadius: 8, background: m.bg, color: m.col, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Bebas Neue,sans-serif', fontSize: m.mark.length > 2 ? 11 : 14, flexShrink: 0 }}>{m.mark}</div>
                   <span style={{ flex: 1, fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 13, color: C.bone }}>{m.name}</span>
                   <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${m.sel ? C.primary : 'rgba(255,255,255,0.18)'}`, position: 'relative' }}>{m.sel && <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: C.primary }} />}</span>
@@ -862,7 +869,7 @@ export default function Pitch() {
                   <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', fontSize: 14, color: C.brass }}>←</div>
                 </div>
                 <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ width: 58, height: 58, borderRadius: 14, background: 'rgba(239,230,210,0.05)', border: `1px solid ${C.borderBrass}`, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Bebas Neue,sans-serif', fontSize: 20, color: C.brass, letterSpacing: '0.06em' }}>POS</div>
+                  <div style={{ width: 58, height: 58, borderRadius: 14, background: 'rgba(241,234,217,0.05)', border: `1px solid ${C.borderBrass}`, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Bebas Neue,sans-serif', fontSize: 20, color: C.brass, letterSpacing: '0.06em' }}>POS</div>
                   <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 12, letterSpacing: '0.10em', color: C.bone }}>PETPOOJA</div>
                 </div>
               </div>
@@ -910,7 +917,7 @@ export default function Pitch() {
             { icon: '⭐', t: 'Customer Ratings',     s: 'Diners rate each dish after eating. See trends. Reward winners.' },
           ].map(card => (
             <div key={card.t} style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: 18, padding: 22, backdropFilter: 'blur(16px)' }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(200,85,60,0.10)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 16 }}>{card.icon}</div>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(212,161,74,0.10)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 16 }}>{card.icon}</div>
               <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 800, fontSize: 14, letterSpacing: '-0.1px', color: C.bone, marginBottom: 8 }}>{card.t}</div>
               <p style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.dim, lineHeight: 1.65, margin: 0, fontWeight: 400 }}>{card.s}</p>
             </div>
@@ -950,12 +957,12 @@ export default function Pitch() {
             { num: '3×',  label: 'more add-ons ordered when food is visualised before ordering', src: 'Menu-engineering studies' },
             { num: '26%', label: 'average increase in order value with AR-enabled menus',         src: 'Visual-commerce reports' },
           ].map((s, i) => (
-            <div key={i} style={{ padding: '36px 30px', borderLeft: i > 0 ? `1px solid rgba(239,230,210,0.10)` : 'none' }}>
+            <div key={i} style={{ padding: '36px 30px', borderLeft: i > 0 ? `1px solid rgba(241,234,217,0.10)` : 'none' }}>
               <div style={{
                 fontFamily: 'Bebas Neue,sans-serif', fontSize: 'clamp(64px,9vw,120px)', lineHeight: 0.85, letterSpacing: '0.02em',
                 background: `linear-gradient(135deg,${C.primaryDk},${C.primary},${C.primaryLt})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 marginBottom: 18,
-                filter: 'drop-shadow(0 0 24px rgba(200,85,60,0.22))',
+                filter: 'drop-shadow(0 0 24px rgba(212,161,74,0.22))',
               }}>{s.num}</div>
               <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 'clamp(14px,1.3vw,16px)', color: C.dim, lineHeight: 1.6, marginBottom: 10, fontWeight: 400 }}>{s.label}</div>
               <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: C.dimmer }}>{s.src}</div>
@@ -1003,10 +1010,10 @@ export default function Pitch() {
               features: ['150 menu items', 'Petpooja POS sync', 'CSV bulk import', 'Advanced analytics', 'Priority support', 'Custom branding'] },
           ].map((p) => (
             <div key={p.name} style={{
-              background: p.glow ? `linear-gradient(145deg,rgba(200,85,60,0.14),rgba(200,85,60,0.05))` : C.glass,
+              background: p.glow ? `linear-gradient(145deg,rgba(212,161,74,0.14),rgba(212,161,74,0.05))` : C.glass,
               border: `1.5px solid ${p.glow ? C.primary : C.border}`,
               borderRadius: 22, padding: '30px 26px', backdropFilter: 'blur(20px)',
-              boxShadow: p.glow ? `0 0 60px rgba(200,85,60,0.18), 0 28px 60px rgba(0,0,0,0.45)` : '0 20px 50px rgba(0,0,0,0.38)',
+              boxShadow: p.glow ? `0 0 60px rgba(212,161,74,0.18), 0 28px 60px rgba(0,0,0,0.45)` : '0 20px 50px rgba(0,0,0,0.38)',
               position: 'relative', transform: p.glow ? 'translateY(-8px)' : 'none',
             }}>
               {p.tag && (
@@ -1022,7 +1029,7 @@ export default function Pitch() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {p.features.map(f => (
                   <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 16, height: 16, borderRadius: 5, background: `rgba(200,85,60,${p.glow ? '0.24' : '0.12'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: C.primaryLt, flexShrink: 0 }}>✓</span>
+                    <span style={{ width: 16, height: 16, borderRadius: 5, background: `rgba(212,161,74,${p.glow ? '0.24' : '0.12'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: C.primaryLt, flexShrink: 0 }}>✓</span>
                     <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 14, color: p.glow ? C.boneSoft : C.dim, fontWeight: 400 }}>{f}</span>
                   </div>
                 ))}
@@ -1037,7 +1044,7 @@ export default function Pitch() {
     /* ─── 13 THE ASK / CTA ────────────────────────────────────── */
     <div key="s13" style={{ ...S, textAlign: 'center', overflow: 'hidden', padding: '0 80px' }}>
       <div style={{ position: 'absolute', inset: 0, background: slideGradient(13) }} />
-      <div style={{ position: 'absolute', fontFamily: 'Bebas Neue,sans-serif', fontSize: '30vw', color: 'rgba(200,85,60,0.04)', lineHeight: 1, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', userSelect: 'none', pointerEvents: 'none', whiteSpace: 'nowrap' }}>50</div>
+      <div style={{ position: 'absolute', fontFamily: 'Bebas Neue,sans-serif', fontSize: '30vw', color: 'rgba(212,161,74,0.04)', lineHeight: 1, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', userSelect: 'none', pointerEvents: 'none', whiteSpace: 'nowrap' }}>50</div>
 
       <div style={{ position: 'relative', zIndex: 2, maxWidth: 860, ...tilt(5, 3) }}>
         {sectionLabel('Founding Partner Programme · Chennai')}
@@ -1047,7 +1054,7 @@ export default function Pitch() {
           <span style={{
             background: `linear-gradient(90deg,${C.primaryDk},${C.primary},${C.primaryLt},${C.brass})`,
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 0 28px rgba(200,85,60,0.30))',
+            filter: 'drop-shadow(0 0 28px rgba(212,161,74,0.30))',
           }}>THE FIRST 50.</span>
         </h2>
 
@@ -1076,7 +1083,7 @@ export default function Pitch() {
         <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 32 }}>
           <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer"
              aria-label="Book a demo on WhatsApp"
-             style={{ padding: '16px 36px', borderRadius: 12, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block', boxShadow: `0 8px 32px rgba(200,85,60,0.40)` }}>
+             style={{ padding: '16px 36px', borderRadius: 12, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block', boxShadow: `0 8px 32px rgba(212,161,74,0.40)` }}>
             BOOK A DEMO →
           </a>
           <a href="mailto:hello@halohelm.com"
@@ -1129,8 +1136,8 @@ export default function Pitch() {
           ::-webkit-scrollbar { display:none; }
 
           @keyframes ar-pulse {
-            0%, 100% { box-shadow: 0 0 12px rgba(224,116,82,0.55); }
-            50%      { box-shadow: 0 0 26px rgba(224,116,82,0.95); }
+            0%, 100% { box-shadow: 0 0 12px rgba(232,189,99,0.55); }
+            50%      { box-shadow: 0 0 26px rgba(232,189,99,0.95); }
           }
           .ar-pill > span:first-child { animation: ar-pulse 2s ease-in-out infinite; }
 
@@ -1205,7 +1212,7 @@ export default function Pitch() {
           <div data-chapter-pill style={{
             position: 'fixed', top: 22, left: '50%', transform: 'translateX(-50%)',
             padding: '6px 16px', borderRadius: 99,
-            background: 'rgba(12,14,19,0.70)', backdropFilter: 'blur(12px)',
+            background: 'rgba(13,27,42,0.70)', backdropFilter: 'blur(12px)',
             border: `1px solid ${C.border}`,
             fontFamily: 'Bebas Neue,sans-serif', fontSize: 11, letterSpacing: '0.20em',
             color: C.brass, textTransform: 'uppercase',
@@ -1227,7 +1234,7 @@ export default function Pitch() {
               style={{
                 width: i === cur ? 5 : 4, height: i === cur ? 22 : 4, borderRadius: 99, border: 'none', cursor: 'pointer', padding: 0,
                 transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-                background: i === cur ? C.primaryLt : 'rgba(200,85,60,0.22)',
+                background: i === cur ? C.primaryLt : 'rgba(212,161,74,0.22)',
                 boxShadow: i === cur ? `0 0 10px ${C.primaryGlow}` : 'none',
               }} />
           ))}
@@ -1243,10 +1250,10 @@ export default function Pitch() {
           style={{
             position: 'fixed', bottom: 22, right: 22,
             fontFamily: 'JetBrains Mono,monospace', fontSize: 12,
-            color: 'rgba(200,85,60,0.85)', zIndex: 100, letterSpacing: '0.06em',
+            color: 'rgba(212,161,74,0.85)', zIndex: 100, letterSpacing: '0.06em',
             padding: '6px 12px', borderRadius: 8,
             border: `1px solid ${C.border}`,
-            background: 'rgba(12,14,19,0.70)', backdropFilter: 'blur(12px)',
+            background: 'rgba(13,27,42,0.70)', backdropFilter: 'blur(12px)',
             cursor: 'pointer',
             display: 'inline-flex', alignItems: 'center', gap: 8,
           }}>
@@ -1259,7 +1266,7 @@ export default function Pitch() {
         </button>
 
         {/* Wordmark — bottom-left, persists across all slides */}
-        <div style={{ position: 'fixed', bottom: 24, left: 26, fontFamily: 'Bebas Neue,sans-serif', fontSize: 13, letterSpacing: '0.16em', color: 'rgba(239,230,210,0.40)', zIndex: 100 }}>
+        <div style={{ position: 'fixed', bottom: 24, left: 26, fontFamily: 'Bebas Neue,sans-serif', fontSize: 13, letterSpacing: '0.16em', color: 'rgba(241,234,217,0.40)', zIndex: 100 }}>
           HALO<span style={{ background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELM</span>
         </div>
 
@@ -1267,12 +1274,12 @@ export default function Pitch() {
         {cur > 0 && (
           <button onClick={prev}
             aria-label={`Previous slide: ${SLIDE_TITLES[cur - 1]}`}
-            style={{ position: 'fixed', left: '50%', top: 60, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(12,14,19,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↑</button>
+            style={{ position: 'fixed', left: '50%', top: 60, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(13,27,42,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↑</button>
         )}
         {cur < slidesCount - 1 && (
           <button onClick={next}
             aria-label={`Next slide: ${SLIDE_TITLES[cur + 1]}`}
-            style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(12,14,19,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↓</button>
+            style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(13,27,42,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↓</button>
         )}
 
         {/* ─── Jump menu / Table of Contents overlay ────────────────
