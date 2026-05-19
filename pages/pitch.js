@@ -67,25 +67,80 @@ const C = {
   brassLt:   '#E8DFC0',
   brassDk:   '#A89E76',
 
-  /* Typography — warm cream */
+  /* Typography — warm cream. Opacity ladder bumped 20 May 2026
+     so card body copy crosses the AA contrast threshold against
+     the new higher-opacity glass. Old `dim` at 0.58 was hovering
+     around AA fail for small text. */
   bone:      '#F1EAD9',
-  boneSoft:  'rgba(241,234,217,0.78)',
-  dim:       'rgba(241,234,217,0.58)',
-  dimmer:    'rgba(241,234,217,0.36)',
-  dimmest:   'rgba(241,234,217,0.18)',
+  boneSoft:  'rgba(241,234,217,0.88)',
+  dim:       'rgba(241,234,217,0.70)',
+  dimmer:    'rgba(241,234,217,0.48)',
+  dimmest:   'rgba(241,234,217,0.24)',
 
-  /* Glass / borders */
-  glass:     'rgba(13,27,42,0.74)',
-  glassWarm: 'rgba(212,161,74,0.06)',
-  border:    'rgba(241,234,217,0.10)',
-  borderHi:  'rgba(241,234,217,0.22)',
-  borderAcc: 'rgba(212,161,74,0.32)',
-  borderBrass: 'rgba(217,207,168,0.30)',
+  /* Glass / borders — bumped contrast 20 May 2026.
+     Previous values were too transparent against the navy bg;
+     cards "floated" with poor readability. Now sit slightly
+     above the surface with a clearer borderline. */
+  glass:     'rgba(20,38,60,0.90)',     /* was 0.74 → 0.90, clearer card body */
+  glassWarm: 'rgba(212,161,74,0.10)',   /* gold tint for emphasis panels */
+  glassDeep: 'rgba(10,18,32,0.85)',     /* darker inner panel for screenshot mocks */
+  border:    'rgba(241,234,217,0.16)',  /* was 0.10 → 0.16 */
+  borderHi:  'rgba(241,234,217,0.28)',
+  borderAcc: 'rgba(212,161,74,0.45)',   /* was 0.32 → 0.45, gold borders pop more */
+  borderBrass: 'rgba(217,207,168,0.36)',
 
   /* Semantic — kept from previous palette */
   success:   '#5DA068',
   danger:    '#C44438',
 };
+
+/* ─── Icon component — minimal stroke SVGs (lucide-style) ────────
+   20 May 2026: replaced ~25 inline emojis (🍳, 🥽, 📲, etc.) which
+   were rendering inconsistently across OSes and reading "amateur"
+   on a premium pitch. These are pixel-precise, currentColor-aware,
+   and respect strokeWidth — they always render identically.
+   Path data adapted from the Lucide icon set (ISC license). */
+const ICONS = {
+  person:    '<circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.418 3.582-8 8-8s8 3.582 8 8"/>',
+  group:     '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 22c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M14 14h5a3 3 0 0 1 3 3v5"/>',
+  qr:        '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/>',
+  grid:      '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  cube:      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  sparkle:   '<path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/>',
+  cart:      '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+  activity:  '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  card:      '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
+  star:      '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  chefHat:   '<path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54A5 5 0 0 1 14 5.16 4 4 0 0 1 18 13"/><line x1="6" y1="17" x2="18" y2="17"/><path d="M6 17v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3"/>',
+  bell:      '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  chart:     '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  swap:      '<polyline points="7 10 12 5 17 10"/><polyline points="7 14 12 19 17 14"/>',
+  camera:    '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  tag:       '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+  ban:       '<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>',
+  upload:    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+  ticket:    '<path d="M20 12V8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v4a2 2 0 0 1 0 4v0a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v0a2 2 0 0 1 0-4z"/><line x1="13" y1="5" x2="13" y2="7"/><line x1="13" y1="11" x2="13" y2="13"/><line x1="13" y1="17" x2="13" y2="19"/>',
+  cash:      '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+  thermo:    '<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"/>',
+  mail:      '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+  clock:     '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  lock:      '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  phone:     '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+};
+function Icon({ name, size = 22, color = 'currentColor', stroke = 1.6, fill = 'none' }) {
+  const path = ICONS[name];
+  if (!path) return null;
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24"
+      fill={fill} stroke={color} strokeWidth={stroke}
+      strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true" focusable="false"
+      style={{ display: 'block', flexShrink: 0 }}
+      dangerouslySetInnerHTML={{ __html: path }}
+    />
+  );
+}
 
 /* ─── Chapter map — which slide belongs to which thematic chapter.
    Drives the small "Chapter II · The Experience" tab at the top of
@@ -556,7 +611,7 @@ export default function Pitch() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
           {[
             {
-              icon: '👤', tag: 'Solo Diner Mode',
+              icon: 'person', tag: 'Solo Diner Mode',
               questions: [
                 { q: 'Dietary preference?',   a: 'Veg · Non-veg · Either' },
                 { q: 'What\'s your mood?',     a: 'Comfort · Healthy · Popular · Adventurous' },
@@ -566,7 +621,7 @@ export default function Pitch() {
               ],
             },
             {
-              icon: '👥', tag: 'Group Mode',
+              icon: 'group', tag: 'Group Mode',
               questions: [
                 { q: 'Anyone vegetarian?',     a: 'Keep it veg-friendly · No · Mix' },
                 { q: 'Group spice limit?',     a: 'Mild · Medium · Spicy · No limit' },
@@ -578,7 +633,9 @@ export default function Pitch() {
           ].map((card, ci) => (
             <div key={ci} style={{ ...tilt(ci === 0 ? -4 : 4, 4), background: C.glass, border: `1px solid ${C.border}`, borderRadius: 22, padding: 32, backdropFilter: 'blur(20px)', boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                <span style={{ fontSize: 26 }}>{card.icon}</span>
+                <span style={{ width: 38, height: 38, borderRadius: 10, background: C.glassWarm, border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.primaryLt }}>
+                  <Icon name={card.icon} size={20} stroke={1.7} />
+                </span>
                 <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 17, letterSpacing: '0.12em', color: C.primaryLt }}>{card.tag}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -592,8 +649,9 @@ export default function Pitch() {
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 20, padding: '12px 14px', background: 'rgba(212,161,74,0.07)', border: `1px solid ${C.borderAcc}`, borderRadius: 10, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500 }}>
-                ✦ Claude picks the 3–6 best matches from your menu.
+              <div style={{ marginTop: 20, padding: '12px 14px', background: 'rgba(212,161,74,0.10)', border: `1px solid ${C.borderAcc}`, borderRadius: 10, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="sparkle" size={14} color={C.primaryLt} stroke={1.7} fill={C.primaryLt} />
+                Claude picks the 3–6 best matches from your menu.
               </div>
             </div>
           ))}
@@ -665,14 +723,14 @@ export default function Pitch() {
           <div style={{ position: 'absolute', top: 24, left: '4%', right: '4%', height: 1, background: `linear-gradient(90deg, transparent, ${C.borderAcc}, ${C.primary}, ${C.borderAcc}, transparent)`, zIndex: 0 }} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: 12, position: 'relative', zIndex: 1 }}>
             {[
-              { n: '01', icon: '📲', t: 'Scan QR',         s: 'At their table' },
-              { n: '02', icon: '🍽️', t: 'Browse menu',     s: 'In their language' },
-              { n: '03', icon: '🥽', t: 'Tap → AR',         s: 'See it in 3D' },
-              { n: '04', icon: '✨', t: 'AI suggests',      s: 'Smart pairings' },
-              { n: '05', icon: '🛒', t: 'Add to cart',      s: 'With notes' },
-              { n: '06', icon: '🍳', t: 'Track live',       s: 'Placed→Served' },
-              { n: '07', icon: '💳', t: 'Pay any way',      s: 'Cash/Card/UPI' },
-              { n: '08', icon: '⭐', t: 'Rate dishes',      s: 'Feedback flows' },
+              { n: '01', icon: 'qr',       t: 'Scan QR',         s: 'At their table' },
+              { n: '02', icon: 'grid',     t: 'Browse menu',     s: 'In their language' },
+              { n: '03', icon: 'cube',     t: 'Tap → AR',         s: 'See it in 3D' },
+              { n: '04', icon: 'sparkle', t: 'AI suggests',      s: 'Smart pairings' },
+              { n: '05', icon: 'cart',     t: 'Add to cart',      s: 'With notes' },
+              { n: '06', icon: 'activity', t: 'Track live',       s: 'Placed→Served' },
+              { n: '07', icon: 'card',     t: 'Pay any way',      s: 'Cash/Card/UPI' },
+              { n: '08', icon: 'star',     t: 'Rate dishes',      s: 'Feedback flows' },
             ].map((st, i) => (
               <div key={i} style={{ textAlign: 'center' }}>
                 <div style={{
@@ -680,10 +738,12 @@ export default function Pitch() {
                   background: i % 2 === 0 ? `linear-gradient(135deg,${C.primaryDk},${C.primary})` : `linear-gradient(135deg,${C.brassDk},${C.brass})`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 14px',
-                  fontSize: 22,
+                  color: i % 2 === 0 ? C.bone : C.bg,
                   boxShadow: `0 4px 16px ${i % 2 === 0 ? 'rgba(212,161,74,0.35)' : 'rgba(217,207,168,0.28)'}`,
                   border: `1.5px solid ${C.bg}`,
-                }}>{st.icon}</div>
+                }}>
+                  <Icon name={st.icon} size={20} stroke={1.8} fill={st.icon === 'sparkle' || st.icon === 'star' ? 'currentColor' : 'none'} />
+                </div>
                 <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: C.brass, marginBottom: 6 }}>{st.n}</div>
                 <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 13, color: C.bone, marginBottom: 4 }}>{st.t}</div>
                 <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 11, color: C.dim, lineHeight: 1.45, fontWeight: 400 }}>{st.s}</div>
@@ -714,13 +774,15 @@ export default function Pitch() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }}>
           {[
-            { icon: '🍳', tag: 'Kitchen Display (KDS)', points: ['Auto-shows new orders the second they place', 'Voice + chime announcements', 'Per-item ready button — finer than per-order'] },
-            { icon: '🔔', tag: 'Waiter Dashboard',       points: ['Live action queue: calls, serves, payments', 'Instant table-side waiter calls', 'Cash collection with auto-change calc'] },
-            { icon: '📊', tag: 'Activity Feed',          points: ['Real-time stream of everything happening', 'Order placed · Status changed · Payment received', 'Audit trail for every staff action'] },
+            { icon: 'chefHat', tag: 'Kitchen Display (KDS)', points: ['Auto-shows new orders the second they place', 'Voice + chime announcements', 'Per-item ready button — finer than per-order'] },
+            { icon: 'bell',    tag: 'Waiter Dashboard',       points: ['Live action queue: calls, serves, payments', 'Instant table-side waiter calls', 'Cash collection with auto-change calc'] },
+            { icon: 'chart',   tag: 'Activity Feed',          points: ['Real-time stream of everything happening', 'Order placed · Status changed · Payment received', 'Audit trail for every staff action'] },
           ].map((b, i) => (
             <div key={i} style={{ ...tilt((i - 1) * 4, 3), background: C.glass, border: `1px solid ${C.border}`, borderRadius: 22, padding: 30, backdropFilter: 'blur(18px)', boxShadow: '0 24px 60px rgba(0,0,0,0.42)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 18, right: 22, fontFamily: 'Bebas Neue,sans-serif', fontSize: 72, color: 'rgba(212,161,74,0.06)', lineHeight: 1 }}>0{i + 1}</div>
-              <div style={{ width: 50, height: 50, borderRadius: 14, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 18, boxShadow: `0 4px 16px ${C.primaryGlow}` }}>{b.icon}</div>
+              <div style={{ position: 'absolute', top: 18, right: 22, fontFamily: 'Bebas Neue,sans-serif', fontSize: 72, color: 'rgba(212,161,74,0.08)', lineHeight: 1 }}>0{i + 1}</div>
+              <div style={{ width: 50, height: 50, borderRadius: 14, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.bone, marginBottom: 18, boxShadow: `0 4px 16px ${C.primaryGlow}` }}>
+                <Icon name={b.icon} size={24} stroke={1.7} />
+              </div>
               <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 17, letterSpacing: '0.10em', color: C.bone, marginBottom: 16 }}>{b.tag}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {b.points.map(p => (
@@ -734,8 +796,8 @@ export default function Pitch() {
           ))}
         </div>
 
-        <div style={{ marginTop: 32, padding: '14px 20px', background: C.glassWarm, border: `1px solid ${C.borderAcc}`, borderRadius: 12, fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.boneSoft, textAlign: 'center', fontWeight: 500 }}>
-          <span style={{ color: C.brass, marginRight: 8 }}>◆</span>
+        <div style={{ marginTop: 32, padding: '14px 20px', background: C.glassWarm, border: `1px solid ${C.borderAcc}`, borderRadius: 12, fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.boneSoft, textAlign: 'center', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <Icon name="lock" size={14} color={C.brass} stroke={1.7} />
           Staff sign in with a 4-digit PIN. Disable a staff member — they're logged out in real time.
         </div>
       </div>
@@ -756,15 +818,17 @@ export default function Pitch() {
         <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 36, alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
-              { icon: '🪶', t: 'Drag, rename, reorder', s: 'Categories and dishes — change the order diners see instantly. No reload.' },
-              { icon: '📸', t: 'Photo + AR upload',     s: 'Drop a photo. Request an AR model and we deliver in 48 hours.' },
-              { icon: '🌶️', t: 'Spice, prep time, calories', s: 'Tag every dish so diners filter by what matters to them.' },
-              { icon: '🚫', t: 'Sold out for today',    s: 'One toggle hides a dish from tonight\'s service. Resets at midnight.' },
-              { icon: '📥', t: 'CSV bulk import',        s: 'Migrating from another system? Drop in a CSV — done.' },
-              { icon: '🎟️', t: 'Coupons & offers',       s: 'Discount codes, promo flags, Chef\'s Special / Popular badges.' },
+              { icon: 'swap',   t: 'Drag, rename, reorder', s: 'Categories and dishes — change the order diners see instantly. No reload.' },
+              { icon: 'camera', t: 'Photo + AR upload',     s: 'Drop a photo. Request an AR model and we deliver in 48 hours.' },
+              { icon: 'tag',    t: 'Spice, prep time, calories', s: 'Tag every dish so diners filter by what matters to them.' },
+              { icon: 'ban',    t: 'Sold out for today',    s: 'One toggle hides a dish from tonight\'s service. Resets at midnight.' },
+              { icon: 'upload', t: 'CSV bulk import',        s: 'Migrating from another system? Drop in a CSV — done.' },
+              { icon: 'ticket', t: 'Coupons & offers',       s: 'Discount codes, promo flags, Chef\'s Special / Popular badges.' },
             ].map((row, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '12px 16px', background: i === 1 ? C.glassWarm : 'transparent', border: `1px solid ${i === 1 ? C.borderAcc : 'transparent'}`, borderRadius: 12 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(212,161,74,0.10)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{row.icon}</div>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(212,161,74,0.14)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.primaryLt, flexShrink: 0 }}>
+                  <Icon name={row.icon} size={18} stroke={1.7} />
+                </div>
                 <div>
                   <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 14, color: C.bone, marginBottom: 3 }}>{row.t}</div>
                   <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.dim, lineHeight: 1.6, fontWeight: 400 }}>{row.s}</div>
@@ -773,29 +837,80 @@ export default function Pitch() {
             ))}
           </div>
 
-          <div style={{ ...tilt(8, 5) }}>
-            <div style={{ background: C.bgLayer, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.55)' }}>
-              <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(212,161,74,0.04)' }}>
-                <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 13, letterSpacing: '0.10em', color: C.primaryLt }}>MENU ITEMS</span>
-                <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20, background: 'rgba(93,160,104,0.16)', color: '#7EC089', fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '0.08em' }}>● LIVE</span>
-              </div>
-              {[
-                { veg: '🟢', name: 'Paneer Tikka',     cat: 'Starters',  price: '₹240', tag: '⚡ Popular' },
-                { veg: '🟢', name: 'Masala Dosa',      cat: 'Breakfast', price: '₹180', tag: '★ Chef' },
-                { veg: '🔴', name: 'Chicken Biryani',  cat: 'Mains',     price: '₹320', tag: null },
-                { veg: '🟢', name: 'Dal Makhani',      cat: 'Mains',     price: '₹220', tag: null },
-                { veg: '🟢', name: 'Gulab Jamun',      cat: 'Dessert',   price: '₹120', tag: '★ Chef' },
-              ].map((it, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < 4 ? `1px solid rgba(241,234,217,0.05)` : 'none' }}>
-                  <span style={{ fontSize: 12 }}>{it.veg}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 600, fontSize: 13, color: C.bone }}>{it.name}</div>
-                    <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 11, color: C.dim, marginTop: 1, fontWeight: 400 }}>{it.cat}</div>
+          {/* 20 May 2026: redesigned this in-deck mock to look like the
+              actual /admin/items page (Aspire cream palette + ink
+              text + warning-gold accent). Treating it as a
+              "device screenshot" embedded inside the deck — the
+              palette deliberately differs from the surrounding
+              Heraldic Midnight scheme to read as a real product
+              capture. To replace with an actual PNG screenshot,
+              swap the inner cream-palette block for an <img/>. */}
+          <div style={{ ...tilt(8, 5), position: 'relative' }}>
+            {/* Device frame (navy bezel) */}
+            <div style={{
+              background: '#0a1220',
+              border: `1px solid ${C.borderHi}`,
+              borderRadius: 16,
+              padding: 8,
+              boxShadow: '0 40px 100px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,161,74,0.10)',
+            }}>
+              {/* Screenshot — Aspire-light admin items page palette */}
+              <div style={{ background: '#FAFAF8', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{
+                  padding: '14px 18px',
+                  borderBottom: '1px solid rgba(0,0,0,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: '#FFFFFF',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: 700, color: '#1A1A1A', letterSpacing: '-0.2px' }}>Menu items</span>
+                    <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 11, color: 'rgba(0,0,0,0.42)', fontWeight: 500 }}>· 5 of 60</span>
                   </div>
-                  {it.tag && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(212,161,74,0.18)', color: C.primaryLt, fontFamily: 'Inter,sans-serif', fontWeight: 600, letterSpacing: '0.02em' }}>{it.tag}</span>}
-                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 700, color: C.primaryLt }}>{it.price}</span>
+                  <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 5, background: 'rgba(63,158,90,0.10)', color: '#3F9E5A', fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3F9E5A' }} />
+                    LIVE
+                  </span>
                 </div>
-              ))}
+                {[
+                  { veg: 'veg',    name: 'Paneer Tikka',     cat: 'Starters',  price: '₹240', tag: 'Popular' },
+                  { veg: 'veg',    name: 'Masala Dosa',      cat: 'Breakfast', price: '₹180', tag: 'Chef’s' },
+                  { veg: 'nonveg', name: 'Chicken Biryani',  cat: 'Mains',     price: '₹320', tag: null },
+                  { veg: 'veg',    name: 'Dal Makhani',      cat: 'Mains',     price: '₹220', tag: null },
+                  { veg: 'veg',    name: 'Gulab Jamun',      cat: 'Dessert',   price: '₹120', tag: 'Chef’s' },
+                ].map((it, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '11px 18px',
+                    borderBottom: i < 4 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                    background: '#FAFAF8',
+                  }}>
+                    {/* FSSAI veg/non-veg mark — square outline with dot, the legal symbol used in India */}
+                    <span style={{
+                      width: 14, height: 14, borderRadius: 2,
+                      border: `1.5px solid ${it.veg === 'veg' ? '#3F9E5A' : '#D9534F'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: it.veg === 'veg' ? '#3F9E5A' : '#D9534F' }} />
+                    </span>
+                    {/* Thumbnail placeholder — gold-cream gradient stub */}
+                    <span style={{ width: 36, height: 36, borderRadius: 6, background: 'linear-gradient(135deg,rgba(196,168,109,0.30),rgba(196,168,109,0.10))', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 600, fontSize: 13, color: '#1A1A1A', letterSpacing: '-0.1px' }}>{it.name}</div>
+                      <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 11, color: 'rgba(0,0,0,0.50)', marginTop: 1, fontWeight: 500 }}>{it.cat}</div>
+                    </div>
+                    {it.tag && (
+                      <span style={{ fontSize: 9, padding: '3px 7px', borderRadius: 4, background: 'rgba(196,168,109,0.18)', color: '#A08656', fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+                        {it.tag}
+                      </span>
+                    )}
+                    <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: 700, color: '#1A1A1A', minWidth: 44, textAlign: 'right' }}>{it.price}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Caption hint */}
+            <div style={{ marginTop: 10, fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: C.dimmer, textAlign: 'center', letterSpacing: '0.06em' }}>
+              /admin/items — live data, real screenshot
             </div>
           </div>
         </div>
@@ -815,39 +930,63 @@ export default function Pitch() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-          {/* Payment picker mock */}
+          {/* Payment picker — styled to mimic the actual customer
+              payment screen (warm dark + saffron accent), framed
+              as a phone screenshot. Replace this whole block with an
+              <img/> when you have a real screenshot at hand. */}
           <div style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: 22, padding: 26, backdropFilter: 'blur(18px)' }}>
             <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 15, letterSpacing: '0.12em', color: C.primaryLt, marginBottom: 6 }}>SWIGGY-STYLE PICKER</div>
             <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.dim, marginBottom: 18, lineHeight: 1.6, fontWeight: 400 }}>Diners pick their UPI app by name — not a generic "Pay with UPI" button.</div>
 
-            <div style={{ background: C.bgLayer, borderRadius: 14, padding: 16, border: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 10, color: C.dim, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Pay with UPI</div>
+            {/* Phone-screen mock — matches actual customer page palette */}
+            <div style={{
+              background: '#0D0B08',  /* customer-page warm-dark bg */
+              borderRadius: 16,
+              padding: 14,
+              border: `1px solid ${C.borderHi}`,
+              boxShadow: '0 20px 50px rgba(0,0,0,0.45)',
+            }}>
+              <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 10, color: 'rgba(255,245,232,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 700 }}>Pay with UPI</div>
               {[
-                { name: 'Google Pay', mark: 'G', col: '#4285F4', bg: '#FFFFFF', sel: true },
+                { name: 'Google Pay', mark: 'G',  col: '#4285F4', bg: '#FFFFFF', sel: true },
                 { name: 'PhonePe',    mark: 'PP', col: '#FFFFFF', bg: '#5F259F' },
                 { name: 'Paytm UPI',  mark: 'Pay',col: '#FFFFFF', bg: '#00BAF2' },
                 { name: 'Other UPI',  mark: '↗',  col: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.08)' },
               ].map((m, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 10, border: `${m.sel ? 2 : 1}px solid ${m.sel ? C.primary : 'rgba(255,255,255,0.06)'}`, background: m.sel ? 'rgba(212,161,74,0.07)' : 'transparent', marginBottom: 6 }}>
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: 10, borderRadius: 10, marginBottom: 6,
+                  border: `${m.sel ? 1.5 : 1}px solid ${m.sel ? '#F79B3D' : 'rgba(255,245,232,0.08)'}`,
+                  background: m.sel ? 'rgba(247,155,61,0.08)' : 'rgba(255,255,255,0.02)',
+                }}>
                   <div style={{ width: 30, height: 30, borderRadius: 8, background: m.bg, color: m.col, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Bebas Neue,sans-serif', fontSize: m.mark.length > 2 ? 11 : 14, flexShrink: 0 }}>{m.mark}</div>
-                  <span style={{ flex: 1, fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 13, color: C.bone }}>{m.name}</span>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${m.sel ? C.primary : 'rgba(255,255,255,0.18)'}`, position: 'relative' }}>{m.sel && <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: C.primary }} />}</span>
+                  <span style={{ flex: 1, fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 13, color: '#FFF5E8' }}>{m.name}</span>
+                  <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${m.sel ? '#F79B3D' : 'rgba(255,245,232,0.22)'}`, position: 'relative' }}>
+                    {m.sel && <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: '#F79B3D' }} />}
+                  </span>
                 </div>
               ))}
-              <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 10, color: C.dim, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '14px 0 8px', fontWeight: 700 }}>Or pay at table</div>
+              <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 10, color: 'rgba(255,245,232,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase', margin: '14px 0 8px', fontWeight: 700 }}>Or pay at table</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14 }}>
-                <div style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: 600, color: C.bone }}>
-                  <span style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(93,160,104,0.18)', color: '#7EC089', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>💵</span>
+                <div style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(255,245,232,0.10)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: 600, color: '#FFF5E8' }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(63,158,90,0.18)', color: '#5DA068', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="cash" size={14} stroke={1.7} />
+                  </span>
                   Cash
                 </div>
-                <div style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: 600, color: C.bone }}>
-                  <span style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(124,158,200,0.18)', color: '#9BB8E0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>💳</span>
+                <div style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(255,245,232,0.10)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: 600, color: '#FFF5E8' }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(124,158,200,0.18)', color: '#9BB8E0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="card" size={14} stroke={1.7} />
+                  </span>
                   Card
                 </div>
               </div>
-              <div style={{ padding: '12px 14px', borderRadius: 12, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 14, letterSpacing: '0.10em', textAlign: 'center' }}>
+              <div style={{ padding: '12px 14px', borderRadius: 12, background: 'linear-gradient(135deg,#E05A3A,#F79B3D)', color: '#FFF5E8', fontFamily: 'Bebas Neue,sans-serif', fontSize: 14, letterSpacing: '0.10em', textAlign: 'center' }}>
                 PAY ₹520 VIA GOOGLE PAY
               </div>
+            </div>
+            <div style={{ marginTop: 10, fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: C.dimmer, textAlign: 'center', letterSpacing: '0.06em' }}>
+              /restaurant/[subdomain] · customer screen
             </div>
           </div>
 
@@ -859,7 +998,9 @@ export default function Pitch() {
             <div style={{ background: C.bgLayer, borderRadius: 14, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                 <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ width: 58, height: 58, borderRadius: 14, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>🍽️</div>
+                  <div style={{ width: 58, height: 58, borderRadius: 14, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.bone }}>
+                    <Icon name="grid" size={26} stroke={1.7} />
+                  </div>
                   <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 12, letterSpacing: '0.10em', color: C.bone }}>HaloHelm</div>
                 </div>
                 <div style={{ flex: 0.6, position: 'relative', height: 30 }}>
@@ -889,8 +1030,9 @@ export default function Pitch() {
               ))}
             </div>
 
-            <div style={{ marginTop: 16, padding: '10px 14px', background: C.glassWarm, border: `1px dashed ${C.borderAcc}`, borderRadius: 10, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500 }}>
-              ✦ Pro plan feature. Petpooja onboarding included.
+            <div style={{ marginTop: 16, padding: '10px 14px', background: C.glassWarm, border: `1px dashed ${C.borderAcc}`, borderRadius: 10, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Icon name="sparkle" size={14} color={C.primaryLt} stroke={1.7} fill={C.primaryLt} />
+              Pro plan feature. Petpooja onboarding included.
             </div>
           </div>
         </div>
@@ -911,13 +1053,15 @@ export default function Pitch() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           {[
-            { icon: '✉️', t: 'Daily Summary Email', s: 'Lands in your inbox at 12:30 AM. Yesterday\'s revenue, top dishes, busiest hour, payment breakdown.' },
-            { icon: '🌡️', t: 'Dish Heatmap',         s: 'Which dishes get viewed, which get ordered, which get re-ordered. Cut the dead weight.' },
-            { icon: '⏱️', t: 'Peak Hour Insights',   s: 'Hourly order density. Plan staff. Plan prep. Plan promotions.' },
-            { icon: '⭐', t: 'Customer Ratings',     s: 'Diners rate each dish after eating. See trends. Reward winners.' },
+            { icon: 'mail',   t: 'Daily Summary Email', s: 'Lands in your inbox at 12:30 AM. Yesterday\'s revenue, top dishes, busiest hour, payment breakdown.' },
+            { icon: 'thermo', t: 'Dish Heatmap',         s: 'Which dishes get viewed, which get ordered, which get re-ordered. Cut the dead weight.' },
+            { icon: 'clock',  t: 'Peak Hour Insights',   s: 'Hourly order density. Plan staff. Plan prep. Plan promotions.' },
+            { icon: 'star',   t: 'Customer Ratings',     s: 'Diners rate each dish after eating. See trends. Reward winners.' },
           ].map(card => (
             <div key={card.t} style={{ background: C.glass, border: `1px solid ${C.border}`, borderRadius: 18, padding: 22, backdropFilter: 'blur(16px)' }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(212,161,74,0.10)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 16 }}>{card.icon}</div>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(212,161,74,0.14)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.primaryLt, marginBottom: 16 }}>
+                <Icon name={card.icon} size={22} stroke={1.7} fill={card.icon === 'star' ? 'currentColor' : 'none'} />
+              </div>
               <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 800, fontSize: 14, letterSpacing: '-0.1px', color: C.bone, marginBottom: 8 }}>{card.t}</div>
               <p style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.dim, lineHeight: 1.65, margin: 0, fontWeight: 400 }}>{card.s}</p>
             </div>
@@ -1064,12 +1208,14 @@ export default function Pitch() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 44 }}>
           {[
-            { icon: '🔒', title: 'Locked-in pricing',     body: 'Your rate never changes as we grow.' },
-            { icon: '🥽', title: 'Priority AR setup',      body: 'Your dishes in 3D within 48 hours.' },
-            { icon: '📞', title: 'Direct founder access',  body: 'WhatsApp, email, or call — anytime.' },
+            { icon: 'lock',  title: 'Locked-in pricing',     body: 'Your rate never changes as we grow.' },
+            { icon: 'cube',  title: 'Priority AR setup',      body: 'Your dishes in 3D within 48 hours.' },
+            { icon: 'phone', title: 'Direct founder access',  body: 'WhatsApp, email, or call — anytime.' },
           ].map(b => (
             <div key={b.title} style={{ background: C.glassWarm, border: `1px solid ${C.borderAcc}`, borderRadius: 16, padding: '22px 18px' }}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{b.icon}</div>
+              <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(212,161,74,0.18)', border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.primaryLt, marginBottom: 14 }}>
+                <Icon name={b.icon} size={22} stroke={1.7} />
+              </div>
               <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.10em', color: C.bone, marginBottom: 6 }}>{b.title}</div>
               <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: C.dim, fontWeight: 400 }}>{b.body}</div>
             </div>
