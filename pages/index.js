@@ -206,24 +206,31 @@ export default function HomePage() {
   return (
     <>
       <Head>
-        <title>HaloHelm — Your restaurant. At the helm.</title>
-        <meta name="description" content="HaloHelm — your restaurant, at the helm. AR-powered menus that let customers see your food in 3D and order more. No app. No friction."/>
-        {/* Phase 5 polish (F7, 17 May 2026): OG + Twitter card metadata.
-            Without these, links to halohelm.com unfurl in WhatsApp /
-            LinkedIn / Twitter as a bare URL with no image or title —
-            costing us early-funnel conversion. */}
+        <title>HaloHelm — AR-Powered QR Menus for Indian Restaurants</title>
+        <meta name="description" content="HaloHelm — AR-powered QR menus that let diners see your dishes in 3D, order from their table, and pay — no app downloads, no friction, just better dining."/>
+        {/* OG + Twitter card metadata (Phase 5 polish + 19 May 2026 fixes).
+            opengraph.xyz flagged three issues in the previous version:
+              1. og:image pointed to /og-hero.png which doesn't exist
+                 → using /ar-experience.png (real file, 2816×1536,
+                 close to the 1.91:1 OG aspect ratio). Stopgap until
+                 a properly-designed 1200×630 OG hero ships per
+                 docs/DESIGN_BRIEF.md §B.4 — that will halve the
+                 5.5 MB file size and tighten the framing.
+              2. Title was 40 chars (optimal 50-60) → now 53 chars.
+              3. Description was 92 chars (optimal 110-160) → now 145. */}
         <meta property="og:type"        content="website" />
         <meta property="og:site_name"   content="HaloHelm" />
-        <meta property="og:title"       content="HaloHelm — Your restaurant. At the helm." />
-        <meta property="og:description" content="AR-powered menus that let customers see your food in 3D and order more. No app. No friction." />
+        <meta property="og:title"       content="HaloHelm — AR-Powered QR Menus for Indian Restaurants" />
+        <meta property="og:description" content="AR-powered QR menus that let diners see your dishes in 3D, order from their table, and pay — no app downloads, no friction, just better dining." />
         <meta property="og:url"         content="https://www.halohelm.com/" />
-        <meta property="og:image"       content="https://www.halohelm.com/og-hero.png" />
-        <meta property="og:image:width"  content="1200" />
-        <meta property="og:image:height" content="630" />
+        <meta property="og:image"       content="https://www.halohelm.com/ar-experience.png" />
+        <meta property="og:image:width"  content="2816" />
+        <meta property="og:image:height" content="1536" />
+        <meta property="og:image:alt"    content="A diner pointing their phone at a restaurant table, watching a 3D dish appear above the menu in augmented reality." />
         <meta name="twitter:card"        content="summary_large_image" />
-        <meta name="twitter:title"       content="HaloHelm — Your restaurant. At the helm." />
-        <meta name="twitter:description" content="AR-powered menus that let customers see your food in 3D and order more." />
-        <meta name="twitter:image"       content="https://www.halohelm.com/og-hero.png" />
+        <meta name="twitter:title"       content="HaloHelm — AR-Powered QR Menus for Indian Restaurants" />
+        <meta name="twitter:description" content="AR-powered QR menus that let diners see your dishes in 3D, order from their table, and pay — no app downloads, no friction." />
+        <meta name="twitter:image"       content="https://www.halohelm.com/ar-experience.png" />
         <link rel="canonical" href="https://www.halohelm.com/" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
       </Head>
