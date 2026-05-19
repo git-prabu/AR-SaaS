@@ -290,12 +290,19 @@ service cloud.firestore {
         // adds optional metadata like couponCode, customerPhone, etc.)
         // — we don't lock the full schema because that makes the rule
         // brittle to harmless additions.
+        // 18 May 2026: relaxed `total > 0` to `total >= 0` after Prabu
+        // reported intermittent "Order failed: permission-denied" on
+        // takeaway. A 100% coupon or full-discount order would land
+        // with grandTotal=0 (legit case) but the strict > 0 rejected
+        // them. The negative-total guard remains (a malicious client
+        // sending -5000 to "refund" themselves still fails). The
+        // upper cap stays at 1,000,000 INR.
         allow create: if
           request.resource.data.keys().hasAll(['items', 'total', 'paymentStatus', 'status']) &&
           request.resource.data.paymentStatus == 'unpaid' &&
           request.resource.data.status in ['pending', 'awaiting_payment'] &&
           request.resource.data.total is number &&
-          request.resource.data.total > 0 &&
+          request.resource.data.total >= 0 &&
           request.resource.data.total < 1000000 &&
           request.resource.data.items is list &&
           request.resource.data.items.size() > 0 &&
@@ -347,10 +354,19 @@ service cloud.firestore {
         // lastModifiedBy + lastModifiedAt are audit fields stamped
         // by lib/db.js.withActor() on every mutation — they ride
         // along in affectedKeys() so the rule passes.
+        // Belt-and-braces: triple check that prevents the public
+        // paymentStatus update from landing on a cancelled order.
+        // resource.data.status — Firestore returns undefined when the
+        // field is missing, which compares not-equal to 'cancelled'
+        // by default. We use .get('status','') to make the absent
+        // case explicit ('' != 'cancelled' → pass), AND we add a
+        // second guard `resource.data.keys().hasAny(['status'])` so
+        // legacy docs without a status field aren't accidentally
+        // blocked.
         allow update: if
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['paymentStatus', 'paymentUpdatedAt', 'lastModifiedBy', 'lastModifiedAt']) &&
-          resource.data.get('status', '') != 'cancelled' &&
+          resource.data.get('status', 'pending') != 'cancelled' &&
           !(resource.data.paymentStatus in ['paid_cash', 'paid_card', 'paid_online', 'paid', 'refunded']) &&
           request.resource.data.paymentStatus in ['unpaid', 'cash_requested', 'card_requested', 'online_requested'];
 

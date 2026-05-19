@@ -15,7 +15,9 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { signOut } from 'firebase/auth';
 import { useStaffAuth } from '../../hooks/useStaffAuth';
+import { adminAuth, superAdminAuth } from '../../lib/firebaseAuth';
 import { getRestaurantBySubdomain } from '../../lib/db';
 import toast from 'react-hot-toast';
 
@@ -74,6 +76,18 @@ export default function StaffLogin() {
         setLoading(false);
         return;
       }
+
+      // Step 2.5 (18 May 2026): kill any active admin / superadmin
+      // sessions on the SAME browser BEFORE the staff session
+      // takes effect. Without this, /admin/kitchen and /admin/waiter
+      // see `userData?.restaurantId` from the lingering admin
+      // session and treat the user as admin instead of routing them
+      // through the staff path (which is what was happening when
+      // Prabu reported "staff login giving them access to all").
+      // signOut is silent if no session exists, so this is safe
+      // even when the user has never signed in as admin.
+      try { await signOut(adminAuth); }      catch {}
+      try { await signOut(superAdminAuth); } catch {}
 
       // Step 3: sign in to the staff Firebase app (so Firestore rules see claims)
       await signInWithToken(data.token);

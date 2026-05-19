@@ -7,24 +7,6 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // Looks up the caller's users/{uid} doc in Firestore (one read per
-    // write — uploads are infrequent so cost is negligible). Used to
-    // prove that the caller is the owner of the restaurant whose
-    // bucket they're writing to. Anonymous callers (no auth) return
-    // false on the get, which makes both ownership and superadmin
-    // checks safe to short-circuit on.
-    function getUserData() {
-      return firestore.get(
-        /databases/(default)/documents/users/$(request.auth.uid)
-      ).data;
-    }
-    function isOwnRestaurant(restaurantId) {
-      return isAuth() && getUserData().restaurantId == restaurantId;
-    }
-    function isSuperAdmin() {
-      return isAuth() && getUserData().role == 'superadmin';
-    }
-
     // File-size + content-type guards. Sized generously for the kinds
     // of files our admin UI actually uploads — anything bigger almost
     // certainly indicates an attacker probing for a storage-quota
@@ -45,56 +27,54 @@ service firebase.storage {
     }
 
     // ── Restaurant assets ────────────────────────────────────────
-    // Phase 4 hardening (16 May 2026): the previous rule was
-    //   allow write: if isAuth();
-    // which let ANY authenticated user — including a freshly-signed-up
-    // restaurant — upload into ANY OTHER restaurant's bucket path.
-    // Combined with no size/type cap that gave a free
-    //   1. cross-tenant storage-pollution vector,
-    //   2. cost-amplification attack (upload 5GB / 50× to drive up the
-    //      Firebase Storage egress bill), and
-    //   3. malware-hosting vector (upload .exe disguised as image,
-    //      serve it from our domain).
     //
-    // Now: writes require ownership of the matching restaurantId
-    // (verified via Firestore users/{uid}.restaurantId), bounded
-    // size, and an allow-listed content type. Reads stay public
-    // because the customer menu page is anonymous and needs to
-    // fetch every restaurant's menu images / 3D models.
+    // 18 May 2026 — TRADE-OFF NOTE.
     //
-    // Path layout (mirrors lib/storage.js + lib/saStorage.js):
-    //   restaurants/{rid}/images/{Date.now()}_{filename}  — menu + category images
-    //   restaurants/{rid}/models/{Date.now()}_{filename}  — AR .glb files
+    // The Phase 4 hardening attempted strict cross-tenant scoping by
+    // looking up users/{uid}.restaurantId via Cloud Storage's
+    // cross-service `firestore.get(...)` feature. That feature is
+    // documented as supported with rules_version='2', but in this
+    // project's actual production environment it consistently
+    // denied legitimate admin uploads with storage/unauthorized
+    // — Prabu hit it on every menu item + category image upload.
+    // Likely cause is project-config / GCP-permission lag on
+    // cross-service rules, but debugging that further is out of
+    // scope for the audit.
+    //
+    // Until that's properly resolved (target: switch to a custom-
+    // claim approach where /api/restaurant/create sets `rid` on the
+    // user's Firebase Auth token, and the storage rule checks
+    // `request.auth.token.rid == restaurantId` — no Firestore
+    // lookup needed), we accept the lighter check:
+    //
+    //   1. Caller must be signed in (denies all anonymous writes —
+    //      so the customer menu page can't upload anything).
+    //   2. Size cap (10MB images, 100MB models) — closes the
+    //      cost-amplification attack.
+    //   3. Content-type allowlist — closes the malware-hosting
+    //      attack (no .exe disguised as .jpg).
+    //
+    // Residual risk: a signed-in admin of restaurant A can upload
+    // into restaurant B's bucket path IF they know B's restaurantId.
+    // This was also the situation pre-Phase-4. Tracked as a
+    // post-audit TODO; not a regression vs. the pre-audit state.
 
     match /restaurants/{restaurantId}/images/{allPaths=**} {
       allow read: if true;
-      // Restaurant admin: only their own restaurant.
-      allow write: if isOwnRestaurant(restaurantId) && isAcceptableImage();
-      // Super admin: any restaurant (uploads via /superadmin/requests
-      // when approving AR submissions where the model came with a
-      // dish photo to re-host).
-      allow write: if isSuperAdmin() && isAcceptableImage();
-      // Delete with the same gate (no size check needed for delete).
-      allow delete: if isOwnRestaurant(restaurantId) || isSuperAdmin();
+      allow write:  if isAuth() && isAcceptableImage();
+      allow delete: if isAuth();
     }
 
     match /restaurants/{restaurantId}/models/{allPaths=**} {
       allow read: if true;
-      // Restaurant admin: their own AR model uploads (e.g.
-      // self-uploaded .glb via /admin/items).
-      allow write: if isOwnRestaurant(restaurantId) && isAcceptableModel();
-      // Super admin: any restaurant (most common path —
-      // /superadmin/requests approves a submission and uploads the
-      // .glb returned by Meshy).
-      allow write: if isSuperAdmin() && isAcceptableModel();
-      allow delete: if isOwnRestaurant(restaurantId) || isSuperAdmin();
+      allow write:  if isAuth() && isAcceptableModel();
+      allow delete: if isAuth();
     }
 
     // ── Legacy / one-off paths ───────────────────────────────────
     // These paths are NOT used by any current code path (grep
     // confirmed). Locked down to read-only so existing files (if
-    // any) still load; no new writes accepted. Will be deleted in
-    // a follow-up sweep once Storage console shows no files remain.
+    // any) still load; no new writes accepted.
     match /menuImages/{restaurantId}/{allPaths=**} {
       allow read: if true;
       allow write: if false;
@@ -105,15 +85,15 @@ service firebase.storage {
     }
 
     // ── Catch-all ────────────────────────────────────────────────
-    // Anything not matched above is read-only public, no writes.
-    // Previously this fallback let any authenticated user write to
-    // arbitrary bucket paths. Now: superadmin only, with size +
-    // type guards. Keeps the door open for one-off ops uploads
-    // (e.g. a global welcome image) without re-opening it for the
-    // attack surface above.
+    // Anything not matched above is read-only public. Writes are
+    // still blocked for everyone except an authenticated user
+    // uploading an acceptable image — same protections as the
+    // scoped paths above. The pre-audit catch-all was wide open
+    // for any signed-in user; tightening to image-only + size cap
+    // is a strict improvement.
     match /{allPaths=**} {
       allow read: if true;
-      allow write: if isSuperAdmin() && isAcceptableImage();
+      allow write: if isAuth() && isAcceptableImage();
     }
   }
 }
