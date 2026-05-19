@@ -76,8 +76,38 @@ export function AdminAuthProvider({ children }) {
 
   const signOut = () => firebaseSignOut(adminAuth);
 
+  // Phase 3B.4 follow-up (18 May 2026): manually re-fetch userData.
+  //
+  // Background: onAuthStateChanged fires the MOMENT
+  // createUserWithEmailAndPassword resolves — but at that instant the
+  // users/{uid} doc doesn't yet exist, because /api/restaurant/create
+  // hasn't been called (or finished). The listener's getUserData call
+  // returns null → setUserData(null) → all admin pages permanently
+  // see `user && !userData` and never render their content.
+  //
+  // The pre-Phase-3B.4 flow happened to work because createUserDoc()
+  // was a client-side Firestore write whose local cache was visible
+  // to subsequent getDoc calls in the same SDK instance. The server-
+  // side write doesn't populate that cache, so the client has to
+  // re-fetch from the server explicitly. That's this function's job.
+  //
+  // signup.js calls this right after /api/restaurant/create returns
+  // ok:true, before the redirect to /admin.
+  const refreshUserData = async () => {
+    const currentUser = adminAuth.currentUser;
+    if (!currentUser) return;
+    try {
+      const data = await getUserData(currentUser.uid);
+      const synced = await syncEmailIfChanged(db, currentUser, data);
+      setUser(currentUser);
+      setUserData(synced ? { ...data, email: currentUser.email } : data);
+    } catch (err) {
+      console.warn('AdminAuth refreshUserData failed:', err?.message || err);
+    }
+  };
+
   return (
-    <AdminAuthContext.Provider value={{ user, userData, loading, signIn, signOut }}>
+    <AdminAuthContext.Provider value={{ user, userData, loading, signIn, signOut, refreshUserData }}>
       {children}
     </AdminAuthContext.Provider>
   );

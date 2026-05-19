@@ -12,8 +12,20 @@ import {
   signOut as fbSignOut,
 } from 'firebase/auth';
 import { adminAuth } from '../lib/firebaseAuth';
+import { useAuth } from '../hooks/useAuth';
 import { getRestaurantBySubdomain, getUserData } from '../lib/db';
 import { getPlan, normalizePlanId, TRIAL_DAYS } from '../lib/plans';
+
+// Phase 3B.4 follow-up (18 May 2026): mirror of the server-side
+// RESERVED_SUBDOMAINS in /api/restaurant/create.js. Surfaced here for
+// instant UX feedback — without this the user types `www`, sees
+// "✓ Available", clicks submit, then gets a server 400 a second
+// later. Now they see "✗ Reserved subdomain" the moment they type it.
+// Keep these two lists in lockstep.
+const RESERVED_SUBDOMAINS = new Set([
+  'www', 'superadmin', 'api', 'admin', 'app', 'mail', 'auth', 'help',
+  'support', 'status', 'docs', 'blog', 'static', 'assets',
+]);
 // Phase 3 hardening (H4 + W1, 16 May 2026): the restaurant + user-doc
 // writes used to happen client-side via createRestaurant() / createUserDoc()
 // — that's what let any signed-in user mint a free 'pro' plan with
@@ -35,6 +47,13 @@ function slugify(text) {
 
 export default function Signup() {
   const router = useRouter();
+  // refreshUserData: rebuilds AdminAuthProvider's userData after
+  // /api/restaurant/create writes the new users/{uid} doc. The auth
+  // listener fired with the doc still missing (because
+  // createUserWithEmailAndPassword resolves before the server endpoint
+  // runs), so userData would otherwise be stuck null and every admin
+  // page would render its empty "loading" state forever.
+  const { refreshUserData } = useAuth();
   const { plan: planKey } = router.query;
   const activePlanKey = normalizePlanId(planKey);
   const plan = getPlan(activePlanKey);
@@ -70,9 +89,17 @@ export default function Signup() {
     }
   }, [restaurantName, subdomainEdited]);
 
-  // Check subdomain availability (debounced)
+  // Check subdomain availability (debounced).
+  // Reserved subdomains short-circuit the Firestore lookup — there's no
+  // restaurant doc to find for `www` / `api` / etc., but the server-side
+  // RESERVED_SUBDOMAINS check would reject the create attempt. Surfacing
+  // it client-side here saves a round trip and a confusing error toast.
   useEffect(() => {
     if (!subdomain || subdomain.length < 3) { setSubdomainStatus(null); return; }
+    if (RESERVED_SUBDOMAINS.has(subdomain)) {
+      setSubdomainStatus('reserved');
+      return;
+    }
     setSubdomainStatus('checking');
     const t = setTimeout(async () => {
       try {
@@ -200,6 +227,7 @@ export default function Signup() {
     if (!restaurantName.trim()) { setError('Enter your restaurant name'); return; }
     if (!subdomain || subdomain.length < 3) { setError('Subdomain must be at least 3 characters'); return; }
     if (subdomainStatus === 'taken') { setError('This subdomain is already taken'); return; }
+    if (subdomainStatus === 'reserved') { setError('That subdomain is reserved. Please choose another.'); return; }
 
     setStep('creating');
 
@@ -246,6 +274,19 @@ export default function Signup() {
       // restaurantId returned in createData.restaurantId — not currently
       // used downstream (admin/index.js re-reads via getUserData), but
       // available if a future step needs it without an extra round trip.
+
+      // 3a. Tell AdminAuthProvider to re-fetch userData. Without this
+      //     the listener-captured userData stays null (it ran BEFORE the
+      //     server endpoint wrote users/{uid}), and every admin page
+      //     gates rendering on `user && userData?.restaurantId` —
+      //     stuck on the loading spinner forever. Pages with a staff
+      //     fallback (admin/kitchen, admin/waiter) would even mis-route
+      //     to the staff dashboard if a stale ar_staff_session existed
+      //     in localStorage from a prior staff login on the device.
+      if (refreshUserData) {
+        try { await refreshUserData(); }
+        catch (err) { console.warn('refreshUserData post-signup failed:', err?.message); }
+      }
 
       // 4. Send email verification — only for the email/password flow.
       //    Google accounts come pre-verified (Firebase trusts the Google
@@ -529,6 +570,7 @@ export default function Signup() {
                   {subdomainStatus === 'checking' && <div style={{ fontSize: 11, color: 'rgba(255,245,232,0.35)', marginTop: 4 }}>Checking availability...</div>}
                   {subdomainStatus === 'available' && <div style={{ fontSize: 11, color: '#2D8B4E', fontWeight: 600, marginTop: 4 }}>✓ Available</div>}
                   {subdomainStatus === 'taken' && <div style={{ fontSize: 11, color: '#E05A3A', fontWeight: 600, marginTop: 4 }}>✗ Already taken — try another</div>}
+                  {subdomainStatus === 'reserved' && <div style={{ fontSize: 11, color: '#E05A3A', fontWeight: 600, marginTop: 4 }}>✗ Reserved — try another</div>}
                 </div>
 
                 {/* City */}
@@ -539,13 +581,13 @@ export default function Signup() {
                 </div>
 
                 {/* Submit */}
-                <button type="submit" disabled={subdomainStatus === 'taken' || subdomainStatus === 'checking'}
+                <button type="submit" disabled={subdomainStatus === 'taken' || subdomainStatus === 'checking' || subdomainStatus === 'reserved'}
                   style={{
                     width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
                     background: 'linear-gradient(135deg,#E05A3A,#F79B3D)', color: '#fff',
                     fontSize: 16, fontWeight: 700, fontFamily: 'Poppins,sans-serif',
                     boxShadow: '0 6px 24px rgba(224,90,58,0.4)',
-                    opacity: (subdomainStatus === 'taken' || subdomainStatus === 'checking') ? 0.5 : 1,
+                    opacity: (subdomainStatus === 'taken' || subdomainStatus === 'checking' || subdomainStatus === 'reserved') ? 0.5 : 1,
                     transition: 'opacity 0.2s',
                   }}>
                   Start {TRIAL_DAYS}-Day Free Trial →
