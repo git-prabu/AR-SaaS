@@ -7178,12 +7178,26 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 const sessionTargetsForPayment = () => {
                   const PAID = new Set(['paid_cash','paid_card','paid_online','paid']);
                   const REQ  = new Set(['cash_requested','card_requested','online_requested']);
+                  // 18 May 2026: also skip cancelled orders. The
+                  // Firestore rule rejects paymentStatus writes when
+                  // status='cancelled', but the customer page used
+                  // to include them in the batch anyway — meaning a
+                  // single cancelled sibling order would fail the
+                  // whole batch with "Could not mark cash. Try
+                  // again." (a confusing message — the customer
+                  // didn't do anything wrong). Filtering them here
+                  // means the OK orders go through cleanly even when
+                  // a cancelled sibling exists on the same bill.
                   const ids = sessionOrders
+                    .filter(o => o.status !== 'cancelled')
                     .filter(o => !PAID.has(o.paymentStatus) && !REQ.has(o.paymentStatus))
                     .map(o => o.orderId);
                   // Always include the current placedOrder even if the
                   // listener hasn't surfaced it in sessionOrders yet.
-                  if (placedOrder?.orderId && !ids.includes(placedOrder.orderId)) {
+                  // Skip it if it's already been cancelled though.
+                  if (placedOrder?.orderId
+                      && placedOrder?.status !== 'cancelled'
+                      && !ids.includes(placedOrder.orderId)) {
                     ids.push(placedOrder.orderId);
                   }
                   return ids;

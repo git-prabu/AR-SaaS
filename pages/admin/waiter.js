@@ -227,23 +227,29 @@ export default function WaiterDashboard() {
 
   // ── Firestore listeners ──
   // Staff read via staffDb so their custom claims (role/rid) are in scope.
+  // Admin reads via db (adminApp). 18 May 2026: the SDK pick now keys
+  // off `isAdmin` instead of `staffSession`, so a stale
+  // localStorage.ar_staff_session from prior staff-login testing
+  // doesn't silently route an admin's reads through the wrong SDK
+  // (the symptom was an empty waiter dashboard for admin after
+  // having tested staff login earlier in the same browser).
   useEffect(() => {
     if (!rid) return;
-    const firestore = staffSession ? staffDb : db;
+    const firestore = isAdmin ? db : staffDb;
     const q = query(collection(firestore, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setAllCalls(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, err => console.error('Waiter calls listener error:', err));
-  }, [rid, staffSession]);
+  }, [rid, isAdmin]);
 
   useEffect(() => {
     if (!rid) return;
-    const firestore = staffSession ? staffDb : db;
+    const firestore = isAdmin ? db : staffDb;
     const q = query(collection(firestore, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, err => console.error('Waiter orders listener error:', err));
-  }, [rid, staffSession]);
+  }, [rid, isAdmin]);
 
   // ═══ Unified action queue ═══
   // Merges pending waiter calls + ready-status orders + payment-requested

@@ -267,9 +267,18 @@ export default function KitchenDisplay() {
   // ══ Firestore listener on orders ══
   // Staff read via staffDb so their custom claims (role/rid) are in scope.
   // Admin reads via db (adminApp). Either way, the same orders collection.
+  //
+  // 18 May 2026: the previous `staffSession ? staffDb : db` picked the
+  // SDK based ONLY on localStorage.ar_staff_session, which lingers for
+  // 12 hours after any staff login. If an admin signed in AFTER a
+  // prior staff-login test on the same browser, the kitchen page used
+  // staffDb (no admin auth → request.auth = null → list query denied
+  // by the orders rule → silent empty kitchen). Now the SDK choice
+  // follows `isAdmin` first so admins always use the admin-app SDK
+  // regardless of any stale staff session in localStorage.
   useEffect(() => {
     if (!rid) return;
-    const firestore = staffSession ? staffDb : db;
+    const firestore = isAdmin ? db : staffDb;
     const q = query(collection(firestore, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
