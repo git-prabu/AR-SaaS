@@ -95,6 +95,15 @@ service cloud.firestore {
           'waiterCallsEnabled',
           // Onboarding (admin/index.js)
           'onboardingComplete',
+          // Counter incremented by lib/db.js submitRequestAndPublish()
+          // when a new menu item is created. NOT a security risk:
+          // restaurant admins set their own item count organically by
+          // adding items, and the maxItems plan cap is enforced
+          // separately by the UI + server. (Added 18 May 2026 after
+          // Prabu reported the "Permission denied — check Firestore
+          // rules" toast on every item add — item was created but the
+          // counter bump landed on a closed-door rule.)
+          'itemsUsed',
           // Future / defensive fields admin code references
           'tableCount', 'logoUrl', 'isAcceptingOrders',
           // Audit stamp from lib/db.js withActor() — rides on every write
@@ -325,12 +334,23 @@ service cloud.firestore {
         // so an attacker can't "un-pay" their own order even by
         // setting paymentStatus back to unpaid.
         //
+        // 18 May 2026: also block writes when the order has been
+        // cancelled — pre-fix, a cancelled order could still receive
+        // cash_requested / online_requested signals from the
+        // customer page (cancellation only clears the displayed bill
+        // but didn't gate the rule), letting a customer accidentally
+        // pay for an order the admin had already voided. The H5
+        // server-side check on /api/payment/intent catches the
+        // gateway path, but cash/card are direct Firestore writes
+        // that bypass it — only the rule can block here.
+        //
         // lastModifiedBy + lastModifiedAt are audit fields stamped
         // by lib/db.js.withActor() on every mutation — they ride
         // along in affectedKeys() so the rule passes.
         allow update: if
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['paymentStatus', 'paymentUpdatedAt', 'lastModifiedBy', 'lastModifiedAt']) &&
+          resource.data.get('status', '') != 'cancelled' &&
           !(resource.data.paymentStatus in ['paid_cash', 'paid_card', 'paid_online', 'paid', 'refunded']) &&
           request.resource.data.paymentStatus in ['unpaid', 'cash_requested', 'card_requested', 'online_requested'];
 
