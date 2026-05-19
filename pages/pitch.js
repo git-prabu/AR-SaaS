@@ -3,13 +3,37 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 /* ─── Auth ───────────────────────────────────────────────────────
    Access gate. The deck is at a public URL but lives behind a code
-   so it doesn't leak before a sales conversation. */
+   so it doesn't leak before a sales conversation.
+   (Code carries the legacy "RADICAL" prefix from when this brand
+   was Advert Radical — kept so existing partner emails with the
+   code still work. Safe to rotate when you re-share.) */
 const PASS = 'RADICAL25';
 
 /* Total slide count — must match the length of the slides array
    below. Declared at module scope so the goTo() closure can read it
    without TDZ issues. */
 const SLIDE_COUNT = 14;
+
+/* ─── Slide titles for the jump menu / progress-dot tooltips ─────
+   Kept in lockstep with the slides array. Each entry is the short
+   noun-phrase a partner skim-reading the deck would expect to see
+   in a table of contents. */
+const SLIDE_TITLES = [
+  'Title',
+  'The Problem',
+  'The Solution',
+  'AR Experience',
+  'AI Concierge',
+  'Built for India',
+  'Diner Journey',
+  'Your Operations',
+  'Menu Control',
+  'Payments + POS',
+  'Analytics',
+  'The Impact',
+  'Pricing',
+  'The Ask',
+];
 
 /* ─── Palette — "Midnight Atelier" ───────────────────────────────
    Cool slate-black surfaces, confident terracotta primary, antique
@@ -83,6 +107,10 @@ export default function Pitch() {
   const [passErr, setPassErr] = useState(false);
   const [cur, setCur] = useState(0);
   const [dir, setDir] = useState(1);
+  /* Jump-menu (table of contents) overlay. Opens when partner clicks
+     the bottom-right counter or presses `T`. Lets them skip straight
+     to pricing or contact instead of scrolling through 14 slides. */
+  const [menuOpen, setMenuOpen] = useState(false);
   const [show, setShow] = useState(true);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -143,7 +171,21 @@ export default function Pitch() {
     ];
 
     let raf;
+    /* 20 May 2026: pause the RAF loop when the tab is hidden. Pre-fix
+       a backgrounded pitch tab kept the particle loop running at 60fps,
+       draining laptop battery during long sales calls where the
+       partner alt-tabbed to take notes. */
+    let paused = (typeof document !== 'undefined') && document.hidden;
+    const onVisibility = () => {
+      const wasPaused = paused;
+      paused = document.hidden;
+      if (wasPaused && !paused) tick(); // resume
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
     const tick = () => {
+      if (paused) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       /* Orbs */
@@ -179,7 +221,13 @@ export default function Pitch() {
       raf = requestAnimationFrame(tick);
     };
     tick();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
   }, [authed, reducedMotion]);
 
   /* Navigation. */
@@ -197,19 +245,31 @@ export default function Pitch() {
   useEffect(() => {
     const k = (e) => {
       if (!authed) return;
+      /* Menu overlay swallows nav keys — esc closes it, others
+         are intercepted by the menu's own button focus order. */
+      if (menuOpen) {
+        if (e.key === 'Escape') { e.preventDefault(); setMenuOpen(false); }
+        return;
+      }
       if (['ArrowDown', 'ArrowRight', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); next(); }
       if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); prev(); }
       if (e.key === 'Home') { e.preventDefault(); goTo(0); }
       if (e.key === 'End')  { e.preventDefault(); goTo(SLIDE_COUNT - 1); }
+      /* `T` opens the table of contents — quickest way for a partner
+         skimming the deck to jump to pricing or contact. */
+      if (e.key === 't' || e.key === 'T') { e.preventDefault(); setMenuOpen(true); }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [authed, next, prev, goTo]);
+  }, [authed, next, prev, goTo, menuOpen]);
 
   useEffect(() => {
     if (!authed) return;
     let last = 0;
     const h = (e) => {
+      /* Skip nav while the jump menu is open — the menu has its own
+         scroll for the slide list. */
+      if (menuOpen) return;
       e.preventDefault();
       const now = Date.now();
       if (now - last < 750) return;
@@ -217,10 +277,20 @@ export default function Pitch() {
       e.deltaY > 0 ? next() : prev();
     };
     let ts = 0;
-    const ts_ = (e) => { ts = e.touches[0].clientY; };
+    let txs = 0;
+    const ts_ = (e) => {
+      ts  = e.touches[0].clientY;
+      txs = e.touches[0].clientX;
+    };
     const te_ = (e) => {
-      const dy = ts - e.changedTouches[0].clientY;
-      if (Math.abs(dy) < 50) return;
+      if (menuOpen) return;
+      const dy = ts  - e.changedTouches[0].clientY;
+      const dx = txs - e.changedTouches[0].clientX;
+      /* Only count vertical swipes as nav — diagonal / horizontal
+         swipes are ignored so e.g. someone scrolling a long card
+         doesn't accidentally page the deck. 50 px threshold + 1.5×
+         vertical dominance keeps it forgiving but unambiguous. */
+      if (Math.abs(dy) < 50 || Math.abs(dy) < Math.abs(dx) * 1.5) return;
       dy > 0 ? next() : prev();
     };
     const el = containerRef.current;
@@ -232,7 +302,7 @@ export default function Pitch() {
       el?.removeEventListener('touchstart', ts_);
       el?.removeEventListener('touchend', te_);
     };
-  }, [authed, next, prev]);
+  }, [authed, next, prev, menuOpen]);
 
   /* Slide transition style. */
   const S = {
@@ -297,7 +367,22 @@ export default function Pitch() {
       <Head>
         <title>HaloHelm · Partner Brief</title>
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+        {/* noindex — partner brief, gated by access code. The OG
+            tags below only matter when a partner pastes the URL in
+            WhatsApp / Slack / email; without them the link unfurls
+            as a bare URL. Robots still won't crawl. */}
         <meta name="robots" content="noindex,nofollow" />
+        <meta name="description" content="HaloHelm · Partner Brief — restricted access. AR + AI revenue platform for Indian restaurants." />
+        <meta property="og:type"        content="website" />
+        <meta property="og:site_name"   content="HaloHelm" />
+        <meta property="og:title"       content="HaloHelm · Partner Brief" />
+        <meta property="og:description" content="AR + AI revenue platform for Indian restaurants. Restricted access — request the code from the founder." />
+        <meta property="og:url"         content="https://www.halohelm.com/pitch" />
+        <meta property="og:image"       content="https://www.halohelm.com/ar-experience.png" />
+        <meta name="twitter:card"        content="summary_large_image" />
+        <meta name="twitter:title"       content="HaloHelm · Partner Brief" />
+        <meta name="twitter:description" content="AR + AI revenue platform for Indian restaurants." />
+        <meta name="twitter:image"       content="https://www.halohelm.com/ar-experience.png" />
       </Head>
       <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 35%, rgba(200,85,60,0.12) 0%, transparent 55%), radial-gradient(ellipse at 30% 80%, rgba(200,169,104,0.06) 0%, transparent 50%)` }} />
@@ -311,13 +396,16 @@ export default function Pitch() {
         `}</style>
         <div style={{ width: 380, textAlign: 'center', position: 'relative', zIndex: 2 }}>
           <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 40, letterSpacing: '0.14em', color: C.bone, marginBottom: 4 }}>
-            ADVERT <span style={{ background: `linear-gradient(135deg,${C.primaryDk},${C.primary},${C.primaryLt})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RADICAL</span>
+            HALO<span style={{ background: `linear-gradient(135deg,${C.primaryDk},${C.primary},${C.primaryLt})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELM</span>
           </div>
           <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.dim, marginBottom: 44, letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 500 }}>Partner Brief · Restricted Access</div>
-          <input className={`pin${passErr ? ' err' : ''}`} type="password" placeholder="ACCESS CODE" value={pass}
+          <label htmlFor="pitch-pass" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>Access code</label>
+          <input id="pitch-pass" className={`pin${passErr ? ' err' : ''}`} type="password" placeholder="ACCESS CODE" autoComplete="off" autoFocus value={pass}
+            aria-invalid={passErr}
+            aria-describedby={passErr ? 'pitch-pass-err' : undefined}
             onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === 'Enter' && (pass.trim().toUpperCase() === PASS ? setAuthed(true) : (setPassErr(true), setTimeout(() => setPassErr(false), 600)))} />
-          <button className="pgo" onClick={() => pass.trim().toUpperCase() === PASS ? setAuthed(true) : (setPassErr(true), setTimeout(() => setPassErr(false), 600))}>ENTER →</button>
-          {passErr && <div style={{ color: '#E07060', fontSize: 13, marginTop: 10, fontFamily: 'Inter,sans-serif' }}>Incorrect access code</div>}
+          <button className="pgo" aria-label="Enter the deck" onClick={() => pass.trim().toUpperCase() === PASS ? setAuthed(true) : (setPassErr(true), setTimeout(() => setPassErr(false), 600))}>ENTER →</button>
+          {passErr && <div id="pitch-pass-err" role="alert" style={{ color: '#E07060', fontSize: 13, marginTop: 10, fontFamily: 'Inter,sans-serif' }}>Incorrect access code</div>}
         </div>
       </div>
     </>
@@ -337,7 +425,7 @@ export default function Pitch() {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.brass, boxShadow: `0 0 8px ${C.brass}` }} />
           <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 'clamp(11px,1vw,13px)', letterSpacing: '0.28em', color: C.brass, textTransform: 'uppercase' }}>
-            HaloHelm · AR + AI Revenue Platform
+            HaloHelm · AR + AI for Indian Restaurants
           </span>
         </div>
         <h1 style={{ ...headlineStyle, fontSize: 'clamp(72px,10vw,140px)', color: C.bone, marginBottom: 8 }}>
@@ -850,11 +938,17 @@ export default function Pitch() {
       <div style={{ position: 'absolute', inset: 0, background: slideGradient(11) }} />
       <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 1100, padding: '0 80px' }}>
         {sectionLabel('The Impact')}
+        {/* 20 May 2026 — softened source citations to avoid claiming
+            specific industry studies we can't link to. Numbers are
+            commonly-cited ranges in restaurant-tech industry
+            research; if/when we get our own pilot data those should
+            replace these. Hard rule: never put a fake source name
+            on a deck shown to investors. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 2, marginTop: 16 }}>
           {[
-            { num: '68%', label: 'of diners more likely to order a dish they can see first',     src: 'National Restaurant Association' },
-            { num: '3×',  label: 'more add-ons ordered when food is visualised before ordering', src: 'Menu Engineering Research' },
-            { num: '26%', label: 'average increase in order value with AR-enabled menus',         src: 'Visual Commerce Study 2024' },
+            { num: '68%', label: 'of diners more likely to order a dish they can see first',     src: 'Restaurant-tech industry research' },
+            { num: '3×',  label: 'more add-ons ordered when food is visualised before ordering', src: 'Menu-engineering studies' },
+            { num: '26%', label: 'average increase in order value with AR-enabled menus',         src: 'Visual-commerce reports' },
           ].map((s, i) => (
             <div key={i} style={{ padding: '36px 30px', borderLeft: i > 0 ? `1px solid rgba(239,230,210,0.10)` : 'none' }}>
               <div style={{
@@ -975,14 +1069,24 @@ export default function Pitch() {
           ))}
         </div>
 
+        {/* TODO(prabu): replace the placeholder phone (+91 98765 43210
+            in both the wa.me link and the tel: link below) with the
+            real founder number before this deck goes to investors.
+            Search for `9876543210` to find both spots. */}
         <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 32 }}>
-          <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" style={{ padding: '16px 36px', borderRadius: 12, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block', boxShadow: `0 8px 32px rgba(200,85,60,0.40)` }}>
+          <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer"
+             aria-label="Book a demo on WhatsApp"
+             style={{ padding: '16px 36px', borderRadius: 12, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block', boxShadow: `0 8px 32px rgba(200,85,60,0.40)` }}>
             BOOK A DEMO →
           </a>
-          <a href="mailto:hello@HaloHelm.com" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.borderHi}`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
+          <a href="mailto:hello@halohelm.com"
+             aria-label="Email hello at halohelm dot com"
+             style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.borderHi}`, color: C.bone, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
             EMAIL US
           </a>
-          <a href="https://halohelm.com/restaurant/spot" target="_blank" rel="noreferrer" style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.border}`, color: C.dim, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
+          <a href="https://www.halohelm.com/restaurant/spot" target="_blank" rel="noopener noreferrer"
+             aria-label="Open the live demo restaurant in a new tab"
+             style={{ padding: '16px 28px', borderRadius: 12, background: 'transparent', border: `1.5px solid ${C.border}`, color: C.dim, fontFamily: 'Bebas Neue,sans-serif', fontSize: 16, letterSpacing: '0.12em', textDecoration: 'none', display: 'inline-block' }}>
             SEE LIVE DEMO
           </a>
         </div>
@@ -992,7 +1096,7 @@ export default function Pitch() {
           <div style={{ marginTop: 4, fontFamily: 'JetBrains Mono,monospace', fontSize: 12 }}>
             <a href="tel:+919876543210" style={{ color: C.dim }}>+91 98765 43210</a>
             &nbsp;·&nbsp;
-            <a href="mailto:hello@HaloHelm.com" style={{ color: C.dim }}>hello@HaloHelm.com</a>
+            <a href="mailto:hello@halohelm.com" style={{ color: C.dim }}>hello@halohelm.com</a>
           </div>
         </div>
       </div>
@@ -1030,8 +1134,56 @@ export default function Pitch() {
           }
           .ar-pill > span:first-child { animation: ar-pulse 2s ease-in-out infinite; }
 
+          /* Visible focus rings for keyboard users on the navigation
+             chrome. The chrome elements are <button>s on dark glass —
+             default browser focus ring is invisible. */
+          button:focus-visible,
+          a:focus-visible,
+          [role="button"]:focus-visible {
+            outline: 2px solid ${C.brassLt};
+            outline-offset: 2px;
+          }
+
           @media (prefers-reduced-motion: reduce) {
             * { animation: none !important; transition: none !important; }
+          }
+
+          /* ─── Mobile responsiveness (≤ 768px) ─────────────────────
+             The deck was designed desktop-first. Without these
+             overrides the 8-col diner journey, 3-col pricing, and
+             2-col problem layouts cram into 360px screens and become
+             unreadable. We grid-template-columns: 1fr on small
+             screens for every multi-column block via attribute
+             selectors (the inline styles set their gridTemplateColumns
+             on the .slide-* class-less divs, so we target by
+             element + style). Simplest reliable hook: a wildcard rule
+             that re-stacks every grid below the breakpoint. */
+          @media (max-width: 768px) {
+            /* Any inline grid → single column. Bumps the touch
+               targets and stops headlines from clipping. */
+            div[style*="display: grid"],
+            div[style*="display:grid"] {
+              grid-template-columns: 1fr !important;
+              gap: 16px !important;
+            }
+            /* Pull most slides' padding down so content fits */
+            div[style*="padding: '60px 80px'"],
+            div[style*="padding: '0 80px'"],
+            div[style*="padding: '0 60px'"] {
+              padding: 24px 18px !important;
+            }
+            /* The diner-journey timeline line is positioned absolute
+               and points at the original 8-col layout — hide it so
+               it doesn't run diagonally over the now-stacked cards. */
+            div[style*="top: 24px"][style*="background: linear-gradient(90deg"] {
+              display: none !important;
+            }
+            /* Smaller chapter pill on mobile so it doesn't push down
+               the headline */
+            [data-chapter-pill] {
+              font-size: 9px !important;
+              padding: 4px 10px !important;
+            }
           }
         `}</style>
 
@@ -1041,14 +1193,16 @@ export default function Pitch() {
         {/* Subtle edge vignette for cinematic framing */}
         <div style={{ position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none', background: `radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(4,4,8,0.55) 100%)` }} />
 
-        {/* Slide content */}
-        <div style={{ position: 'relative', width: '100%', height: '100%', zIndex: 3 }}>
+        {/* Slide content. Wrapped in <main> so screen readers + skip-
+            link tooling can jump straight to it. aria-live=polite
+            announces slide changes without interrupting. */}
+        <main aria-live="polite" aria-atomic="false" aria-label={`${SLIDE_TITLES[cur]}, slide ${cur + 1} of ${slidesCount}`} style={{ position: 'relative', width: '100%', height: '100%', zIndex: 3 }}>
           {slides[cur]}
-        </div>
+        </main>
 
         {/* Top chapter tab — only on content slides, not the title */}
         {chapterLabel && (
-          <div style={{
+          <div data-chapter-pill style={{
             position: 'fixed', top: 22, left: '50%', transform: 'translateX(-50%)',
             padding: '6px 16px', borderRadius: 99,
             background: 'rgba(12,14,19,0.70)', backdropFilter: 'blur(12px)',
@@ -1061,10 +1215,15 @@ export default function Pitch() {
           </div>
         )}
 
-        {/* Right-side progress dots */}
-        <div style={{ position: 'fixed', right: 22, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 6, zIndex: 100 }}>
+        {/* Right-side progress dots — now title-tooltipped with the
+            actual slide name and aria-current on the active dot. */}
+        <nav aria-label="Slide navigation" style={{ position: 'fixed', right: 22, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 6, zIndex: 100 }}>
           {slides.map((_, i) => (
-            <button key={i} onClick={() => goTo(i)} title={`Slide ${i + 1}`}
+            <button key={i}
+              onClick={() => goTo(i)}
+              title={`${String(i + 1).padStart(2, '0')} · ${SLIDE_TITLES[i]}`}
+              aria-label={`Go to slide ${i + 1}: ${SLIDE_TITLES[i]}`}
+              aria-current={i === cur ? 'true' : undefined}
               style={{
                 width: i === cur ? 5 : 4, height: i === cur ? 22 : 4, borderRadius: 99, border: 'none', cursor: 'pointer', padding: 0,
                 transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
@@ -1072,24 +1231,122 @@ export default function Pitch() {
                 boxShadow: i === cur ? `0 0 10px ${C.primaryGlow}` : 'none',
               }} />
           ))}
-        </div>
+        </nav>
 
-        {/* Counter */}
-        <div style={{ position: 'fixed', bottom: 26, right: 26, fontFamily: 'JetBrains Mono,monospace', fontSize: 12, color: 'rgba(200,85,60,0.55)', zIndex: 100, letterSpacing: '0.06em' }}>
+        {/* Counter — now clickable, opens the jump menu. Doubled as
+            the "table of contents" affordance so partners don't have
+            to remember the `T` hotkey. */}
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open table of contents"
+          title="Jump to slide (T)"
+          style={{
+            position: 'fixed', bottom: 22, right: 22,
+            fontFamily: 'JetBrains Mono,monospace', fontSize: 12,
+            color: 'rgba(200,85,60,0.85)', zIndex: 100, letterSpacing: '0.06em',
+            padding: '6px 12px', borderRadius: 8,
+            border: `1px solid ${C.border}`,
+            background: 'rgba(12,14,19,0.70)', backdropFilter: 'blur(12px)',
+            cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+          }}>
+          <span aria-hidden="true" style={{ width: 10, height: 8, position: 'relative', display: 'inline-block' }}>
+            <span style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1.5, background: C.primaryLt, borderRadius: 1 }} />
+            <span style={{ position: 'absolute', top: 3, left: 0, right: 0, height: 1.5, background: C.primaryLt, borderRadius: 1 }} />
+            <span style={{ position: 'absolute', top: 6, left: 0, right: 0, height: 1.5, background: C.primaryLt, borderRadius: 1 }} />
+          </span>
           {String(cur + 1).padStart(2, '0')} / {String(slidesCount).padStart(2, '0')}
-        </div>
+        </button>
 
-        {/* Wordmark */}
+        {/* Wordmark — bottom-left, persists across all slides */}
         <div style={{ position: 'fixed', bottom: 24, left: 26, fontFamily: 'Bebas Neue,sans-serif', fontSize: 13, letterSpacing: '0.16em', color: 'rgba(239,230,210,0.40)', zIndex: 100 }}>
-          ADVERT <span style={{ background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RADICAL</span>
+          HALO<span style={{ background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELM</span>
         </div>
 
         {/* Nav arrows */}
         {cur > 0 && (
-          <button onClick={prev} style={{ position: 'fixed', left: '50%', top: cur === 0 ? 24 : 60, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(12,14,19,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↑</button>
+          <button onClick={prev}
+            aria-label={`Previous slide: ${SLIDE_TITLES[cur - 1]}`}
+            style={{ position: 'fixed', left: '50%', top: 60, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(12,14,19,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↑</button>
         )}
         {cur < slidesCount - 1 && (
-          <button onClick={next} style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(12,14,19,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↓</button>
+          <button onClick={next}
+            aria-label={`Next slide: ${SLIDE_TITLES[cur + 1]}`}
+            style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', width: 36, height: 36, borderRadius: '50%', border: `1px solid ${C.border}`, background: 'rgba(12,14,19,0.70)', color: C.dim, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(12px)' }}>↓</button>
+        )}
+
+        {/* ─── Jump menu / Table of Contents overlay ────────────────
+            Lets a partner with 5 minutes skip to "Pricing" or "The
+            Ask" without scrolling through everything. Opens on
+            counter-click or `T`; closes on Esc, backdrop click, or
+            picking a slide. */}
+        {menuOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Table of contents"
+            onClick={() => setMenuOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 200,
+              background: 'rgba(4,6,10,0.78)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 32,
+            }}>
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: 'min(720px, 100%)', maxHeight: '80vh',
+                background: C.bgLayer, border: `1px solid ${C.borderHi}`,
+                borderRadius: 22, padding: 28,
+                boxShadow: '0 40px 100px rgba(0,0,0,0.55)',
+                overflowY: 'auto',
+              }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+                <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 18, letterSpacing: '0.16em', color: C.bone }}>
+                  TABLE OF CONTENTS
+                </div>
+                <button
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="Close table of contents"
+                  style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.dim, width: 32, height: 32, borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
+                  ✕
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {SLIDE_TITLES.map((t, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { goTo(i); setMenuOpen(false); }}
+                    aria-current={i === cur ? 'true' : undefined}
+                    style={{
+                      textAlign: 'left',
+                      padding: '12px 14px',
+                      background: i === cur ? C.glassWarm : 'transparent',
+                      border: `1px solid ${i === cur ? C.borderAcc : C.border}`,
+                      borderRadius: 10,
+                      color: C.bone,
+                      cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      fontFamily: 'Inter,sans-serif', fontSize: 14, fontWeight: 500,
+                      transition: 'background 0.15s, border-color 0.15s',
+                    }}>
+                    <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: i === cur ? C.primaryLt : C.brass, minWidth: 22 }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span style={{ flex: 1 }}>{t}</span>
+                    <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 10, color: C.dimmer, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+                      {CHAPTERS[i]?.split(' · ')[1] || ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div style={{ marginTop: 20, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.dimmer, textAlign: 'center', lineHeight: 1.6 }}>
+                Use <kbd style={{ padding: '2px 8px', border: `1px solid ${C.border}`, borderRadius: 4, fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: C.dim }}>↑</kbd> <kbd style={{ padding: '2px 8px', border: `1px solid ${C.border}`, borderRadius: 4, fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: C.dim }}>↓</kbd> to navigate slides ·{' '}
+                <kbd style={{ padding: '2px 8px', border: `1px solid ${C.border}`, borderRadius: 4, fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: C.dim }}>T</kbd> for this menu ·{' '}
+                <kbd style={{ padding: '2px 8px', border: `1px solid ${C.border}`, borderRadius: 4, fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: C.dim }}>Esc</kbd> to close
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </>
