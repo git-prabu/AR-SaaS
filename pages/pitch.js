@@ -528,21 +528,34 @@ export default function Pitch() {
           </div>
         </div>
 
+        {/* 20 May 2026: redesigned the "problem" mock. Instead of a
+            flat row list, each item now carries an EMPTY greyed image
+            slot with a broken-image glyph — making the absence of
+            visuals visceral. This is the deliberate "before" that
+            slide 5's rich AR menu cards pay off. Styled as a printed
+            paper menu (cool grey, not warm) so it reads as the
+            old-world thing HaloHelm replaces. */}
         <div style={{ ...tilt(10, 7) }}>
-          <div style={{ background: C.bgLayer, border: `1px solid ${C.border}`, borderRadius: 20, overflow: 'hidden', boxShadow: '0 40px 80px rgba(0,0,0,0.65)' }}>
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '14px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, color: C.dimmer, letterSpacing: '0.08em' }}>menu.pdf</span>
-              <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20, background: 'rgba(196,68,56,0.16)', color: '#E5867C', fontFamily: 'Inter,sans-serif', fontWeight: 700, letterSpacing: '0.10em' }}>TEXT ONLY</span>
+          <div style={{ background: '#1C1B19', border: `1px solid rgba(255,245,232,0.08)`, borderRadius: 18, overflow: 'hidden', boxShadow: '0 40px 80px rgba(0,0,0,0.65)' }}>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '13px 20px', borderBottom: `1px solid rgba(255,245,232,0.06)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, color: 'rgba(255,245,232,0.40)', letterSpacing: '0.06em' }}>the-old-way.pdf</span>
+              <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: 'rgba(196,68,56,0.16)', color: '#E5867C', fontFamily: 'Inter,sans-serif', fontWeight: 800, letterSpacing: '0.10em' }}>TEXT ONLY</span>
             </div>
-            {[['Chicken Biryani', '₹280'], ['Paneer Tikka Masala', '₹320'], ['Dal Makhani', '₹180'], ['Garlic Butter Naan', '₹60'], ['Mango Lassi', '₹120'], ['Gulab Jamun', '₹80']].map(([n, p], i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px', borderBottom: i === 5 ? 'none' : `1px solid rgba(255,245,232,0.04)` }}>
-                <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 14, color: 'rgba(255,245,232,0.42)', fontWeight: 400 }}>{n}</span>
-                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 700, fontSize: 13, color: 'rgba(255,245,232,0.28)' }}>{p}</span>
+            {[['Chicken Biryani', '₹280'], ['Paneer Tikka Masala', '₹320'], ['Dal Makhani', '₹180'], ['Garlic Butter Naan', '₹60'], ['Gulab Jamun', '₹80']].map(([n, p], i, arr) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 20px', borderBottom: i === arr.length - 1 ? 'none' : `1px solid rgba(255,245,232,0.04)` }}>
+                {/* Empty image slot — the whole point. Greyed box + broken-image glyph. */}
+                <span style={{ width: 40, height: 40, borderRadius: 7, background: 'rgba(255,245,232,0.04)', border: '1px dashed rgba(255,245,232,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,245,232,0.22)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" /><path d="m21 15-5-5L5 21" /><line x1="3" y1="3" x2="21" y2="21" />
+                  </svg>
+                </span>
+                <span style={{ flex: 1, fontFamily: 'Inter,sans-serif', fontSize: 14, color: 'rgba(255,245,232,0.46)', fontWeight: 400 }}>{n}</span>
+                <span style={{ fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 13, color: 'rgba(255,245,232,0.32)' }}>{p}</span>
               </div>
             ))}
-            <div style={{ padding: '12px 22px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(196,68,56,0.06)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#C44', display: 'inline-block' }} />
-              <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 12, color: 'rgba(229,134,124,0.85)', fontWeight: 400 }}>No photos · No visuals · No context</span>
+            <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(196,68,56,0.07)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#C44', display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 12, color: 'rgba(229,134,124,0.90)', fontWeight: 500 }}>No photos · No visuals · No context · The customer guesses</span>
             </div>
           </div>
         </div>
@@ -603,50 +616,88 @@ export default function Pitch() {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+        {/* 20 May 2026: redesigned from static numbered question lists
+            (looked like a spec sheet) into recreations of the actual
+            AI-assistant product screen — one live question with
+            tappable answer chips, a step counter + progress bar, and
+            the result footer. Each mode shows a representative
+            mid-flow question with one chip pre-selected (saffron). */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, maxWidth: 1000, margin: '0 auto' }}>
           {[
             {
-              icon: 'person', tag: 'Solo Diner Mode',
-              questions: [
-                { q: 'Dietary preference?',   a: 'Veg · Non-veg · Either' },
-                { q: 'What\'s your mood?',     a: 'Comfort · Healthy · Popular · Adventurous' },
-                { q: 'Spice tolerance?',      a: 'Mild · Medium · Spicy' },
-                { q: 'How hungry?',           a: 'Light bite · Regular · Feast mode' },
-                { q: 'Budget per dish?',      a: 'Under ₹200 · ₹200–500 · ₹500+' },
+              icon: 'person', tag: 'Solo Diner Mode', step: 2,
+              question: 'What are you in the mood for?',
+              chips: [
+                { label: 'Comfort food', sel: true },
+                { label: 'Something healthy' },
+                { label: 'What\'s popular' },
+                { label: 'Feeling adventurous' },
               ],
             },
             {
-              icon: 'group', tag: 'Group Mode',
-              questions: [
-                { q: 'Anyone vegetarian?',     a: 'Keep it veg-friendly · No · Mix' },
-                { q: 'Group spice limit?',     a: 'Mild · Medium · Spicy · No limit' },
-                { q: 'How are you ordering?',  a: 'Individual · Sharing · Mix' },
-                { q: 'The vibe today?',        a: 'Comfort · Light · Popular · Adventurous' },
-                { q: 'Budget per head?',       a: 'Under ₹200 · ₹200–500 · ₹500+' },
+              icon: 'group', tag: 'Group Mode', step: 3,
+              question: 'How spicy can the table handle?',
+              chips: [
+                { label: 'Mild' },
+                { label: 'Medium', sel: true },
+                { label: 'Spicy' },
+                { label: 'No limit' },
               ],
             },
           ].map((card, ci) => (
-            <div key={ci} style={{ ...tilt(ci === 0 ? -4 : 4, 4), background: C.glass, border: `1px solid ${C.border}`, borderRadius: 22, padding: 32, backdropFilter: 'blur(20px)', boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                <span style={{ width: 38, height: 38, borderRadius: 10, background: C.glassWarm, border: `1px solid ${C.borderAcc}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.primaryLt }}>
-                  <Icon name={card.icon} size={20} stroke={1.7} />
-                </span>
-                <span style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 17, letterSpacing: '0.12em', color: C.primaryLt }}>{card.tag}</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {card.questions.map((it, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 12, paddingBottom: 10, borderBottom: i === card.questions.length - 1 ? 'none' : `1px solid rgba(255,245,232,0.06)` }}>
-                    <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, color: C.brass, minWidth: 22 }}>0{i + 1}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'Inter,sans-serif', fontWeight: 600, fontSize: 14, color: C.bone, marginBottom: 2 }}>{it.q}</div>
-                      <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.dim, fontWeight: 400 }}>{it.a}</div>
+            <div key={ci} style={{ ...tilt(ci === 0 ? -4 : 4, 4) }}>
+              {/* Phone-style AI assistant screen */}
+              <div style={{
+                background: '#17120D',
+                border: `1px solid rgba(255,245,232,0.10)`,
+                borderRadius: 22, overflow: 'hidden',
+                boxShadow: '0 28px 64px rgba(0,0,0,0.5)',
+              }}>
+                {/* Assistant header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '16px 18px', borderBottom: '1px solid rgba(255,245,232,0.07)' }}>
+                  <span style={{ width: 34, height: 34, borderRadius: 9, background: `linear-gradient(135deg,${C.primaryDk},${C.primary})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1E1B18' }}>
+                    <Icon name="sparkle" size={17} stroke={1.7} fill="#1E1B18" />
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 13, color: '#FFF5E8' }}>Menu Assistant</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <Icon name={card.icon} size={11} color="rgba(255,245,232,0.50)" stroke={1.8} />
+                      <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 10.5, color: 'rgba(255,245,232,0.50)', fontWeight: 500 }}>{card.tag}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 20, padding: '12px 14px', background: 'rgba(247,155,61,0.10)', border: `1px solid ${C.borderAcc}`, borderRadius: 10, fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Icon name="sparkle" size={14} color={C.primaryLt} stroke={1.7} fill={C.primaryLt} />
-                Claude picks the 3–6 best matches from your menu.
+                  <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 11, color: C.primaryLt, fontWeight: 700 }}>{card.step} / 5</span>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ height: 3, background: 'rgba(255,245,232,0.06)' }}>
+                  <div style={{ width: `${(card.step / 5) * 100}%`, height: '100%', background: `linear-gradient(90deg,${C.primaryDk},${C.primary})` }} />
+                </div>
+
+                {/* Question + answer chips */}
+                <div style={{ padding: '22px 18px 20px' }}>
+                  <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 700, fontSize: 18, color: '#FFF5E8', lineHeight: 1.35, marginBottom: 18 }}>{card.question}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
+                    {card.chips.map((chip, i) => (
+                      <span key={i} style={{
+                        padding: '9px 15px', borderRadius: 30,
+                        fontFamily: 'Inter,sans-serif', fontSize: 13, fontWeight: 600,
+                        border: `1.5px solid ${chip.sel ? '#F79B3D' : 'rgba(255,245,232,0.14)'}`,
+                        background: chip.sel ? 'linear-gradient(135deg,rgba(224,90,58,0.22),rgba(247,155,61,0.18))' : 'rgba(255,245,232,0.03)',
+                        color: chip.sel ? '#FFD9A8' : 'rgba(255,245,232,0.72)',
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}>
+                        {chip.sel && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F79B3D' }} />}
+                        {chip.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Result footer */}
+                <div style={{ padding: '13px 18px', background: 'rgba(247,155,61,0.10)', borderTop: `1px solid rgba(247,155,61,0.20)`, display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <Icon name="sparkle" size={14} color={C.primaryLt} stroke={1.7} fill={C.primaryLt} />
+                  <span style={{ fontFamily: 'Inter,sans-serif', fontSize: 12, color: C.boneSoft, fontWeight: 500 }}>Claude picks the 3–6 best dishes from your menu.</span>
+                </div>
               </div>
             </div>
           ))}
