@@ -6,7 +6,9 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import {
   updateOrderStatus, updateOrderStatusAs,
   markOrderItemReadyAs, markOrderItemServedAs,
+  markKotPrinted,
 } from '../../lib/db';
+import { printKot } from '../../lib/printKot';
 import { db, staffDb } from '../../lib/firebase';
 import { collection, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -1161,6 +1163,21 @@ export default function KitchenDisplay() {
                     background: 'rgba(0,0,0,0.015)',
                     display: 'flex', gap: 6,
                   }}>
+                    {/* Print KOT (Phase 1a) — prints this ticket to any
+                        printer set on the device; stamps the bill so the
+                        Table View flips to gold "Running KOT". */}
+                    <button
+                      onClick={() => {
+                        const ok = printKot(order, { restaurantName: userData?.restaurantName || '' });
+                        if (!ok) { toast.error('Allow pop-ups to print'); return; }
+                        if (order.billId) markKotPrinted(rid, order.billId).catch(() => {});
+                      }}
+                      title="Print kitchen order ticket"
+                      style={{
+                        flexShrink: 0, padding: density === 'compact' ? '7px 9px' : '10px 11px',
+                        borderRadius: 8, border: '1px solid rgba(0,0,0,0.10)', background: A.shell,
+                        cursor: 'pointer', fontSize: density === 'compact' ? 13 : 15, lineHeight: 1,
+                      }}>🖨</button>
                     {/* Order-level advance button is shown for `pending`
                         only ("Start"). For preparing/ready, per-item
                         Ready/Served pills above drive the transition;

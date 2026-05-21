@@ -23,7 +23,9 @@ import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/f
 import {
   createArea, updateArea, deleteArea,
   createTable, updateTable, deleteTable,
+  markKotPrinted, getRestaurantById,
 } from '../../lib/db';
+import { printKot } from '../../lib/printKot';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as the other admin pages ═══
@@ -92,6 +94,25 @@ export default function AdminTables() {
   const [detailTable, setDetailTable] = useState(null); // table whose bill is open in the side panel
 
   const sessionCodes = useMemo(() => Object.keys(sessions), [sessions]);
+  const [restaurantName, setRestaurantName] = useState('');
+  useEffect(() => { if (rid) getRestaurantById(rid).then(r => setRestaurantName(r?.name || '')).catch(() => {}); }, [rid]);
+
+  // Print a combined KOT for everything currently on a table's bill,
+  // then stamp the bill so the grid flips to gold "Running KOT".
+  const handlePrintKot = (table, state) => {
+    const orders = state?.orders || [];
+    if (orders.length === 0) { toast.error('Nothing to print on this table'); return; }
+    const merged = {
+      tableNumber: table.code || table.label,
+      orderType: 'dinein',
+      items: orders.flatMap(o => Array.isArray(o.items) ? o.items : []),
+      orderNumber: null,
+      specialInstructions: orders.map(o => o.specialInstructions).filter(Boolean).join(' · ') || null,
+    };
+    const ok = printKot(merged, { restaurantName });
+    if (!ok) { toast.error('Allow pop-ups to print the KOT'); return; }
+    if (state.billId) markKotPrinted(rid, state.billId).catch(() => {});
+  };
 
   // Inline-form state
   const [newAreaName, setNewAreaName] = useState('');
@@ -651,9 +672,15 @@ export default function AdminTables() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, marginBottom: 12 }}>
                   <span>Table total</span><span>₹{Math.round(st.total || 0)}</span>
                 </div>
-                <a href="/admin/orders" style={{ ...btnPrimary, width: '100%', justifyContent: 'center', textDecoration: 'none' }}>Open in Orders →</a>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => handlePrintKot(detailTable, st)}
+                    style={{ ...btnGhost, flex: 1, justifyContent: 'center', padding: '11px 14px' }}>
+                    🖨 Print KOT
+                  </button>
+                  <a href="/admin/orders" style={{ ...btnPrimary, flex: 1, justifyContent: 'center', textDecoration: 'none', padding: '11px 14px' }}>Open in Orders →</a>
+                </div>
                 <div style={{ fontSize: 11, color: A.faintText, textAlign: 'center', marginTop: 10 }}>
-                  Print KOT / bill + take-payment actions arrive with Phase 1.
+                  KOT prints to any printer set on this device. Bill print + take-payment arrive next.
                 </div>
               </div>
             </div>
