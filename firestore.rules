@@ -554,6 +554,24 @@ service cloud.firestore {
         allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
+      // ── Vendors / Purchase Orders / Expenses (Phase 3, 22 May 2026) ──
+      // Back-of-house finance: supplier registry, formal purchase orders,
+      // and money-out expense rows. All three are FINANCIAL data (vendor
+      // payables, cost prices, spend) — admin + superadmin only, the same
+      // trust tier as dayCloses. Staff (kitchen/waiter) never need them
+      // and customers must never see them, so there is deliberately no
+      // staff or public branch. Mutations flow through lib/db.js which
+      // sanitizes + audit-stamps; the Admin SDK (server) bypasses these.
+      match /vendors/{vendorId} {
+        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+      match /expenses/{expenseId} {
+        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+      match /purchaseOrders/{poId} {
+        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
       // ── Tables (floor-plan registry — Phase 0, 20 May 2026) ──
       // Physical tables: { label, code, areaId, capacity, sortOrder }.
       // `code` is the QR identity → maps to tableSessions/{code} and
