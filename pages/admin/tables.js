@@ -68,8 +68,11 @@ export default function AdminTables() {
 
   const [areas, setAreas] = useState([]);
   const [tables, setTables] = useState([]);
+  const [sessionCodes, setSessionCodes] = useState([]); // existing tableSessions doc ids (Step 3 import source)
   const [dataLoaded, setDataLoaded] = useState(false);
   const [confirm, setConfirm] = useState(null);
+  const [importCount, setImportCount] = useState('');
+  const [importing, setImporting] = useState(false);
 
   // Inline-form state
   const [newAreaName, setNewAreaName] = useState('');
@@ -98,8 +101,50 @@ export default function AdminTables() {
       snap => { setTables(snap.docs.map(d => ({ id: d.id, ...d.data() }))); done(); },
       () => done()
     );
-    return () => { ua(); ut(); };
+    // Existing QR tableSessions — the import source for Step 3. doc id = table number.
+    const us = onSnapshot(
+      collection(db, 'restaurants', rid, 'tableSessions'),
+      snap => setSessionCodes(snap.docs.map(d => d.id)),
+      () => {}
+    );
+    return () => { ua(); ut(); us(); };
   }, [rid]);
+
+  // Default the import count to however many QR table-sessions already
+  // exist (so "import" feels like it carries their current setup), else 12.
+  useEffect(() => {
+    if (importCount === '' && sessionCodes.length > 0) setImportCount(String(sessionCodes.length));
+  }, [sessionCodes, importCount]);
+
+  // ── Quick-add / import existing tables (Step 3) ─────────────
+  const handleImport = async (countRaw) => {
+    const n = Math.max(1, Math.min(100, Math.floor(Number(countRaw) || 0)));
+    if (!n) { toast.error('Enter how many tables (1–100)'); return; }
+    setImporting(true);
+    try {
+      // 1. Ensure a "Main" area exists to drop them into.
+      let mainAreaId = areas.find(a => (a.name || '').toLowerCase() === 'main')?.id;
+      if (!mainAreaId) {
+        const ref = await createArea(rid, { name: 'Main', sortOrder: 0 });
+        mainAreaId = ref.id;
+      }
+      // 2. Create Table 1..n, skipping any code that already exists
+      //    (so re-running is safe + won't clash with manual adds).
+      const existing = new Set(tables.map(t => (t.code || '').toLowerCase()));
+      let created = 0;
+      for (let i = 1; i <= n; i++) {
+        const code = String(i);
+        if (existing.has(code)) continue;
+        await createTable(rid, { label: `Table ${i}`, code, areaId: mainAreaId, capacity: 4, sortOrder: i });
+        created += 1;
+      }
+      toast.success(created ? `Added ${created} table${created === 1 ? '' : 's'} to "Main"` : 'All those tables already exist');
+    } catch (e) {
+      toast.error('Import failed: ' + (e?.message || 'error'));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const tablesByArea = useMemo(() => {
     const map = {};
@@ -253,12 +298,30 @@ export default function AdminTables() {
             </div>
           )}
 
-          {/* Empty state */}
+          {/* Empty state + quick import */}
           {dataLoaded && areas.length === 0 && (tablesByArea._unassigned || []).length === 0 && (
-            <EmptyState
-              title="No areas yet"
-              subtitle="Start by adding an area like “A/C”, “Rooftop”, or “Bar”, then add the tables inside it."
-            />
+            <div>
+              <EmptyState
+                title="No tables yet"
+                subtitle="Add areas + tables manually below, or import a quick set to get started in one click."
+              />
+              <div style={{ maxWidth: 460, margin: '16px auto 0', padding: '18px 20px', background: A.shell, border: A.borderStrong, borderRadius: 14, boxShadow: A.cardShadow, textAlign: 'center' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Quick start</div>
+                <div style={{ fontSize: 13, color: A.mutedText, marginBottom: 14, lineHeight: 1.5 }}>
+                  {sessionCodes.length > 0
+                    ? `You have ${sessionCodes.length} table${sessionCodes.length === 1 ? '' : 's'} set up from your QR codes. Import them into a “Main” area:`
+                    : 'Create a batch of numbered tables in a “Main” area — you can rename, move, or split them into areas afterwards:'}
+                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <input type="number" min="1" max="100" style={{ ...inputStyle, width: 90, textAlign: 'center' }}
+                    placeholder="12" value={importCount} onChange={e => setImportCount(e.target.value)} />
+                  <button style={{ ...btnPrimary, opacity: importing ? 0.6 : 1 }} disabled={importing}
+                    onClick={() => handleImport(importCount || 12)}>
+                    {importing ? 'Adding…' : `Create ${Math.max(1, Math.min(100, Math.floor(Number(importCount) || 12)))} tables`}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Areas + their tables */}
