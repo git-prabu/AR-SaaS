@@ -223,36 +223,60 @@ export default function AdminTables() {
     return map;
   }, [tables]);
 
-  // Derive each table's live status from its session → open bill → orders.
+  // Derive each table's live status. Orders reach a table TWO ways:
+  //   1. via the open tableBill (customer QR flow attaches orderIds), or
+  //   2. directly by tableNumber === table.code, with NO bill — this is
+  //      how waiter / admin "New Order" creates dine-in orders (they set
+  //      tableNumber but never attach to a bill).
+  // We union both so a table shows "Running" regardless of how the order
+  // was placed. (20 May 2026 fix — waiter orders weren't appearing.)
   // Returns { [tableId]: { status, billId, orderCount, itemCount, total } }.
+  const allOrdersList = useMemo(() => Object.values(ordersById), [ordersById]);
   const statesByTable = useMemo(() => {
     const out = {};
     for (const t of tables) {
       const session = sessions[t.code];
       const billId = session?.currentBillId;
       const bill = billId ? bills[billId] : null; // bills map only has OPEN bills
-      if (!bill) { out[t.id] = { status: STATUS.blank, billId: null, orderCount: 0, itemCount: 0, total: 0 }; continue; }
+      const code = String(t.code || '');
 
-      const liveOrders = (bill.orderIds || [])
-        .map(id => ordersById[id])
-        .filter(o => o && o.status !== 'cancelled');
+      // (1) orders on the open bill
+      const fromBill = bill ? (bill.orderIds || []).map(id => ordersById[id]).filter(Boolean) : [];
 
-      if (liveOrders.length === 0) { out[t.id] = { status: STATUS.blank, billId, orderCount: 0, itemCount: 0, total: 0 }; continue; }
+      // (2) bill-less dine-in orders matched by table code. Only ACTIVE
+      //     ones (not cancelled, not already served-AND-paid) so old
+      //     completed orders from earlier today don't keep the table lit.
+      const fromTable = code ? allOrdersList.filter(o => {
+        if (String(o.tableNumber || '') !== code) return false;
+        if (o.orderType === 'takeaway' || o.orderType === 'takeout') return false;
+        if (o.status === 'cancelled') return false;
+        const done = o.status === 'served' && PAID_SET.has(o.paymentStatus);
+        return !done;
+      }) : [];
+
+      // union + dedupe by id, drop cancelled
+      const map = {};
+      for (const o of [...fromBill, ...fromTable]) {
+        if (o && o.status !== 'cancelled') map[o.id] = o;
+      }
+      const liveOrders = Object.values(map);
+
+      if (liveOrders.length === 0) { out[t.id] = { status: STATUS.blank, billId: billId || null, orderCount: 0, itemCount: 0, total: 0 }; continue; }
 
       const total     = liveOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
       const itemCount = liveOrders.reduce((s, o) => s + (Array.isArray(o.items) ? o.items.length : 0), 0);
       const allPaid   = liveOrders.every(o => PAID_SET.has(o.paymentStatus));
 
       let status;
-      if (allPaid)              status = STATUS.paid;
-      else if (bill.billPrintedAt) status = STATUS.printed;  // flags set by Phase 1 KOT/bill print
-      else if (bill.kotPrintedAt)  status = STATUS.kot;
-      else                      status = STATUS.running;
+      if (allPaid)                 status = STATUS.paid;
+      else if (bill?.billPrintedAt) status = STATUS.printed;  // bill flags (Phase 1) — only when a bill exists
+      else if (bill?.kotPrintedAt)  status = STATUS.kot;
+      else                         status = STATUS.running;
 
-      out[t.id] = { status, billId, orderCount: liveOrders.length, itemCount, total, orders: liveOrders };
+      out[t.id] = { status, billId: billId || null, orderCount: liveOrders.length, itemCount, total, orders: liveOrders };
     }
     return out;
-  }, [tables, sessions, bills, ordersById]);
+  }, [tables, sessions, bills, ordersById, allOrdersList]);
 
   const statusCounts = useMemo(() => {
     const c = { running: 0, kot: 0, printed: 0, paid: 0, blank: 0 };
