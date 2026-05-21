@@ -24,8 +24,10 @@ import {
   createArea, updateArea, deleteArea,
   createTable, updateTable, deleteTable,
   markKotPrinted, getRestaurantById,
+  getOrCreateCaptainBill, attachOrderToBill,
 } from '../../lib/db';
 import { printKot } from '../../lib/printKot';
+import NewOrderModal from '../../components/NewOrderModal';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as the other admin pages ═══
@@ -92,6 +94,7 @@ export default function AdminTables() {
   // 'manage' = floor-plan editor (areas + tables CRUD).
   const [mode, setMode] = useState('live');
   const [detailTable, setDetailTable] = useState(null); // table whose bill is open in the side panel
+  const [orderModalTable, setOrderModalTable] = useState(null); // { code, label } → captain order modal open
 
   const sessionCodes = useMemo(() => Object.keys(sessions), [sessions]);
   const [restaurantName, setRestaurantName] = useState('');
@@ -112,6 +115,22 @@ export default function AdminTables() {
     const ok = printKot(merged, { restaurantName });
     if (!ok) { toast.error('Allow pop-ups to print the KOT'); return; }
     if (state.billId) markKotPrinted(rid, state.billId).catch(() => {});
+  };
+
+  // Captain order placed → attach it to the table's bill so it joins the
+  // running tab and the Table View shows the full lifecycle. Creates the
+  // bill on first order for that table.
+  const handleCaptainOrderPlaced = async (orderId, tableCode) => {
+    try {
+      const billId = await getOrCreateCaptainBill(rid, tableCode);
+      await attachOrderToBill(rid, billId, orderId);
+    } catch (e) {
+      // The order itself was created; only the bill link failed. The
+      // tableNumber-match fallback still shows it as Running, so this is
+      // non-fatal — just log.
+      console.warn('captain bill attach failed:', e?.message || e);
+    }
+    setOrderModalTable(null);
   };
 
   // Inline-form state
@@ -448,9 +467,12 @@ export default function AdminTables() {
                         const s = st.status;
                         const busy = s.key !== 'blank';
                         return (
-                          <button key={t.id} onClick={() => busy && setDetailTable(t)}
+                          // Busy table → open the bill panel. Free table →
+                          // open the captain order modal to start an order.
+                          <button key={t.id}
+                            onClick={() => busy ? setDetailTable(t) : setOrderModalTable({ code: t.code, label: t.label })}
                             style={{
-                              textAlign: 'left', cursor: busy ? 'pointer' : 'default',
+                              textAlign: 'left', cursor: 'pointer',
                               background: s.bg, border: `1.5px solid ${s.bd}`, borderRadius: 12,
                               padding: '13px 14px', minHeight: 84, fontFamily: A.font,
                               display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8,
@@ -467,7 +489,7 @@ export default function AdminTables() {
                                 </div>
                               </div>
                             ) : (
-                              <div style={{ fontSize: 11.5, fontWeight: 600, color: A.faintText }}>{t.capacity || 4} seats · free</div>
+                              <div style={{ fontSize: 11.5, fontWeight: 600, color: A.faintText }}>{t.capacity || 4} seats · tap to order</div>
                             )}
                           </button>
                         );
@@ -696,21 +718,36 @@ export default function AdminTables() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, marginBottom: 12 }}>
                   <span>Table total</span><span>₹{Math.round(st.total || 0)}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <button onClick={() => { const t = detailTable; setDetailTable(null); setOrderModalTable({ code: t.code, label: t.label }); }}
+                    style={{ ...btnPrimary, flex: 1, justifyContent: 'center', padding: '11px 14px' }}>
+                    + Add items
+                  </button>
                   <button onClick={() => handlePrintKot(detailTable, st)}
                     style={{ ...btnGhost, flex: 1, justifyContent: 'center', padding: '11px 14px' }}>
                     🖨 Print KOT
                   </button>
-                  <a href="/admin/orders" style={{ ...btnPrimary, flex: 1, justifyContent: 'center', textDecoration: 'none', padding: '11px 14px' }}>Open in Orders →</a>
                 </div>
+                <a href="/admin/orders" style={{ ...btnGhost, width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px 14px', boxSizing: 'border-box' }}>Open in Orders →</a>
                 <div style={{ fontSize: 11, color: A.faintText, textAlign: 'center', marginTop: 10 }}>
-                  KOT prints to any printer set on this device. Bill print + take-payment arrive next.
+                  Tap a free table or "Add items" to take an order. Print bill + take-payment arrive next.
                 </div>
               </div>
             </div>
           </div>
         );
       })()}
+
+      {/* Captain order modal — tableside ordering from the Table View */}
+      {orderModalTable && (
+        <NewOrderModal
+          rid={rid}
+          actorLabel={`captain:${userData?.email || 'admin'}`}
+          lockedTable={orderModalTable}
+          onClose={() => setOrderModalTable(null)}
+          onPlaced={(orderId) => handleCaptainOrderPlaced(orderId, orderModalTable.code)}
+        />
+      )}
 
       <ConfirmModal
         open={!!confirm}

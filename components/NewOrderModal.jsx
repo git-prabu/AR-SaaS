@@ -53,7 +53,10 @@ const A = {
 
 const formatRupee = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 
-export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced }) {
+export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lockedTable }) {
+  // lockedTable = { code, label } — when set (captain flow from Table
+  // View), the order is forced to dine-in for that exact table: the
+  // type toggle + table input are hidden and the table is pre-filled.
   const [items, setItems] = useState([]);
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,8 +65,8 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced }) {
   const [category, setCategory] = useState('all');
   const [search, setSearch] = useState('');
 
-  const [orderType, setOrderType] = useState('dinein');
-  const [tableNumber, setTableNumber] = useState('');
+  const [orderType, setOrderType] = useState(lockedTable ? 'dinein' : 'dinein');
+  const [tableNumber, setTableNumber] = useState(lockedTable?.code || '');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [specialNote, setSpecialNote] = useState('');
@@ -308,30 +311,40 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced }) {
 
           {/* RIGHT — Cart + customer/table fields + totals */}
           <div className="nom-cart-pane" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 180px)' }}>
-            {/* Order-type toggle */}
-            <div style={{ padding: '12px 16px', borderBottom: A.border }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Order type</div>
-              <div style={{ display: 'inline-flex', width: '100%', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
-                {[
-                  { k: 'dinein',   label: 'Dine-in' },
-                  { k: 'takeaway', label: 'Takeaway' },
-                ].map(t => (
-                  <button key={t.k} onClick={() => setOrderType(t.k)}
-                    style={{
-                      flex: 1, padding: '8px 10px', borderRadius: 7, border: 'none',
-                      background: orderType === t.k ? A.ink : 'transparent',
-                      color: orderType === t.k ? A.cream : A.mutedText,
-                      fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
-                    }}>
-                    {t.label}
-                  </button>
-                ))}
+            {/* Order-type toggle — hidden in captain (locked-table) mode */}
+            {!lockedTable && (
+              <div style={{ padding: '12px 16px', borderBottom: A.border }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Order type</div>
+                <div style={{ display: 'inline-flex', width: '100%', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
+                  {[
+                    { k: 'dinein',   label: 'Dine-in' },
+                    { k: 'takeaway', label: 'Takeaway' },
+                  ].map(t => (
+                    <button key={t.k} onClick={() => setOrderType(t.k)}
+                      style={{
+                        flex: 1, padding: '8px 10px', borderRadius: 7, border: 'none',
+                        background: orderType === t.k ? A.ink : 'transparent',
+                        color: orderType === t.k ? A.cream : A.mutedText,
+                        fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                      }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Customer / table fields */}
             <div style={{ padding: '12px 16px', borderBottom: A.border, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {orderType === 'dinein' ? (
+              {lockedTable ? (
+                // Captain mode — fixed table, no input.
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Adding to</span>
+                  <span style={{ padding: '6px 12px', borderRadius: 8, background: A.ink, color: A.cream, fontSize: 14, fontWeight: 700 }}>
+                    {lockedTable.label || `Table ${lockedTable.code}`}
+                  </span>
+                </div>
+              ) : orderType === 'dinein' ? (
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Table number *</label>
                   <input
