@@ -49,6 +49,7 @@ const navSections = [
   {
     label: 'PEOPLE', items: [
       { href: '/admin/customers',    label: 'Customers',    icon: 'contact' },
+      { href: '/admin/campaigns',    label: 'Marketing',    icon: 'megaphone' },
       { href: '/admin/reservations', label: 'Reservations', icon: 'calendar' },
       { href: '/admin/staff',    label: 'Staff',    icon: 'users' },
       { href: '/admin/feedback', label: 'Feedback', icon: 'star' },
