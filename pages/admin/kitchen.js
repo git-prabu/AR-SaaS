@@ -989,6 +989,22 @@ export default function KitchenDisplay() {
                           padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
                           background: typeBg, color: typeColor,
                         }}>{typeLabel}</span>
+                        {/* Channel/source chip (Phase 6) — only for phone/aggregator orders */}
+                        {(() => {
+                          const SM = {
+                            phone:  ['Phone',  'rgba(45,125,210,0.12)', '#2D7DD2'],
+                            zomato: ['Zomato', 'rgba(226,55,68,0.12)',  '#E23744'],
+                            swiggy: ['Swiggy', 'rgba(252,128,25,0.16)', '#C75B06'],
+                            other:  ['Other',  'rgba(0,0,0,0.06)',      'rgba(0,0,0,0.55)'],
+                          }[order.source];
+                          return SM ? (
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                              padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
+                              background: SM[1], color: SM[2],
+                            }}>{SM[0]}</span>
+                          ) : null;
+                        })()}
                         {/* Status tag (kept) */}
                         <span style={{
                           fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',

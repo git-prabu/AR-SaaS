@@ -61,6 +61,11 @@ export default function AdminNewOrder() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [specialNote, setSpecialNote] = useState('');
+  // Phase 6 — order channel/source. Aggregator integration (Petpooja)
+  // is outbound-only, so phone/Zomato/Swiggy orders are tagged here
+  // manually for the source badge + channel reporting. Defaults to
+  // 'walkin' (the common POS case).
+  const [source, setSource] = useState('walkin');
   // Phase F — for takeaway orders, captain can flag "Customer paid now"
   // (cash at the counter) so the order skips `awaiting_payment` and goes
   // straight to the kitchen. Default is false: customer typically pays
@@ -144,6 +149,7 @@ export default function AdminNewOrder() {
         total: totals.grandTotal,
         tableNumber: orderType === 'dinein' ? tableNumber.trim() : '',
         orderType,
+        source,
         customerName: orderType !== 'dinein' ? customerName.trim() : '',
         customerPhone: customerPhone.trim(),
         specialInstructions: specialNote.trim(),
@@ -303,6 +309,29 @@ export default function AdminNewOrder() {
                     }}>
                     {t.label}
                   </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Channel / source — Phase 6. Manual tagging so phone +
+                aggregator (Zomato/Swiggy) orders carry a source badge. */}
+            <div style={{ padding: '14px 18px', borderBottom: A.border }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Channel</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {[
+                  { k: 'walkin', label: 'Walk-in' },
+                  { k: 'phone',  label: 'Phone' },
+                  { k: 'zomato', label: 'Zomato' },
+                  { k: 'swiggy', label: 'Swiggy' },
+                  { k: 'other',  label: 'Other' },
+                ].map(s => (
+                  <button key={s.k} type="button" onClick={() => setSource(s.k)}
+                    style={{
+                      padding: '7px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: A.font, fontSize: 12.5, fontWeight: 600,
+                      border: source === s.k ? 'none' : A.borderStrong,
+                      background: source === s.k ? A.ink : A.shell,
+                      color: source === s.k ? A.cream : A.mutedText,
+                    }}>{s.label}</button>
                 ))}
               </div>
             </div>

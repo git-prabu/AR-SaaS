@@ -43,6 +43,16 @@ const A = {
   dangerOnDark: '#E87973',
 };
 
+// Phase 6 — order channel/source badge. Only non-default channels get a
+// chip; walk-in / QR / web (and legacy orders with no source field)
+// show nothing, keeping the row clean. Set by /admin/new-order.
+const SOURCE_META = {
+  phone:  { label: 'Phone',  bg: 'rgba(45,125,210,0.12)', color: '#2D7DD2' },
+  zomato: { label: 'Zomato', bg: 'rgba(226,55,68,0.12)',  color: '#E23744' },
+  swiggy: { label: 'Swiggy', bg: 'rgba(252,128,25,0.16)', color: '#C75B06' },
+  other:  { label: 'Other',  bg: 'rgba(0,0,0,0.06)',      color: 'rgba(0,0,0,0.55)' },
+};
+
 // Status metadata drives pill color, next-state transition, and button label.
 // Phase F adds the `awaiting_payment` state for takeaway orders that haven't
 // been paid yet — they're hidden from the kitchen until staff marks them
@@ -764,6 +774,13 @@ export default function AdminOrders() {
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 marginBottom: 4,
                               }}>
+                                {SOURCE_META[order.source] && (
+                                  <span style={{
+                                    display: 'inline-block', marginRight: 8, padding: '1px 7px', borderRadius: 5,
+                                    background: SOURCE_META[order.source].bg, color: SOURCE_META[order.source].color,
+                                    fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', verticalAlign: 'middle',
+                                  }}>{SOURCE_META[order.source].label}</span>
+                                )}
                                 {(order.orderType === 'takeaway' || order.orderType === 'takeout')
                                   ? <span style={{ color: A.warningDim, fontWeight: 700 }}>
                                       Takeaway{order.customerName ? ` · ${order.customerName}` : ''} ·{' '}
