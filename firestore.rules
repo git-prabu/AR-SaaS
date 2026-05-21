@@ -524,6 +524,29 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin();
       }
 
+      // ── Areas (floor-plan sections — Phase 0, 20 May 2026) ────
+      // A/C, Non-A/C, Rooftop, Bar, etc. Pure config that groups
+      // tables on the Table View dashboard. NOT public — the
+      // anonymous customer page never needs the floor plan (it scans
+      // a single table's QR). Admin manages; staff read (their
+      // captain view needs the area grouping).
+      match /areas/{areaId} {
+        allow read:  if isRestaurantAdmin(restaurantId) || isStaff(restaurantId) || isSuperAdmin();
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
+      // ── Tables (floor-plan registry — Phase 0, 20 May 2026) ──
+      // Physical tables: { label, code, areaId, capacity, sortOrder }.
+      // `code` is the QR identity → maps to tableSessions/{code} and
+      // the /r/{subdomain}/{code} QR URL, so the legacy numeric QR
+      // flow keeps working. Status (blank/running/printed/paid) is
+      // NOT stored here — it's derived live from tableBills + orders.
+      // Admin manages the registry; staff read it for the Table View.
+      match /tables/{tableId} {
+        allow read:  if isRestaurantAdmin(restaurantId) || isStaff(restaurantId) || isSuperAdmin();
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
       // ── AR Model Requests ─────────────────────────────────────
       match /requests/{requestId} {
         // Restaurant admin: read + create their own requests
