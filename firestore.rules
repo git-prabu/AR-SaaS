@@ -93,6 +93,12 @@ service cloud.firestore {
           'categoryOrder', 'categoryImages',
           // Operational toggles (admin/notifications.js)
           'waiterCallsEnabled',
+          // Loyalty config (admin/customers.js — Phase 4, 22 May 2026).
+          // Pure config the owner sets in the CRM page: master switch,
+          // earn rate (points per ₹100), and rupee value per point for
+          // the "worth" display. No security impact — just affects the
+          // derived points maths in lib/db.js loyaltyFor().
+          'loyaltyEnabled', 'pointsPer100', 'pointValue',
           // Onboarding (admin/index.js)
           'onboardingComplete',
           // Counter incremented by lib/db.js submitRequestAndPublish()
@@ -569,6 +575,25 @@ service cloud.firestore {
         allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
       match /purchaseOrders/{poId} {
+        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
+      // ── Customers / CRM (Phase 4, 22 May 2026) ──────────────────
+      // Customer registry keyed by phone (PII: name/phone/email +
+      // visit/spend history + loyalty points). Admin + superadmin only
+      // — NEVER public, NEVER staff. The /api/crm/sync endpoint writes
+      // here via the Admin SDK (bypasses these rules); the admin client
+      // does manual add/edit + points adjustments through lib/db.js.
+      match /customers/{phone} {
+        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
+      // ── Campaigns (marketing history — Phase 5, 22 May 2026) ────
+      // Saved marketing sends (title, message, channel, audience,
+      // counts). No customer PII stored on the campaign doc itself, but
+      // it's business data — admin + superadmin only. The capped email
+      // blast runs server-side via /api/crm/campaign-email (Admin SDK).
+      match /campaigns/{campaignId} {
         allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
