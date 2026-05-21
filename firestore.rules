@@ -535,6 +535,17 @@ service cloud.firestore {
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
+      // ── Reservations (table booking — Phase 2 #8, 20 May 2026) ──
+      // Customers book via /api/reservation/create (Admin SDK, bypasses
+      // these rules + rate-limited), so there's NO public client create
+      // — default-deny handles that. Admin/superadmin manage; staff read
+      // (host/waiter sees the day's bookings). Contains customer PII
+      // (name/phone) so never public-readable.
+      match /reservations/{resId} {
+        allow read:  if isRestaurantAdmin(restaurantId) || isStaff(restaurantId) || isSuperAdmin();
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
       // ── Day Closes (Z-report snapshots — Phase 1b, 20 May 2026) ──
       // Frozen end-of-day reconciliation records (cash float, sales by
       // mode, tax, variance). Financial data — admin + superadmin only,
