@@ -3,15 +3,17 @@
 // breakdown, refunds, and a cash-drawer reconciliation section with printable
 // Z-report output.
 //
-// This is the first cut — no shift records are persisted yet (so variance
-// isn't historical). For v1.1, we can store a daily close doc with the cash
-// counts for audit.
+// Phase 1b (20 May 2026): closes can now be PERSISTED + LOCKED. Saving a
+// day writes a frozen snapshot to dayCloses/{YYYY-MM-DD}; the day shows
+// as locked (read-only figures) until reopened. A history strip lists
+// recent closes.
 import Head from 'next/head';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getOrders, todayKey } from '../../lib/db';
+import { getOrders, todayKey, saveDayClose, getDayClose, getDayCloses, reopenDay } from '../../lib/db';
 import PageHead from '../../components/PageHead';
+import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
@@ -86,6 +88,12 @@ export default function AdminDayClose() {
   const [selectedDate, setSelectedDate] = useState(() => todayKey());
   const isToday = selectedDate === todayKey();
 
+  // Phase 1b — persisted close state.
+  const [closeDoc, setCloseDoc] = useState(null);   // saved snapshot for selectedDate, or null
+  const [closeBusy, setCloseBusy] = useState(false);
+  const [history, setHistory] = useState([]);
+  const locked = !!closeDoc?.locked;
+
   useEffect(() => {
     if (!rid) return;
     setLoading(true);
@@ -93,6 +101,23 @@ export default function AdminDayClose() {
       .then(data => { setOrders(data || []); setLoading(false); })
       .catch(err => { console.error('day-close load:', err); setLoading(false); });
   }, [rid]);
+
+  // Load the persisted close for the selected day + the history list.
+  const loadCloseState = async () => {
+    if (!rid) return;
+    try {
+      const [d, h] = await Promise.all([getDayClose(rid, selectedDate), getDayCloses(rid, 30)]);
+      setCloseDoc(d);
+      setHistory(h);
+      // When a day is locked, the cash counts are part of the frozen
+      // record — show those exact figures.
+      if (d?.locked) {
+        setOpeningCash(d.openingCash != null ? String(d.openingCash) : '');
+        setClosingCash(d.closingCash != null ? String(d.closingCash) : '');
+      }
+    } catch (e) { console.error('day-close state load:', e); }
+  };
+  useEffect(() => { loadCloseState(); /* eslint-disable-next-line */ }, [rid, selectedDate]);
 
   // ─── Orders scoped to the selected day ───
   const dayOrders = useMemo(() => {
@@ -148,6 +173,38 @@ export default function AdminDayClose() {
 
   const printZReport = () => {
     if (typeof window !== 'undefined') window.print();
+  };
+
+  // Persist + lock the day. Freezes the cash counts + summary so the
+  // record is auditable later even as live orders change.
+  const handleCloseDay = async () => {
+    if (!rid) return;
+    setCloseBusy(true);
+    try {
+      await saveDayClose(rid, selectedDate, {
+        openingCash: opening,
+        closingCash: closing,
+        expectedCash,
+        cashVariance,
+        summary,
+      });
+      toast.success(`Day ${selectedDate} closed & locked`);
+      await loadCloseState();
+    } catch (e) {
+      toast.error('Could not close day: ' + (e?.message || 'error'));
+    } finally { setCloseBusy(false); }
+  };
+
+  const handleReopenDay = async () => {
+    if (!rid) return;
+    setCloseBusy(true);
+    try {
+      await reopenDay(rid, selectedDate);
+      toast.success(`Day ${selectedDate} reopened`);
+      await loadCloseState();
+    } catch (e) {
+      toast.error('Could not reopen: ' + (e?.message || 'error'));
+    } finally { setCloseBusy(false); }
   };
 
   return (
@@ -234,16 +291,51 @@ export default function AdminDayClose() {
               <button
                 onClick={printZReport}
                 style={{
-                  padding: '10px 18px', borderRadius: 10, border: 'none',
-                  background: A.ink, color: A.cream,
+                  padding: '10px 18px', borderRadius: 10, border: A.borderStrong,
+                  background: A.shell, color: A.ink,
                   fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
                 }}>
                 Print Z-report →
               </button>
+              {locked ? (
+                <button
+                  onClick={handleReopenDay}
+                  disabled={closeBusy}
+                  className="no-print"
+                  style={{
+                    padding: '10px 18px', borderRadius: 10, border: A.borderStrong,
+                    background: A.shell, color: A.danger,
+                    fontSize: 13, fontWeight: 600, fontFamily: A.font,
+                    cursor: closeBusy ? 'not-allowed' : 'pointer', opacity: closeBusy ? 0.6 : 1,
+                  }}>
+                  Reopen day
+                </button>
+              ) : (
+                <button
+                  onClick={handleCloseDay}
+                  disabled={closeBusy}
+                  className="no-print"
+                  style={{
+                    padding: '10px 18px', borderRadius: 10, border: 'none',
+                    background: A.ink, color: A.cream,
+                    fontSize: 13, fontWeight: 600, fontFamily: A.font,
+                    cursor: closeBusy ? 'not-allowed' : 'pointer', opacity: closeBusy ? 0.6 : 1,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                  }}>
+                  {closeBusy ? 'Closing…' : 'Close & lock day'}
+                </button>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Locked banner — day has a frozen snapshot */}
+        {locked && (
+          <div className="no-print" style={{ margin: '0 28px 16px', padding: '12px 18px', background: 'rgba(63,158,90,0.10)', border: '1px solid rgba(63,158,90,0.28)', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#2C7A47', fontWeight: 600 }}>
+            <span style={{ fontSize: 15 }}>🔒</span>
+            This day is closed &amp; locked. The figures below are the frozen record. Reopen to recount.
+          </div>
+        )}
 
         {/* Printable area starts here */}
         <div className="z-report-printable" style={{ padding: '0 28px 60px' }}>
@@ -344,10 +436,10 @@ export default function AdminDayClose() {
                     <input
                       type="number" inputMode="decimal" value={openingCash}
                       onChange={e => setOpeningCash(e.target.value)} placeholder="0"
-                      className="no-print"
+                      className="no-print" disabled={locked} readOnly={locked}
                       style={{
                         width: '100%', padding: '12px 14px', boxSizing: 'border-box',
-                        background: A.shell, border: A.borderStrong, borderRadius: 10,
+                        background: locked ? A.subtleBg : A.shell, border: A.borderStrong, borderRadius: 10,
                         fontSize: 16, color: A.ink, fontFamily: "'JetBrains Mono', monospace", outline: 'none',
                       }}
                     />
@@ -359,10 +451,10 @@ export default function AdminDayClose() {
                     <input
                       type="number" inputMode="decimal" value={closingCash}
                       onChange={e => setClosingCash(e.target.value)} placeholder="0"
-                      className="no-print"
+                      className="no-print" disabled={locked} readOnly={locked}
                       style={{
                         width: '100%', padding: '12px 14px', boxSizing: 'border-box',
-                        background: A.shell, border: A.borderStrong, borderRadius: 10,
+                        background: locked ? A.subtleBg : A.shell, border: A.borderStrong, borderRadius: 10,
                         fontSize: 16, color: A.ink, fontFamily: "'JetBrains Mono', monospace", outline: 'none',
                       }}
                     />
@@ -404,6 +496,37 @@ export default function AdminDayClose() {
               <div style={{ fontSize: 11, color: A.faintText, textAlign: 'center', marginTop: 18 }}>
                 Z-report · {new Date().toLocaleString('en-IN')} · Printed from HaloHelm admin
               </div>
+
+              {/* Past closes — history strip (Phase 1b). Hidden in print. */}
+              {history.length > 0 && (
+                <div className="no-print" style={{ marginTop: 24, background: A.shell, border: A.border, borderRadius: 14, padding: '18px 20px', boxShadow: A.cardShadow }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: A.ink, marginBottom: 12 }}>Recent closes</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {history.map(h => {
+                      const v = Number(h.cashVariance) || 0;
+                      const vColor = Math.abs(v) < 1 ? A.success : v > 0 ? A.warningDim : A.danger;
+                      return (
+                        <button key={h.id} onClick={() => setSelectedDate(h.dateKey)}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                            padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                            background: h.dateKey === selectedDate ? A.subtleBg : 'transparent',
+                            fontFamily: A.font, textAlign: 'left',
+                          }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: A.ink }}>{formatLongDate(h.dateKey)}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <span style={{ fontSize: 12, color: A.mutedText }}>{formatRupee(h.summary?.grossRevenue || 0)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: vColor, minWidth: 64, textAlign: 'right', fontFamily: "'JetBrains Mono', monospace" }}>
+                              {v === 0 ? '₹0' : (v > 0 ? '+' : '') + formatRupee(v)}
+                            </span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: A.success }}>🔒</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

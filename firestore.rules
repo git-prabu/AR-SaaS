@@ -535,6 +535,14 @@ service cloud.firestore {
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
+      // ── Day Closes (Z-report snapshots — Phase 1b, 20 May 2026) ──
+      // Frozen end-of-day reconciliation records (cash float, sales by
+      // mode, tax, variance). Financial data — admin + superadmin only,
+      // never staff, never public.
+      match /dayCloses/{dateKey} {
+        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
       // ── Tables (floor-plan registry — Phase 0, 20 May 2026) ──
       // Physical tables: { label, code, areaId, capacity, sortOrder }.
       // `code` is the QR identity → maps to tableSessions/{code} and
