@@ -23,10 +23,10 @@ import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/f
 import {
   createArea, updateArea, deleteArea,
   createTable, updateTable, deleteTable,
-  markKotPrinted, getRestaurantById,
-  getOrCreateCaptainBill, attachOrderToBill,
+  markKotPrinted, markBillPrinted, getRestaurantById,
+  getOrCreateCaptainBill, attachOrderToBill, markOrderPaid,
 } from '../../lib/db';
-import { printKot } from '../../lib/printKot';
+import { printKot, printBill } from '../../lib/printKot';
 import NewOrderModal from '../../components/NewOrderModal';
 import toast from 'react-hot-toast';
 
@@ -97,8 +97,10 @@ export default function AdminTables() {
   const [orderModalTable, setOrderModalTable] = useState(null); // { code, label } → captain order modal open
 
   const sessionCodes = useMemo(() => Object.keys(sessions), [sessions]);
-  const [restaurantName, setRestaurantName] = useState('');
-  useEffect(() => { if (rid) getRestaurantById(rid).then(r => setRestaurantName(r?.name || '')).catch(() => {}); }, [rid]);
+  const [restaurant, setRestaurant] = useState(null);
+  const restaurantName = restaurant?.name || '';
+  const [payBusy, setPayBusy] = useState(false);
+  useEffect(() => { if (rid) getRestaurantById(rid).then(r => setRestaurant(r || null)).catch(() => {}); }, [rid]);
 
   // Print a combined KOT for everything currently on a table's bill,
   // then stamp the bill so the grid flips to gold "Running KOT".
@@ -231,6 +233,37 @@ export default function AdminTables() {
     } finally {
       setImporting(false);
     }
+  };
+
+  // Print the customer bill (prices + tax) + stamp billPrintedAt so the
+  // table flips to green "Printed".
+  const handlePrintBill = (table, state) => {
+    const orders = state?.orders || [];
+    if (orders.length === 0) { toast.error('Nothing to bill on this table'); return; }
+    const ok = printBill(orders, { restaurant, tableLabel: table.code || table.label });
+    if (!ok) { toast.error('Allow pop-ups to print the bill'); return; }
+    if (state.billId) markBillPrinted(rid, state.billId).catch(() => {});
+  };
+
+  // Settle the table: mark every live order paid_<method>. markOrderPaid
+  // auto-closes the bill + clears the session once all are paid, so the
+  // table returns to Blank. Closes the detail panel after.
+  const handleMarkPaid = async (table, state, method) => {
+    const orders = state?.orders || [];
+    const PAID = new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']);
+    const unpaid = orders.filter(o => !PAID.has(o.paymentStatus));
+    if (unpaid.length === 0) { toast.error('Already settled'); return; }
+    setPayBusy(true);
+    try {
+      const status = `paid_${method}`; // paid_cash | paid_card | paid_online
+      for (const o of unpaid) {
+        await markOrderPaid(rid, o.id, status);
+      }
+      toast.success(`${table.label} settled (${method})`);
+      setDetailTable(null);
+    } catch (e) {
+      toast.error('Could not settle: ' + (e?.message || 'error'));
+    } finally { setPayBusy(false); }
   };
 
   const tablesByArea = useMemo(() => {
@@ -725,13 +758,29 @@ export default function AdminTables() {
                   </button>
                   <button onClick={() => handlePrintKot(detailTable, st)}
                     style={{ ...btnGhost, flex: 1, justifyContent: 'center', padding: '11px 14px' }}>
-                    🖨 Print KOT
+                    🖨 KOT
+                  </button>
+                  <button onClick={() => handlePrintBill(detailTable, st)}
+                    style={{ ...btnGhost, flex: 1, justifyContent: 'center', padding: '11px 14px' }}>
+                    🧾 Bill
                   </button>
                 </div>
-                <a href="/admin/orders" style={{ ...btnGhost, width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px 14px', boxSizing: 'border-box' }}>Open in Orders →</a>
-                <div style={{ fontSize: 11, color: A.faintText, textAlign: 'center', marginTop: 10 }}>
-                  Tap a free table or "Add items" to take an order. Print bill + take-payment arrive next.
+                {/* Take payment — settles the whole table */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '6px 0 6px' }}>Settle table</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[['cash', 'Cash'], ['card', 'Card'], ['online', 'UPI']].map(([m, label]) => (
+                    <button key={m} disabled={payBusy}
+                      onClick={() => handleMarkPaid(detailTable, st, m)}
+                      style={{
+                        flex: 1, justifyContent: 'center', padding: '11px 14px', borderRadius: 9,
+                        border: 'none', cursor: payBusy ? 'not-allowed' : 'pointer', fontFamily: A.font,
+                        fontSize: 13, fontWeight: 700, background: A.success, color: '#fff', opacity: payBusy ? 0.6 : 1,
+                      }}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
+                <a href="/admin/orders" style={{ ...btnGhost, width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px 14px', boxSizing: 'border-box', marginTop: 8 }}>Open in Orders →</a>
               </div>
             </div>
           </div>
