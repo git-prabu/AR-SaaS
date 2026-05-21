@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
-import { getStaffMembers, getRestaurantById } from '../../lib/db';
+import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas } from '../../lib/db';
 import toast from 'react-hot-toast';
 import { auth } from '../../lib/firebaseAuth';
 
@@ -179,6 +179,10 @@ export default function StaffManagement() {
   // QR modal
   const [qrOpen, setQrOpen] = useState(false);
 
+  // Phase 0 step 5 — areas for the per-waiter access-control chips.
+  const [areas, setAreas] = useState([]);
+  const [areaSavingId, setAreaSavingId] = useState(null);
+
   // Filter + search
   const [filter, setFilter] = useState('all'); // 'all' | 'kitchen' | 'waiter' | 'inactive'
   const [search, setSearch] = useState('');
@@ -229,6 +233,31 @@ export default function StaffManagement() {
     setLoading(false);
   };
   useEffect(() => { reload(); }, [rid]);
+
+  // Load areas for the waiter access-control chips.
+  useEffect(() => {
+    if (!rid) return;
+    getAreas(rid).then(setAreas).catch(() => setAreas([]));
+  }, [rid]);
+
+  // Toggle one area on/off for a waiter. Empty list = all areas.
+  const toggleStaffArea = async (staffMember, areaId) => {
+    const current = Array.isArray(staffMember.assignedAreas) ? staffMember.assignedAreas : [];
+    const next = current.includes(areaId)
+      ? current.filter(a => a !== areaId)
+      : [...current, areaId];
+    setAreaSavingId(staffMember.id);
+    // Optimistic local update so the chips respond instantly.
+    setStaff(prev => prev.map(s => s.id === staffMember.id ? { ...s, assignedAreas: next } : s));
+    try {
+      await setStaffAreas(rid, staffMember.id, next);
+    } catch (e) {
+      toast.error('Could not update areas: ' + (e?.message || 'error'));
+      reload(); // revert to server truth on failure
+    } finally {
+      setAreaSavingId(null);
+    }
+  };
 
   // Auto-clear banner after 3s
   useEffect(() => {
@@ -727,6 +756,37 @@ export default function StaffManagement() {
                       <div style={{ fontSize: 12, color: A.mutedText, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                         <span>Username: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: A.ink, fontWeight: 600 }}>{s.username}</span></span>
                       </div>
+
+                      {/* Phase 0 step 5 — area access control (waiters only).
+                          No selection = all areas. Kitchen staff see every
+                          order regardless, so no area chips for them. */}
+                      {s.role === 'waiter' && areas.length > 0 && (() => {
+                        const assigned = Array.isArray(s.assignedAreas) ? s.assignedAreas : [];
+                        const allAreas = assigned.length === 0;
+                        return (
+                          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase', marginRight: 2 }}>Areas:</span>
+                            {areas.map(a => {
+                              const on = allAreas || assigned.includes(a.id);
+                              return (
+                                <button key={a.id} onClick={() => toggleStaffArea(s, a.id)} disabled={areaSavingId === s.id}
+                                  title={allAreas ? 'Currently: all areas. Click to limit to this area.' : (on ? 'Click to remove this area' : 'Click to add this area')}
+                                  style={{
+                                    padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontFamily: A.font,
+                                    fontSize: 11, fontWeight: 600,
+                                    border: `1px solid ${on && !allAreas ? A.warningDim : 'rgba(0,0,0,0.12)'}`,
+                                    background: on && !allAreas ? 'rgba(196,168,109,0.16)' : 'transparent',
+                                    color: on && !allAreas ? A.warningDim : A.mutedText,
+                                    opacity: allAreas ? 0.5 : 1,
+                                  }}>{a.name}</button>
+                              );
+                            })}
+                            <span style={{ fontSize: 11, color: A.faintText, marginLeft: 2 }}>
+                              {allAreas ? '(all areas)' : `(${assigned.length} selected)`}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Actions */}

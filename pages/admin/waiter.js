@@ -107,6 +107,12 @@ export default function WaiterDashboard() {
   // Data
   const [allCalls, setAllCalls] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
+  // Phase 0 step 5 — area access control. myAreas = the logged-in
+  // waiter's assigned areas (null = no restriction / admin / all).
+  // tablesList maps a table's code → its area so we can scope the
+  // action queue to the waiter's section.
+  const [myAreas, setMyAreas] = useState(null);
+  const [tablesList, setTablesList] = useState([]);
 
   // UI / action state
   const [resolvingId, setResolvingId] = useState(null); // id of the call/order currently being acted on
@@ -177,6 +183,10 @@ export default function WaiterDashboard() {
       staffRef,
       async (snap) => {
         hasReceivedSnapshot = true;
+        // Capture this waiter's assigned areas (step 5) BEFORE the
+        // validity early-return below. Empty/missing = all areas.
+        const aa = snap.exists() ? snap.data()?.assignedAreas : null;
+        setMyAreas(Array.isArray(aa) && aa.length > 0 ? aa : null);
         const stillValid = snap.exists() && snap.data()?.isActive !== false;
         if (stillValid) return;
         try { localStorage.removeItem('ar_staff_session'); } catch {}
@@ -250,6 +260,36 @@ export default function WaiterDashboard() {
       setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, err => console.error('Waiter orders listener error:', err));
   }, [rid, isAdmin]);
+
+  // Tables registry — to map an order/call's tableNumber → its area
+  // for the step-5 area scope filter. Cheap (config data, changes rarely).
+  useEffect(() => {
+    if (!rid) return;
+    const firestore = isAdmin ? db : staffDb;
+    return onSnapshot(collection(firestore, 'restaurants', rid, 'tables'),
+      snap => setTablesList(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      () => {});
+  }, [rid, isAdmin]);
+
+  // code (lowercased) → areaId
+  const areaByCode = useMemo(() => {
+    const m = {};
+    for (const t of tablesList) if (t.code) m[String(t.code).toLowerCase()] = t.areaId || null;
+    return m;
+  }, [tablesList]);
+
+  // Is a queue item within this waiter's assigned areas? Admins + waiters
+  // with no restriction see everything. Takeaway / unspecified / unregistered
+  // tables are always shown (they have no area to gate on).
+  const inScope = useMemo(() => (item) => {
+    if (isAdmin || !myAreas) return true;
+    if (item.isTakeaway) return true;
+    const code = String(item.table || '').trim().toLowerCase();
+    if (!code || code === '—' || code === 'not specified') return true;
+    const areaId = areaByCode[code];
+    if (!areaId) return true;          // unregistered table → don't hide
+    return myAreas.includes(areaId);
+  }, [isAdmin, myAreas, areaByCode]);
 
   // ═══ Unified action queue ═══
   // Merges pending waiter calls + ready-status orders + payment-requested
@@ -355,8 +395,12 @@ export default function WaiterDashboard() {
         };
       });
     // Sort oldest first — that's the action priority across all three types.
-    return [...calls, ...serves, ...payments].sort((a, b) => (a.seconds || 0) - (b.seconds || 0));
-  }, [allCalls, allOrders]);
+    // Step 5: scope to the waiter's assigned areas (no-op for admins /
+    // unrestricted waiters).
+    return [...calls, ...serves, ...payments]
+      .filter(inScope)
+      .sort((a, b) => (a.seconds || 0) - (b.seconds || 0));
+  }, [allCalls, allOrders, inScope]);
 
   const callsCount = actionQueue.filter(i => i.type === 'call').length;
   const servesCount = actionQueue.filter(i => i.type === 'serve').length;
