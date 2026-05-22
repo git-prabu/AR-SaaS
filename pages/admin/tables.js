@@ -75,6 +75,9 @@ const STATUS = {
   kot:     { key: 'kot',     label: 'Running KOT', bg: '#FBE7C2', bd: '#E6C684',          fg: '#8A6A1E',          dot: '#E0A52E' },
   printed: { key: 'printed', label: 'Printed',     bg: '#D6EEDC', bd: '#A2D3B0',          fg: '#2C7A47',          dot: '#3F9E5A' },
   paid:    { key: 'paid',    label: 'Paid',        bg: '#FCF4C6', bd: '#E6D789',          fg: '#897619',          dot: '#C9B23E' },
+  // Phase 7 — occupied via the waitlist ("Seated") but no order placed
+  // yet. Distinct violet so it reads apart from running (blue).
+  seated:  { key: 'seated',  label: 'Seated',      bg: '#EAE7F7', bd: '#C9C0EC',          fg: '#5B4FA8',          dot: '#7B6CD8' },
 };
 
 export default function AdminTables() {
@@ -342,7 +345,18 @@ export default function AdminTables() {
       }
       const liveOrders = Object.values(map);
 
-      if (liveOrders.length === 0) { out[t.id] = { status: STATUS.blank, billId: billId || null, orderCount: 0, itemCount: 0, total: 0 }; continue; }
+      if (liveOrders.length === 0) {
+        // No orders yet. If a host seated a waitlist party here (the
+        // session carries a seatedAt hold), show it as occupied "Seated"
+        // until the order is taken or the table is freed; otherwise Blank.
+        if (session?.seatedAt) {
+          out[t.id] = { status: STATUS.seated, billId: billId || null, orderCount: 0, itemCount: 0, total: 0, orders: [],
+            seatedName: session.seatedName || '', seatedPartySize: session.seatedPartySize || 0 };
+        } else {
+          out[t.id] = { status: STATUS.blank, billId: billId || null, orderCount: 0, itemCount: 0, total: 0 };
+        }
+        continue;
+      }
 
       const total     = liveOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
       const itemCount = liveOrders.reduce((s, o) => s + (Array.isArray(o.items) ? o.items.length : 0), 0);
@@ -360,7 +374,7 @@ export default function AdminTables() {
   }, [tables, sessions, bills, ordersById, allOrdersList]);
 
   const statusCounts = useMemo(() => {
-    const c = { running: 0, kot: 0, printed: 0, paid: 0, blank: 0 };
+    const c = { running: 0, kot: 0, printed: 0, paid: 0, seated: 0, blank: 0 };
     Object.values(statesByTable).forEach(s => { c[s.status.key] = (c[s.status.key] || 0) + 1; });
     return c;
   }, [statesByTable]);
@@ -546,9 +560,15 @@ export default function AdminTables() {
                             {busy ? (
                               <div>
                                 <div style={{ fontSize: 11.5, fontWeight: 700, color: s.fg, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{s.label}</div>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, marginTop: 2 }}>
-                                  ₹{Math.round(st.total)}{st.itemCount ? <span style={{ fontWeight: 600, color: A.mutedText, fontSize: 11 }}> · {st.itemCount} item{st.itemCount === 1 ? '' : 's'}</span> : null}
-                                </div>
+                                {s.key === 'seated' ? (
+                                  <div style={{ fontSize: 12.5, fontWeight: 700, color: A.ink, marginTop: 2 }}>
+                                    {st.seatedName || 'Guest'}{st.seatedPartySize ? <span style={{ fontWeight: 600, color: A.mutedText, fontSize: 11 }}> · {st.seatedPartySize} pax</span> : null}
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, marginTop: 2 }}>
+                                    ₹{Math.round(st.total)}{st.itemCount ? <span style={{ fontWeight: 600, color: A.mutedText, fontSize: 11 }}> · {st.itemCount} item{st.itemCount === 1 ? '' : 's'}</span> : null}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div style={{ fontSize: 11.5, fontWeight: 600, color: A.faintText }}>{t.capacity || 4} seats · tap to order</div>
@@ -757,7 +777,11 @@ export default function AdminTables() {
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px' }}>
                 {orders.length === 0 ? (
-                  <div style={{ color: A.mutedText, fontSize: 14, paddingTop: 20, textAlign: 'center' }}>No live orders on this table.</div>
+                  <div style={{ color: A.mutedText, fontSize: 14, paddingTop: 20, textAlign: 'center', lineHeight: 1.6 }}>
+                    {st.status.key === 'seated'
+                      ? <>Seated{st.seatedName ? `: ${st.seatedName}` : ''}{st.seatedPartySize ? ` · ${st.seatedPartySize} guest${st.seatedPartySize === 1 ? '' : 's'}` : ''}.<br />Tap “+ Add items” to take their order.</>
+                      : 'No live orders on this table.'}
+                  </div>
                 ) : orders.map((o, oi) => (
                   <div key={o.id} style={{ marginBottom: 16, paddingBottom: 14, borderBottom: oi < orders.length - 1 ? A.border : 'none' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: A.mutedText, marginBottom: 6, fontWeight: 600 }}>
@@ -794,9 +818,9 @@ export default function AdminTables() {
                     🧾 Bill
                   </button>
                 </div>
-                {/* Settle when there's a balance; once fully paid, the
-                    table shows a "Free table" button to clear it to Blank. */}
-                {st.status.key === 'paid' ? (
+                {/* Settle when there's a balance; once fully paid (or just
+                    seated with no order yet), show "Free table" to clear it. */}
+                {(st.status.key === 'paid' || st.status.key === 'seated') ? (
                   <button disabled={payBusy} onClick={() => handleFreeTable(detailTable, st)}
                     style={{
                       width: '100%', boxSizing: 'border-box', justifyContent: 'center', padding: '12px 14px', borderRadius: 9,

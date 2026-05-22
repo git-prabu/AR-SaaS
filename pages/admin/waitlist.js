@@ -15,7 +15,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import {
-  createWaitlistEntry, setWaitlistStatus, deleteWaitlistEntry, getTables,
+  createWaitlistEntry, setWaitlistStatus, deleteWaitlistEntry, getTables, markTableSeated,
 } from '../../lib/db';
 import toast from 'react-hot-toast';
 
@@ -176,6 +176,9 @@ export default function AdminWaitlist() {
     setBusyId(entry.id);
     try {
       await setWaitlistStatus(rid, entry.id, 'seated', { tableCode: seatTable || null });
+      // Mark the chosen table occupied so it shows as "Seated" in the
+      // Table View until an order is taken (or the table is freed).
+      if (seatTable) await markTableSeated(rid, seatTable, { name: entry.name, partySize: entry.partySize });
       toast.success(`${entry.name || 'Party'} seated${seatTable ? ` at ${seatTable}` : ''}`);
     } catch (err) {
       toast.error('Could not seat: ' + (err?.message || 'error'));
