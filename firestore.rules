@@ -552,6 +552,16 @@ service cloud.firestore {
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
+      // ── Waitlist / host stand (Phase 7, 22 May 2026) ────────────
+      // Walk-in queue (name / phone / party size) for when the floor is
+      // full. Contains customer PII so it's NEVER public. Admin manages
+      // it from /admin/waitlist; staff can read (a future host view).
+      // Same trust tier + shape as reservations above.
+      match /waitlist/{entryId} {
+        allow read:  if isRestaurantAdmin(restaurantId) || isStaff(restaurantId) || isSuperAdmin();
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
       // ── Day Closes (Z-report snapshots — Phase 1b, 20 May 2026) ──
       // Frozen end-of-day reconciliation records (cash float, sales by
       // mode, tax, variance). Financial data — admin + superadmin only,
