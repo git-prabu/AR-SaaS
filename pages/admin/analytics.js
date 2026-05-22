@@ -395,7 +395,9 @@ export default function AdminAnalytics() {
   ordersInRange.forEach(o => {
     if (!o.customerPhone) return;
     const d = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt || Date.now()));
-    const key = d.toISOString().slice(5, 10);
+    // Local (IST) MM-DD so customers-by-day lines up with the visits chart
+    // (keyed from IST-dated analytics docs) and Reports — same UTC fix.
+    const key = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     if (!phonesByDay[key]) phonesByDay[key] = new Set();
     phonesByDay[key].add(o.customerPhone);
   });
@@ -419,7 +421,12 @@ export default function AdminAnalytics() {
     // Hourly keys sort correctly because they're zero-padded 2-digit strings ("00"…"23").
     const key = isTodayChart
       ? String(d.getHours()).padStart(2, '0')
-      : d.toISOString().slice(5, 10);
+      // Local (IST) MM-DD — NOT toISOString(), which buckets by UTC and
+      // mis-files 00:00–05:30 IST orders onto the previous calendar day
+      // (this was the Analytics-vs-Reports daily revenue mismatch). This
+      // now matches the padding keys below + Reports + todayKey()'s IST
+      // convention used everywhere else in the app.
+      : `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     if (!revByBucket[key]) revByBucket[key] = { date: key, revenue: 0, orders: 0 };
     revByBucket[key].revenue += o.total || 0; revByBucket[key].orders += 1;
   });

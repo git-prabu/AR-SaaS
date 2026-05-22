@@ -25,6 +25,7 @@ import {
   createTable, updateTable, deleteTable,
   markKotPrinted, markBillPrinted, getRestaurantById,
   getOrCreateCaptainBill, attachOrderToBill, markOrderPaid,
+  linkOrderToBill, freeTableSession, updateOrderStatus,
 } from '../../lib/db';
 import { printKot, printBill } from '../../lib/printKot';
 import NewOrderModal from '../../components/NewOrderModal';
@@ -126,6 +127,10 @@ export default function AdminTables() {
     try {
       const billId = await getOrCreateCaptainBill(rid, tableCode);
       await attachOrderToBill(rid, billId, orderId);
+      // Stamp billId onto the order doc too, so markOrderPaid's auto-close
+      // (which finds the bill via order.billId) frees the table on settle
+      // from ANY screen — not just the explicit Table View path below.
+      await linkOrderToBill(rid, orderId, billId);
     } catch (e) {
       // The order itself was created; only the bill link failed. The
       // tableNumber-match fallback still shows it as Running, so this is
@@ -245,24 +250,48 @@ export default function AdminTables() {
     if (state.billId) markBillPrinted(rid, state.billId).catch(() => {});
   };
 
-  // Settle the table: mark every live order paid_<method>. markOrderPaid
-  // auto-closes the bill + clears the session once all are paid, so the
-  // table returns to Blank. Closes the detail panel after.
+  // Release a table back to Blank: mark each order served (so bill-less
+  // waiter/admin orders drop out of the live view) + close the bill +
+  // clear the session pointer (so captain/QR bill tables clear too).
+  // Shared by the settle flow and the "Free table" button.
+  const releaseTable = async (table, orders, billId) => {
+    await Promise.all((orders || []).map(o =>
+      o.status === 'served' ? null : updateOrderStatus(rid, o.id, 'served').catch(() => {})
+    ));
+    await freeTableSession(rid, table.code, billId);
+  };
+
+  // Settle the table: mark every unpaid order paid_<method>, then release
+  // the table so it returns to Blank for the next guest.
   const handleMarkPaid = async (table, state, method) => {
     const orders = state?.orders || [];
+    if (orders.length === 0) { toast.error('Nothing to settle on this table'); return; }
     const PAID = new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']);
     const unpaid = orders.filter(o => !PAID.has(o.paymentStatus));
-    if (unpaid.length === 0) { toast.error('Already settled'); return; }
     setPayBusy(true);
     try {
-      const status = `paid_${method}`; // paid_cash | paid_card | paid_online
-      for (const o of unpaid) {
-        await markOrderPaid(rid, o.id, status);
+      if (unpaid.length > 0) {
+        const status = `paid_${method}`; // paid_cash | paid_card | paid_online
+        for (const o of unpaid) await markOrderPaid(rid, o.id, status);
       }
-      toast.success(`${table.label} settled (${method})`);
+      await releaseTable(table, orders, state.billId);
+      toast.success(`${table.label} settled${unpaid.length ? ` (${method})` : ''}`);
       setDetailTable(null);
     } catch (e) {
       toast.error('Could not settle: ' + (e?.message || 'error'));
+    } finally { setPayBusy(false); }
+  };
+
+  // Free an already-settled (or otherwise fully-paid) table without
+  // taking another payment — clears a stuck "Paid" state back to Blank.
+  const handleFreeTable = async (table, state) => {
+    setPayBusy(true);
+    try {
+      await releaseTable(table, state?.orders || [], state?.billId);
+      toast.success(`${table.label} cleared`);
+      setDetailTable(null);
+    } catch (e) {
+      toast.error('Could not clear: ' + (e?.message || 'error'));
     } finally { setPayBusy(false); }
   };
 
@@ -765,21 +794,35 @@ export default function AdminTables() {
                     🧾 Bill
                   </button>
                 </div>
-                {/* Take payment — settles the whole table */}
-                <div style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '6px 0 6px' }}>Settle table</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[['cash', 'Cash'], ['card', 'Card'], ['online', 'UPI']].map(([m, label]) => (
-                    <button key={m} disabled={payBusy}
-                      onClick={() => handleMarkPaid(detailTable, st, m)}
-                      style={{
-                        flex: 1, justifyContent: 'center', padding: '11px 14px', borderRadius: 9,
-                        border: 'none', cursor: payBusy ? 'not-allowed' : 'pointer', fontFamily: A.font,
-                        fontSize: 13, fontWeight: 700, background: A.success, color: '#fff', opacity: payBusy ? 0.6 : 1,
-                      }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                {/* Settle when there's a balance; once fully paid, the
+                    table shows a "Free table" button to clear it to Blank. */}
+                {st.status.key === 'paid' ? (
+                  <button disabled={payBusy} onClick={() => handleFreeTable(detailTable, st)}
+                    style={{
+                      width: '100%', boxSizing: 'border-box', justifyContent: 'center', padding: '12px 14px', borderRadius: 9,
+                      border: 'none', cursor: payBusy ? 'not-allowed' : 'pointer', fontFamily: A.font,
+                      fontSize: 13.5, fontWeight: 700, background: A.ink, color: A.cream, opacity: payBusy ? 0.6 : 1,
+                    }}>
+                    ✓ Free table — clear for next guest
+                  </button>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '6px 0 6px' }}>Settle table</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {[['cash', 'Cash'], ['card', 'Card'], ['online', 'UPI']].map(([m, label]) => (
+                        <button key={m} disabled={payBusy}
+                          onClick={() => handleMarkPaid(detailTable, st, m)}
+                          style={{
+                            flex: 1, justifyContent: 'center', padding: '11px 14px', borderRadius: 9,
+                            border: 'none', cursor: payBusy ? 'not-allowed' : 'pointer', fontFamily: A.font,
+                            fontSize: 13, fontWeight: 700, background: A.success, color: '#fff', opacity: payBusy ? 0.6 : 1,
+                          }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
                 <a href="/admin/orders" style={{ ...btnGhost, width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px 14px', boxSizing: 'border-box', marginTop: 8 }}>Open in Orders →</a>
               </div>
             </div>
