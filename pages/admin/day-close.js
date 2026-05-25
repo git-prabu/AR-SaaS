@@ -11,6 +11,8 @@ import Head from 'next/head';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import { getOrders, todayKey, saveDayClose, getDayClose, getDayCloses, reopenDay } from '../../lib/db';
 import PageHead from '../../components/PageHead';
 import toast from 'react-hot-toast';
@@ -75,8 +77,9 @@ function shiftDayKey(key, deltaDays) {
 
 export default function AdminDayClose() {
   const { userData } = useAuth();
-  const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  // RBAC: owner OR a staff member whose role grants 'dayClose'.
+  const { isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('dayClose');
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,18 +98,18 @@ export default function AdminDayClose() {
   const locked = !!closeDoc?.locked;
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     setLoading(true);
-    getOrders(rid)
+    getOrders(rid, { db: scopedDb })
       .then(data => { setOrders(data || []); setLoading(false); })
       .catch(err => { console.error('day-close load:', err); setLoading(false); });
   }, [rid]);
 
   // Load the persisted close for the selected day + the history list.
   const loadCloseState = async () => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     try {
-      const [d, h] = await Promise.all([getDayClose(rid, selectedDate), getDayCloses(rid, 30)]);
+      const [d, h] = await Promise.all([getDayClose(rid, selectedDate, { db: scopedDb }), getDayCloses(rid, 30, { db: scopedDb })]);
       setCloseDoc(d);
       setHistory(h);
       // When a day is locked, the cash counts are part of the frozen
@@ -187,7 +190,7 @@ export default function AdminDayClose() {
         expectedCash,
         cashVariance,
         summary,
-      });
+      }, { db: scopedDb });
       toast.success(`Day ${selectedDate} closed & locked`);
       await loadCloseState();
     } catch (e) {
@@ -199,7 +202,7 @@ export default function AdminDayClose() {
     if (!rid) return;
     setCloseBusy(true);
     try {
-      await reopenDay(rid, selectedDate);
+      await reopenDay(rid, selectedDate, { db: scopedDb });
       toast.success(`Day ${selectedDate} reopened`);
       await loadCloseState();
     } catch (e) {
@@ -208,7 +211,7 @@ export default function AdminDayClose() {
   };
 
   return (
-    <AdminLayout>
+    <FeatureShell isAdmin={isAdmin} active="/admin/day-close">
       <PageHead title="Day Close" />
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -531,7 +534,7 @@ export default function AdminDayClose() {
           )}
         </div>
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
