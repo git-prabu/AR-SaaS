@@ -110,7 +110,7 @@ export default function AdminReservations() {
             <div>
               <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Reservations</h1>
               <p style={{ fontSize: 13.5, color: A.mutedText, margin: '6px 0 0', lineHeight: 1.5 }}>
-                Bookings from your public page · share <code style={{ background: A.subtleBg, padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>halohelm.com/book/{userData?.restaurantId ? '{your-subdomain}' : '…'}</code>
+                Bookings from your public page · share <code style={{ background: A.subtleBg, padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>halohelm.com/book/{rid ? '{your-subdomain}' : '…'}</code>
               </p>
             </div>
             {requestedCount > 0 && (
