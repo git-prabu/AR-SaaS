@@ -15,6 +15,8 @@ import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, doc } from 'firebase/firestore';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import {
   createCustomer, updateCustomer, deleteCustomer, adjustCustomerPoints,
   loyaltyFor, updateRestaurant,
@@ -54,9 +56,11 @@ function relativeDay(iso) {
 const EMPTY = { name: '', phone: '', email: '', tags: '', notes: '', marketingOptOut: false };
 
 export default function AdminCustomers() {
-  const { user, userData, loading } = useAuth();
+  const { user, userData } = useAuth();
   const router = useRouter();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'customers'. The
+  // "Sync from orders" + loyalty-config controls stay owner-only (below).
+  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('customers');
 
   const [customers, setCustomers] = useState([]);
   const [rest, setRest] = useState(null);
@@ -75,12 +79,12 @@ export default function AdminCustomers() {
   const [cfgSaving, setCfgSaving] = useState(false);
   const [cfgOpen, setCfgOpen] = useState(false);
 
-  useEffect(() => { if (!loading && !user) router.push('/admin/login'); }, [loading, user, router]);
+  // Access + redirect handled by useFeatureAccess('customers').
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      collection(db, 'restaurants', rid, 'customers'),
+      collection(scopedDb, 'restaurants', rid, 'customers'),
       snap => { setCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoaded(true); },
       () => setLoaded(true)
     );
@@ -88,8 +92,8 @@ export default function AdminCustomers() {
   }, [rid]);
 
   useEffect(() => {
-    if (!rid) return;
-    const un = onSnapshot(doc(db, 'restaurants', rid), s => {
+    if (!rid || !canView) return;
+    const un = onSnapshot(doc(scopedDb, 'restaurants', rid), s => {
       if (!s.exists()) return;
       const d = s.data();
       setRest(d);
@@ -168,10 +172,10 @@ export default function AdminCustomers() {
     try {
       const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean).slice(0, 20);
       if (drawer.mode === 'new') {
-        await createCustomer(rid, { name: form.name, phone: form.phone, email: form.email, tags, notes: form.notes, marketingOptOut: form.marketingOptOut });
+        await createCustomer(rid, { name: form.name, phone: form.phone, email: form.email, tags, notes: form.notes, marketingOptOut: form.marketingOptOut }, { db: scopedDb });
         toast.success('Customer added');
       } else {
-        await updateCustomer(rid, drawer.phone, { name: form.name, email: form.email, tags, notes: form.notes, marketingOptOut: form.marketingOptOut });
+        await updateCustomer(rid, drawer.phone, { name: form.name, email: form.email, tags, notes: form.notes, marketingOptOut: form.marketingOptOut }, { db: scopedDb });
         toast.success('Customer updated');
       }
       setDrawer(null);
@@ -184,7 +188,7 @@ export default function AdminCustomers() {
     title: `Delete ${c.name || c.phone}?`,
     body: 'This removes the customer from your CRM (their orders are kept). You can re-sync to bring them back.',
     confirmLabel: 'Delete', destructive: true,
-    onConfirm: async () => { await deleteCustomer(rid, c.id); toast.success('Deleted'); },
+    onConfirm: async () => { await deleteCustomer(rid, c.id, { db: scopedDb }); toast.success('Deleted'); },
   });
 
   const applyPoints = async (sign) => {
@@ -193,20 +197,20 @@ export default function AdminCustomers() {
     const bal = loyaltyFor(pointsFor, cfg).balance;
     if (sign < 0 && n > bal) { toast.error(`Only ${bal} points available`); return; }
     try {
-      await adjustCustomerPoints(rid, pointsFor.id, sign * n);
+      await adjustCustomerPoints(rid, pointsFor.id, sign * n, { db: scopedDb });
       toast.success(sign > 0 ? `Added ${n} points` : `Redeemed ${n} points`);
       setPointsFor(null); setPointsInput('');
     } catch (e) { toast.error('Failed: ' + (e?.message || 'error')); }
   };
 
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell isAdmin={isAdmin} active="/admin/customers"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Customers — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell isAdmin={isAdmin} active="/admin/customers">
         <div style={{ padding: '28px 26px', maxWidth: 980, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
             <div>
@@ -216,9 +220,11 @@ export default function AdminCustomers() {
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={runSync} disabled={syncing} style={{ ...ghostBtn, padding: '10px 15px', fontSize: 13.5, opacity: syncing ? 0.6 : 1 }}>
-                {syncing ? 'Syncing…' : '↻ Sync from orders'}
-              </button>
+              {isAdmin && (
+                <button onClick={runSync} disabled={syncing} style={{ ...ghostBtn, padding: '10px 15px', fontSize: 13.5, opacity: syncing ? 0.6 : 1 }}>
+                  {syncing ? 'Syncing…' : '↻ Sync from orders'}
+                </button>
+              )}
               <button onClick={openNew} style={primaryBtn}>+ Add customer</button>
             </div>
           </div>
@@ -231,7 +237,8 @@ export default function AdminCustomers() {
             {loyaltyOn && <StatCard label="Points outstanding" value={totals.points.toLocaleString('en-IN')} accent={A.warningDim} />}
           </div>
 
-          {/* Loyalty config */}
+          {/* Loyalty config — owner-only (staff don't manage loyalty settings) */}
+          {isAdmin && (
           <div style={{ background: A.shell, border: A.border, borderRadius: 12, boxShadow: A.cardShadow, marginBottom: 18, overflow: 'hidden' }}>
             <button onClick={() => setCfgOpen(o => !o)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: INTER }}>
               <span style={{ fontSize: 14, fontWeight: 800, color: A.ink }}>
@@ -262,6 +269,7 @@ export default function AdminCustomers() {
               </div>
             )}
           </div>
+          )}
 
           {/* Search */}
           {customers.length > 0 && (
@@ -320,7 +328,7 @@ export default function AdminCustomers() {
             })}
           </div>
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       {/* Add / edit drawer */}
       {drawer && (
