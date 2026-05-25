@@ -95,7 +95,7 @@ function timeAgo(ts) {
 }
 
 // ═══ Empty form state ═══
-const emptyForm = { name: '', username: '', pin: '', role: 'kitchen' };
+const emptyForm = { name: '', username: '', pin: '', role: 'kitchen', roleId: '' };
 
 // ═══ Helper: get admin ID token for API calls ═══
 // All mutation endpoints (/api/staff/create, /api/staff/update) require
@@ -330,7 +330,7 @@ export default function StaffManagement() {
     setModal('add');
   };
   const openEdit = (s) => {
-    setForm({ name: s.name || '', username: s.username || '', pin: '', role: s.role || 'kitchen' });
+    setForm({ name: s.name || '', username: s.username || '', pin: '', role: s.role || 'kitchen', roleId: s.roleId || '' });
     setSaveError('');
     setModal(s);
   };
@@ -374,6 +374,7 @@ export default function StaffManagement() {
           username: usernameNorm,
           pin: form.pin,
           role: form.role,
+          roleId: form.roleId || null,
         });
         await reload();
         closeModal();
@@ -914,10 +915,29 @@ export default function StaffManagement() {
               </div>
               {modal !== 'add' && (
                 <div style={{ fontSize: 11, color: A.faintText, marginTop: 6 }}>
-                  Role cannot be changed. Delete and re-create to assign a different role.
+                  Station cannot be changed. Delete and re-create to assign a different station.
                 </div>
               )}
             </div>
+
+            {/* Phase 8 (RBAC) — optional custom access role, assignable at
+                creation. Grants this person a role's permissions on top of
+                their base station. For editing, use the dropdown on the card. */}
+            {modal === 'add' && rolesList.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: A.warningDim, letterSpacing: '0.10em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+                  Access role <span style={{ textTransform: 'none', fontWeight: 400, color: A.faintText }}>(optional)</span>
+                </label>
+                <select value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}
+                  style={{ ...inputStyle, cursor: 'pointer' }}>
+                  <option value="">None — station access only</option>
+                  {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: A.faintText, marginTop: 4 }}>
+                  Grants this person the permissions you ticked for that role on the Roles page.
+                </div>
+              </div>
+            )}
 
             {/* Name */}
             <FormField label="Name">

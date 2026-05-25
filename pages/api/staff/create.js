@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized', detail: e.message });
   }
 
-  const { name, username, pin, role, isActive = true } = req.body || {};
+  const { name, username, pin, role, isActive = true, roleId = null } = req.body || {};
 
   // ─── Validate ─────────────────────────────────────────────
   if (!name || typeof name !== 'string' || !name.trim()) {
@@ -92,6 +92,10 @@ export default async function handler(req, res) {
         pinHash,
         // No more `pin` field — the hashed version is the only thing stored.
         role,
+        // Phase 8 (RBAC) — optional custom access role (staffRoles doc id).
+        // Its permission list is resolved + minted into the login token by
+        // /api/staff/login. null = base station access only.
+        roleId: (typeof roleId === 'string' && roleId.trim()) ? roleId.trim() : null,
         isActive: !!isActive,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         loginCount: 0,
