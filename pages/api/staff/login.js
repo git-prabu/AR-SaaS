@@ -137,6 +137,27 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Invalid role on this account. Contact your manager.' });
   }
 
+  // ─── Resolve effective permissions (Phase 8 RBAC) ───────────────
+  // Base permission = the staffer's station (kitchen/waiter). If the owner
+  // assigned a custom access role, that role's permission list fully
+  // defines what they can reach (read from staffRoles/{roleId}). Read
+  // failures fall back to the station default — never block a valid login.
+  let perms = role === 'kitchen' ? ['kitchen'] : ['waiter'];
+  let roleId = staff.roleId || null;
+  if (roleId) {
+    try {
+      const roleSnap = await adminDb
+        .collection('restaurants').doc(restaurantId)
+        .collection('staffRoles').doc(roleId).get();
+      if (roleSnap.exists) {
+        const rp = roleSnap.data().permissions;
+        if (Array.isArray(rp)) perms = rp.filter(k => typeof k === 'string');
+      } else {
+        roleId = null; // stale assignment — fall back to station default
+      }
+    } catch { /* keep station default */ }
+  }
+
   // ─── Success. Create/refresh Firebase Auth user with custom claims ───
   let customToken;
   try {
@@ -145,6 +166,8 @@ export default async function handler(req, res) {
       staffId: staffDoc.id,
       role,
       name: staff.name || staff.username,
+      perms,
+      roleId,
     });
     const uid = `staff:${restaurantId}:${staffDoc.id}`;
     // Include claims inline too — they're already on the user, but
@@ -155,6 +178,8 @@ export default async function handler(req, res) {
       rid: restaurantId,
       staffId: staffDoc.id,
       kind: 'staff',
+      roleId: roleId || null,
+      perms,
     });
   } catch (e) {
     console.error('Custom token creation error:', e);
@@ -181,5 +206,7 @@ export default async function handler(req, res) {
     name: staff.name || staff.username,
     role,
     restaurantId,
+    perms,
+    roleId,
   });
 }

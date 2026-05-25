@@ -19,6 +19,7 @@ import { signOut } from 'firebase/auth';
 import { useStaffAuth } from '../../hooks/useStaffAuth';
 import { adminAuth, superAdminAuth } from '../../lib/firebaseAuth';
 import { getRestaurantBySubdomain } from '../../lib/db';
+import { computeStaffLanding } from '../../lib/permissions';
 import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -92,7 +93,10 @@ export default function StaffLogin() {
       // Step 3: sign in to the staff Firebase app (so Firestore rules see claims)
       await signInWithToken(data.token);
 
-      // Step 4: metadata blob for kitchen.js/waiter.js localStorage check (compat)
+      // Step 4: metadata blob for kitchen.js/waiter.js + StaffShell. Now
+      // also carries the staffer's resolved permissions + roleId (Phase 8)
+      // so the staff UI can gate nav/pages. (The authoritative copy lives in
+      // the token claims, read by Firestore rules.)
       try {
         localStorage.setItem('ar_staff_session', JSON.stringify({
           staffId: data.staffId,
@@ -100,16 +104,21 @@ export default function StaffLogin() {
           role: data.role,
           restaurantId: data.restaurantId,
           restaurantName: restaurant.name,
+          perms: Array.isArray(data.perms) ? data.perms : [],
+          roleId: data.roleId || null,
+          kind: 'staff',
           loggedInAt: new Date().toISOString(),
         }));
       } catch {}
 
       toast.success(`Welcome, ${data.name}!`);
 
-      // Step 5: redirect by role
-      if (data.role === 'kitchen')      router.push('/admin/kitchen');
-      else if (data.role === 'waiter')  router.push('/admin/waiter');
-      else                               router.push('/');
+      // Step 5: redirect to the staffer's landing screen — their station
+      // (kitchen/waiter) first, else the first staff-enabled feature their
+      // role grants; falls back to their station if nothing else is reachable.
+      const landing = computeStaffLanding(data.perms || [])
+        || (data.role === 'kitchen' ? '/admin/kitchen' : data.role === 'waiter' ? '/admin/waiter' : '/');
+      router.push(landing);
     } catch (err) {
       console.error('Staff login error:', err);
       toast.error('Login failed. Please try again.');

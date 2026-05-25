@@ -3,11 +3,24 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getOrders } from '../../lib/db';
+import { staffDb } from '../../lib/firebase';
+import { readStaffSession } from '../../lib/staffSession';
+import StaffShell from '../../components/layout/StaffShell';
+import { useRouter } from 'next/router';
 import CountUp from 'react-countup';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+
+// Renders the owner's full AdminLayout, or a permission-scoped StaffShell
+// for a staff member whose role grants 'reports'. Module-scope so the page
+// content doesn't remount on every re-render (isAdmin is stable per session).
+function ReportsShell({ isAdmin, children }) {
+  return isAdmin
+    ? <ReportsShell isAdmin={isAdmin}>{children}</ReportsShell>
+    : <StaffShell active="/admin/reports">{children}</StaffShell>;
+}
 
 // ──────────────────────────────────────────────────────────────
 // Aspire palette — matches pages/admin/analytics.js exactly.
@@ -202,8 +215,29 @@ function ChartTooltip({ active, payload, label, allData }) {
 // Main component
 // ──────────────────────────────────────────────────────────────
 export default function AdminReports() {
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
+  const router = useRouter();
+  const { userData, loading: authLoading } = useAuth();
+
+  // RBAC: this page serves the owner (full AdminLayout) OR a staff member
+  // whose role grants the 'reports' permission (StaffShell + the staff
+  // connection). It's read-only either way.
+  const [staffSession, setStaffSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  useEffect(() => { setStaffSession(readStaffSession()); setSessionChecked(true); }, []);
+
+  const adminRid = userData?.restaurantId;
+  const isAdmin = !!adminRid;
+  const staffPerms = Array.isArray(staffSession?.perms) ? staffSession.perms : [];
+  const canView = isAdmin || staffPerms.includes('reports');
+  const rid = adminRid || staffSession?.restaurantId || null;
+
+  // Bounce anyone who shouldn't be here: not signed in at all → admin login;
+  // a staffer without the 'reports' permission → staff login.
+  useEffect(() => {
+    if (authLoading || isAdmin || !sessionChecked) return;
+    if (!staffSession) { router.replace('/admin/login'); return; }
+    if (!staffPerms.includes('reports')) { router.replace('/staff/login'); return; }
+  }, [authLoading, isAdmin, sessionChecked, staffSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -221,9 +255,11 @@ export default function AdminReports() {
   const [customOpen, setCustomOpen]   = useState(false);
 
   useEffect(() => {
-    if (!rid) return;
-    getOrders(rid).then(o => { setOrders(o); setLoading(false); });
-  }, [rid]);
+    if (!rid || !canView) return;
+    getOrders(rid, isAdmin ? {} : { db: staffDb })
+      .then(o => { setOrders(o); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [rid, canView, isAdmin]);
 
   // ─── Range + filter ──────────────────────────────────────────
   // Custom mode folds custom dates into the same {start,end,label} shape
@@ -390,12 +426,12 @@ export default function AdminReports() {
 
   // ─── Loading state ───────────────────────────────────────────
   if (loading) return (
-    <AdminLayout>
+    <ReportsShell isAdmin={isAdmin}>
       <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}>
         <div style={{ width: 28, height: 28, border: `2.5px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
-    </AdminLayout>
+    </ReportsShell>
   );
 
   // ─── Shared style tokens ─────────────────────────────────────
@@ -416,7 +452,7 @@ export default function AdminReports() {
   };
 
   return (
-    <AdminLayout>
+    <ReportsShell isAdmin={isAdmin}>
       <Head><title>Revenue Reports — HaloHelm</title></Head>
       <div className="print-page" style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -938,7 +974,7 @@ export default function AdminReports() {
 
         </div>
       </div>
-    </AdminLayout>
+    </ReportsShell>
   );
 }
 

@@ -10,7 +10,7 @@ import { canUsePetpoojaIntegration } from '../../lib/plans';
 import EmailVerifyBanner from '../EmailVerifyBanner';
 import PwaInstallPrompt from '../PwaInstallPrompt';
 
-const navSections = [
+export const navSections = [
   {
     label: 'OVERVIEW', items: [
       { href: '/admin/analytics',     label: 'Analytics', icon: 'chart' },
@@ -75,7 +75,7 @@ const navSections = [
 ];
 
 // ── Inline Lucide-style SVG icon set. stroke uses currentColor so icons inherit text color. ──
-const NavIcon = ({ name }) => {
+export const NavIcon = ({ name }) => {
   const props = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' };
   switch (name) {
     case 'chart':     return <svg {...props}><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" /></svg>;
