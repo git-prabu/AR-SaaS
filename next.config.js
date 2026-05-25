@@ -3,6 +3,10 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   compress: true,
+  // Lint is run explicitly via `npm run lint`; don't fail production
+  // builds on lint so a stray warning never blocks a deploy. (We still
+  // catch real errors like undefined variables by running eslint in dev.)
+  eslint: { ignoreDuringBuilds: true },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint pages components hooks lib --ext .js,.jsx",
+    "lint:errors": "eslint pages components hooks lib --ext .js,.jsx --quiet"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
