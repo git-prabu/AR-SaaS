@@ -9,6 +9,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
@@ -40,9 +42,9 @@ function fmtDate(key) {
 }
 
 export default function AdminReservations() {
-  const { user, userData, loading } = useAuth();
   const router = useRouter();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'reservations'.
+  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('reservations');
 
   const [reservations, setReservations] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -50,12 +52,12 @@ export default function AdminReservations() {
   const [confirm, setConfirm] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
-  useEffect(() => { if (!loading && !user) router.push('/admin/login'); }, [loading, user, router]);
+  // Access + redirect handled by useFeatureAccess('reservations').
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'reservations'), orderBy('date', 'asc')),
+      query(collection(scopedDb, 'restaurants', rid, 'reservations'), orderBy('date', 'asc')),
       snap => { setReservations(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setDataLoaded(true); },
       () => setDataLoaded(true)
     );
@@ -81,7 +83,7 @@ export default function AdminReservations() {
 
   const setStatus = async (r, status) => {
     setBusyId(r.id);
-    try { await updateReservation(rid, r.id, { status }); toast.success(`Marked ${status}`); }
+    try { await updateReservation(rid, r.id, { status }, { db: scopedDb }); toast.success(`Marked ${status}`); }
     catch (e) { toast.error('Update failed: ' + (e?.message || 'error')); }
     finally { setBusyId(null); }
   };
@@ -90,19 +92,19 @@ export default function AdminReservations() {
     title: `Delete ${r.name}'s booking?`,
     body: 'This removes the reservation permanently.',
     confirmLabel: 'Delete', destructive: true,
-    onConfirm: async () => { await deleteReservation(rid, r.id); toast.success('Deleted'); },
+    onConfirm: async () => { await deleteReservation(rid, r.id, { db: scopedDb }); toast.success('Deleted'); },
   });
 
   const requestedCount = reservations.filter(r => r.status === 'requested').length;
 
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell isAdmin={isAdmin} active="/admin/reservations"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Reservations — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell isAdmin={isAdmin} active="/admin/reservations">
         <div style={{ padding: '28px 26px', maxWidth: 920, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
             <div>
@@ -170,7 +172,7 @@ export default function AdminReservations() {
             </div>
           ))}
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       <ConfirmModal
         open={!!confirm} title={confirm?.title} body={confirm?.body}
