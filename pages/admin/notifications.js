@@ -3,6 +3,8 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import { db } from '../../lib/firebase';
 import {
   collection, onSnapshot, query, orderBy, limit,
@@ -89,8 +91,9 @@ function startOfToday() {
 export default function NotificationsPage() {
   const { userData } = useAuth();
   const router = useRouter();
-  const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  // RBAC: owner OR a staff member whose role grants 'activity'. Read-only feed.
+  const { isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('activity');
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   // ══ Data — direct Firestore listeners (fixes the stuck-loading bug from b6fa233) ══
   // Old version relied on useAdminOrders/useAdminWaiterCalls context hooks. If those
@@ -164,9 +167,9 @@ export default function NotificationsPage() {
 
   // ══ Waiter calls listener ══
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const q = query(
-      collection(db, 'restaurants', rid, 'waiterCalls'),
+      collection(scopedDb, 'restaurants', rid, 'waiterCalls'),
       orderBy('createdAt', 'desc'),
       limit(50)
     );
@@ -181,9 +184,9 @@ export default function NotificationsPage() {
 
   // ══ Orders listener (with docChanges for payment-request detection) ══
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const q = query(
-      collection(db, 'restaurants', rid, 'orders'),
+      collection(scopedDb, 'restaurants', rid, 'orders'),
       orderBy('createdAt', 'desc'),
       limit(50)
     );
@@ -487,7 +490,7 @@ export default function NotificationsPage() {
   const waiterCallsEnabled = restaurantSettings?.waiterCallsEnabled !== false;
 
   return (
-    <AdminLayout>
+    <FeatureShell isAdmin={isAdmin} active="/admin/notifications">
       <Head><title>Live Activity — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -871,7 +874,7 @@ export default function NotificationsPage() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
