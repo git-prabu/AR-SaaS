@@ -52,6 +52,20 @@ service cloud.firestore {
         get(/databases/$(database)/documents/restaurants/$(restaurantId)/staff/$(request.auth.token.staffId)).data.isActive == true;
     }
 
+    // Phase 8 (RBAC, 22 May 2026): a staff member whose login token carries
+    // the given permission key. The owner grants permissions via custom
+    // roles (/admin/roles); /api/staff/login mints the role's permission
+    // list into the token. This lets custom-role staff (e.g. a Manager)
+    // reach owner-tier collections their role allows. The `is list` guard
+    // makes a missing/legacy claim safely false instead of erroring.
+    // NOTE: owner-only areas (billing, account security, payment gateway)
+    // have NO permission key, so they can never be reached this way.
+    function staffCan(restaurantId, perm) {
+      return isStaff(restaurantId)
+        && request.auth.token.perms is list
+        && (perm in request.auth.token.perms);
+    }
+
     // ── Restaurants ──────────────────────────────────────────────
     match /restaurants/{restaurantId} {
       // Public: read any restaurant (for subdomain routing + real-time status detection)
@@ -549,7 +563,7 @@ service cloud.firestore {
       // (name/phone) so never public-readable.
       match /reservations/{resId} {
         allow read:  if isRestaurantAdmin(restaurantId) || isStaff(restaurantId) || isSuperAdmin();
-        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'reservations') && isActiveStaff(restaurantId));
       }
 
       // ── Waitlist / host stand (Phase 7, 22 May 2026) ────────────
@@ -559,7 +573,7 @@ service cloud.firestore {
       // Same trust tier + shape as reservations above.
       match /waitlist/{entryId} {
         allow read:  if isRestaurantAdmin(restaurantId) || isStaff(restaurantId) || isSuperAdmin();
-        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'waitlist') && isActiveStaff(restaurantId));
       }
 
       // ── Day Closes (Z-report snapshots — Phase 1b, 20 May 2026) ──
@@ -567,7 +581,8 @@ service cloud.firestore {
       // mode, tax, variance). Financial data — admin + superadmin only,
       // never staff, never public.
       match /dayCloses/{dateKey} {
-        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'dayClose');
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'dayClose') && isActiveStaff(restaurantId));
       }
 
       // ── Vendors / Purchase Orders / Expenses (Phase 3, 22 May 2026) ──
@@ -579,13 +594,16 @@ service cloud.firestore {
       // staff or public branch. Mutations flow through lib/db.js which
       // sanitizes + audit-stamps; the Admin SDK (server) bypasses these.
       match /vendors/{vendorId} {
-        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'vendors');
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'vendors') && isActiveStaff(restaurantId));
       }
       match /expenses/{expenseId} {
-        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'expenses');
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'expenses') && isActiveStaff(restaurantId));
       }
       match /purchaseOrders/{poId} {
-        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'purchaseOrders');
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'purchaseOrders') && isActiveStaff(restaurantId));
       }
 
       // ── Customers / CRM (Phase 4, 22 May 2026) ──────────────────
@@ -595,7 +613,8 @@ service cloud.firestore {
       // here via the Admin SDK (bypasses these rules); the admin client
       // does manual add/edit + points adjustments through lib/db.js.
       match /customers/{phone} {
-        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'customers');
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'customers') && isActiveStaff(restaurantId));
       }
 
       // ── Campaigns (marketing history — Phase 5, 22 May 2026) ────
@@ -604,7 +623,8 @@ service cloud.firestore {
       // it's business data — admin + superadmin only. The capped email
       // blast runs server-side via /api/crm/campaign-email (Admin SDK).
       match /campaigns/{campaignId} {
-        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'marketing');
+        allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'marketing') && isActiveStaff(restaurantId));
       }
 
       // ── Tables (floor-plan registry — Phase 0, 20 May 2026) ──
