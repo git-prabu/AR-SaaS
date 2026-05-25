@@ -41,7 +41,9 @@ export function useFeatureAccess(permKey) {
   useEffect(() => {
     if (authLoading || isAdmin || !sessionChecked) return;
     if (!staffSession) { router.replace('/admin/login'); return; }
-    if (!staffPerms.includes(permKey)) { router.replace('/staff/login'); return; }
+    // Logged-in staff who lack THIS feature go to their staff home hub
+    // (which shows what they CAN access) — not a login loop.
+    if (!staffPerms.includes(permKey)) { router.replace('/staff/home'); return; }
   }, [authLoading, isAdmin, sessionChecked, staffSession, permKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { ready, isAdmin, isStaff, canView, rid, scopedDb, staffPerms, staffSession };

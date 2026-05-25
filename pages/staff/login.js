@@ -113,11 +113,14 @@ export default function StaffLogin() {
 
       toast.success(`Welcome, ${data.name}!`);
 
-      // Step 5: redirect to the staffer's landing screen — their station
-      // (kitchen/waiter) first, else the first staff-enabled feature their
-      // role grants; falls back to their station if nothing else is reachable.
-      const landing = computeStaffLanding(data.perms || [])
-        || (data.role === 'kitchen' ? '/admin/kitchen' : data.role === 'waiter' ? '/admin/waiter' : '/');
+      // Step 5: redirect. A staffer with a custom access role lands on the
+      // staff home hub (StaffShell with their permitted nav — never the bare
+      // kitchen screen), where they can see + reach everything their role
+      // grants. Pure station staff (no custom role) go straight to their
+      // dedicated kitchen / waiter screen as before.
+      const landing = data.roleId
+        ? '/staff/home'
+        : (data.role === 'kitchen' ? '/admin/kitchen' : data.role === 'waiter' ? '/admin/waiter' : '/staff/home');
       router.push(landing);
     } catch (err) {
       console.error('Staff login error:', err);
