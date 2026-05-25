@@ -15,6 +15,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { createExpense, updateExpense, deleteExpense, todayKey } from '../../lib/db';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -67,9 +69,9 @@ function monthLabel(ym) {
 const emptyForm = () => ({ date: todayKey(), category: '', amount: '', paymentMode: 'cash', vendorId: '', note: '' });
 
 export default function AdminExpenses() {
-  const { user, userData, loading } = useAuth();
   const router = useRouter();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'expenses'.
+  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('expenses');
 
   const [expenses, setExpenses] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -81,12 +83,10 @@ export default function AdminExpenses() {
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null);
 
-  useEffect(() => { if (!loading && !user) router.push('/admin/login'); }, [loading, user, router]);
-
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'expenses'), orderBy('date', 'desc')),
+      query(collection(scopedDb, 'restaurants', rid, 'expenses'), orderBy('date', 'desc')),
       snap => { setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoaded(true); },
       () => setLoaded(true)
     );
@@ -94,9 +94,9 @@ export default function AdminExpenses() {
   }, [rid]);
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      collection(db, 'restaurants', rid, 'vendors'),
+      collection(scopedDb, 'restaurants', rid, 'vendors'),
       snap => setVendors(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))),
       () => {}
     );
@@ -160,8 +160,8 @@ export default function AdminExpenses() {
         date: form.date, category: form.category, amount: amt, paymentMode: form.paymentMode,
         vendorId: form.vendorId || null, vendorName: vendor ? vendor.name : null, note: form.note,
       };
-      if (editingId) { await updateExpense(rid, editingId, payload); toast.success('Expense updated'); }
-      else { await createExpense(rid, payload); toast.success('Expense added'); }
+      if (editingId) { await updateExpense(rid, editingId, payload, { db: scopedDb }); toast.success('Expense updated'); }
+      else { await createExpense(rid, payload, { db: scopedDb }); toast.success('Expense added'); }
       // Keep the date + mode for fast repeat entry; clear the rest.
       setForm(f => ({ ...emptyForm(), date: f.date, paymentMode: f.paymentMode }));
       setEditingId(null);
@@ -174,11 +174,11 @@ export default function AdminExpenses() {
     title: 'Delete this expense?',
     body: `${e.category || 'Expense'} · ${formatRupee(e.amount)} on ${fmtDate(e.date)}. This can't be undone.`,
     confirmLabel: 'Delete', destructive: true,
-    onConfirm: async () => { if (editingId === e.id) cancelEdit(); await deleteExpense(rid, e.id); toast.success('Deleted'); },
+    onConfirm: async () => { if (editingId === e.id) cancelEdit(); await deleteExpense(rid, e.id, { db: scopedDb }); toast.success('Deleted'); },
   });
 
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell isAdmin={isAdmin} active="/admin/expenses"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   const isThisMonth = month === today.slice(0, 7);
@@ -186,7 +186,7 @@ export default function AdminExpenses() {
   return (
     <>
       <Head><title>Expenses — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell isAdmin={isAdmin} active="/admin/expenses">
         <div style={{ padding: '28px 26px', maxWidth: 960, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Expenses</h1>
@@ -336,7 +336,7 @@ export default function AdminExpenses() {
             );
           })}
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       <ConfirmModal
         open={!!confirm} title={confirm?.title} body={confirm?.body}

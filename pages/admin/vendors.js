@@ -12,6 +12,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
@@ -51,9 +53,9 @@ function formatRupee(n) {
 }
 
 export default function AdminVendors() {
-  const { user, userData, loading } = useAuth();
   const router = useRouter();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'vendors'.
+  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('vendors');
 
   const [vendors, setVendors] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -64,13 +66,13 @@ export default function AdminVendors() {
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null);
 
-  useEffect(() => { if (!loading && !user) router.push('/admin/login'); }, [loading, user, router]);
+  // Access + redirect handled by useFeatureAccess('vendors').
 
   // Vendors (live).
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      collection(db, 'restaurants', rid, 'vendors'),
+      collection(scopedDb, 'restaurants', rid, 'vendors'),
       snap => { setVendors(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoaded(true); },
       () => setLoaded(true)
     );
@@ -80,9 +82,9 @@ export default function AdminVendors() {
   // Expenses (live) — only used to derive each vendor's outstanding +
   // lifetime spend. We don't render the rows here.
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      collection(db, 'restaurants', rid, 'expenses'),
+      collection(scopedDb, 'restaurants', rid, 'expenses'),
       snap => setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       () => {}
     );
@@ -140,8 +142,8 @@ export default function AdminVendors() {
         name: form.name, phone: form.phone, category: form.category, gstin: form.gstin,
         openingBalance: Number(form.openingBalance) || 0, notes: form.notes, isActive: form.isActive,
       };
-      if (drawer.mode === 'new') { await createVendor(rid, payload); toast.success('Vendor added'); }
-      else { await updateVendor(rid, drawer.id, payload); toast.success('Vendor updated'); }
+      if (drawer.mode === 'new') { await createVendor(rid, payload, { db: scopedDb }); toast.success('Vendor added'); }
+      else { await updateVendor(rid, drawer.id, payload, { db: scopedDb }); toast.success('Vendor updated'); }
       setDrawer(null);
     } catch (err) {
       toast.error('Save failed: ' + (err?.message || 'error'));
@@ -152,17 +154,17 @@ export default function AdminVendors() {
     title: `Delete ${v.name || 'vendor'}?`,
     body: 'This removes the vendor from your registry. Past expense records linked to them are kept.',
     confirmLabel: 'Delete', destructive: true,
-    onConfirm: async () => { await deleteVendor(rid, v.id); toast.success('Vendor deleted'); },
+    onConfirm: async () => { await deleteVendor(rid, v.id, { db: scopedDb }); toast.success('Vendor deleted'); },
   });
 
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell isAdmin={isAdmin} active="/admin/vendors"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Vendors — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell isAdmin={isAdmin} active="/admin/vendors">
         <div style={{ padding: '28px 26px', maxWidth: 960, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
@@ -240,7 +242,7 @@ export default function AdminVendors() {
             })}
           </div>
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       {/* Slide-in drawer: create / edit */}
       {drawer && (

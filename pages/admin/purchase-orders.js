@@ -12,6 +12,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
@@ -66,9 +68,9 @@ const emptyRow = () => ({ name: '', qty: '', unit: 'kg', rate: '' });
 const emptyPO = () => ({ vendorId: '', date: todayKey(), items: [emptyRow()], taxPercent: '', note: '' });
 
 export default function AdminPurchaseOrders() {
-  const { user, userData, loading } = useAuth();
   const router = useRouter();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'purchaseOrders'.
+  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('purchaseOrders');
 
   const [pos, setPos] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -82,12 +84,12 @@ export default function AdminPurchaseOrders() {
   const [recordPo, setRecordPo] = useState(null);   // PO pending "record as expense"
   const [recordMode, setRecordMode] = useState('credit');
 
-  useEffect(() => { if (!loading && !user) router.push('/admin/login'); }, [loading, user, router]);
+  // Access + redirect handled by useFeatureAccess('purchaseOrders').
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'purchaseOrders'), orderBy('date', 'desc')),
+      query(collection(scopedDb, 'restaurants', rid, 'purchaseOrders'), orderBy('date', 'desc')),
       snap => { setPos(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoaded(true); },
       () => setLoaded(true)
     );
@@ -95,9 +97,9 @@ export default function AdminPurchaseOrders() {
   }, [rid]);
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      collection(db, 'restaurants', rid, 'vendors'),
+      collection(scopedDb, 'restaurants', rid, 'vendors'),
       snap => setVendors(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))),
       () => {}
     );
@@ -151,8 +153,8 @@ export default function AdminPurchaseOrders() {
         vendorId: form.vendorId || null, vendorName: vendor ? vendor.name : null,
         date: form.date, items: cleanItems, taxPercent: num(form.taxPercent), note: form.note,
       };
-      if (drawer.mode === 'new') { await createPurchaseOrder(rid, payload); toast.success('Purchase order created'); }
-      else { await updatePurchaseOrder(rid, drawer.id, payload); toast.success('Purchase order updated'); }
+      if (drawer.mode === 'new') { await createPurchaseOrder(rid, payload, { db: scopedDb }); toast.success('Purchase order created'); }
+      else { await updatePurchaseOrder(rid, drawer.id, payload, { db: scopedDb }); toast.success('Purchase order updated'); }
       setDrawer(null);
     } catch (err) {
       toast.error('Save failed: ' + (err?.message || 'error'));
@@ -161,7 +163,7 @@ export default function AdminPurchaseOrders() {
 
   const advance = async (p, status) => {
     setBusyId(p.id);
-    try { await setPurchaseOrderStatus(rid, p.id, status); toast.success(`Marked ${status}`); }
+    try { await setPurchaseOrderStatus(rid, p.id, status, { db: scopedDb }); toast.success(`Marked ${status}`); }
     catch (err) { toast.error('Update failed: ' + (err?.message || 'error')); }
     finally { setBusyId(null); }
   };
@@ -170,7 +172,7 @@ export default function AdminPurchaseOrders() {
     title: 'Delete this purchase order?',
     body: `${p.vendorName || 'PO'} · ${formatRupee(p.total)}. This can't be undone. (Any expense already recorded from it is kept.)`,
     confirmLabel: 'Delete', destructive: true,
-    onConfirm: async () => { await deletePurchaseOrder(rid, p.id); toast.success('Deleted'); },
+    onConfirm: async () => { await deletePurchaseOrder(rid, p.id, { db: scopedDb }); toast.success('Deleted'); },
   });
 
   const doRecordExpense = async () => {
@@ -178,21 +180,21 @@ export default function AdminPurchaseOrders() {
     setRecordPo(null);
     setBusyId(p.id);
     try {
-      await recordPurchaseOrderExpense(rid, p, recordMode);
+      await recordPurchaseOrderExpense(rid, p, recordMode, { db: scopedDb });
       toast.success('Recorded as an expense');
     } catch (err) {
       toast.error('Could not record: ' + (err?.message || 'error'));
     } finally { setBusyId(null); }
   };
 
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell isAdmin={isAdmin} active="/admin/purchase-orders"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Purchase Orders — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell isAdmin={isAdmin} active="/admin/purchase-orders">
         <div style={{ padding: '28px 26px', maxWidth: 980, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
             <div>
@@ -287,7 +289,7 @@ export default function AdminPurchaseOrders() {
             })}
           </div>
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       {/* ── Create / edit drawer ── */}
       {drawer && (
