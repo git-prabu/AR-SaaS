@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
-import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas } from '../../lib/db';
+import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas, getStaffRoles, setStaffRole } from '../../lib/db';
 import toast from 'react-hot-toast';
 import { auth } from '../../lib/firebaseAuth';
 
@@ -183,6 +183,10 @@ export default function StaffManagement() {
   const [areas, setAreas] = useState([]);
   const [areaSavingId, setAreaSavingId] = useState(null);
 
+  // Phase 8 (RBAC) — custom access roles for the per-staff role dropdown.
+  const [rolesList, setRolesList] = useState([]);
+  const [roleSavingId, setRoleSavingId] = useState(null);
+
   // Filter + search
   const [filter, setFilter] = useState('all'); // 'all' | 'kitchen' | 'waiter' | 'inactive'
   const [search, setSearch] = useState('');
@@ -240,6 +244,12 @@ export default function StaffManagement() {
     getAreas(rid).then(setAreas).catch(() => setAreas([]));
   }, [rid]);
 
+  // Load custom access roles (Phase 8) for the per-staff role dropdown.
+  useEffect(() => {
+    if (!rid) return;
+    getStaffRoles(rid).then(setRolesList).catch(() => setRolesList([]));
+  }, [rid]);
+
   // Toggle one area on/off for a waiter. Empty list = all areas.
   const toggleStaffArea = async (staffMember, areaId) => {
     const current = Array.isArray(staffMember.assignedAreas) ? staffMember.assignedAreas : [];
@@ -256,6 +266,21 @@ export default function StaffManagement() {
       reload(); // revert to server truth on failure
     } finally {
       setAreaSavingId(null);
+    }
+  };
+
+  // Assign a custom access role to a staff member (Phase 8). Optimistic;
+  // reverts on failure. Stage A only stores the assignment.
+  const assignRole = async (staffMember, roleId) => {
+    setRoleSavingId(staffMember.id);
+    setStaff(prev => prev.map(s => s.id === staffMember.id ? { ...s, roleId: roleId || null } : s));
+    try {
+      await setStaffRole(rid, staffMember.id, roleId || null);
+    } catch (e) {
+      toast.error('Could not set role: ' + (e?.message || 'error'));
+      reload();
+    } finally {
+      setRoleSavingId(null);
     }
   };
 
@@ -787,6 +812,21 @@ export default function StaffManagement() {
                           </div>
                         );
                       })()}
+
+                      {/* Phase 8 (RBAC) — custom access-role assignment. Shows
+                          once the owner has defined roles on /admin/roles. Stage A
+                          stores the choice; access switches on in the next stage. */}
+                      {rolesList.length > 0 && (
+                        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Access role:</span>
+                          <select value={s.roleId || ''} disabled={roleSavingId === s.id}
+                            onChange={e => assignRole(s, e.target.value)}
+                            style={{ padding: '5px 10px', borderRadius: 8, border: A.border, background: A.shell, fontFamily: A.font, fontSize: 12, color: A.ink, cursor: 'pointer' }}>
+                            <option value="">Default ({s.role})</option>
+                            {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}

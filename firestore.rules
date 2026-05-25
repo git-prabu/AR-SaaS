@@ -659,6 +659,16 @@ service cloud.firestore {
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
+      // ── Staff Roles / RBAC (Phase 8, 22 May 2026) ──────────────
+      // Owner-defined access roles: { name, permissions: [keys] }. Pure
+      // config managed by the owner from /admin/roles. Admin + superadmin
+      // only — staff never read this from the client; their granted
+      // permissions are minted into their login token server-side (Admin
+      // SDK, which bypasses these rules) in a later enforcement stage.
+      match /staffRoles/{roleId} {
+        allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+      }
+
       // ── Private (gateway credentials, future secrets) ─────────
       // Phase H — restaurants/{rid}/private/{docId}
       // Holds the Paytm Business merchantId + merchantKey that the
