@@ -494,6 +494,13 @@ service cloud.firestore {
         // re-point the bill within the 1h token grace window.
         allow update: if isActiveStaff(restaurantId) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentBillId']);
+        // Phase 8 (RBAC): a staff member whose role grants 'waitlist' can
+        // write ONLY the seated-hold fields when a host seats a waitlist
+        // party onto a table (markTableSeated). Tightly scoped — they can
+        // never touch sid / isActive / expiresAt / currentBillId here.
+        allow update: if staffCan(restaurantId, 'waitlist') && isActiveStaff(restaurantId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['seatedAt', 'seatedName', 'seatedPartySize', 'lastModifiedBy', 'lastModifiedAt']);
       }
 
       // ── Table Bills (running tabs for dine-in) ────────────────

@@ -10,6 +10,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
@@ -68,10 +70,11 @@ const STATUS_META = {
 };
 
 export default function AdminWaitlist() {
-  const { user, userData, loading } = useAuth();
+  const { userData } = useAuth();
   const router = useRouter();
-  const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'our restaurant';
+  // RBAC: owner OR a staff member whose role grants 'waitlist'.
+  const { ready, isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('waitlist');
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'our restaurant';
 
   const [entries, setEntries] = useState([]);
   const [tables, setTables] = useState([]);
@@ -85,12 +88,12 @@ export default function AdminWaitlist() {
   const [confirm, setConfirm] = useState(null);
   const [showDone, setShowDone] = useState(false);
 
-  useEffect(() => { if (!loading && !user) router.push('/admin/login'); }, [loading, user, router]);
+  // Access + redirect handled by useFeatureAccess('waitlist').
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     const un = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'waitlist'), orderBy('createdAt', 'asc')),
+      query(collection(scopedDb, 'restaurants', rid, 'waitlist'), orderBy('createdAt', 'asc')),
       snap => { setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoaded(true); },
       () => setLoaded(true)
     );
@@ -98,8 +101,8 @@ export default function AdminWaitlist() {
   }, [rid]);
 
   useEffect(() => {
-    if (!rid) return;
-    getTables(rid).then(setTables).catch(() => {});
+    if (!rid || !canView) return;
+    getTables(rid, { db: scopedDb }).then(setTables).catch(() => {});
   }, [rid]);
 
   // Tick every 30s so the live wait timers stay current without a write.
@@ -144,7 +147,7 @@ export default function AdminWaitlist() {
       await createWaitlistEntry(rid, {
         name: form.name, partySize: size, phone: form.phone,
         quotedMinutes: Number(form.quotedMinutes) || 0, note: form.note,
-      });
+      }, { db: scopedDb });
       toast.success('Added to waitlist');
       setForm(emptyForm());
     } catch (err) {
@@ -155,7 +158,7 @@ export default function AdminWaitlist() {
   const notify = async (entry) => {
     setBusyId(entry.id);
     try {
-      await setWaitlistStatus(rid, entry.id, 'notified');
+      await setWaitlistStatus(rid, entry.id, 'notified', { db: scopedDb });
       if (entry.phone && entry.phone.length >= 10) {
         const msg = `Hi ${entry.name || 'there'}, your table at ${restaurantName} is ready! Please come to the host stand. Thanks for waiting.`;
         const url = `https://wa.me/91${entry.phone}?text=${encodeURIComponent(msg)}`;
@@ -175,10 +178,10 @@ export default function AdminWaitlist() {
     setSeatTarget(null);
     setBusyId(entry.id);
     try {
-      await setWaitlistStatus(rid, entry.id, 'seated', { tableCode: seatTable || null });
+      await setWaitlistStatus(rid, entry.id, 'seated', { tableCode: seatTable || null, db: scopedDb });
       // Mark the chosen table occupied so it shows as "Seated" in the
       // Table View until an order is taken (or the table is freed).
-      if (seatTable) await markTableSeated(rid, seatTable, { name: entry.name, partySize: entry.partySize });
+      if (seatTable) await markTableSeated(rid, seatTable, { name: entry.name, partySize: entry.partySize }, { db: scopedDb });
       toast.success(`${entry.name || 'Party'} seated${seatTable ? ` at ${seatTable}` : ''}`);
     } catch (err) {
       toast.error('Could not seat: ' + (err?.message || 'error'));
@@ -189,24 +192,24 @@ export default function AdminWaitlist() {
     title: `Remove ${entry.name || 'this party'}?`,
     body: 'They left or no longer need a table. This takes them off the queue.',
     confirmLabel: 'Remove', destructive: true,
-    onConfirm: async () => { await setWaitlistStatus(rid, entry.id, 'cancelled'); toast.success('Removed'); },
+    onConfirm: async () => { await setWaitlistStatus(rid, entry.id, 'cancelled', { db: scopedDb }); toast.success('Removed'); },
   });
 
   const requestDelete = (entry) => setConfirm({
     title: 'Delete permanently?',
     body: `Remove ${entry.name || 'this entry'} from today's history. This can't be undone.`,
     confirmLabel: 'Delete', destructive: true,
-    onConfirm: async () => { await deleteWaitlistEntry(rid, entry.id); toast.success('Deleted'); },
+    onConfirm: async () => { await deleteWaitlistEntry(rid, entry.id, { db: scopedDb }); toast.success('Deleted'); },
   });
 
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell isAdmin={isAdmin} active="/admin/waitlist"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Waitlist — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell isAdmin={isAdmin} active="/admin/waitlist">
         <div style={{ padding: '28px 26px', maxWidth: 920, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Waitlist</h1>
@@ -346,7 +349,7 @@ export default function AdminWaitlist() {
             </div>
           )}
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       {/* Seat modal */}
       {seatTarget && (
