@@ -624,7 +624,9 @@ service cloud.firestore {
       // here via the Admin SDK (bypasses these rules); the admin client
       // does manual add/edit + points adjustments through lib/db.js.
       match /customers/{phone} {
-        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'customers');
+        // 'customers' grants full CRM access; 'marketing' additionally needs to
+        // READ the customer list to build a campaign audience (no write).
+        allow read:  if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'customers') || staffCan(restaurantId, 'marketing');
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || (staffCan(restaurantId, 'customers') && isActiveStaff(restaurantId));
       }
 

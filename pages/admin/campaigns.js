@@ -10,12 +10,10 @@
 // saved to history. Admin-only.
 import Head from 'next/head';
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
-import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { createCampaign, deleteCampaign } from '../../lib/db';
 import toast from 'react-hot-toast';
@@ -50,9 +48,10 @@ function fmtWhen(ts) {
 }
 
 export default function AdminCampaigns() {
-  const { user, userData, loading } = useAuth();
-  const router = useRouter();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'marketing'. Staff read
+  // customers + campaigns via staffDb. Email sending stays owner-only (it needs
+  // an admin token + Gmail setup), so the email channel is hidden for staff.
+  const { ready, isAdmin, rid, scopedDb, canView, user, userData, staffSession } = useFeatureAccess('marketing');
 
   const [customers, setCustomers] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -68,23 +67,21 @@ export default function AdminCampaigns() {
   const [sending, setSending] = useState(false);
   const [confirm, setConfirm] = useState(null);
 
-  useEffect(() => { if (!loading && !user) router.push('/admin/login'); }, [loading, user, router]);
-
   useEffect(() => {
-    if (!rid) return;
-    const un = onSnapshot(collection(db, 'restaurants', rid, 'customers'),
+    if (!rid || !canView) return;
+    const un = onSnapshot(collection(scopedDb, 'restaurants', rid, 'customers'),
       snap => { setCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoaded(true); },
       () => setLoaded(true));
     return un;
-  }, [rid]);
+  }, [rid, canView, scopedDb]);
 
   useEffect(() => {
-    if (!rid) return;
-    const un = onSnapshot(query(collection(db, 'restaurants', rid, 'campaigns'), orderBy('createdAt', 'desc')),
+    if (!rid || !canView) return;
+    const un = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'campaigns'), orderBy('createdAt', 'desc')),
       snap => setCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       () => {});
     return un;
-  }, [rid]);
+  }, [rid, canView, scopedDb]);
 
   const allTags = useMemo(() => {
     const s = new Set();
@@ -121,12 +118,13 @@ export default function AdminCampaigns() {
     });
     setWaList(list);
     try {
-      await createCampaign(rid, { name, channel: 'whatsapp', message, audienceLabel, recipientCount: list.length, sentCount: list.length });
+      await createCampaign(rid, { name, channel: 'whatsapp', message, audienceLabel, recipientCount: list.length, sentCount: list.length }, { db: scopedDb });
     } catch (e) { /* history write is best-effort */ }
     toast.success(`Generated ${list.length} WhatsApp link${list.length === 1 ? '' : 's'}`);
   };
 
   const sendEmail = async () => {
+    if (!isAdmin || !user) return toast.error('Email campaigns are owner-only.');
     if (!name.trim()) return toast.error('Give the campaign a name');
     if (!subject.trim()) return toast.error('Add an email subject');
     if (!message.trim()) return toast.error('Write a message');
@@ -141,7 +139,7 @@ export default function AdminCampaigns() {
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) throw new Error(j.error || 'Send failed');
-      await createCampaign(rid, { name, channel: 'email', subject, message, audienceLabel, recipientCount: j.recipientCount, sentCount: j.sentCount });
+      await createCampaign(rid, { name, channel: 'email', subject, message, audienceLabel, recipientCount: j.recipientCount, sentCount: j.sentCount }, { db: scopedDb });
       toast.success(
         j.sentCount === 0
           ? 'No emails sent (no valid recipients)'
@@ -157,11 +155,11 @@ export default function AdminCampaigns() {
     title: `Delete “${c.name || 'campaign'}”?`,
     body: 'This removes it from your campaign history. It does not unsend anything.',
     confirmLabel: 'Delete', destructive: true,
-    onConfirm: async () => { await deleteCampaign(rid, c.id); toast.success('Deleted'); },
+    onConfirm: async () => { await deleteCampaign(rid, c.id, { db: scopedDb }); toast.success('Deleted'); },
   });
 
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/campaigns"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   const noCustomers = loaded && customers.length === 0;
@@ -169,7 +167,7 @@ export default function AdminCampaigns() {
   return (
     <>
       <Head><title>Marketing — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/campaigns">
         <div style={{ padding: '28px 26px', maxWidth: 920, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Marketing</h1>
@@ -186,7 +184,7 @@ export default function AdminCampaigns() {
             <>
               {/* Channel toggle */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-                {[['whatsapp', 'WhatsApp', A.whatsapp], ['email', 'Email', A.info]].map(([k, label, col]) => (
+                {[['whatsapp', 'WhatsApp', A.whatsapp], ...(isAdmin ? [['email', 'Email', A.info]] : [])].map(([k, label, col]) => (
                   <button key={k} onClick={() => { setChannel(k); setWaList(null); }}
                     style={{
                       padding: '9px 18px', borderRadius: 9, cursor: 'pointer', fontFamily: INTER, fontSize: 13.5, fontWeight: 700,
@@ -214,7 +212,7 @@ export default function AdminCampaigns() {
                   <label style={labelStyle}>Message</label>
                   <textarea style={{ ...inputStyle, minHeight: 110, resize: 'vertical' }} maxLength={2000}
                     value={message} onChange={e => setMessage(e.target.value)}
-                    placeholder={`Hi {name}, we've missed you! Show this message for 10% off your next visit. — ${userData?.restaurantName || 'our team'}`} />
+                    placeholder={`Hi {name}, we've missed you! Show this message for 10% off your next visit. — ${userData?.restaurantName || staffSession?.restaurantName || 'our team'}`} />
                   <div style={{ fontSize: 11, color: A.faintText, marginTop: 4, textAlign: 'right' }}>{message.length}/2000</div>
                 </div>
 
@@ -311,7 +309,7 @@ export default function AdminCampaigns() {
             </>
           )}
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       <ConfirmModal
         open={!!confirm} title={confirm?.title} body={confirm?.body}
