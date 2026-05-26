@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import { getFeedback, markFeedbackRead, markAllFeedbackRead, updateFeedbackNote, deleteFeedback } from '../../lib/db';
 import toast from 'react-hot-toast';
 
@@ -77,9 +77,11 @@ function formatDate(ts) {
 }
 
 export default function AdminFeedback() {
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  // RBAC: owner OR a staff member whose role grants 'feedback'. Read-only for
+  // staff — the mark-read / note / delete actions below are owner-only (the
+  // feedback rule grants staff READ, not write). Staff read via staffDb.
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('feedback');
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,10 +107,10 @@ export default function AdminFeedback() {
   });
 
   const load = () => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     setLoading(true);
     setError(false);
-    getFeedback(rid)
+    getFeedback(rid, { db: scopedDb })
       .then(data => { setFeedback(data || []); setLoading(false); })
       .catch(err => {
         console.error('getFeedback error:', err);
@@ -116,7 +118,7 @@ export default function AdminFeedback() {
         setLoading(false);
       });
   };
-  useEffect(() => { load(); }, [rid]);
+  useEffect(() => { load(); }, [rid, canView, scopedDb]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Mutation handlers ───────────────────────────────────────────
   const handleMarkRead = async (id) => {
@@ -248,7 +250,7 @@ export default function AdminFeedback() {
   }, [feedback, filter, withCommentsOnly, search]);
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/feedback">
       <Head><title>Customer Feedback — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -502,6 +504,7 @@ export default function AdminFeedback() {
                 Unread only
               </span>
             </label>
+            {isAdmin && (
             <button
               onClick={handleMarkAllRead}
               disabled={bulkActing || feedback.every(f => f.isRead)}
@@ -516,6 +519,7 @@ export default function AdminFeedback() {
               }}>
               {bulkActing ? 'Marking…' : 'Mark all read'}
             </button>
+            )}
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -705,6 +709,7 @@ export default function AdminFeedback() {
                     )}
 
                     {/* Action row */}
+                    {isAdmin && (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       marginTop: 12, paddingTop: 10, borderTop: A.border,
@@ -757,6 +762,7 @@ export default function AdminFeedback() {
                         Delete
                       </button>
                     </div>
+                    )}
                   </div>
                 );
               })}
@@ -764,6 +770,6 @@ export default function AdminFeedback() {
           )}
         </div>
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
