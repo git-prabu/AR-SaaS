@@ -129,6 +129,17 @@ service cloud.firestore {
           // Audit stamp from lib/db.js withActor() — rides on every write
           'lastModifiedBy', 'lastModifiedAt'
         ]);
+      // Phase 8 (RBAC): a menu-managing active staff member ('menuItems' or
+      // 'addItems') may update ONLY the menu-organisation fields + the item
+      // counter — categoryOrder/categoryImages (items.js category tools) and
+      // itemsUsed (submitRequestAndPublish increment). Plan / billing /
+      // subdomain / payment-config fields stay strictly owner-only (absent
+      // from this allowlist), so this can't be used to self-upgrade or
+      // hijack the restaurant.
+      allow update: if (staffCan(restaurantId, 'menuItems') || staffCan(restaurantId, 'addItems'))
+        && isActiveStaff(restaurantId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['categoryOrder', 'categoryImages', 'itemsUsed', 'lastModifiedBy', 'lastModifiedAt']);
       // Phase 3 hardening (H4 + W1, 16 May 2026): client-side create
       // is now BANNED. The previous `allow create: if isAuth();` let
       // any signed-in user write a restaurant doc with arbitrary
@@ -153,6 +164,11 @@ service cloud.firestore {
         // Restaurant admin: full read + write their own items
         // (covers sold-out toggle, drag reorder, edits)
         allow read, write: if isRestaurantAdmin(restaurantId);
+        // Phase 8 (RBAC): an active staff member who manages the menu
+        // ('menuItems' = Menu Items page) or adds dishes ('addItems' = Add
+        // Items page, which publishes a menuItem) may read + write items.
+        allow read, write: if (staffCan(restaurantId, 'menuItems') || staffCan(restaurantId, 'addItems'))
+                      && isActiveStaff(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
         // Public: allow incrementing views, arViews, and ratings (no auth needed).
@@ -696,6 +712,10 @@ service cloud.firestore {
       match /requests/{requestId} {
         // Restaurant admin: read + create their own requests
         allow read, create: if isRestaurantAdmin(restaurantId);
+        // Phase 8 (RBAC): 'addItems'-permitted active staff read + create (the
+        // Add Items page submits an AR-model request alongside the menu item),
+        // and may delete their own pending request.
+        allow read, create, delete: if staffCan(restaurantId, 'addItems') && isActiveStaff(restaurantId);
         // Super admin: read + write all (approve/reject)
         allow read, write: if isSuperAdmin();
       }

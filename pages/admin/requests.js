@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import { getRequests, submitRequestAndPublish, getAllMenuItems, deleteRequest, getRestaurantById } from '../../lib/db';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
@@ -184,9 +184,11 @@ function StatusBadge({ status }) {
 }
 
 export default function AdminRequests() {
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  // RBAC: owner OR a staff member whose role grants 'addItems'. Staff read +
+  // publish menu items (request + menuItem + counter) through staffDb, and
+  // upload dish photos through their scoped Storage connection.
+  const { ready, isAdmin, rid, scopedDb, scopedStorage, canView, userData, staffSession } = useFeatureAccess('addItems');
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   // ─── Data + load state ─────────────────────────────────────────────
   const [requests, setRequests] = useState([]);
@@ -241,11 +243,12 @@ export default function AdminRequests() {
 
   // ─── Initial load ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
+    const dbOpt = { db: scopedDb };
     Promise.all([
-      getRequests(rid),
-      getRestaurantById(rid),
-      getAllMenuItems(rid),
+      getRequests(rid, null, dbOpt),
+      getRestaurantById(rid, dbOpt),
+      getAllMenuItems(rid, dbOpt),
     ]).then(([reqs, rest, items]) => {
       setRequests(reqs);
       setRestaurant(rest);
@@ -256,7 +259,7 @@ export default function AdminRequests() {
       console.error('requests page load error:', err);
       setLoading(false);
     });
-  }, [rid]);
+  }, [rid, canView, scopedDb]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Plan-limit derived values ─────────────────────────────────────
   const itemsUsed = restaurant?.itemsUsed || 0;
@@ -428,7 +431,7 @@ export default function AdminRequests() {
               badge,
               imageURL,
               nutritionalData: { calories: cal, protein: prot, carbs: carb, fats: fat },
-            }, localRestaurant);
+            }, localRestaurant, { db: scopedDb });
             success++;
           } catch { failed++; }
           setBulkProgress(p => ({ ...p, done: p.done + 1 }));
@@ -436,7 +439,7 @@ export default function AdminRequests() {
 
         setBulkUploading(false);
         setBulkProgress({ done: 0, total: 0, current: '' });
-        const [updated, updatedRest] = await Promise.all([getRequests(rid), getRestaurantById(rid)]);
+        const [updated, updatedRest] = await Promise.all([getRequests(rid, null, { db: scopedDb }), getRestaurantById(rid, { db: scopedDb })]);
         setRequests(updated);
         setRestaurant(updatedRest);
         if (failed === 0) toast.success(`${success} item${success > 1 ? 's' : ''} submitted and published!`);
@@ -451,7 +454,7 @@ export default function AdminRequests() {
 
   const handleCancelRequest = async (reqId) => {
     try {
-      await deleteRequest(rid, reqId);
+      await deleteRequest(rid, reqId, { db: scopedDb });
       setRequests(r => r.filter(x => x.id !== reqId));
       toast.success('Request cancelled');
     } catch { toast.error('Failed to cancel request'); }
@@ -472,7 +475,7 @@ export default function AdminRequests() {
       let imageURL = null;
       if (imageFile) {
         const path = buildImagePath(rid, imageFile.name);
-        imageURL = await uploadFile(imageFile, path, setUploadProgress);
+        imageURL = await uploadFile(imageFile, path, setUploadProgress, scopedStorage);
       }
       const ingredients = form.ingredients ? form.ingredients.split(',').map(s => s.trim()).filter(Boolean) : [];
       await submitRequestAndPublish(rid, {
@@ -493,7 +496,7 @@ export default function AdminRequests() {
           fats:     Number(form.fats)     || null,
         },
         imageURL,
-      }, restaurant);
+      }, restaurant, { db: scopedDb });
       toast.success('Item published to menu! AR will be added once our team uploads the 3D model.');
       setForm(BLANK); setImageFile(null); setImagePreview(null); setShowForm(false); setShowTranslations(false);
       try {
@@ -501,7 +504,7 @@ export default function AdminRequests() {
         sessionStorage.removeItem('ar_req_showForm');
         sessionStorage.removeItem('ar_req_imgPreview');
       } catch {}
-      const [updated, updatedRest] = await Promise.all([getRequests(rid), getRestaurantById(rid)]);
+      const [updated, updatedRest] = await Promise.all([getRequests(rid, null, { db: scopedDb }), getRestaurantById(rid, { db: scopedDb })]);
       setRequests(updated);
       setRestaurant(updatedRest);
     } catch (err) {
@@ -520,7 +523,7 @@ export default function AdminRequests() {
   // RENDER
   // ═════════════════════════════════════════════════════════════════════
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/requests">
       <Head><title>Add Items — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -1213,7 +1216,7 @@ export default function AdminRequests() {
           )}
         </div>
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 

@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from './useAuth';
-import { db, staffDb } from '../lib/firebase';
+import { db, staffDb, storage, staffStorage } from '../lib/firebase';
 import { readStaffSession } from '../lib/staffSession';
 
 export function useFeatureAccess(permKey) {
@@ -40,6 +40,9 @@ export function useFeatureAccess(permKey) {
   const canView = isAdmin || hasPerm;
   const rid = adminRid || staffSession?.restaurantId || null;
   const scopedDb = isAdmin ? db : staffDb;
+  // Matching Storage connection so image uploads carry the right auth token
+  // (admin uploads via adminApp storage, staff via staffApp storage).
+  const scopedStorage = isAdmin ? storage : staffStorage;
   // Resolved only once auth has finished AND the staff session has been
   // read — so by the time `ready` is true we KNOW whether the viewer is the
   // owner (isAdmin true) or staff. Using `isAdmin || sessionChecked` was the
@@ -55,5 +58,5 @@ export function useFeatureAccess(permKey) {
     if (!staffPerms.includes(permKey)) { router.replace('/staff/home'); return; }
   }, [authLoading, isAdmin, sessionChecked, staffSession, permKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { ready, isAdmin, isStaff, canView, rid, scopedDb, staffPerms, staffSession, userData, user };
+  return { ready, isAdmin, isStaff, canView, rid, scopedDb, scopedStorage, staffPerms, staffSession, userData, user };
 }
