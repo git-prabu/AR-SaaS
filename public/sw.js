@@ -158,7 +158,17 @@
 // Also: explicit offline-fallback for the menu page now returns the
 // cached HTML (if any) instead of the bare 503 plain-text. Returning
 // customers offline see their last menu, not an error string.
-const CACHE_VERSION  = 'ar-v25';
+// ar-v26 (May 26) — FORCE-PURGE for the /admin/reports OOM crash. An RBAC
+// conversion shipped a ReportsShell wrapper that rendered itself instead of
+// AdminLayout for the owner — infinite render recursion that exhausted the
+// tab's heap and surfaced as Chrome "Aw, Snap! Out of Memory". The code is
+// fixed (commit 96da25f), but clients on slow signal could keep getting the
+// pre-fix chunk: admin HTML is network-first with a 4s race, so a slow load
+// falls back to CACHED old HTML → old chunk hashes → old cached chunks →
+// crash again. Bumping the version makes activate() purge ALL ar-v25 caches
+// (old HTML + old chunks) so every client re-fetches the fixed bundle on
+// next visit. No behavior change otherwise.
+const CACHE_VERSION  = 'ar-v26';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
