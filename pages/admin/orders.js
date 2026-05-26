@@ -1,9 +1,8 @@
 import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import { updateOrderStatus, updatePaymentStatus, cancelOrder, todayKey, withActor } from '../../lib/db';
-import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { timeAgo } from '../../lib/utils';
@@ -144,7 +143,9 @@ function cleanTable(t) {
 }
 
 export default function AdminOrders() {
-  const { userData } = useAuth();
+  // RBAC: owner OR a staff member whose role grants 'orders'. Staff use the
+  // staff Firestore connection (scopedDb) for the live listener + mutations.
+  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('orders');
   const [orders, setOrders] = useState([]);
   const [statusFilter, setStatusFilter] = useState('active');   // active | served | all
   const [periodFilter, setPeriodFilter] = useState('today');    // today | week | month | all
@@ -164,7 +165,6 @@ export default function AdminOrders() {
   const prevPendingRef = useRef(null);       // tracks last known pending count
   // (audioRef removed — Phase D synthesized sounds use lib/sounds' shared
   //  AudioContext, no per-page Audio instance needed.)
-  const rid = userData?.restaurantId;
 
   // Load sound preference from localStorage once on mount.
   // (Phase D refactor — synthesized via lib/sounds.js, no MP3 preload.)
@@ -182,14 +182,14 @@ export default function AdminOrders() {
 
   // Firestore listener — no limit so "All Time" works; filtering happens client-side.
   useEffect(() => {
-    if (!rid) return;
-    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    if (!rid || !canView) return;
+    const q = query(collection(scopedDb, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, err => {
       console.error('Orders listener error:', err);
     });
-  }, [rid]);
+  }, [rid, canView, scopedDb]);
 
   // Sound alert — plays when pending count goes UP.
   // First snapshot doesn't trigger (we only set the baseline).
@@ -219,7 +219,7 @@ export default function AdminOrders() {
     const meta = STATUS_META[order.status];
     if (!meta?.next) return;
     setUpdating(order.id);
-    try { await updateOrderStatus(rid, order.id, meta.next); }
+    try { await updateOrderStatus(rid, order.id, meta.next, { db: scopedDb }); }
     catch { toast.error('Failed to update order status'); }
     setUpdating(null);
   };
@@ -247,7 +247,7 @@ export default function AdminOrders() {
       onConfirm: async () => {
         setUpdating(order.id);
         try {
-          await cancelOrder(rid, order.id, 'cancelled-by-admin');
+          await cancelOrder(rid, order.id, 'cancelled-by-admin', { db: scopedDb });
           console.info('[cancel/orders] success', { orderId: order.id });
           toast.success('Order cancelled');
         } catch (e) {
@@ -270,7 +270,7 @@ export default function AdminOrders() {
     setUpdating(order.id + '_pay');
     try {
       const paidMap = { cash_requested: 'paid_cash', card_requested: 'paid_card', online_requested: 'paid_online' };
-      await updatePaymentStatus(rid, order.id, paidMap[order.paymentStatus] || 'paid_cash');
+      await updatePaymentStatus(rid, order.id, paidMap[order.paymentStatus] || 'paid_cash', { db: scopedDb });
     } catch { toast.error('Failed to verify payment'); }
     setUpdating(null);
   };
@@ -278,7 +278,7 @@ export default function AdminOrders() {
   // Flag a payment issue (for disputes).
   const flagPaymentIssue = async (order) => {
     setUpdating(order.id + '_pay');
-    try { await updatePaymentStatus(rid, order.id, 'payment_issue'); }
+    try { await updatePaymentStatus(rid, order.id, 'payment_issue', { db: scopedDb }); }
     catch { toast.error('Failed to update'); }
     setUpdating(null);
   };
@@ -286,7 +286,7 @@ export default function AdminOrders() {
   // Resolve a payment issue.
   const resolvePaymentIssue = async (order) => {
     setUpdating(order.id + '_pay');
-    try { await updatePaymentStatus(rid, order.id, 'paid_cash'); }
+    try { await updatePaymentStatus(rid, order.id, 'paid_cash', { db: scopedDb }); }
     catch { toast.error('Failed to update'); }
     setUpdating(null);
   };
@@ -302,7 +302,7 @@ export default function AdminOrders() {
     if (!confirm(`Refund ₹${order.total || 0} for order ${orderLabel(order)}? This is reversible only by editing the order directly.`)) return;
     setUpdating(order.id + '_pay');
     try {
-      await updateDoc(doc(db, 'restaurants', rid, 'orders', order.id), withActor({
+      await updateDoc(doc(scopedDb, 'restaurants', rid, 'orders', order.id), withActor({
         paymentStatus: 'refunded',
         refundedAt: serverTimestamp(),
         refundReason: reason.trim(),
@@ -400,7 +400,7 @@ export default function AdminOrders() {
   }, [orders, periodFilter, customRange]);
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/orders">
       <Head><title>Orders — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
           <style>{`
@@ -1088,7 +1088,7 @@ export default function AdminOrders() {
         {...(confirmDialog || {})}
         onCancel={() => setConfirmDialog(null)}
       />
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
