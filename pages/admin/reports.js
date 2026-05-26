@@ -19,7 +19,7 @@ import {
 // content doesn't remount on every re-render (isAdmin is stable per session).
 function ReportsShell({ isAdmin, children }) {
   return isAdmin
-    ? <ReportsShell isAdmin={isAdmin}>{children}</ReportsShell>
+    ? <AdminLayout>{children}</AdminLayout>
     : <StaffShell active="/admin/reports">{children}</StaffShell>;
 }
 
