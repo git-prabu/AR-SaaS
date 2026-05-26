@@ -51,5 +51,5 @@ export function useFeatureAccess(permKey) {
     if (!staffPerms.includes(permKey)) { router.replace('/staff/home'); return; }
   }, [authLoading, isAdmin, sessionChecked, staffSession, permKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { ready, isAdmin, isStaff, canView, rid, scopedDb, staffPerms, staffSession };
+  return { ready, isAdmin, isStaff, canView, rid, scopedDb, staffPerms, staffSession, userData };
 }

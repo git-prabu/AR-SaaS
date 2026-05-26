@@ -264,6 +264,10 @@ service cloud.firestore {
                       request.resource.data.orderTotal >= 0 &&
                       request.resource.data.isRead == false;
         allow read, update, delete: if isRestaurantAdmin(restaurantId);
+        // Phase 8 (RBAC): staff whose role grants 'analytics' (the overview
+        // page surfaces ratings) or 'feedback' (the dedicated reviews page)
+        // may READ. No staff write — only the owner flips isRead / deletes.
+        allow read: if staffCan(restaurantId, 'analytics') || staffCan(restaurantId, 'feedback');
         allow read, write: if isSuperAdmin();
       }
 

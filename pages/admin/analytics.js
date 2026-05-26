@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import {
   getAnalytics, getTodayAnalytics, getAllMenuItems,
   getWaiterCallsCount, getOrders, getFeedback, todayKey,
@@ -189,7 +189,9 @@ function getPeriodBounds(period, customRange) {
 
 /* ═══════════════════════════════════════ */
 export default function AdminAnalytics() {
-  const { userData } = useAuth();
+  // RBAC: owner (full AdminLayout) OR a staff member whose role grants
+  // 'analytics' (StaffShell + staff Firestore connection). Read-only page.
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('analytics');
   const [analytics, setAnalytics] = useState([]);
   const [prevAnal, setPrevAnal] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -238,11 +240,10 @@ export default function AdminAnalytics() {
       return next;
     });
   }, []);
-  const rid = userData?.restaurantId;
   const initialLoadDone = useRef(false);
 
   const load = useCallback(async () => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     if (!initialLoadDone.current) setLoading(true);
 
     // All range logic flows through getPeriodBounds so custom and preset
@@ -255,18 +256,21 @@ export default function AdminAnalytics() {
     const priorEnd   = new Date(bounds.start); priorEnd.setDate(priorEnd.getDate() - 1);
     const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
+    const dbOpt = { db: scopedDb };
     const [anal, prev, items, today, waiter, allOrders, allFeedback] = await Promise.all([
-      getAnalytics(rid, spanDays, startKey, endKey),
-      getAnalytics(rid, spanDays, ymd(priorStart), ymd(priorEnd)),
-      getAllMenuItems(rid),
-      getTodayAnalytics(rid),
-      getWaiterCallsCount(rid, spanDays),
-      getOrders(rid),
+      getAnalytics(rid, spanDays, startKey, endKey, dbOpt),
+      getAnalytics(rid, spanDays, ymd(priorStart), ymd(priorEnd), dbOpt),
+      getAllMenuItems(rid, dbOpt),
+      getTodayAnalytics(rid, dbOpt),
+      getWaiterCallsCount(rid, spanDays, dbOpt),
+      getOrders(rid, dbOpt),
       // getFeedback returns the latest 200 across all time. We filter
       // by createdAt against bounds in-memory (same pattern as orders)
       // so the same query covers any date range without server-side
-      // changes.
-      getFeedback(rid).catch(() => []),
+      // changes. Staff feedback-read is gated on the 'analytics'/'feedback'
+      // permission in firestore.rules; .catch keeps the page alive if a
+      // role lacks it (ratings simply show empty).
+      getFeedback(rid, dbOpt).catch(() => []),
     ]);
     setAnalytics(anal);
     setPrevAnal(prev);
@@ -276,7 +280,7 @@ export default function AdminAnalytics() {
     setLoading(false);
     setCommittedBounds(bounds.key);
     initialLoadDone.current = true;
-  }, [rid, period, customRange]);
+  }, [rid, period, customRange, canView, scopedDb]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -860,7 +864,7 @@ export default function AdminAnalytics() {
   const bestSeller = topOrderedItems[0] || null;
   const bestSellerItem = bestSeller ? activeItems.find(i => i.name === bestSeller.name) : null;
   const topDishes = topOrderedItems.slice(0, 6);
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   // Card + section shared styles
   const card = { background: A.white, borderRadius: 16, border: '1px solid rgba(38,52,49,0.06)', boxShadow: '0 2px 10px rgba(38,52,49,0.03)' };
@@ -902,7 +906,7 @@ export default function AdminAnalytics() {
   };
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/analytics">
       <Head><title>Analytics — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -2519,7 +2523,7 @@ export default function AdminAnalytics() {
           )}
         </div>
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
