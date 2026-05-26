@@ -29,8 +29,14 @@ export default async function handler(req, res) {
   if (!username || typeof username !== 'string' || !username.trim()) {
     return res.status(400).json({ error: 'Username is required' });
   }
-  if (!role || (role !== 'kitchen' && role !== 'waiter')) {
-    return res.status(400).json({ error: 'Role must be kitchen or waiter' });
+  // Unified role model (26 May 2026): 'kitchen'/'waiter' are the built-in
+  // station roles (no roleId); 'staff' is the base for a custom access role
+  // (roleId required, points at staffRoles/{id}).
+  if (!role || (role !== 'kitchen' && role !== 'waiter' && role !== 'staff')) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+  if (role === 'staff' && !(typeof roleId === 'string' && roleId.trim())) {
+    return res.status(400).json({ error: 'Please choose a role for this staff member' });
   }
 
   const normalizedUsername = username.trim().toLowerCase().replace(/\s/g, '');

@@ -45,8 +45,10 @@ const ROLES = {
 };
 
 // ═══ Role icon — matte black avatar with gold SVG glyph ═══
+// 'kitchen' → knife+fork, 'waiter' → call bell, 'custom' → key (a custom
+// access role). Unified role model: custom-role staff show the key, not a
+// misleading waiter bell.
 function RoleIcon({ role, size = 44 }) {
-  const isKitchen = role === 'kitchen';
   const iconSize = Math.round(size * 0.5);
   return (
     <div style={{
@@ -56,7 +58,7 @@ function RoleIcon({ role, size = 44 }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0,
     }}>
-      {isKitchen ? (
+      {role === 'kitchen' ? (
         // Knife + fork
         <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={A.warning} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 2v7a2 2 0 0 0 2 2v11" />
@@ -64,11 +66,19 @@ function RoleIcon({ role, size = 44 }) {
           <path d="M6 2v7" />
           <path d="M18 2c-1.5 0-3 1-3 3v6c0 1 .5 2 2 2v9" />
         </svg>
-      ) : (
+      ) : role === 'waiter' ? (
         // Bell (hospitality call bell)
         <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={A.warning} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </svg>
+      ) : (
+        // Key (custom access role)
+        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={A.warning} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="7.5" cy="15.5" r="4.5" />
+          <path d="M10.5 12.5 19 4" />
+          <path d="M16 7l3 3" />
+          <path d="M19 4l2 2" />
         </svg>
       )}
     </div>
@@ -269,13 +279,19 @@ export default function StaffManagement() {
     }
   };
 
-  // Assign a custom access role to a staff member (Phase 8). Optimistic;
-  // reverts on failure. Stage A only stores the assignment.
-  const assignRole = async (staffMember, roleId) => {
+  // Unified role model: change a staffer's ONE role from the card dropdown.
+  // `value` is 'kitchen' | 'waiter' (built-in stations) or a staffRoles id
+  // (custom role). We map it to {role, roleId} and write both. Optimistic;
+  // reverts on failure. Custom claims re-mint on the staffer's next login.
+  const assignRole = async (staffMember, value) => {
+    const isBuiltin = value === 'kitchen' || value === 'waiter';
+    const role = isBuiltin ? value : 'staff';
+    const roleId = isBuiltin ? null : value;
     setRoleSavingId(staffMember.id);
-    setStaff(prev => prev.map(s => s.id === staffMember.id ? { ...s, roleId: roleId || null } : s));
+    setStaff(prev => prev.map(s => s.id === staffMember.id ? { ...s, role, roleId } : s));
     try {
-      await setStaffRole(rid, staffMember.id, roleId || null);
+      await setStaffRole(rid, staffMember.id, roleId, { role });
+      toast.success('Role updated — they must sign out and back in to apply it.');
     } catch (e) {
       toast.error('Could not set role: ' + (e?.message || 'error'));
       reload();
@@ -295,8 +311,8 @@ export default function StaffManagement() {
   // Computed once per staff change. Active = isActive !== false (so missing field defaults to active).
   const stats = useMemo(() => {
     const total = staff.length;
-    const kitchen = staff.filter(s => s.role === 'kitchen' && s.isActive !== false).length;
-    const waiters = staff.filter(s => s.role === 'waiter' && s.isActive !== false).length;
+    const kitchen = staff.filter(s => s.role === 'kitchen' && !s.roleId && s.isActive !== false).length;
+    const waiters = staff.filter(s => s.role === 'waiter' && !s.roleId && s.isActive !== false).length;
     const inactive = staff.filter(s => s.isActive === false).length;
     return { total, kitchen, waiters, inactive };
   }, [staff]);
@@ -304,8 +320,8 @@ export default function StaffManagement() {
   // ═══ Filtered list ═══
   const filtered = useMemo(() => {
     let result = staff;
-    if (filter === 'kitchen')       result = result.filter(s => s.role === 'kitchen' && s.isActive !== false);
-    else if (filter === 'waiter')   result = result.filter(s => s.role === 'waiter' && s.isActive !== false);
+    if (filter === 'kitchen')       result = result.filter(s => s.role === 'kitchen' && !s.roleId && s.isActive !== false);
+    else if (filter === 'waiter')   result = result.filter(s => s.role === 'waiter' && !s.roleId && s.isActive !== false);
     else if (filter === 'inactive') result = result.filter(s => s.isActive === false);
     const q = search.trim().toLowerCase();
     if (q) {
@@ -746,7 +762,11 @@ export default function StaffManagement() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {filtered.map(s => {
-                const role = ROLES[s.role] || ROLES.kitchen;
+                // Unified role model: show the staffer's ONE role name — the
+                // custom role's name if assigned, else the built-in station.
+                const roleName = s.roleId
+                  ? (rolesList.find(r => r.id === s.roleId)?.name || 'Custom role')
+                  : (ROLES[s.role]?.label || 'Staff');
                 const isInactive = s.isActive === false;
                 const busy = actionId === s.id;
                 return (
@@ -758,7 +778,7 @@ export default function StaffManagement() {
                     opacity: isInactive ? 0.65 : 1,
                   }}>
                     {/* Role avatar — matte-black square with gold icon glyph */}
-                    <RoleIcon role={s.role} />
+                    <RoleIcon role={s.roleId ? 'custom' : s.role} />
 
                     {/* Name + role + username */}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -770,7 +790,7 @@ export default function StaffManagement() {
                           padding: '2px 8px', borderRadius: 4,
                           background: A.subtleBg, color: A.mutedText,
                           fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                        }}>{role.label}</span>
+                        }}>{roleName}</span>
                         {isInactive && (
                           <span style={{
                             padding: '2px 8px', borderRadius: 4,
@@ -783,10 +803,10 @@ export default function StaffManagement() {
                         <span>Username: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: A.ink, fontWeight: 600 }}>{s.username}</span></span>
                       </div>
 
-                      {/* Phase 0 step 5 — area access control (waiters only).
-                          No selection = all areas. Kitchen staff see every
-                          order regardless, so no area chips for them. */}
-                      {s.role === 'waiter' && areas.length > 0 && (() => {
+                      {/* Phase 0 step 5 — area access control (built-in Waiter
+                          role only). No selection = all areas. Kitchen + custom
+                          roles don't use floor-section assignment. */}
+                      {s.role === 'waiter' && !s.roleId && areas.length > 0 && (() => {
                         const assigned = Array.isArray(s.assignedAreas) ? s.assignedAreas : [];
                         const allAreas = assigned.length === 0;
                         return (
@@ -814,20 +834,26 @@ export default function StaffManagement() {
                         );
                       })()}
 
-                      {/* Phase 8 (RBAC) — custom access-role assignment. Shows
-                          once the owner has defined roles on /admin/roles. Stage A
-                          stores the choice; access switches on in the next stage. */}
-                      {rolesList.length > 0 && (
-                        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Access role:</span>
-                          <select value={s.roleId || ''} disabled={roleSavingId === s.id}
-                            onChange={e => assignRole(s, e.target.value)}
-                            style={{ padding: '5px 10px', borderRadius: 8, border: A.border, background: A.shell, fontFamily: A.font, fontSize: 12, color: A.ink, cursor: 'pointer' }}>
-                            <option value="">Default ({s.role})</option>
-                            {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                          </select>
-                        </div>
-                      )}
+                      {/* Unified role model — the staffer's ONE role. Built-in
+                          Kitchen/Waiter open their station screens; custom roles
+                          (defined on /admin/roles) grant the ticked features.
+                          Changing it re-mints their access on next sign-in. */}
+                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Role:</span>
+                        <select value={s.roleId || s.role} disabled={roleSavingId === s.id}
+                          onChange={e => assignRole(s, e.target.value)}
+                          style={{ padding: '5px 10px', borderRadius: 8, border: A.border, background: A.shell, fontFamily: A.font, fontSize: 12, color: A.ink, cursor: 'pointer' }}>
+                          <optgroup label="Station">
+                            <option value="kitchen">Kitchen</option>
+                            <option value="waiter">Waiter</option>
+                          </optgroup>
+                          {rolesList.length > 0 && (
+                            <optgroup label="Custom roles">
+                              {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            </optgroup>
+                          )}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Actions */}
@@ -879,65 +905,37 @@ export default function StaffManagement() {
                 : 'PIN cannot be changed. To reset a staff member\u2019s PIN, delete this account and create a new one.'}
             </div>
 
-            {/* Role picker — card-style selector with matte-black icon, gold accent on active.
-                Disabled when editing because role changes need new Firebase custom claims —
-                we route users to delete+recreate for a clean state. */}
+            {/* Unified role picker — ONE role per staffer: a built-in station
+                role (Kitchen / Waiter) OR a custom role (the features ticked on
+                the Roles page). Read-only when editing — change it from the
+                card's Role dropdown so claims re-mint on next sign-in. */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, color: A.warningDim, letterSpacing: '0.10em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Role</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {Object.entries(ROLES).map(([val, r]) => {
-                  const active = form.role === val;
-                  const editing = modal !== 'add';
-                  return (
-                    <button key={val} type="button"
-                      onClick={() => { if (!editing) setForm(f => ({ ...f, role: val })); }}
-                      disabled={editing && !active}
-                      style={{
-                        padding: '14px 12px', borderRadius: 10,
-                        cursor: editing ? (active ? 'default' : 'not-allowed') : 'pointer',
-                        textAlign: 'left',
-                        border: `2px solid ${active ? A.warning : 'rgba(0,0,0,0.08)'}`,
-                        background: active
-                          ? 'rgba(196,168,109,0.06)'
-                          : (editing ? A.subtleBg : A.shell),
-                        opacity: editing && !active ? 0.5 : 1,
-                        fontFamily: A.font, transition: 'all 0.15s',
-                        display: 'flex', alignItems: 'center', gap: 12,
-                      }}>
-                      <RoleIcon role={val} size={36} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: A.ink }}>{r.label}</div>
-                        <div style={{ fontSize: 11, color: A.mutedText, marginTop: 2 }}>{r.desc}</div>
-                      </div>
-                    </button>
-                  );
-                })}
+              <select
+                value={form.roleId || form.role}
+                disabled={modal !== 'add'}
+                onChange={e => {
+                  const v = e.target.value;
+                  const isBuiltin = v === 'kitchen' || v === 'waiter';
+                  setForm(f => ({ ...f, role: isBuiltin ? v : 'staff', roleId: isBuiltin ? '' : v }));
+                }}
+                style={{ ...inputStyle, cursor: modal !== 'add' ? 'not-allowed' : 'pointer', ...(modal !== 'add' ? { background: A.subtleBg, color: A.mutedText } : {}) }}>
+                <optgroup label="Station roles">
+                  <option value="kitchen">Kitchen — Kitchen Display screen</option>
+                  <option value="waiter">Waiter — Waiter Dashboard</option>
+                </optgroup>
+                {rolesList.length > 0 && (
+                  <optgroup label="Custom roles">
+                    {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </optgroup>
+                )}
+              </select>
+              <div style={{ fontSize: 11, color: A.faintText, marginTop: 6 }}>
+                {modal === 'add'
+                  ? 'Kitchen & Waiter open their station screens. Custom roles (made on the Roles page) grant the features you ticked there.'
+                  : 'To change role, use the Role dropdown on the staff card.'}
               </div>
-              {modal !== 'add' && (
-                <div style={{ fontSize: 11, color: A.faintText, marginTop: 6 }}>
-                  Station cannot be changed. Delete and re-create to assign a different station.
-                </div>
-              )}
             </div>
-
-            {/* Phase 8 (RBAC) — optional custom access role, assignable at
-                creation. Grants this person a role's permissions on top of
-                their base station. For editing, use the dropdown on the card. */}
-            {modal === 'add' && rolesList.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: A.warningDim, letterSpacing: '0.10em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
-                  Access role <span style={{ textTransform: 'none', fontWeight: 400, color: A.faintText }}>(optional)</span>
-                </label>
-                <select value={form.roleId} onChange={e => setForm(f => ({ ...f, roleId: e.target.value }))}
-                  style={{ ...inputStyle, cursor: 'pointer' }}>
-                  <option value="">None — station access only</option>
-                  {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-                <div style={{ fontSize: 11, color: A.faintText, marginTop: 4 }}>
-                  Grants this person the permissions you ticked for that role on the Roles page.
-                </div>
-              </div>
-            )}
 
             {/* Name */}
             <FormField label="Name">

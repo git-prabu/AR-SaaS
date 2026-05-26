@@ -133,7 +133,10 @@ export default async function handler(req, res) {
   }
 
   const role = staff.role;
-  if (role !== 'kitchen' && role !== 'waiter') {
+  // Unified role model (26 May 2026): a staffer is EITHER a built-in station
+  // role ('kitchen' / 'waiter') OR a custom role (base 'staff' + a roleId
+  // pointing at staffRoles/{id}). Anything else is a corrupt account.
+  if (role !== 'kitchen' && role !== 'waiter' && role !== 'staff') {
     return res.status(500).json({ error: 'Invalid role on this account. Contact your manager.' });
   }
 
@@ -142,7 +145,9 @@ export default async function handler(req, res) {
   // assigned a custom access role, that role's permission list fully
   // defines what they can reach (read from staffRoles/{roleId}). Read
   // failures fall back to the station default — never block a valid login.
-  let perms = role === 'kitchen' ? ['kitchen'] : ['waiter'];
+  // Built-in station roles seed their one perm; a custom role ('staff') starts
+  // empty and is fully defined by its staffRoles permission list.
+  let perms = role === 'kitchen' ? ['kitchen'] : role === 'waiter' ? ['waiter'] : [];
   let roleId = staff.roleId || null;
   if (roleId) {
     try {
@@ -158,13 +163,19 @@ export default async function handler(req, res) {
     } catch { /* keep station default */ }
   }
 
+  // A resolved custom role makes the EFFECTIVE role 'staff' — even for legacy
+  // accounts still stored as kitchen/waiter + roleId — so the Kitchen/Waiter
+  // screens (which gate on the role claim) correctly treat them as non-station
+  // staff. Built-in kitchen/waiter keep their station role.
+  const effectiveRole = roleId ? 'staff' : role;
+
   // ─── Success. Create/refresh Firebase Auth user with custom claims ───
   let customToken;
   try {
     await ensureStaffAuthUser({
       restaurantId,
       staffId: staffDoc.id,
-      role,
+      role: effectiveRole,
       name: staff.name || staff.username,
       perms,
       roleId,
@@ -174,7 +185,7 @@ export default async function handler(req, res) {
     // inline developerClaims let the client read them from the token
     // immediately without needing getIdTokenResult().
     customToken = await adminAuth.createCustomToken(uid, {
-      role,
+      role: effectiveRole,
       rid: restaurantId,
       staffId: staffDoc.id,
       kind: 'staff',
@@ -204,7 +215,7 @@ export default async function handler(req, res) {
     token: customToken,
     staffId: staffDoc.id,
     name: staff.name || staff.username,
-    role,
+    role: effectiveRole,
     restaurantId,
     perms,
     roleId,

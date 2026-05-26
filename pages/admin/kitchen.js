@@ -176,7 +176,9 @@ export default function KitchenDisplay() {
     if (isAdmin) return; // admin: full access
     if (staffSession?.role === 'kitchen') return; // kitchen staff: allow
     if (staffSession?.role === 'waiter') { router.replace('/admin/waiter'); return; }
-    router.replace('/staff/login');
+    // Any other signed-in staffer (a custom role without kitchen access) goes
+    // to their hub, which shows what they CAN reach; logged-out → login.
+    router.replace(staffSession ? '/staff/home' : '/staff/login');
   }, [authChecked, adminLoading, user, userData, staffSession]);
 
   // ══ Staff session invalidation (May 8) ══

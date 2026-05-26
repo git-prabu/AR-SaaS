@@ -22,7 +22,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { createStaffRole, updateStaffRole, deleteStaffRole } from '../../lib/db';
-import { PERMISSION_GROUPS } from '../../lib/permissions';
+import { PERMISSION_GROUPS, BUILTIN_ROLES } from '../../lib/permissions';
 import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -115,8 +115,23 @@ export default function AdminRoles() {
           <div style={{ marginBottom: 16 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Roles &amp; Permissions</h1>
             <p style={{ fontSize: 13.5, color: A.mutedText, margin: '6px 0 0', lineHeight: 1.5 }}>
-              Create access roles and tick what each one can use. Assign a role to a person on the <b>Staff</b> page.
+              Every staff member gets ONE role. <b>Kitchen</b> and <b>Waiter</b> are built in (below); create your own roles and tick what each can use. Assign a role to a person on the <b>Staff</b> page.
             </p>
+          </div>
+
+          {/* Built-in station roles — always available, not editable. They map
+              to the dedicated Kitchen Display / Waiter Dashboard screens and
+              appear in the staff Role picker alongside the custom roles below. */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+            {BUILTIN_ROLES.map(b => (
+              <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: A.shellDarker, border: A.border, borderRadius: 10, minWidth: 210 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.warningDim, background: 'rgba(196,168,109,0.14)', padding: '3px 8px', borderRadius: 5, whiteSpace: 'nowrap' }}>Built-in</span>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: A.ink }}>{b.name}</div>
+                  <div style={{ fontSize: 11.5, color: A.mutedText }}>{b.desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Add role */}

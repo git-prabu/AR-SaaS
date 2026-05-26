@@ -163,7 +163,9 @@ export default function WaiterDashboard() {
     if (isAdmin) return;
     if (staffSession?.role === 'waiter') return;
     if (staffSession?.role === 'kitchen') { router.replace('/admin/kitchen'); return; }
-    router.replace('/staff/login');
+    // Any other signed-in staffer (a custom role without waiter access) goes to
+    // their hub, which shows what they CAN reach; logged-out → login.
+    router.replace(staffSession ? '/staff/home' : '/staff/login');
   }, [authChecked, adminLoading, user, userData, staffSession]);
 
   // ── Staff session invalidation (May 8) ──
