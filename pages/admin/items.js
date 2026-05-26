@@ -2,13 +2,12 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
 import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey, updateRestaurant } from '../../lib/db';
 import { uploadFile, uploadImage, buildImagePath, fileSizeMB, optimizeOneImage, deleteFile } from '../../lib/storage';
-import { db } from '../../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import useBulkSelection from '../../hooks/useBulkSelection';
@@ -115,8 +114,10 @@ const DragHandleIcon = ({ color = 'rgba(0,0,0,0.35)' }) => (
 
 export default function AdminItems() {
   const router = useRouter();
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'menuItems'. All menu
+  // reads/writes route through scopedDb; image uploads through scopedStorage.
+  const { ready, isAdmin, rid, scopedDb, scopedStorage, canView } = useFeatureAccess('menuItems');
+  const dbOpt = { db: scopedDb };
 
   const [items, setItems] = useState([]);
   const [combos, setCombos] = useState([]);
@@ -137,8 +138,8 @@ export default function AdminItems() {
   const [savedCategoryOrder, setSavedCategoryOrder] = useState([]);
   const [savedCategoryImages, setSavedCategoryImages] = useState({});
   useEffect(() => {
-    if (!rid) return;
-    const unsub = onSnapshot(doc(db, 'restaurants', rid), (snap) => {
+    if (!rid || !canView) return;
+    const unsub = onSnapshot(doc(scopedDb, 'restaurants', rid), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
       setIsHybrid(data.posMode === 'petpooja_hybrid');
@@ -146,7 +147,7 @@ export default function AdminItems() {
       setSavedCategoryImages(data.categoryImages && typeof data.categoryImages === 'object' ? data.categoryImages : {});
     }, () => { /* listener errors are non-fatal — keep last known state */ });
     return unsub;
-  }, [rid]);
+  }, [rid, canView, scopedDb]);
 
   // Filter UI
   const [search, setSearch] = useState('');
@@ -178,12 +179,12 @@ export default function AdminItems() {
   const isSoldOutToday = (item) => item.availableUntil === today;
 
   const load = async () => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     try {
       const [m, c, o] = await Promise.all([
-        getAllMenuItems(rid),
-        getCombos(rid).catch(() => []),
-        getAllOffers(rid).catch(() => []),
+        getAllMenuItems(rid, dbOpt),
+        getCombos(rid, dbOpt).catch(() => []),
+        getAllOffers(rid, dbOpt).catch(() => []),
       ]);
       const sorted = m.sort((a, b) => {
         const ao = a.sortOrder ?? 9999, bo = b.sortOrder ?? 9999;
@@ -256,7 +257,7 @@ export default function AdminItems() {
     setSavedCategoryOrder(newOrder);
     if (!rid) return;
     try {
-      await updateRestaurant(rid, { categoryOrder: newOrder });
+      await updateRestaurant(rid, { categoryOrder: newOrder }, dbOpt);
     } catch (e) {
       console.error('saveCategoryOrder failed', e);
       toast.error('Could not save category order. Refresh and retry.');
@@ -313,7 +314,7 @@ export default function AdminItems() {
     try {
       // Batch-update every menu item with the old category. updateMenuItem
       // already passes through withActor() for the audit fields.
-      await Promise.all(itemsInCat.map(it => updateMenuItem(rid, it.id, { category: newName })));
+      await Promise.all(itemsInCat.map(it => updateMenuItem(rid, it.id, { category: newName }, dbOpt)));
       // Re-key categoryOrder + categoryImages so the customer-side
       // saved state moves with the rename.
       const nextOrder = savedCategoryOrder.map(c => c === oldName ? newName : c);
@@ -325,7 +326,7 @@ export default function AdminItems() {
       await updateRestaurant(rid, {
         categoryOrder: nextOrder,
         categoryImages: nextImages,
-      });
+      }, dbOpt);
       // Optimistic local sync so the strip + table re-render before
       // the listener fires.
       setSavedCategoryOrder(nextOrder);
@@ -504,10 +505,11 @@ export default function AdminItems() {
       const url = await uploadImage(file, path, (pct) =>
         setCatImgUploading(s => ({ ...s, [categoryName]: pct })),
         { maxWidth: 320, maxHeight: 320, quality: 0.82 },
+        scopedStorage,
       );
       const nextImages = { ...savedCategoryImages, [categoryName]: url };
       setSavedCategoryImages(nextImages);
-      await updateRestaurant(rid, { categoryImages: nextImages });
+      await updateRestaurant(rid, { categoryImages: nextImages }, dbOpt);
       toast.success(`Updated image for ${categoryName}`);
     } catch (e) {
       console.error('category image upload failed:', e);
@@ -521,7 +523,7 @@ export default function AdminItems() {
     delete nextImages[categoryName];
     setSavedCategoryImages(nextImages);
     try {
-      await updateRestaurant(rid, { categoryImages: nextImages });
+      await updateRestaurant(rid, { categoryImages: nextImages }, dbOpt);
     } catch (e) {
       console.error('category image clear failed:', e);
       toast.error('Could not clear. Refresh and retry.');
@@ -540,9 +542,10 @@ export default function AdminItems() {
       // customer menu load time on slow networks. Falls back to uploadFile
       // behaviour for already-small or non-image files.
       const url = await uploadImage(file, path, (pct) =>
-        setImgUpload(u => ({ ...u, [item.id]: { uploading: true, progress: pct } }))
+        setImgUpload(u => ({ ...u, [item.id]: { uploading: true, progress: pct } })),
+        undefined, scopedStorage
       );
-      await updateMenuItem(rid, item.id, { imageURL: url });
+      await updateMenuItem(rid, item.id, { imageURL: url }, dbOpt);
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url } : i));
       toast.success('Image updated');
     } catch (e) { toast.error('Upload failed: ' + e.message); }
@@ -607,7 +610,7 @@ export default function AdminItems() {
         sortOrder: form.sortOrder !== '' ? Number(form.sortOrder) : null,
         variants: cleanVariants,
         addOns:   cleanAddOns,
-      });
+      }, dbOpt);
       toast.success('Item updated');
       closeDrawer();
       await load();
@@ -645,7 +648,7 @@ export default function AdminItems() {
       onConfirm: async () => {
         setDeleting(item.id);
         try {
-          await deleteMenuItem(rid, item.id);
+          await deleteMenuItem(rid, item.id, dbOpt);
           toast.success(`"${item.name}" deleted`);
           await load();
         } catch { toast.error('Delete failed'); }
@@ -676,7 +679,7 @@ export default function AdminItems() {
       return [...reordered, ...rest];
     });
 
-    await Promise.all(reordered.map((item, idx) => updateMenuItem(rid, item.id, { sortOrder: idx + 1 })));
+    await Promise.all(reordered.map((item, idx) => updateMenuItem(rid, item.id, { sortOrder: idx + 1 }, dbOpt)));
 
     dragItem.current = null;
     dragOverItem.current = null;
@@ -695,15 +698,15 @@ export default function AdminItems() {
       toast.error('This item came from Petpooja. Re-upgrade to Pro and reconnect Petpooja to show it on your menu.');
       return;
     }
-    try { await updateMenuItem(rid, item.id, { isActive: !item.isActive }); await load(); }
+    try { await updateMenuItem(rid, item.id, { isActive: !item.isActive }, dbOpt); await load(); }
     catch { toast.error('Update failed'); }
   };
   const toggleSoldOut = async (item) => {
-    try { await updateMenuItem(rid, item.id, { availableUntil: isSoldOutToday(item) ? null : today }); await load(); }
+    try { await updateMenuItem(rid, item.id, { availableUntil: isSoldOutToday(item) ? null : today }, dbOpt); await load(); }
     catch { toast.error('Update failed'); }
   };
   const toggleOutOfStock = async (item) => {
-    try { await updateMenuItem(rid, item.id, { isOutOfStock: !item.isOutOfStock }); await load(); }
+    try { await updateMenuItem(rid, item.id, { isOutOfStock: !item.isOutOfStock }, dbOpt); await load(); }
     catch { toast.error('Update failed'); }
   };
 
@@ -725,7 +728,7 @@ export default function AdminItems() {
     setBulkBusy('sold-out');
     try {
       await Promise.all(selectedItems.map(i =>
-        updateMenuItem(rid, i.id, { availableUntil: today })
+        updateMenuItem(rid, i.id, { availableUntil: today }, dbOpt)
       ));
       toast.success(`${selectedItems.length} marked sold-out for today.`);
       sel.clear();
@@ -740,7 +743,7 @@ export default function AdminItems() {
     setBulkBusy('available');
     try {
       await Promise.all(selectedItems.map(i =>
-        updateMenuItem(rid, i.id, { availableUntil: null, isOutOfStock: false, isActive: true })
+        updateMenuItem(rid, i.id, { availableUntil: null, isOutOfStock: false, isActive: true }, dbOpt)
       ));
       toast.success(`${selectedItems.length} restored to available.`);
       sel.clear();
@@ -759,7 +762,7 @@ export default function AdminItems() {
     setBulkBusy('category');
     try {
       await Promise.all(selectedItems.map(i =>
-        updateMenuItem(rid, i.id, { category: trimmed })
+        updateMenuItem(rid, i.id, { category: trimmed }, dbOpt)
       ));
       toast.success(`${selectedItems.length} moved to "${trimmed}".`);
       sel.clear();
@@ -780,7 +783,7 @@ export default function AdminItems() {
       onConfirm: async () => {
         setBulkBusy('delete');
         try {
-          await Promise.all(selectedItems.map(i => deleteMenuItem(rid, i.id)));
+          await Promise.all(selectedItems.map(i => deleteMenuItem(rid, i.id, dbOpt)));
           toast.success(`${selectedItems.length} deleted.`);
           sel.clear();
           await load();
@@ -836,12 +839,12 @@ export default function AdminItems() {
           i += 1;
           setOptimizing({ index: i, total, name: it.name || '' });
           try {
-            const result = await optimizeOneImage(rid, it);
+            const result = await optimizeOneImage(rid, it, undefined, scopedStorage);
             if (!result) { skipped += 1; }
             else {
-              await updateMenuItem(rid, it.id, { imageURL: result.newURL });
+              await updateMenuItem(rid, it.id, { imageURL: result.newURL }, dbOpt);
               setItems(prev => prev.map(x => x.id === it.id ? { ...x, imageURL: result.newURL } : x));
-              if (result.oldPath) deleteFile(result.oldPath).catch(() => {});
+              if (result.oldPath) deleteFile(result.oldPath, scopedStorage).catch(() => {});
               processed += 1;
               savedBytes += (result.sizeBefore - result.sizeAfter);
             }
@@ -857,13 +860,13 @@ export default function AdminItems() {
           setOptimizing({ index: i, total, name: cat.name });
           try {
             const synthetic = { id: `cat:${cat.name}`, name: cat.name, imageURL: cat.url };
-            const result = await optimizeOneImage(rid, synthetic, { maxWidth: 320, maxHeight: 320, quality: 0.82 });
+            const result = await optimizeOneImage(rid, synthetic, { maxWidth: 320, maxHeight: 320, quality: 0.82 }, scopedStorage);
             if (!result) { skipped += 1; }
             else {
               const nextImages = { ...savedCategoryImages, [cat.name]: result.newURL };
               setSavedCategoryImages(nextImages);
-              await updateRestaurant(rid, { categoryImages: nextImages });
-              if (result.oldPath) deleteFile(result.oldPath).catch(() => {});
+              await updateRestaurant(rid, { categoryImages: nextImages }, dbOpt);
+              if (result.oldPath) deleteFile(result.oldPath, scopedStorage).catch(() => {});
               processed += 1;
               savedBytes += (result.sizeBefore - result.sizeAfter);
             }
@@ -965,7 +968,7 @@ export default function AdminItems() {
           modelURL: null, arReady: false,
           sortOrder: 9999, isFeatured: false,
         };
-        try { await createMenuItem(rid, data); ok += 1; }
+        try { await createMenuItem(rid, data, dbOpt); ok += 1; }
         catch (err) { console.error('Import row failed for', name, err); skipped += 1; }
       }
       if (ok > 0) toast.success(`Imported ${ok} item${ok === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped` : ''}.`);
@@ -980,7 +983,7 @@ export default function AdminItems() {
   const canDrag = statusFilter === 'all' && catFilter === 'all' && !search.trim() && sel.count === 0;
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/items">
       <Head><title>Menu Items | HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -2046,7 +2049,7 @@ export default function AdminItems() {
         {...(confirmDialog || {})}
         onCancel={() => setConfirmDialog(null)}
       />
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
