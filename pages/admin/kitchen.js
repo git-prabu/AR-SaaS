@@ -774,73 +774,10 @@ export default function KitchenDisplay() {
       {/* ═══ Main content: filter bar + all-day row + ticket grid ═══ */}
       <div style={{ padding: '0 28px 40px' }}>
 
-        {/* Station filter + sort controls deferred — see top-of-file note */}
-        {false && (
-        <div className="kds-filter-bar" style={{
-          background: A.shell, border: A.border, borderRadius: 14,
-          boxShadow: A.shadowCard, padding: '12px 18px',
-          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-          marginBottom: 10,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span
-              title="Filter tickets by cooking station."
-              style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning, marginRight: 2, cursor: 'help', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              STATION
-              <span style={{ fontSize: 10, color: A.warning, opacity: 0.6 }}>ⓘ</span>
-            </span>
-            {[
-              ['all', 'All'],
-              ['hot', 'Hot'],
-              ['cold', 'Cold'],
-              ['dessert', 'Desserts'],
-              ['bar', 'Bar'],
-            ].map(([val, label]) => {
-              const active = stationFilter === val;
-              const count = stationCounts[val] || 0;
-              return (
-                <button key={val} className={`kds-station-pill ${active ? 'active' : ''}`}
-                  onClick={() => setStationFilter(val)}
-                  style={{
-                    padding: '6px 12px', fontFamily: A.font, fontSize: 12, fontWeight: active ? 600 : 500,
-                    background: active ? A.subtleBg : 'transparent',
-                    border: 'none', cursor: 'pointer',
-                    color: active ? A.ink : A.mutedText,
-                    borderRadius: 7,
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                  }}>
-                  {label} <span style={{ fontSize: 10, color: active ? A.warning : A.faintText, fontWeight: 600 }}>{count}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <span style={{ width: 1, height: 22, background: 'rgba(0,0,0,0.10)', margin: '0 4px' }} />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span
-              title="Oldest first: shows the ticket that has been waiting longest at the top. By station: groups tickets by station (all Hot together, all Cold together) — useful for batch-cooking similar items at once."
-              style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning, marginRight: 2, cursor: 'help', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              SORT
-              <span style={{ fontSize: 10, color: A.warning, opacity: 0.6 }}>ⓘ</span>
-            </span>
-            {[['oldest', 'Oldest first'], ['station', 'By station']].map(([val, label]) => {
-              const active = sortMode === val;
-              return (
-                <button key={val} className={`kds-station-pill ${active ? 'active' : ''}`}
-                  onClick={() => setSortMode(val)}
-                  style={{
-                    padding: '6px 12px', fontFamily: A.font, fontSize: 12, fontWeight: active ? 600 : 500,
-                    background: active ? A.subtleBg : 'transparent',
-                    border: 'none', cursor: 'pointer',
-                    color: active ? A.ink : A.mutedText,
-                    borderRadius: 7,
-                  }}>{label}</button>
-              );
-            })}
-          </div>
-        </div>
-        )}
+        {/* Station filter + sort controls deferred. Dead JSX removed — it referenced
+            never-wired state (stationFilter/sortMode), a latent ReferenceError if the
+            `false &&` guard were ever flipped. CSS for .kds-filter-bar / .kds-station-pill
+            is kept in the <style> block above for when this feature actually ships. */}
 
         {/* All-Day counter (separate row, lighter weight) */}
         {allDay.length > 0 && (
