@@ -477,6 +477,9 @@ service cloud.firestore {
         allow read: if true;
         // Restaurant admin: manage their offers (create, update, delete)
         allow write: if isRestaurantAdmin(restaurantId);
+        // Phase 8 (RBAC): a 'promotions'-permitted active staff member manages
+        // offers from /admin/promotions.
+        allow write: if staffCan(restaurantId, 'promotions') && isActiveStaff(restaurantId);
         // Super admin: full access
         allow write: if isSuperAdmin();
       }
@@ -487,6 +490,8 @@ service cloud.firestore {
         allow read: if true;
         // Restaurant admin: manage their combos
         allow write: if isRestaurantAdmin(restaurantId);
+        // Phase 8 (RBAC): 'promotions'-permitted active staff manage combos too.
+        allow write: if staffCan(restaurantId, 'promotions') && isActiveStaff(restaurantId);
         // Super admin: full access
         allow write: if isSuperAdmin();
       }
@@ -691,8 +696,9 @@ service cloud.firestore {
       // and bypasses these rules). This prevents coupon-scraping bots that
       // abuse the whole coupon list.
       match /coupons/{couponId} {
-        allow read: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
-        allow create, update, delete: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        allow read: if isRestaurantAdmin(restaurantId) || isSuperAdmin() || staffCan(restaurantId, 'promotions');
+        allow create, update, delete: if isRestaurantAdmin(restaurantId) || isSuperAdmin()
+                      || (staffCan(restaurantId, 'promotions') && isActiveStaff(restaurantId));
       }
 
       // ── Staff Logins ──────────────────────────────────────────

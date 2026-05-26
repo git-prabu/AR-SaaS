@@ -16,8 +16,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import PageHead from '../../components/PageHead';
 import {
   getAllOffers,  createOffer,  updateOffer,  deleteOffer,
@@ -128,8 +128,9 @@ const inputStyle = {
 
 export default function AdminPromotions() {
   const router = useRouter();
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'promotions'. Staff read +
+  // write offers / coupons / combos through staffDb.
+  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('promotions');
 
   const [tab, setTab] = useState('offers');
   const [offers, setOffers] = useState([]);
@@ -175,14 +176,15 @@ export default function AdminPromotions() {
   }, [drawerEntity]);
 
   const load = async () => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     setLoading(true);
     try {
+      const dbOpt = { db: scopedDb };
       const [o, c, cb, m] = await Promise.all([
-        getAllOffers(rid),
-        getCoupons(rid),
-        getCombos(rid),
-        getAllMenuItems(rid),
+        getAllOffers(rid, dbOpt),
+        getCoupons(rid, dbOpt),
+        getCombos(rid, dbOpt),
+        getAllMenuItems(rid, dbOpt),
       ]);
       setOffers(o || []);
       setCoupons(c || []);
@@ -342,8 +344,8 @@ export default function AdminPromotions() {
       };
       setSaving(true);
       try {
-        if (drawerEditingId) { await updateOffer(rid, drawerEditingId, payload); toast.success('Offer updated'); }
-        else                 { await createOffer(rid, payload);                   toast.success('Offer created'); }
+        if (drawerEditingId) { await updateOffer(rid, drawerEditingId, payload, { db: scopedDb }); toast.success('Offer updated'); }
+        else                 { await createOffer(rid, payload, { db: scopedDb });                   toast.success('Offer created'); }
         closeDrawer();
         await load();
       } catch (e) { toast.error('Save failed: ' + e.message); }
@@ -368,8 +370,8 @@ export default function AdminPromotions() {
       };
       setSaving(true);
       try {
-        if (drawerEditingId) { await updateCoupon(rid, drawerEditingId, payload); toast.success('Coupon updated'); }
-        else                 { await createCoupon(rid, payload);                   toast.success('Coupon created'); }
+        if (drawerEditingId) { await updateCoupon(rid, drawerEditingId, payload, { db: scopedDb }); toast.success('Coupon updated'); }
+        else                 { await createCoupon(rid, payload, { db: scopedDb });                   toast.success('Coupon created'); }
         closeDrawer();
         await load();
       } catch (e) { toast.error('Save failed: ' + e.message); }
@@ -395,8 +397,8 @@ export default function AdminPromotions() {
       };
       setSaving(true);
       try {
-        if (drawerEditingId) { await updateCombo(rid, drawerEditingId, payload); toast.success('Combo updated'); }
-        else                 { await createCombo(rid, payload);                   toast.success('Combo created'); }
+        if (drawerEditingId) { await updateCombo(rid, drawerEditingId, payload, { db: scopedDb }); toast.success('Combo updated'); }
+        else                 { await createCombo(rid, payload, { db: scopedDb });                   toast.success('Combo created'); }
         closeDrawer();
         await load();
       } catch (e) { toast.error('Save failed: ' + e.message); }
@@ -409,7 +411,7 @@ export default function AdminPromotions() {
   const toggleCoupon = async (c) => {
     setActing('coupon:' + c.id);
     try {
-      await updateCoupon(rid, c.id, { isActive: !c.isActive });
+      await updateCoupon(rid, c.id, { isActive: !c.isActive }, { db: scopedDb });
       setCoupons(prev => prev.map(x => x.id === c.id ? { ...x, isActive: !c.isActive } : x));
     } catch { toast.error('Could not update'); }
     setActing(null);
@@ -417,7 +419,7 @@ export default function AdminPromotions() {
   const toggleCombo = async (c) => {
     setActing('combo:' + c.id);
     try {
-      await updateCombo(rid, c.id, { isActive: !c.isActive });
+      await updateCombo(rid, c.id, { isActive: !c.isActive }, { db: scopedDb });
       setCombos(prev => prev.map(x => x.id === c.id ? { ...x, isActive: !c.isActive } : x));
     } catch { toast.error('Could not update'); }
     setActing(null);
@@ -425,21 +427,21 @@ export default function AdminPromotions() {
   const delOffer = async (o) => {
     if (!confirm(`Delete offer "${o.title}"?`)) return;
     setActing('offer:' + o.id);
-    try { await deleteOffer(rid, o.id); setOffers(prev => prev.filter(x => x.id !== o.id)); toast.success('Deleted'); }
+    try { await deleteOffer(rid, o.id, { db: scopedDb }); setOffers(prev => prev.filter(x => x.id !== o.id)); toast.success('Deleted'); }
     catch { toast.error('Delete failed'); }
     setActing(null);
   };
   const delCoupon = async (c) => {
     if (!confirm(`Delete coupon "${c.code}"?`)) return;
     setActing('coupon:' + c.id);
-    try { await deleteCoupon(rid, c.id); setCoupons(prev => prev.filter(x => x.id !== c.id)); toast.success('Deleted'); }
+    try { await deleteCoupon(rid, c.id, { db: scopedDb }); setCoupons(prev => prev.filter(x => x.id !== c.id)); toast.success('Deleted'); }
     catch { toast.error('Delete failed'); }
     setActing(null);
   };
   const delCombo = async (c) => {
     if (!confirm(`Delete combo "${c.name}"?`)) return;
     setActing('combo:' + c.id);
-    try { await deleteCombo(rid, c.id); setCombos(prev => prev.filter(x => x.id !== c.id)); toast.success('Deleted'); }
+    try { await deleteCombo(rid, c.id, { db: scopedDb }); setCombos(prev => prev.filter(x => x.id !== c.id)); toast.success('Deleted'); }
     catch { toast.error('Delete failed'); }
     setActing(null);
   };
@@ -447,7 +449,7 @@ export default function AdminPromotions() {
   const activeTabMeta = TABS.find(t => t.k === tab);
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/promotions">
       <PageHead title="Promotions" />
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -712,7 +714,7 @@ export default function AdminPromotions() {
           </>
         )}
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
