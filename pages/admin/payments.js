@@ -1,9 +1,8 @@
 import Head from 'next/head';
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
-import { updatePaymentStatus, markOrderPaid, cancelOrder, todayKey } from '../../lib/db';
-import { db } from '../../lib/firebase';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { updatePaymentStatus, markOrderPaidAs, cancelOrder, todayKey } from '../../lib/db';
 import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import DateRangePicker from '../../components/DateRangePicker';
@@ -144,8 +143,12 @@ async function firePetpoojaPaymentSync(rid, orderId, user) {
 }
 
 export default function AdminPayments() {
-  const { user, userData } = useAuth();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'payments'. Staff use the
+  // staff Firestore connection (scopedDb) for the live listener + every
+  // mark-paid / cancel write. `user` is the admin auth user (null for staff)
+  // — used only to mint an admin ID token for the receipt-email side-effect,
+  // which simply no-ops for a staff-marked payment (the payment still records).
+  const { ready, isAdmin, rid, scopedDb, canView, user } = useFeatureAccess('payments');
 
   const [allOrders, setAllOrders] = useState([]);
   const [loaded, setLoaded] = useState(false); // true after first Firestore snapshot arrives
@@ -207,8 +210,8 @@ export default function AdminPayments() {
 
   // ── Firestore listener ──
   useEffect(() => {
-    if (!rid) return;
-    const q = query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
+    if (!rid || !canView) return;
+    const q = query(collection(scopedDb, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, snap => {
       setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoaded(true);
@@ -216,13 +219,16 @@ export default function AdminPayments() {
       console.error('Payments listener error:', err);
       setLoaded(true); // mark loaded even on error so the empty state shows instead of infinite loading
     });
-  }, [rid]);
+  }, [rid, canView, scopedDb]);
 
   // ── Unmatched auto-confirm payments listener ──
+  // Owner-only: the needsMatch reconciliation queue is an online-payment
+  // (gateway) admin feature and has no staff Firestore rule, so we don't
+  // subscribe for staff — a cashier just uses the normal mark-paid flow.
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !isAdmin) return;
     const q = query(
-      collection(db, 'restaurants', rid, 'needsMatch'),
+      collection(scopedDb, 'restaurants', rid, 'needsMatch'),
       where('resolved', '==', false),
       orderBy('receivedAt', 'desc'),
     );
@@ -235,7 +241,7 @@ export default function AdminPayments() {
         console.warn('needsMatch listener error:', err?.message);
       }
     });
-  }, [rid]);
+  }, [rid, isAdmin, scopedDb]);
 
   // ── Resolve an unmatched payment by assigning it to an order ──
   const assignUnmatched = async (unmatchedId, orderId) => {
@@ -244,16 +250,16 @@ export default function AdminPayments() {
     try {
       const um = unmatched.find(u => u.id === unmatchedId);
       // 1. Mark the order paid_online with the provider txn id stamped.
-      await markOrderPaid(rid, orderId, 'paid_online', {
+      await markOrderPaidAs(scopedDb, rid, orderId, 'paid_online', {
         gatewayProviderRef: um?.providerTxnId || null,
         autoConfirmPayerVpa: um?.payerVpa || null,
         autoConfirmResolvedFrom: 'manual-assign',
       }).catch(async () => {
-        // If markOrderPaid signature differs, fall back to updatePaymentStatus.
-        await updatePaymentStatus(rid, orderId, 'paid_online');
+        // If markOrderPaidAs signature differs, fall back to updatePaymentStatus.
+        await updatePaymentStatus(rid, orderId, 'paid_online', { db: scopedDb });
       });
       // 2. Mark the needsMatch row resolved.
-      await updateDoc(doc(db, 'restaurants', rid, 'needsMatch', unmatchedId), {
+      await updateDoc(doc(scopedDb, 'restaurants', rid, 'needsMatch', unmatchedId), {
         resolved: true,
         resolvedAt: serverTimestamp(),
         resolvedOrderId: orderId,
@@ -433,7 +439,7 @@ export default function AdminPayments() {
       // and clears tableSessions.currentBillId so the next QR scan
       // opens a FRESH bill at that table. Required so the customer
       // doesn't keep seeing the closed bill on subsequent visits.
-      await markOrderPaid(rid, order.id, newStatus);
+      await markOrderPaidAs(scopedDb, rid, order.id, newStatus);
       // Phase M — fire customer receipt email if they shared one.
       // Fire-and-forget; idempotent server-side.
       fireReceiptEmail(rid, order.id, user);
@@ -466,7 +472,7 @@ export default function AdminPayments() {
     const previousStatus = order.paymentStatus;
     setUpdating(order.id);
     try {
-      await markOrderPaid(rid, order.id, 'paid_cash', { cashReceived: received, changeGiven: change });
+      await markOrderPaidAs(scopedDb, rid, order.id, 'paid_cash', { cashReceived: received, changeGiven: change });
       // Phase M — receipt email (fire-and-forget, see helper at top).
       fireReceiptEmail(rid, order.id, user);
       // Phase B — Petpooja payment-status sync (no-op for standalone).
@@ -509,7 +515,7 @@ export default function AdminPayments() {
       onConfirm: async () => {
         setUpdating(order.id);
         try {
-          await cancelOrder(rid, order.id, 'cancelled-by-admin');
+          await cancelOrder(rid, order.id, 'cancelled-by-admin', { db: scopedDb });
           console.info('[cancel] success', { orderId: order.id });
           toast.success('Order cancelled');
         } catch (e) {
@@ -538,7 +544,7 @@ export default function AdminPayments() {
     if (timeoutId) clearTimeout(timeoutId);
     setUndoBanner(null);
     try {
-      await updatePaymentStatus(rid, orderId, previousStatus);
+      await updatePaymentStatus(rid, orderId, previousStatus, { db: scopedDb });
       toast.success('Payment undone.');
     } catch (e) {
       console.error('Undo failed:', e);
@@ -600,7 +606,7 @@ export default function AdminPayments() {
   }, [displayed]);
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/payments">
       <Head><title>Payments | HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -1389,7 +1395,7 @@ export default function AdminPayments() {
         {...(confirmDialog || {})}
         onCancel={() => setConfirmDialog(null)}
       />
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 

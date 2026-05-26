@@ -22,7 +22,11 @@ import { readStaffSession } from '../lib/staffSession';
 
 export function useFeatureAccess(permKey) {
   const router = useRouter();
-  const { userData, loading: authLoading } = useAuth();
+  // `user` is the admin Firebase auth user (null for a staff viewer, who is
+  // signed into the staff app instead). Pages that mint an admin ID token —
+  // e.g. payments.js fireReceiptEmail — use it; for staff it's null and those
+  // owner-only side-effects gracefully no-op.
+  const { user, userData, loading: authLoading } = useAuth();
 
   const [staffSession, setStaffSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -51,5 +55,5 @@ export function useFeatureAccess(permKey) {
     if (!staffPerms.includes(permKey)) { router.replace('/staff/home'); return; }
   }, [authLoading, isAdmin, sessionChecked, staffSession, permKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { ready, isAdmin, isStaff, canView, rid, scopedDb, staffPerms, staffSession, userData };
+  return { ready, isAdmin, isStaff, canView, rid, scopedDb, staffPerms, staffSession, userData, user };
 }
