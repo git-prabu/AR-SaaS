@@ -1,9 +1,8 @@
 import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import { getRestaurantById, activateTableSession, clearTableSession, isSessionValid } from '../../lib/db';
-import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
@@ -53,9 +52,10 @@ const STYLES = [
 ];
 
 export default function AdminQRCode() {
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  // RBAC: owner OR a staff member whose role grants 'qrcode' (owner delegated
+  // QR/table-session management). Activate/clear write through staffDb.
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('qrcode');
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   // ─── State ─────────────────────────────────────────────────────────
   const [restaurant, setRestaurant] = useState(null);
@@ -90,25 +90,25 @@ export default function AdminQRCode() {
 
   // ─── Load restaurant ───────────────────────────────────────────────
   useEffect(() => {
-    if (!rid) return;
-    getRestaurantById(rid)
+    if (!rid || !canView) return;
+    getRestaurantById(rid, { db: scopedDb })
       .then(r => { setRestaurant(r); setLoading(false); })
       .catch(err => { console.error('qrcode load error:', err); setLoading(false); });
-  }, [rid]);
+  }, [rid, canView, scopedDb]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Auto-regenerate main QR when style/size/restaurant changes ─────
   useEffect(() => { if (restaurant?.subdomain) generateQR(); }, [restaurant, selectedSize, selectedStyle]);
 
   // ─── Real-time table sessions listener ─────────────────────────────
   useEffect(() => {
-    if (!rid) return;
-    const unsub = onSnapshot(collection(db, 'restaurants', rid, 'tableSessions'), (snap) => {
+    if (!rid || !canView) return;
+    const unsub = onSnapshot(collection(scopedDb, 'restaurants', rid, 'tableSessions'), (snap) => {
       const map = {};
       snap.docs.forEach(d => { map[d.data().tableNumber] = d.data(); });
       setSessions(map);
     });
     return unsub;
-  }, [rid]);
+  }, [rid, canView, scopedDb]);
 
   // ─── Reset table QRs when style changes so they stay in sync ───────
   useEffect(() => { setTableQRs([]); setTablesDone(false); }, [selectedStyle]);
@@ -242,7 +242,7 @@ export default function AdminQRCode() {
   const handleActivate = async (tableNum) => {
     setActivating(tableNum);
     try {
-      await activateTableSession(rid, tableNum, sessionHours);
+      await activateTableSession(rid, tableNum, sessionHours, { db: scopedDb });
       toast.success(`Table ${tableNum} activated for ${sessionHours}h`);
     } catch { toast.error('Failed to activate'); }
     finally { setActivating(null); }
@@ -251,7 +251,7 @@ export default function AdminQRCode() {
   const handleClear = async (tableNum) => {
     setClearing(tableNum);
     try {
-      await clearTableSession(rid, tableNum);
+      await clearTableSession(rid, tableNum, { db: scopedDb });
       toast.success(`Table ${tableNum} cleared`);
     } catch { toast.error('Failed to clear'); }
     finally { setClearing(null); }
@@ -261,7 +261,7 @@ export default function AdminQRCode() {
     setActivatingAll(true);
     try {
       for (let i = 1; i <= tableCount; i++) {
-        await activateTableSession(rid, String(i), sessionHours);
+        await activateTableSession(rid, String(i), sessionHours, { db: scopedDb });
       }
       toast.success(`All ${tableCount} tables activated for ${sessionHours}h`);
     } catch { toast.error('Failed to activate all'); }
@@ -273,7 +273,7 @@ export default function AdminQRCode() {
     setClearingAll(true);
     try {
       for (let i = 1; i <= tableCount; i++) {
-        await clearTableSession(rid, String(i));
+        await clearTableSession(rid, String(i), { db: scopedDb });
       }
       toast.success('All tables cleared');
     } catch { toast.error('Failed to clear all'); }
@@ -298,7 +298,7 @@ export default function AdminQRCode() {
   // RENDER
   // ═════════════════════════════════════════════════════════════════════
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/qrcode">
       <Head><title>QR Codes — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -899,7 +899,7 @@ export default function AdminQRCode() {
           )}
         </div>
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
