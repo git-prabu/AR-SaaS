@@ -16,8 +16,8 @@
 //       takeaway paid_cash → status='pending' (counter cash, kitchen starts)
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import PageHead from '../../components/PageHead';
 import { getAllMenuItems, createOrder, getRestaurantById, todayKey } from '../../lib/db';
 import toast from 'react-hot-toast';
@@ -45,8 +45,9 @@ const formatRupee = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-I
 
 export default function AdminNewOrder() {
   const router = useRouter();
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'newOrder'. Staff create
+  // orders through staffDb (authenticated — see the orders create rule).
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('newOrder');
 
   const [items, setItems] = useState([]);
   const [restaurant, setRestaurant] = useState(null);
@@ -75,16 +76,16 @@ export default function AdminNewOrder() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     setLoading(true);
-    Promise.all([getAllMenuItems(rid), getRestaurantById(rid)])
+    Promise.all([getAllMenuItems(rid, { db: scopedDb }), getRestaurantById(rid, { db: scopedDb })])
       .then(([menu, rest]) => {
         setItems((menu || []).filter(i => i.isActive !== false));
         setRestaurant(rest);
         setLoading(false);
       })
       .catch(err => { console.error('new-order load:', err); setLoading(false); toast.error('Could not load menu.'); });
-  }, [rid]);
+  }, [rid, canView, scopedDb]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const categories = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))], [items]);
 
@@ -153,9 +154,9 @@ export default function AdminNewOrder() {
         customerName: orderType !== 'dinein' ? customerName.trim() : '',
         customerPhone: customerPhone.trim(),
         specialInstructions: specialNote.trim(),
-        sessionId: `captain:${userData?.email || 'staff'}`,
+        sessionId: `captain:${userData?.email || staffSession?.name || 'staff'}`,
         paymentStatus: isTakeawayPaid ? 'paid_cash' : 'unpaid',
-      });
+      }, { db: scopedDb });
       const successMsg = orderType === 'takeaway' && !paidNow
         ? 'Order saved. Will send to kitchen once payment is collected.'
         : 'Order placed! Sent to kitchen.';
@@ -178,7 +179,7 @@ export default function AdminNewOrder() {
   };
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/new-order">
       <PageHead title="New Order" />
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -501,7 +502,7 @@ export default function AdminNewOrder() {
           </div>
         </div>
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 

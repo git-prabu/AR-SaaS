@@ -332,6 +332,16 @@ service cloud.firestore {
           request.resource.data.items.size() > 0 &&
           request.resource.data.items.size() <= 100;
 
+        // ── CREATE: authenticated POS (owner / staff) ────────────
+        // The owner, or a 'newOrder'-permitted ACTIVE staff member, creates
+        // orders from /admin/new-order. Unlike the public rule above, this
+        // path permits any starting payment state (e.g. takeaway "Customer
+        // paid now" → paymentStatus 'paid_cash'), since a trusted POS operator
+        // is recording a real transaction. Anonymous customers remain limited
+        // to the unpaid-only public rule above.
+        allow create: if isRestaurantAdmin(restaurantId)
+                      || (isActiveStaff(restaurantId) && staffCan(restaurantId, 'newOrder'));
+
         // ── READ ─────────────────────────────────────────────────
         // Single-doc reads (`get`) are public — customer needs to read
         // their own order by ID for the confirmation screen + per-doc
