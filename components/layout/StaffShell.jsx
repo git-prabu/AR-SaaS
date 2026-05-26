@@ -43,7 +43,11 @@ export default function StaffShell({ active, children }) {
     router.replace('/staff/login');
   };
 
-  const activePath = active || router.pathname;
+  // Staff browse under clean /staff/* URLs (next.config rewrites serve the
+  // matching /admin/* page). Map nav hrefs to /staff/* and match the active
+  // item against the actual /staff URL (asPath), not the rewritten page path.
+  const toStaff = (href) => (href || '').replace('/admin/', '/staff/');
+  const activePath = (router.asPath || '').split('?')[0];
   const isActive = (href) => activePath === href || activePath.startsWith(href);
 
   // Aspire palette (mirrors AdminLayout's sidebar).
@@ -91,7 +95,7 @@ export default function StaffShell({ active, children }) {
                 {section.label}
               </div>
               {section.items.map(item => (
-                <Link key={item.href} href={item.href} className={`slnk${isActive(item.href) ? ' on' : ''}`}>
+                <Link key={item.href} href={toStaff(item.href)} className={`slnk${isActive(toStaff(item.href)) ? ' on' : ''}`}>
                   <span className="nav-icon"><NavIcon name={item.icon} /></span>
                   <span style={{ flex: 1 }}>{item.label}</span>
                 </Link>

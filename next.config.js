@@ -69,6 +69,21 @@ const nextConfig = {
       },
     ];
   },
+
+  // ── Clean staff URLs (2026-05-26) ──────────────────────────────────
+  // Staff reuse the same feature pages as the owner, but a staffer seeing
+  // "/admin/..." in the address bar is confusing. These afterFiles rewrites
+  // serve the matching /admin/<feature> page under a clean /staff/<feature>
+  // URL (the StaffShell sidebar + hub link to /staff/*). afterFiles runs
+  // AFTER real pages, so /staff/login and /staff/home (real pages) are
+  // unaffected — only feature paths with no real /staff page fall through.
+  async rewrites() {
+    return {
+      afterFiles: [
+        { source: '/staff/:feature', destination: '/admin/:feature' },
+      ],
+    };
+  },
 };
 
 module.exports = nextConfig;

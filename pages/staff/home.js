@@ -50,7 +50,7 @@ export default function StaffHome() {
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A08656', marginBottom: 10 }}>Available now</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
                 {liveNow.map(k => (
-                  <Link key={k} href={PERMISSION_ROUTES[k]} style={{ ...card, textDecoration: 'none', color: '#1A1A1A', fontWeight: 700, fontSize: 14.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <Link key={k} href={(PERMISSION_ROUTES[k] || '').replace('/admin/', '/staff/')} style={{ ...card, textDecoration: 'none', color: '#1A1A1A', fontWeight: 700, fontSize: 14.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     {LABELS[k] || k} <span style={{ color: '#C4A86D' }}>→</span>
                   </Link>
                 ))}
