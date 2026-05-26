@@ -515,6 +515,21 @@ service cloud.firestore {
         allow update: if staffCan(restaurantId, 'waitlist') && isActiveStaff(restaurantId) &&
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['seatedAt', 'seatedName', 'seatedPartySize', 'lastModifiedBy', 'lastModifiedAt']);
+        // Phase 8 (RBAC): a 'tables'-permitted active staff member runs the
+        // LIVE Table View — open a bill on a table (currentBillId), seat a
+        // party, and free a table (freeTableSession clears currentBillId + the
+        // seated hold together). Scoped to the bill-pointer + seated-hold
+        // fields ONLY: sid / isActive / expiresAt (the QR security token) stay
+        // owner-only, so staff can never deactivate a table or rotate its token.
+        allow update: if staffCan(restaurantId, 'tables') && isActiveStaff(restaurantId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['currentBillId', 'seatedAt', 'seatedName', 'seatedPartySize', 'lastModifiedBy', 'lastModifiedAt']);
+        // ...and CREATE a session doc on the first bill for a table that never
+        // had one (getOrCreateCaptainBill setDoc-merge). Same field lock — a
+        // staff-created session can only carry the bill pointer / seated hold.
+        allow create: if staffCan(restaurantId, 'tables') && isActiveStaff(restaurantId) &&
+          request.resource.data.keys()
+            .hasOnly(['currentBillId', 'seatedAt', 'seatedName', 'seatedPartySize', 'lastModifiedBy', 'lastModifiedAt']);
       }
 
       // ── Table Bills (running tabs for dine-in) ────────────────

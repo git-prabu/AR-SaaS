@@ -12,19 +12,18 @@
 // per-table quick actions. The mode toggle is already scaffolded below
 // so step 4 only has to fill in the live grid.
 import Head from 'next/head';
+import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
-import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
 import {
   createArea, updateArea, deleteArea,
   createTable, updateTable, deleteTable,
   markKotPrinted, markBillPrinted, getRestaurantById,
-  getOrCreateCaptainBill, attachOrderToBill, markOrderPaid,
+  getOrCreateCaptainBill, attachOrderToBill, markOrderPaidAs,
   linkOrderToBill, freeTableSession, updateOrderStatus,
 } from '../../lib/db';
 import { printKot, printBill } from '../../lib/printKot';
@@ -81,9 +80,10 @@ const STATUS = {
 };
 
 export default function AdminTables() {
-  const { user, userData, loading } = useAuth();
-  const router = useRouter();
-  const rid = userData?.restaurantId;
+  // RBAC: owner OR a staff member whose role grants 'tables'. Staff get the
+  // LIVE floor grid + live ops (seat/bill/pay/clear) via staffDb. Floor-plan
+  // editing (Manage mode: tables/areas CRUD) stays owner-only (gated below).
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('tables');
 
   const [areas, setAreas] = useState([]);
   const [tables, setTables] = useState([]);
@@ -104,7 +104,7 @@ export default function AdminTables() {
   const [restaurant, setRestaurant] = useState(null);
   const restaurantName = restaurant?.name || '';
   const [payBusy, setPayBusy] = useState(false);
-  useEffect(() => { if (rid) getRestaurantById(rid).then(r => setRestaurant(r || null)).catch(() => {}); }, [rid]);
+  useEffect(() => { if (rid && canView) getRestaurantById(rid, { db: scopedDb }).then(r => setRestaurant(r || null)).catch(() => {}); }, [rid, canView, scopedDb]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Print a combined KOT for everything currently on a table's bill,
   // then stamp the bill so the grid flips to gold "Running KOT".
@@ -120,7 +120,7 @@ export default function AdminTables() {
     };
     const ok = printKot(merged, { restaurantName });
     if (!ok) { toast.error('Allow pop-ups to print the KOT'); return; }
-    if (state.billId) markKotPrinted(rid, state.billId).catch(() => {});
+    if (state.billId) markKotPrinted(rid, state.billId, { db: scopedDb }).catch(() => {});
   };
 
   // Captain order placed → attach it to the table's bill so it joins the
@@ -128,12 +128,12 @@ export default function AdminTables() {
   // bill on first order for that table.
   const handleCaptainOrderPlaced = async (orderId, tableCode) => {
     try {
-      const billId = await getOrCreateCaptainBill(rid, tableCode);
-      await attachOrderToBill(rid, billId, orderId);
+      const billId = await getOrCreateCaptainBill(rid, tableCode, { db: scopedDb });
+      await attachOrderToBill(rid, billId, orderId, { db: scopedDb });
       // Stamp billId onto the order doc too, so markOrderPaid's auto-close
       // (which finds the bill via order.billId) frees the table on settle
       // from ANY screen — not just the explicit Table View path below.
-      await linkOrderToBill(rid, orderId, billId);
+      await linkOrderToBill(rid, orderId, billId, { db: scopedDb });
     } catch (e) {
       // The order itself was created; only the bill link failed. The
       // tableNumber-match fallback still shows it as Running, so this is
@@ -150,30 +150,25 @@ export default function AdminTables() {
   const [editingArea, setEditingArea] = useState(null); // { id, name } | null
   const [editingTable, setEditingTable] = useState(null); // { id, label, code, capacity, areaId } | null
 
-  // Redirect to login if unauthenticated once auth resolves.
-  useEffect(() => {
-    if (!loading && !user) router.push('/admin/login');
-  }, [loading, user, router]);
-
   // Live subscriptions to areas + tables.
   useEffect(() => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     let n = 0;
     const done = () => { if (++n >= 2) setDataLoaded(true); };
     const ua = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'areas'), orderBy('sortOrder', 'asc')),
+      query(collection(scopedDb, 'restaurants', rid, 'areas'), orderBy('sortOrder', 'asc')),
       snap => { setAreas(snap.docs.map(d => ({ id: d.id, ...d.data() }))); done(); },
       () => done()
     );
     const ut = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'tables'), orderBy('sortOrder', 'asc')),
+      query(collection(scopedDb, 'restaurants', rid, 'tables'), orderBy('sortOrder', 'asc')),
       snap => { setTables(snap.docs.map(d => ({ id: d.id, ...d.data() }))); done(); },
       () => done()
     );
     // tableSessions (doc id = table code) → currentBillId per table.
     // Also the import source for Step 3.
     const us = onSnapshot(
-      collection(db, 'restaurants', rid, 'tableSessions'),
+      collection(scopedDb, 'restaurants', rid, 'tableSessions'),
       snap => {
         const m = {};
         snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; });
@@ -184,7 +179,7 @@ export default function AdminTables() {
     // Open bills only (status == 'open') — keyed by billId. Drives which
     // table is "running" and carries the kotPrintedAt/billPrintedAt flags.
     const ub = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'tableBills'), where('status', '==', 'open')),
+      query(collection(scopedDb, 'restaurants', rid, 'tableBills'), where('status', '==', 'open')),
       snap => {
         const m = {};
         snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; });
@@ -196,7 +191,7 @@ export default function AdminTables() {
     // orders on each open bill. Same listener shape the kitchen page uses,
     // capped so a long-lived restaurant doesn't stream its whole history.
     const uo = onSnapshot(
-      query(collection(db, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'), limit(300)),
+      query(collection(scopedDb, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'), limit(300)),
       snap => {
         const m = {};
         snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; });
@@ -205,7 +200,7 @@ export default function AdminTables() {
       () => {}
     );
     return () => { ua(); ut(); us(); ub(); uo(); };
-  }, [rid]);
+  }, [rid, canView, scopedDb]);
 
   // Default the import count to however many QR table-sessions already
   // exist (so "import" feels like it carries their current setup), else 12.
@@ -250,7 +245,7 @@ export default function AdminTables() {
     if (orders.length === 0) { toast.error('Nothing to bill on this table'); return; }
     const ok = printBill(orders, { restaurant, tableLabel: table.code || table.label });
     if (!ok) { toast.error('Allow pop-ups to print the bill'); return; }
-    if (state.billId) markBillPrinted(rid, state.billId).catch(() => {});
+    if (state.billId) markBillPrinted(rid, state.billId, { db: scopedDb }).catch(() => {});
   };
 
   // Release a table back to Blank: mark each order served (so bill-less
@@ -259,9 +254,9 @@ export default function AdminTables() {
   // Shared by the settle flow and the "Free table" button.
   const releaseTable = async (table, orders, billId) => {
     await Promise.all((orders || []).map(o =>
-      o.status === 'served' ? null : updateOrderStatus(rid, o.id, 'served').catch(() => {})
+      o.status === 'served' ? null : updateOrderStatus(rid, o.id, 'served', { db: scopedDb }).catch(() => {})
     ));
-    await freeTableSession(rid, table.code, billId);
+    await freeTableSession(rid, table.code, billId, { db: scopedDb });
   };
 
   // Settle the table: mark every unpaid order paid_<method>, then release
@@ -275,7 +270,7 @@ export default function AdminTables() {
     try {
       if (unpaid.length > 0) {
         const status = `paid_${method}`; // paid_cash | paid_card | paid_online
-        for (const o of unpaid) await markOrderPaid(rid, o.id, status);
+        for (const o of unpaid) await markOrderPaidAs(scopedDb, rid, o.id, status);
       }
       await releaseTable(table, orders, state.billId);
       toast.success(`${table.label} settled${unpaid.length ? ` (${method})` : ''}`);
@@ -476,8 +471,8 @@ export default function AdminTables() {
   };
 
   // ── Render ──────────────────────────────────────────────────
-  if (loading || !user) {
-    return <AdminLayout><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></AdminLayout>;
+  if (!ready) {
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/tables"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   const totalTables = tables.length;
@@ -485,7 +480,7 @@ export default function AdminTables() {
   return (
     <>
       <Head><title>Table View — HaloHelm</title></Head>
-      <AdminLayout>
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/tables">
         <div style={{ padding: '28px 26px', maxWidth: 1100, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
 
           {/* Header + mode toggle */}
@@ -498,9 +493,10 @@ export default function AdminTables() {
                   : 'Build your floor plan — areas and the tables inside them.'}
               </p>
             </div>
-            {/* Live / Manage segmented toggle */}
+            {/* Live / Manage segmented toggle — Manage (floor-plan editing) is
+                owner-only; staff only ever get the Live grid. */}
             <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 10, padding: 3, gap: 2 }}>
-              {[['live', 'Live'], ['manage', 'Manage Layout']].map(([m, label]) => (
+              {[['live', 'Live'], ...(isAdmin ? [['manage', 'Manage Layout']] : [])].map(([m, label]) => (
                 <button key={m} onClick={() => setMode(m)}
                   style={{
                     padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -602,8 +598,8 @@ export default function AdminTables() {
             </div>
           )}
 
-          {/* ═══ MANAGE MODE — floor-plan editor ═══ */}
-          {mode === 'manage' && (
+          {/* ═══ MANAGE MODE — floor-plan editor (owner-only) ═══ */}
+          {mode === 'manage' && isAdmin && (
           <div>
           {/* Add area control */}
           {!addingArea ? (
@@ -754,7 +750,7 @@ export default function AdminTables() {
           </div>
           )}
         </div>
-      </AdminLayout>
+      </FeatureShell>
 
       {/* Bill detail side panel (live mode → tap a running table) */}
       {detailTable && (() => {
@@ -847,7 +843,7 @@ export default function AdminTables() {
                     </div>
                   </>
                 )}
-                <a href="/admin/orders" style={{ ...btnGhost, width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px 14px', boxSizing: 'border-box', marginTop: 8 }}>Open in Orders →</a>
+                <Link href={isAdmin ? '/admin/orders' : '/staff/orders'} style={{ ...btnGhost, width: '100%', justifyContent: 'center', textDecoration: 'none', padding: '10px 14px', boxSizing: 'border-box', marginTop: 8 }}>Open in Orders →</Link>
               </div>
             </div>
           </div>
