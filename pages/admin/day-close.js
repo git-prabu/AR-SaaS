@@ -78,7 +78,7 @@ function shiftDayKey(key, deltaDays) {
 export default function AdminDayClose() {
   const { userData } = useAuth();
   // RBAC: owner OR a staff member whose role grants 'dayClose'.
-  const { isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('dayClose');
+  const { ready, isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('dayClose');
   const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   const [orders, setOrders] = useState([]);
@@ -211,7 +211,7 @@ export default function AdminDayClose() {
   };
 
   return (
-    <FeatureShell isAdmin={isAdmin} active="/admin/day-close">
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/day-close">
       <PageHead title="Day Close" />
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`

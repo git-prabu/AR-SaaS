@@ -158,13 +158,13 @@ export default function AdminVendors() {
   });
 
   if (!ready) {
-    return <FeatureShell isAdmin={isAdmin} active="/admin/vendors"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/vendors"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Vendors — HaloHelm</title></Head>
-      <FeatureShell isAdmin={isAdmin} active="/admin/vendors">
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/vendors">
         <div style={{ padding: '28px 26px', maxWidth: 960, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>

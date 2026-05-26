@@ -6,6 +6,7 @@ import { getOrders } from '../../lib/db';
 import { staffDb } from '../../lib/firebase';
 import { readStaffSession } from '../../lib/staffSession';
 import StaffShell from '../../components/layout/StaffShell';
+import AuthLoading from '../../components/layout/AuthLoading';
 import { useRouter } from 'next/router';
 import CountUp from 'react-countup';
 import {
@@ -230,6 +231,10 @@ export default function AdminReports() {
   const staffPerms = Array.isArray(staffSession?.perms) ? staffSession.perms : [];
   const canView = isAdmin || staffPerms.includes('reports');
   const rid = adminRid || staffSession?.restaurantId || null;
+  // Don't render EITHER shell until we know who the viewer is (auth +
+  // session both resolved). Prevents the owner seeing a flash of the staff
+  // portal — and the StaffShell↔AdminLayout thrash that froze this page.
+  const ready = !authLoading && sessionChecked;
 
   // Bounce anyone who shouldn't be here: not signed in at all → admin login;
   // a staffer without the 'reports' permission → staff login.
@@ -425,6 +430,10 @@ export default function AdminReports() {
   const doPrint = () => window.print();
 
   // ─── Loading state ───────────────────────────────────────────
+  // Auth not resolved yet → neutral screen (no shell), so the owner never
+  // flashes the staff portal and the charts never mount into a shell that's
+  // about to be swapped (which froze the page).
+  if (!ready) return <AuthLoading />;
   if (loading) return (
     <ReportsShell isAdmin={isAdmin}>
       <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}>

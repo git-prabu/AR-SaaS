@@ -178,7 +178,7 @@ export default function AdminExpenses() {
   });
 
   if (!ready) {
-    return <FeatureShell isAdmin={isAdmin} active="/admin/expenses"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/expenses"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   const isThisMonth = month === today.slice(0, 7);
@@ -186,7 +186,7 @@ export default function AdminExpenses() {
   return (
     <>
       <Head><title>Expenses — HaloHelm</title></Head>
-      <FeatureShell isAdmin={isAdmin} active="/admin/expenses">
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/expenses">
         <div style={{ padding: '28px 26px', maxWidth: 960, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Expenses</h1>

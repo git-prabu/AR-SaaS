@@ -92,7 +92,7 @@ export default function NotificationsPage() {
   const { userData } = useAuth();
   const router = useRouter();
   // RBAC: owner OR a staff member whose role grants 'activity'. Read-only feed.
-  const { isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('activity');
+  const { ready, isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('activity');
   const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   // ══ Data — direct Firestore listeners (fixes the stuck-loading bug from b6fa233) ══
@@ -490,7 +490,7 @@ export default function NotificationsPage() {
   const waiterCallsEnabled = restaurantSettings?.waiterCallsEnabled !== false;
 
   return (
-    <FeatureShell isAdmin={isAdmin} active="/admin/notifications">
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/notifications">
       <Head><title>Live Activity — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`

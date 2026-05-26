@@ -36,7 +36,12 @@ export function useFeatureAccess(permKey) {
   const canView = isAdmin || hasPerm;
   const rid = adminRid || staffSession?.restaurantId || null;
   const scopedDb = isAdmin ? db : staffDb;
-  const ready = isAdmin || sessionChecked;
+  // Resolved only once auth has finished AND the staff session has been
+  // read — so by the time `ready` is true we KNOW whether the viewer is the
+  // owner (isAdmin true) or staff. Using `isAdmin || sessionChecked` was the
+  // bug: sessionChecked flips instantly, so for a beat isAdmin was false and
+  // the owner saw a flash of the staff shell.
+  const ready = !authLoading && sessionChecked;
 
   useEffect(() => {
     if (authLoading || isAdmin || !sessionChecked) return;

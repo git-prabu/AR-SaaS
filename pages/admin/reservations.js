@@ -98,13 +98,13 @@ export default function AdminReservations() {
   const requestedCount = reservations.filter(r => r.status === 'requested').length;
 
   if (!ready) {
-    return <FeatureShell isAdmin={isAdmin} active="/admin/reservations"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/reservations"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Reservations — HaloHelm</title></Head>
-      <FeatureShell isAdmin={isAdmin} active="/admin/reservations">
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/reservations">
         <div style={{ padding: '28px 26px', maxWidth: 920, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
             <div>
