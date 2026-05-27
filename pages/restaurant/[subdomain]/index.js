@@ -1247,6 +1247,11 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSending, setFeedbackSending] = useState(false);
+  // After a successful in-app rating, if the restaurant has a Google Place ID
+  // we swap the sheet to a "thanks — share on Google?" step (Google reviews
+  // can't be posted via API, so we deep-link the diner to write one). Reset on
+  // open/dismiss so it never leaks across prompts.
+  const [feedbackDone, setFeedbackDone] = useState(false);
   const [ratedOrderIds, setRatedOrderIds] = useState(() => {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(sessionStorage.getItem('ar_rated_orders') || '[]'); } catch { return []; }
@@ -2438,6 +2443,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       setFeedbackForOrderId(candidate.orderId);
       setFeedbackRating(0);
       setFeedbackComment('');
+      setFeedbackDone(false);
     }
   }, [sessionOrders, ratedOrderIds, feedbackForOrderId]);
 
@@ -2461,6 +2467,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     setFeedbackForOrderId(null);
     setFeedbackRating(0);
     setFeedbackComment('');
+    setFeedbackDone(false);
     setRatedOrderIds(prev => {
       if (prev.includes(orderId)) return prev;
       const next = [...prev, orderId];
@@ -2504,13 +2511,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         isRead: false,
       });
       toast.success('Thanks for your feedback!');
-      dismissFeedbackPrompt(feedbackForOrderId);
+      // If the owner connected a Google Place ID, swap to the "share on
+      // Google" step instead of closing — Google's API is read-only so we
+      // can't post the review for them, we just deep-link the diner to write
+      // one. No Place ID → close exactly as before (order-more flow intact).
+      if (restaurant.googlePlaceId) {
+        setFeedbackDone(true);
+      } else {
+        dismissFeedbackPrompt(feedbackForOrderId);
+      }
     } catch (e) {
       toast.error('Could not submit feedback. Please try again.');
     } finally {
       setFeedbackSending(false);
     }
-  }, [feedbackForOrderId, restaurant?.id, feedbackRating, feedbackComment, feedbackSending, placedOrder, pastOrders, dismissFeedbackPrompt]);
+  }, [feedbackForOrderId, restaurant?.id, restaurant?.googlePlaceId, feedbackRating, feedbackComment, feedbackSending, placedOrder, pastOrders, dismissFeedbackPrompt]);
 
   // ── Phase A — Aggregated bill view model ─────────────────────────────
   // Unified shape compatible with both:
@@ -9398,6 +9413,8 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                   <div style={{ width: 40, height: 4, borderRadius: 2, background: darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(42,31,16,0.15)' }} />
                 </div>
                 <div style={{ padding: '0 22px' }}>
+                  {!feedbackDone ? (
+                  <>
                   <div style={{ textAlign: 'center', marginBottom: 18 }}>
                     <div style={{ fontSize: 44, marginBottom: 8 }}>🍽️</div>
                     <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 4 }}>
@@ -9483,6 +9500,57 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                       {feedbackSending ? 'Sending…' : 'Submit'}
                     </button>
                   </div>
+                  </>
+                  ) : (
+                  <>
+                  {/* ── Google review step ──
+                      Shown only after a successful in-app rating AND only when
+                      the owner has set a Google Place ID (Settings → Restaurant
+                      Profile). We can't post to Google for them (their API is
+                      read-only for reviews), so we deep-link the diner to write
+                      one themselves while signed into their Google account. */}
+                  <div style={{ textAlign: 'center', padding: '4px 0 2px' }}>
+                    <div style={{ fontSize: 44, marginBottom: 8 }}>🙏</div>
+                    <div style={{ fontFamily: 'Poppins,sans-serif', fontWeight: 800, fontSize: 20, color: darkMode ? '#FFF5E8' : '#1E1B18', marginBottom: 6 }}>
+                      Thanks so much!
+                    </div>
+                    <div style={{ fontSize: 13.5, lineHeight: 1.5, color: darkMode ? 'rgba(255,245,232,0.6)' : 'rgba(42,31,16,0.6)', marginBottom: 20 }}>
+                      Loved your visit? A quick review on Google means the world to {restaurant?.name || 'us'} and helps other diners find us.
+                    </div>
+                  </div>
+
+                  <a
+                    href={`https://search.google.com/local/writereview?placeid=${encodeURIComponent(restaurant?.googlePlaceId || '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '14px 16px', borderRadius: 12,
+                      background: '#4285F4', color: '#fff',
+                      fontSize: 15, fontWeight: 700, fontFamily: 'Inter,sans-serif',
+                      textDecoration: 'none',
+                      boxShadow: '0 4px 16px rgba(66,133,244,0.32)',
+                      marginBottom: 10,
+                    }}>
+                    <span style={{ fontSize: 18, lineHeight: 1 }}>★</span>
+                    Leave a Google review
+                  </a>
+
+                  <button
+                    onClick={() => dismissFeedbackPrompt(feedbackForOrderId)}
+                    style={{
+                      width: '100%', padding: '12px 16px', borderRadius: 12,
+                      border: `1.5px solid ${darkMode ? 'rgba(255,245,232,0.18)' : 'rgba(42,31,16,0.16)'}`,
+                      background: 'transparent',
+                      color: darkMode ? 'rgba(255,245,232,0.7)' : 'rgba(42,31,16,0.6)',
+                      fontSize: 14, fontWeight: 600, fontFamily: 'Inter,sans-serif',
+                      cursor: 'pointer',
+                    }}>
+                    Done
+                  </button>
+                  </>
+                  )}
                 </div>
               </div>
             </SheetOverlay>
