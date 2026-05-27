@@ -14,6 +14,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import FeatureShell from '../../components/layout/FeatureShell';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import { getOrders, todayKey, saveDayClose, getDayClose, getDayCloses, reopenDay } from '../../lib/db';
+import { exportRowsCsv } from '../../lib/csv';
 import PageHead from '../../components/PageHead';
 import toast from 'react-hot-toast';
 
@@ -154,6 +155,12 @@ export default function AdminDayClose() {
       else                            { byMethod.other += o.total || 0; countByMethod.other += 1; }
     });
 
+    // Tax / discount / service charge collected on paid orders (Z-report +
+    // GST trail), read from the stored order fields.
+    const taxCollected       = paid.reduce((s, o) => s + (Number(o.cgst) || 0) + (Number(o.sgst) || 0), 0);
+    const discountTotal      = paid.reduce((s, o) => s + (Number(o.discount) || 0), 0);
+    const serviceChargeTotal = paid.reduce((s, o) => s + (Number(o.serviceCharge) || 0), 0);
+
     return {
       totalOrders: dayOrders.length,
       servedCount: served.length,
@@ -164,6 +171,9 @@ export default function AdminDayClose() {
       refundTotal,
       grossRevenue,
       netRevenue,
+      taxCollected,
+      discountTotal,
+      serviceChargeTotal,
       byMethod, countByMethod,
     };
   }, [dayOrders]);
@@ -176,6 +186,41 @@ export default function AdminDayClose() {
 
   const printZReport = () => {
     if (typeof window !== 'undefined') window.print();
+  };
+
+  // Download the Z-report as CSV (a saved/auditable copy of the same figures).
+  const exportZReport = () => {
+    const m2 = (n) => (Number(n) || 0).toFixed(2);
+    const rows = [
+      ['Day Close — Z-Report', ''],
+      ['Date', selectedDate],
+      ['', ''],
+      ['Total orders', summary.totalOrders],
+      ['Served', summary.servedCount],
+      ['Paid', summary.paidCount],
+      ['Unpaid (served)', summary.unpaidCount],
+      ['', ''],
+      ['Gross revenue (paid)', m2(summary.grossRevenue)],
+      ['Discounts', m2(summary.discountTotal)],
+      ['Service charge', m2(summary.serviceChargeTotal)],
+      ['GST collected (CGST+SGST)', m2(summary.taxCollected)],
+      ['Refunds', m2(summary.refundTotal)],
+      ['Outstanding (unpaid)', m2(summary.unpaidTotal)],
+      ['', ''],
+      ['Payment methods', ''],
+      ['Cash', m2(summary.byMethod.cash)],
+      ['Card', m2(summary.byMethod.card)],
+      ['UPI / Online', m2(summary.byMethod.online)],
+      ['Other', m2(summary.byMethod.other)],
+      ['', ''],
+      ['Cash drawer', ''],
+      ['Opening cash', m2(opening)],
+      ['Cash sales', m2(summary.byMethod.cash)],
+      ['Expected cash', m2(expectedCash)],
+      ['Counted at close', m2(closing)],
+      ['Variance', m2(cashVariance)],
+    ];
+    exportRowsCsv(rows, `z-report-${selectedDate}.csv`);
   };
 
   // Persist + lock the day. Freezes the cash counts + summary so the
@@ -224,6 +269,8 @@ export default function AdminDayClose() {
               border: none !important;
               page-break-inside: avoid;
             }
+            /* Cash inputs print as plain values, not editable form boxes. */
+            input { border: none !important; background: transparent !important; padding: 0 !important; color: #000 !important; box-shadow: none !important; -webkit-appearance: none; appearance: none; }
           }
         `}</style>
 
@@ -291,6 +338,15 @@ export default function AdminDayClose() {
                     fontSize: 12, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
                   }}>Today</button>
               )}
+              <button
+                onClick={exportZReport}
+                style={{
+                  padding: '10px 18px', borderRadius: 10, border: A.borderStrong,
+                  background: A.shell, color: A.ink,
+                  fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                }}>
+                Download CSV
+              </button>
               <button
                 onClick={printZReport}
                 style={{
@@ -368,6 +424,26 @@ export default function AdminDayClose() {
                 <div key={s.label} style={{ padding: '16px 18px', borderRadius: 10, background: A.forestSubtleBg, border: A.forestBorder }}>
                   <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>{s.label}</div>
                   <div style={{ fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', color: s.color }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sales breakdown — the tax/discount trail (paid orders) */}
+          <div style={{ background: A.shell, borderRadius: 14, padding: '18px 22px', marginBottom: 14, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.55)', marginBottom: 14 }}>
+              Sales breakdown <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: 'rgba(0,0,0,0.38)' }}>· paid orders</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[
+                { label: 'Discounts', value: summary.discountTotal },
+                { label: 'Service charge', value: summary.serviceChargeTotal },
+                { label: 'GST collected', value: summary.taxCollected },
+                { label: 'Refunds', value: summary.refundTotal },
+              ].map(s => (
+                <div key={s.label} style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.55)', marginBottom: 8 }}>{s.label}</div>
+                  <div style={{ fontWeight: 700, fontSize: 20, lineHeight: 1, letterSpacing: '-0.4px', color: A.ink }}>{formatRupee(s.value)}</div>
                 </div>
               ))}
             </div>

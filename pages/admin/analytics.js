@@ -856,7 +856,7 @@ export default function AdminAnalytics() {
   const exportCSV = () => {
     // Overview now combines visits + revenue + orders (Orders & Revenue tab folded in).
     if (tab === 'overview') downloadCSV(combinedChartData.map(d => ({ date: d.date, visits: d.visits, revenue: d.revenue, orders: d.orders })), `analytics-${bounds.key}.csv`);
-    else downloadCSV(activeItems.map(i => ({ name: i.name, category: i.category || '', views: i.views || 0, ar_views: i.arViews || 0, rating_avg: i.ratingAvg || 0 })), 'menu-performance.csv');
+    else downloadCSV(itemIntelligence.map(i => ({ name: i.name, category: i.category || '', units_sold: i.ordered || 0, revenue: Math.round(i.revenue || 0), views: i.views || 0, ar_views: i.arViews || 0, rating_avg: i.rating || 0 })), `menu-performance-${bounds.key}.csv`);
   };
 
   const bestSeller = topOrderedItems[0] || null;
