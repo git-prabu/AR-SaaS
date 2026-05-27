@@ -14,6 +14,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import FeatureShell from '../../components/layout/FeatureShell';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import { exportRowsCsv } from '../../lib/csv';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { db } from '../../lib/firebase';
@@ -122,6 +123,25 @@ export default function AdminVendors() {
 
   const totalOutstanding = useMemo(() => vendors.reduce((s, v) => s + outstandingOf(v), 0), [vendors, agg]);
 
+  // Export the current (search-filtered) vendor list with each one's
+  // outstanding payable (opening balance + unpaid credit purchases).
+  const exportCSV = () => {
+    const rows = [
+      ['Name', 'Category', 'Phone', 'GSTIN', 'Opening Balance (INR)', 'Outstanding (INR)', 'Active', 'Notes'],
+      ...sorted.map(v => [
+        v.name || '',
+        v.category || '',
+        v.phone || '',
+        v.gstin || '',
+        Math.round(Number(v.openingBalance) || 0),
+        Math.round(outstandingOf(v)),
+        v.isActive === false ? 'No' : 'Yes',
+        v.notes || '',
+      ]),
+    ];
+    exportRowsCsv(rows, `vendors-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
   const openNew = () => { setForm(EMPTY); setDrawer({ mode: 'new' }); };
   const openEdit = (v) => {
     setForm({
@@ -174,7 +194,10 @@ export default function AdminVendors() {
                 Your suppliers — track who you buy from and what you owe them.
               </p>
             </div>
-            <button onClick={openNew} style={primaryBtn}>+ Add vendor</button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={exportCSV} style={ghostBtn}>↓ Export CSV</button>
+              <button onClick={openNew} style={primaryBtn}>+ Add vendor</button>
+            </div>
           </div>
 
           {/* Summary strip */}

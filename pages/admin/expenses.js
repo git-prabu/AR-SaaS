@@ -16,6 +16,7 @@ import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { createExpense, updateExpense, deleteExpense, todayKey } from '../../lib/db';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import { exportRowsCsv } from '../../lib/csv';
 import FeatureShell from '../../components/layout/FeatureShell';
 import toast from 'react-hot-toast';
 
@@ -137,6 +138,24 @@ export default function AdminExpenses() {
     return Object.entries(m).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [visible]);
 
+  // Export the visible expenses (selected month + category filter) to CSV,
+  // resolving each vendorId to its name.
+  const exportCSV = () => {
+    const vname = (id) => (vendors.find(v => v.id === id) || {}).name || '';
+    const rows = [
+      ['Date', 'Category', 'Amount (INR)', 'Payment Mode', 'Vendor', 'Note'],
+      ...visible.map(e => [
+        e.date || '',
+        e.category || 'Uncategorised',
+        Number(e.amount) || 0,
+        e.paymentMode || '',
+        vname(e.vendorId),
+        e.note || '',
+      ]),
+    ];
+    exportRowsCsv(rows, `expenses-${month}.csv`);
+  };
+
   const startEdit = (e) => {
     setEditingId(e.id);
     setForm({
@@ -257,6 +276,8 @@ export default function AdminExpenses() {
             <button onClick={() => setMonth(m => shiftMonth(m, -1))} style={navArrow} aria-label="Previous month">‹</button>
             <div style={{ fontSize: 15, fontWeight: 800, minWidth: 150, textAlign: 'center' }}>{monthLabel(month)}</div>
             <button onClick={() => setMonth(m => shiftMonth(m, 1))} disabled={isThisMonth} style={{ ...navArrow, opacity: isThisMonth ? 0.35 : 1, cursor: isThisMonth ? 'not-allowed' : 'pointer' }} aria-label="Next month">›</button>
+            <span style={{ flex: 1 }} />
+            <button onClick={exportCSV} style={ghostBtn}>↓ Export CSV</button>
           </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>

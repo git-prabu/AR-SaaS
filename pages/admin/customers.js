@@ -17,6 +17,7 @@ import { db } from '../../lib/firebase';
 import { collection, onSnapshot, doc } from 'firebase/firestore';
 import FeatureShell from '../../components/layout/FeatureShell';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import { exportRowsCsv } from '../../lib/csv';
 import {
   createCustomer, updateCustomer, deleteCustomer, adjustCustomerPoints,
   loyaltyFor, updateRestaurant,
@@ -126,6 +127,25 @@ export default function AdminCustomers() {
     return { visits, spent, points };
   }, [customers, cfg]);
 
+  // Export the current (search-filtered) customer list, loyalty points included.
+  const exportCSV = () => {
+    const rows = [
+      ['Name', 'Phone', 'Email', 'Tags', 'Visits', 'Total Spent (INR)', 'Loyalty Points', 'Last Seen', 'Marketing Opt-out'],
+      ...sorted.map(c => [
+        c.name || '',
+        c.phone || c.id || '',
+        c.email || '',
+        Array.isArray(c.tags) ? c.tags.join('; ') : (c.tags || ''),
+        Number(c.visits) || 0,
+        Math.round(Number(c.totalSpent) || 0),
+        loyaltyFor(c, cfg).balance,
+        c.lastSeenAt ? String(c.lastSeenAt).slice(0, 10) : '',
+        c.marketingOptOut ? 'Yes' : 'No',
+      ]),
+    ];
+    exportRowsCsv(rows, `customers-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
   const runSync = async () => {
     if (!user) return;
     setSyncing(true);
@@ -225,6 +245,7 @@ export default function AdminCustomers() {
                   {syncing ? 'Syncing…' : '↻ Sync from orders'}
                 </button>
               )}
+              <button onClick={exportCSV} style={{ ...ghostBtn, padding: '10px 15px', fontSize: 13.5 }}>↓ Export CSV</button>
               <button onClick={openNew} style={primaryBtn}>+ Add customer</button>
             </div>
           </div>

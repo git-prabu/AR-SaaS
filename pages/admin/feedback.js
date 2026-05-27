@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import { exportRowsCsv } from '../../lib/csv';
 import FeatureShell from '../../components/layout/FeatureShell';
 import { getFeedback, markFeedbackRead, markAllFeedbackRead, updateFeedbackNote, deleteFeedback } from '../../lib/db';
 import toast from 'react-hot-toast';
@@ -249,6 +250,31 @@ export default function AdminFeedback() {
     );
   }, [feedback, filter, withCommentsOnly, search]);
 
+  // Export the current (filtered) feedback list to CSV.
+  const exportCSV = () => {
+    const fmt = (s) => {
+      if (!s) return ['', ''];
+      const d = new Date(s * 1000);
+      return [d.toISOString().slice(0, 10), d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })];
+    };
+    const rows = [
+      ['Date', 'Time', 'Rating', 'Comment', 'Table', 'Order Items', 'Order Total (INR)', 'Admin Note'],
+      ...filtered.map(f => {
+        const [date, time] = fmt(f.createdAt?.seconds);
+        return [
+          date, time,
+          f.rating || '',
+          f.comment || '',
+          f.tableNumber || '',
+          (f.orderItems || []).map(i => `${i.qty || 1} x ${i.name || ''}`).join(' | '),
+          Math.round(Number(f.orderTotal) || 0),
+          f.adminNote || '',
+        ];
+      }),
+    ];
+    exportRowsCsv(rows, `feedback-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
   return (
     <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/feedback">
       <Head><title>Customer Feedback — HaloHelm</title></Head>
@@ -288,6 +314,11 @@ export default function AdminFeedback() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
               Refresh
             </button>
+            <button onClick={exportCSV} style={{
+              padding: '8px 16px', borderRadius: 10, border: A.border, background: A.shell,
+              color: A.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>↓ Export CSV</button>
           </div>
 
           {/* ═══ FEEDBACK — matte-black signature stat card ═══ */}
