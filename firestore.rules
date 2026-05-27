@@ -750,6 +750,12 @@ service cloud.firestore {
         allow read: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
         allow read: if isStaff(restaurantId) &&
           request.auth.token.staffId == staffId;
+        // Phase 8 (RBAC): a 'staff'-permitted staff manager reads the whole
+        // roster for the Staff page. WRITES stay owner/superadmin only here —
+        // a staff manager's create/disable/delete flow through /api/staff/*
+        // (Admin SDK, which bypasses these rules) where the escalation guard
+        // lives, so they can never directly write a staff doc from the client.
+        allow read: if staffCan(restaurantId, 'staff');
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
@@ -761,6 +767,10 @@ service cloud.firestore {
       // SDK, which bypasses these rules) in a later enforcement stage.
       match /staffRoles/{roleId} {
         allow read, write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
+        // Phase 8 (RBAC): a 'staff'-permitted manager READS roles to populate
+        // the Add-Staff role dropdown. Roles themselves stay owner-editable
+        // (the /admin/roles page is owner-only), so no staff write here.
+        allow read: if staffCan(restaurantId, 'staff');
       }
 
       // ── Private (gateway credentials, future secrets) ─────────

@@ -9,7 +9,7 @@
 //   'delete' — removes the staff member entirely
 import { adminDb, adminAuth } from '../../../lib/firebaseAdmin';
 import admin from 'firebase-admin';
-import { hashPin, requireAdminAuth, generateRandomPin, staffUid } from '../../../lib/staffAuth';
+import { hashPin, requireStaffManageAuth, generateRandomPin, staffUid } from '../../../lib/staffAuth';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   // ─── Gate ─────────────────────────────────────────────────
   let admin_;
   try {
-    admin_ = await requireAdminAuth(req);
+    admin_ = await requireStaffManageAuth(req);
   } catch (e) {
     return res.status(401).json({ error: 'Unauthorized', detail: e.message });
   }
@@ -25,6 +25,12 @@ export default async function handler(req, res) {
   const { action, staffId, name } = req.body || {};
   if (!action || !staffId) {
     return res.status(400).json({ error: 'Missing action or staffId' });
+  }
+
+  // Escalation guard (RBAC): a staff-manager (non-owner) can manage other
+  // staff but not delete their OWN account (avoids self-lockout + confusion).
+  if (!admin_.isOwner && action === 'delete' && staffId === admin_.callerStaffId) {
+    return res.status(403).json({ error: 'You cannot delete your own account.' });
   }
 
   const rid = admin_.restaurantId;

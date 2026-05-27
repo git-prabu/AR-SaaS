@@ -1,12 +1,13 @@
 import Head from 'next/head';
 import { useEffect, useState, useMemo } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
+import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas, getStaffRoles, setStaffRole } from '../../lib/db';
+import { ADMIN_TIER_PERMS } from '../../lib/permissions';
 import toast from 'react-hot-toast';
-import { auth } from '../../lib/firebaseAuth';
+import { auth, staffAuth } from '../../lib/firebaseAuth';
 
 // ═══ Aspire palette — same tokens as analytics/kitchen/waiter ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -114,7 +115,10 @@ const emptyForm = { name: '', username: '', pin: '', role: 'kitchen', roleId: ''
 // restaurant admin — that gate (in lib/staffAuth.js requireAdminAuth)
 // is what stops a non-owner from hitting these endpoints.
 async function authHeaders() {
-  const currentUser = auth.currentUser;
+  // Owner is signed into the admin app; a staff manager into the staff app.
+  // Use whichever session exists so the right ID token (owner OR staff, with
+  // its perms claim) reaches /api/staff/* — requireStaffManageAuth accepts both.
+  const currentUser = auth.currentUser || staffAuth.currentUser;
   if (!currentUser) throw new Error('Not signed in');
   // Force-refresh the ID token so we don't send a stale one. Firebase tokens
   // expire after 1 hour; stale tokens cause "Unauthorized" on the server.
@@ -160,9 +164,12 @@ async function apiCall(endpoint, body) {
 }
 
 export default function StaffManagement() {
-  const { userData } = useAuth();
-  const rid = userData?.restaurantId;
-  const restaurantName = userData?.restaurantName || 'Your Restaurant';
+  // RBAC: owner OR a staff member whose role grants 'staff' (a manager who
+  // onboards staff). Staff managers read the roster + roles via staffDb and
+  // create/manage staff through /api/staff/* (guarded). Re-assigning roles to
+  // existing staff + area editing stay owner-only (hidden below for staff).
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('staff');
+  const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,11 +232,11 @@ export default function StaffManagement() {
 
   // ═══ Load staff ═══
   const reload = async () => {
-    if (!rid) return;
+    if (!rid || !canView) return;
     setLoading(true);
     setLoadError('');
     try {
-      const list = await getStaffMembers(rid);
+      const list = await getStaffMembers(rid, { db: scopedDb });
       // Defensive: getStaffMembers should always return an array, but if
       // a transient Firestore quirk returns null/undefined we'd crash on
       // .map() in render. Coerce to [] and surface a banner instead.
@@ -246,19 +253,19 @@ export default function StaffManagement() {
     }
     setLoading(false);
   };
-  useEffect(() => { reload(); }, [rid]);
+  useEffect(() => { reload(); }, [rid, canView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load areas for the waiter access-control chips.
   useEffect(() => {
-    if (!rid) return;
-    getAreas(rid).then(setAreas).catch(() => setAreas([]));
-  }, [rid]);
+    if (!rid || !canView) return;
+    getAreas(rid, { db: scopedDb }).then(setAreas).catch(() => setAreas([]));
+  }, [rid, canView, scopedDb]);
 
   // Load custom access roles (Phase 8) for the per-staff role dropdown.
   useEffect(() => {
-    if (!rid) return;
-    getStaffRoles(rid).then(setRolesList).catch(() => setRolesList([]));
-  }, [rid]);
+    if (!rid || !canView) return;
+    getStaffRoles(rid, { db: scopedDb }).then(setRolesList).catch(() => setRolesList([]));
+  }, [rid, canView, scopedDb]);
 
   // Toggle one area on/off for a waiter. Empty list = all areas.
   const toggleStaffArea = async (staffMember, areaId) => {
@@ -493,7 +500,7 @@ export default function StaffManagement() {
   };
 
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/staff">
       <Head><title>Staff Management — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
@@ -804,9 +811,9 @@ export default function StaffManagement() {
                       </div>
 
                       {/* Phase 0 step 5 — area access control (built-in Waiter
-                          role only). No selection = all areas. Kitchen + custom
-                          roles don't use floor-section assignment. */}
-                      {s.role === 'waiter' && !s.roleId && areas.length > 0 && (() => {
+                          role only). Owner-only — a staff manager onboards staff
+                          but doesn't reassign floor sections. */}
+                      {isAdmin && s.role === 'waiter' && !s.roleId && areas.length > 0 && (() => {
                         const assigned = Array.isArray(s.assignedAreas) ? s.assignedAreas : [];
                         const allAreas = assigned.length === 0;
                         return (
@@ -834,10 +841,11 @@ export default function StaffManagement() {
                         );
                       })()}
 
-                      {/* Unified role model — the staffer's ONE role. Built-in
-                          Kitchen/Waiter open their station screens; custom roles
-                          (defined on /admin/roles) grant the ticked features.
-                          Changing it re-mints their access on next sign-in. */}
+                      {/* Unified role model — the staffer's ONE role. Re-assigning
+                          a role is OWNER-ONLY (a staff manager can only set a role
+                          at creation, from the non-admin roles you defined). Staff
+                          managers see the role on the badge above, read-only. */}
+                      {isAdmin && (
                       <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Role:</span>
                         <select value={s.roleId || s.role} disabled={roleSavingId === s.id}
@@ -854,6 +862,7 @@ export default function StaffManagement() {
                           )}
                         </select>
                       </div>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -924,11 +933,19 @@ export default function StaffManagement() {
                   <option value="kitchen">Kitchen — Kitchen Display screen</option>
                   <option value="waiter">Waiter — Waiter Dashboard</option>
                 </optgroup>
-                {rolesList.length > 0 && (
-                  <optgroup label="Custom roles">
-                    {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </optgroup>
-                )}
+                {(() => {
+                  // A staff manager (non-owner) can only assign roles that don't
+                  // grant admin-tier perms — mirrors the server guard in
+                  // /api/staff/create. The owner sees every role.
+                  const roles = isAdmin
+                    ? rolesList
+                    : rolesList.filter(r => !(Array.isArray(r.permissions) ? r.permissions : []).some(p => ADMIN_TIER_PERMS.includes(p)));
+                  return roles.length > 0 ? (
+                    <optgroup label="Custom roles">
+                      {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </optgroup>
+                  ) : null;
+                })()}
               </select>
               <div style={{ fontSize: 11, color: A.faintText, marginTop: 6 }}>
                 {modal === 'add'
@@ -1126,7 +1143,7 @@ export default function StaffManagement() {
         {...(confirmDialog || {})}
         onCancel={() => setConfirmDialog(null)}
       />
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 

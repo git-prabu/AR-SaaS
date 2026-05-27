@@ -7,7 +7,7 @@
 // after this, the PIN is gone forever (only the hash is stored).
 import { adminDb } from '../../../lib/firebaseAdmin';
 import admin from 'firebase-admin';
-import { hashPin, requireAdminAuth, ensureStaffAuthUser, generateRandomPin } from '../../../lib/staffAuth';
+import { hashPin, requireStaffManageAuth, ensureStaffAuthUser, generateRandomPin } from '../../../lib/staffAuth';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   // ─── Gate: must be authenticated restaurant admin ─────────
   let admin_;
   try {
-    admin_ = await requireAdminAuth(req);
+    admin_ = await requireStaffManageAuth(req);
   } catch (e) {
     return res.status(401).json({ error: 'Unauthorized', detail: e.message });
   }
@@ -60,6 +60,28 @@ export default async function handler(req, res) {
   }
 
   const rid = admin_.restaurantId;
+
+  // ─── Escalation guard (RBAC) ──────────────────────────────
+  // A staff-manager (non-owner) may onboard operational staff, but can NOT
+  // create a staffer in a role that grants admin-tier permissions — that
+  // would let them mint another manager / role-editor / settings-or-POS
+  // admin. Only the owner can assign such roles. (Built-in kitchen/waiter
+  // carry no roleId, so they're unaffected.)
+  if (!admin_.isOwner && typeof roleId === 'string' && roleId.trim()) {
+    const ADMIN_TIER = ['staff', 'manageRoles', 'settings', 'petpooja'];
+    try {
+      const roleSnap = await adminDb
+        .collection('restaurants').doc(rid)
+        .collection('staffRoles').doc(roleId.trim()).get();
+      const perms = roleSnap.exists && Array.isArray(roleSnap.data().permissions)
+        ? roleSnap.data().permissions : [];
+      if (perms.some(p => ADMIN_TIER.includes(p))) {
+        return res.status(403).json({ error: 'Only the owner can assign an admin-level role.' });
+      }
+    } catch (e) {
+      return res.status(500).json({ error: 'Could not validate the selected role' });
+    }
+  }
 
   // ─── Username uniqueness check + PIN hash run in PARALLEL ──
   // (May 8 perf) Both depend only on inputs we already have, neither
