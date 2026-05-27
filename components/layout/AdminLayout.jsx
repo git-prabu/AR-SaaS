@@ -67,6 +67,7 @@ export const navSections = [
       // cosmetic gate.
       { href: '/admin/petpooja-connect', label: 'Petpooja',  icon: 'plug', proOnly: true },
       { href: '/admin/settings',          label: 'Settings',     icon: 'gear' },
+      { href: '/admin/google',            label: 'Connect to Google', icon: 'globe' },
       { href: '/admin/settings/security', label: 'Security',     icon: 'shield' },
       { href: '/admin/subscription',      label: 'Subscription', icon: 'crown' },
       { href: '/admin/help',              label: 'Help & FAQ',   icon: 'help' },
@@ -107,6 +108,7 @@ export const NavIcon = ({ name }) => {
     case 'plug':      return <svg {...props}><path d="M9 2v4M15 2v4M7 8h10v4a5 5 0 0 1-10 0z" /><path d="M12 17v5" /></svg>;
     case 'shield':    return <svg {...props}><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" /></svg>;
     case 'help':      return <svg {...props}><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
+    case 'globe':     return <svg {...props}><circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>;
     default:          return <svg {...props}><circle cx="12" cy="12" r="3" /></svg>;
   }
 };
