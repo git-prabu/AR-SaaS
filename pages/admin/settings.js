@@ -138,6 +138,8 @@ export default function AdminSettings() {
     // NEW — Restaurant Profile
     cuisine: '',
     city: '',
+    // NEW — Google integration (Place ID powers the review nudge + Connect-to-Google guide)
+    googlePlaceId: '',
     // NEW — Bill Customization
     billFooter: '',
     hsnCode: '',
@@ -167,6 +169,7 @@ export default function AdminSettings() {
         upiId: r.upiId || '',
         cuisine: r.cuisine || '',
         city: r.city || '',
+        googlePlaceId: r.googlePlaceId || '',
         billFooter: r.billFooter || '',
         hsnCode: r.hsnCode || '9963',  // Default to 9963 (SAC for restaurant services)
         notificationsEmail: r.notificationsEmail || '',
@@ -226,6 +229,7 @@ export default function AdminSettings() {
         upiId: form.upiId.trim(),
         cuisine: form.cuisine.trim(),
         city: form.city.trim(),
+        googlePlaceId: form.googlePlaceId.trim(),
         billFooter: form.billFooter.trim(),
         hsnCode: form.hsnCode.trim(),
         notificationsEmail: form.notificationsEmail.trim(),
@@ -247,6 +251,7 @@ export default function AdminSettings() {
         upiId: form.upiId.trim(),
         cuisine: form.cuisine.trim(),
         city: form.city.trim(),
+        googlePlaceId: form.googlePlaceId.trim(),
         billFooter: form.billFooter.trim(),
         hsnCode: form.hsnCode.trim(),
         notificationsEmail: form.notificationsEmail.trim(),
@@ -542,6 +547,21 @@ export default function AdminSettings() {
                       <div style={{ fontSize: 11, color: A.faintText, marginTop: 4 }}>
                         Used in analytics and local search.
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Google Place ID — powers the "Leave a Google review" nudge on the
+                      feedback page and the review link in the Connect-to-Google guide. */}
+                  <div style={{ marginTop: 14 }}>
+                    <label style={labelStyle}>Google Place ID <span style={{ color: A.faintText, fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>· optional</span></label>
+                    <input
+                      className="ar-input"
+                      value={form.googlePlaceId} onChange={update('googlePlaceId')}
+                      style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }}
+                      placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
+                    />
+                    <div style={{ fontSize: 11, color: A.faintText, marginTop: 6, lineHeight: 1.5 }}>
+                      Powers the <strong style={{ color: A.mutedText }}>“Leave a Google review”</strong> button on your customer feedback page. Find yours with Google’s free <strong style={{ color: A.mutedText }}>Place ID Finder</strong> (search “Google Place ID Finder”). Leave blank to hide the review button.
                     </div>
                   </div>
                 </div>

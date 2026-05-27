@@ -99,6 +99,11 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           // Core info (admin/settings.js)
           'name', 'address', 'phone', 'city', 'cuisine',
+          // Google integration — Place ID the owner pastes in Settings so the
+          // feedback page can deep-link to "Leave a Google review". Public,
+          // non-sensitive string (no security impact). Owner-only (absent from
+          // the staff allowlist below). (Phase 9, 27 May 2026)
+          'googlePlaceId',
           // Tax + billing (admin/settings.js)
           'gstPercent', 'serviceChargePercent', 'gstNumber', 'hsnCode', 'fssaiNo',
           // Payment + branding (admin/settings.js)
