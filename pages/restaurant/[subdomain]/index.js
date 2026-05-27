@@ -1005,7 +1005,7 @@ function CoachMarkTour({ steps, onDone, darkMode }) {
   );
 }
 
-export default function RestaurantMenu({ restaurant: initialRestaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error }) {
+export default function RestaurantMenu({ restaurant: initialRestaurant, menuItems: initialItems, offers: initialOffers, combos: initialCombos, error, staticMenu = false }) {
   // ── Live data state — seeded from ISR cache, updated in real-time via onSnapshot ──
   const [liveRestaurant, setLiveRestaurant] = useState(initialRestaurant);
   const restaurant = liveRestaurant || initialRestaurant;
@@ -1388,6 +1388,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // state (we'd be welcoming them onto a screen they can't use).
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (staticMenu) return;  // static Google menu: no coach tour / welcome sheet
     if (!restaurant?.id) return;
     if (sessionBlocked || restaurantGone) return;
     // Wait for the session check to resolve before starting the tour on a
@@ -1407,7 +1408,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
     // less jarring than slamming over an empty / loading screen.
     const t = setTimeout(() => setWelcomeOpen(true), 700);
     return () => clearTimeout(t);
-  }, [restaurant?.id, sessionBlocked, restaurantGone, tableNumber, sessionChecked]);
+  }, [restaurant?.id, sessionBlocked, restaurantGone, tableNumber, sessionChecked, staticMenu]);
 
   const dismissWelcome = useCallback(() => {
     setWelcomeOpen(false);
@@ -6081,7 +6082,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
               combo deals; a page refresh brought them back. Hidden
               while a search is active so the result list is the only
               thing on screen. */}
-          {(combos || []).filter(c => c.isActive !== false).length > 0 && !menuSearch && (
+          {!staticMenu && (combos || []).filter(c => c.isActive !== false).length > 0 && !menuSearch && (
             <div className="combos-section-wrap" style={{ marginBottom: 28 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 18 }}>🍱</span>
@@ -6189,7 +6190,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                         doesn't also open the modal. role="button" +
                         tabIndex keep it accessible without nesting a
                         real <button> inside the card's <button>. */}
-                    {!item.soldOut && !item.isOutOfStock && (() => {
+                    {!staticMenu && !item.soldOut && !item.isOutOfStock && (() => {
                       const hasVariants = Array.isArray(item.variants) && item.variants.length > 0;
                       const baseEntry = cart.find(c => (c.cartKey || c.id) === item.id);
                       const baseQty = baseEntry?.qty || 0;
@@ -6388,7 +6389,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
             .bill-fab, .bill-fab.status-fab, .waiter-fab) keep working
             because the classnames are preserved. Visual top-row
             placement is handled by `order: -1` on .dock-chip-primary. */}
-        {!selectedItem && !smaOpen && (() => {
+        {!staticMenu && !selectedItem && !smaOpen && (() => {
           // ── State detection ─────────────────────────────────────
           const isAwaitingPayTakeaway = !!placedOrder && !cartOpen
             && liveOrderStatus === 'awaiting_payment'
@@ -6751,8 +6752,9 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                 {/* ── Add to Order List ──
                     When the item has variants, variant is required. Effective
                     price updates live as the user picks modifiers. Add-to-cart
-                    resets the modifier state so the next open starts clean. */}
-                {(() => {
+                    resets the modifier state so the next open starts clean.
+                    Hidden on the static Google menu (read-only, no ordering). */}
+                {!staticMenu && (() => {
                   const hasMods = (selectedItem.variants?.length || 0) > 0 || (selectedItem.addOns?.length || 0) > 0;
                   const variantRequired = (selectedItem.variants?.length || 0) > 0;
                   const effectivePrice = (selectedItem.price || 0)
@@ -9696,3 +9698,8 @@ export async function getStaticProps({ params }) {
     };
   }
 }
+
+// Stable named binding for the menu page (pages/menu/[subdomain].js) to render
+// the SAME component in read-only mode (staticMenu) — so the public Google
+// menu can never visually drift from the real customer page.
+export { RestaurantMenu };
