@@ -168,7 +168,9 @@
 // crash again. Bumping the version makes activate() purge ALL ar-v25 caches
 // (old HTML + old chunks) so every client re-fetches the fixed bundle on
 // next visit. No behavior change otherwise.
-const CACHE_VERSION  = 'ar-v26';
+// ar-v27 (May 27) — customer page gained the post-feedback "Leave a Google
+// review" step. Bump so returning diners re-fetch the fresh bundle.
+const CACHE_VERSION  = 'ar-v27';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
