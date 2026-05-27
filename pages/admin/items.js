@@ -7,6 +7,7 @@ import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
 import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey, updateRestaurant } from '../../lib/db';
+import { exportRowsCsv } from '../../lib/csv';
 import { uploadFile, uploadImage, buildImagePath, fileSizeMB, optimizeOneImage, deleteFile } from '../../lib/storage';
 import { doc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -65,15 +66,11 @@ async function autoTranslate(text, targetLang) {
   } catch { return ''; }
 }
 
-// ═══ CSV helpers — used by Petpooja-compatible import/export ═══
-// Tiny inline CSV parser/serializer. Avoids pulling in a parser library
-// for what's essentially three rules: comma-separated, quote when needed,
-// double-quote inside quoted fields. Handles \r\n on Windows-saved files.
-function escapeCSV(cell) {
-  const s = String(cell ?? '');
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+// ═══ CSV parser — Petpooja-compatible import ═══
+// Tiny inline parser (comma-separated, quote-aware). Handles \r\n on
+// Windows-saved files and strips a leading BOM (see below). Export goes
+// through the shared lib/csv.js, which adds a UTF-8 BOM so regional item
+// names (Tamil/Hindi) survive a round-trip through Excel.
 function parseCSV(text) {
   // Returns rows[][] = array of fields per row. Strips a UTF-8 BOM that
   // Excel adds to "Save as CSV UTF-8" files (otherwise the first column
@@ -912,14 +909,7 @@ export default function AdminItems() {
         i.imageURL || '',
       ]),
     ];
-    const csv = rows.map(r => r.map(escapeCSV).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `menu-items-${todayKey()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportRowsCsv(rows, `menu-items-${todayKey()}.csv`);
     toast.success(`Exported ${items.length} items.`);
   };
 

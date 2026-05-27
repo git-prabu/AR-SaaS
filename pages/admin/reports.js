@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getOrders } from '../../lib/db';
+import { exportRowsCsv } from '../../lib/csv';
 import { staffDb } from '../../lib/firebase';
 import { readStaffSession } from '../../lib/staffSession';
 import StaffShell from '../../components/layout/StaffShell';
@@ -413,17 +414,7 @@ export default function AdminReports() {
         ];
       }),
     ];
-    const csv = rows.map(r => r.map(v => {
-      const s = String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    }).join(',')).join('\n');
-    // BOM (\uFEFF) tells Excel to decode as UTF-8 instead of Windows-1252. Fixes rupee-symbol mojibake.
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `revenue-report-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    exportRowsCsv(rows, `revenue-report-${period}-${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
   // Print — @media print CSS below hides controls and expands tables.

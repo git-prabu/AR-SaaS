@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import FeatureShell from '../../components/layout/FeatureShell';
 import { updatePaymentStatus, markOrderPaidAs, cancelOrder, todayKey } from '../../lib/db';
+import { exportRowsCsv } from '../../lib/csv';
 import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import DateRangePicker from '../../components/DateRangePicker';
@@ -577,17 +578,7 @@ export default function AdminPayments() {
         ];
       }),
     ];
-    const csv = rows.map(r => r.map(cell => {
-      const s = String(cell);
-      return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
-    }).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payments-${period}-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportRowsCsv(rows, `payments-${period}-${new Date().toISOString().slice(0,10)}.csv`);
   };
 
   const print = () => { if (typeof window !== 'undefined') window.print(); };

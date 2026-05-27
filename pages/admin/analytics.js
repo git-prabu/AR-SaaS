@@ -6,6 +6,7 @@ import {
   getAnalytics, getTodayAnalytics, getAllMenuItems,
   getWaiterCallsCount, getOrders, getFeedback, todayKey,
 } from '../../lib/db';
+import { exportObjectsCsv } from '../../lib/csv';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
@@ -80,14 +81,11 @@ function Sparkline({ data, dataKey, color, width = 80, height = 26 }) {
   );
 }
 
+// Thin wrapper kept so the two call sites stay unchanged; the shared helper
+// adds the UTF-8 BOM (Excel reads regional item names correctly) + RFC-4180
+// escaping. `rows` is an array of plain objects (keys become the header).
 function downloadCSV(rows, filename) {
-  if (!rows.length) return;
-  const header = Object.keys(rows[0]).join(',');
-  const body = rows.map(r => Object.values(r).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([header + '\n' + body], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  exportObjectsCsv(rows, filename);
 }
 
 function formatTime(secs) {
