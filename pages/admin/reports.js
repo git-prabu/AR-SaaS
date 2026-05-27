@@ -393,12 +393,45 @@ export default function AdminReports() {
       .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [inRange, txnFilter, txnSearch]);
 
+  // ─── GST summary (tax actually collected, from stored order fields) ──
+  // Uses the cgst/sgst/subtotal stored on each order so the figures match
+  // what was billed (not a recomputation). Aggregated over every in-range
+  // order, so it lines up with the page's gross.
+  const gstSummary = useMemo(() => {
+    const acc = { taxable: 0, cgst: 0, sgst: 0, serviceCharge: 0, discount: 0 };
+    inRange.forEach(o => {
+      acc.taxable += Number(o.subtotal) || 0;
+      acc.cgst += Number(o.cgst) || 0;
+      acc.sgst += Number(o.sgst) || 0;
+      acc.serviceCharge += Number(o.serviceCharge) || 0;
+      acc.discount += Number(o.discount) || 0;
+    });
+    acc.totalTax = acc.cgst + acc.sgst;
+    return acc;
+  }, [inRange]);
+
+  // Per-day GST rows for the filing-friendly CSV export.
+  const gstByDay = useMemo(() => {
+    const map = new Map();
+    inRange.forEach(o => {
+      if (!o.createdAt?.seconds) return;
+      const key = isoDate(new Date(o.createdAt.seconds * 1000));
+      const cur = map.get(key) || { date: key, orders: 0, taxable: 0, cgst: 0, sgst: 0 };
+      cur.orders += 1;
+      cur.taxable += Number(o.subtotal) || 0;
+      cur.cgst += Number(o.cgst) || 0;
+      cur.sgst += Number(o.sgst) || 0;
+      map.set(key, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [inRange]);
+
   // ─── CSV export ──────────────────────────────────────────────
   const exportCSV = () => {
     // Header row uses 'INR' instead of the rupee symbol to guarantee legibility on every spreadsheet tool.
     // Separator between items is ' x ' (ASCII) rather than '×' (unicode) so legacy tools don't mangle it.
     const rows = [
-      ['Order #', 'Order ID', 'Table', 'Date', 'Time', 'Items', 'Payment Method', 'Payment Status', 'Total (INR)'],
+      ['Order #', 'Order ID', 'Table', 'Date', 'Time', 'Items', 'Payment Method', 'Payment Status', 'Subtotal (INR)', 'Discount (INR)', 'Service Charge (INR)', 'CGST (INR)', 'SGST (INR)', 'Round Off (INR)', 'Total (INR)'],
       ...transactions.map(o => {
         const d = new Date((o.createdAt?.seconds || 0) * 1000);
         return [
@@ -410,11 +443,27 @@ export default function AdminReports() {
           (o.items || []).map(i => `${i.qty || 1} x ${i.name || ''}`).join(' | '),
           methodOf(o),
           o.paymentStatus || 'unpaid',
+          o.subtotal || 0,
+          o.discount || 0,
+          o.serviceCharge || 0,
+          o.cgst || 0,
+          o.sgst || 0,
+          o.roundOff || 0,
           o.total || 0,
         ];
       }),
     ];
     exportRowsCsv(rows, `revenue-report-${period}-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  // ─── GST summary CSV (per-day rows + a totals row) — filing-friendly ──
+  const exportGstCSV = () => {
+    const rows = [
+      ['Date', 'Orders', 'Taxable Value (INR)', 'CGST (INR)', 'SGST (INR)', 'Total GST (INR)'],
+      ...gstByDay.map(r => [r.date, r.orders, r.taxable.toFixed(2), r.cgst.toFixed(2), r.sgst.toFixed(2), (r.cgst + r.sgst).toFixed(2)]),
+      ['Total', orderCount, gstSummary.taxable.toFixed(2), gstSummary.cgst.toFixed(2), gstSummary.sgst.toFixed(2), gstSummary.totalTax.toFixed(2)],
+    ];
+    exportRowsCsv(rows, `gst-summary-${period}-${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
   // Print — @media print CSS below hides controls and expands tables.
@@ -579,6 +628,10 @@ export default function AdminReports() {
                 padding: '7px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.ink,
                 background: '#FFFFFF', border: A.borderStrong, borderRadius: 8, cursor: 'pointer',
               }}>Export CSV</button>
+              <button onClick={exportGstCSV} title="Per-day GST (CGST/SGST) summary for filing" style={{
+                padding: '7px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.ink,
+                background: '#FFFFFF', border: A.borderStrong, borderRadius: 8, cursor: 'pointer',
+              }}>Export GST</button>
               <button onClick={doPrint} style={{
                 padding: '7px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.ink,
                 background: '#FFFFFF', border: A.borderStrong, borderRadius: 8, cursor: 'pointer',
@@ -653,6 +706,41 @@ export default function AdminReports() {
                   {outstanding > 0 ? `${outstandingOrders} order${outstandingOrders === 1 ? '' : 's'} pending` : 'all clear'}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* ── GST summary (tax actually collected this period) ── */}
+          <div className="print-card" style={{ ...card, padding: '20px 24px', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={secTitle}>GST summary</div>
+                <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, marginTop: 3 }}>
+                  Tax collected this period · CGST + SGST, from billed orders
+                </div>
+              </div>
+              <button onClick={exportGstCSV} className="no-print" style={{
+                padding: '7px 14px', fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.ink,
+                background: '#FFFFFF', border: A.borderStrong, borderRadius: 8, cursor: 'pointer',
+              }}>Export GST CSV</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {[
+                { label: 'Taxable Value', value: gstSummary.taxable, accent: false },
+                { label: 'CGST', value: gstSummary.cgst, accent: false },
+                { label: 'SGST', value: gstSummary.sgst, accent: false },
+                { label: 'Total GST', value: gstSummary.totalTax, accent: true },
+              ].map(t => (
+                <div key={t.label} style={{
+                  padding: '14px 16px', borderRadius: 10,
+                  background: t.accent ? 'rgba(196,168,109,0.08)' : 'rgba(0,0,0,0.02)',
+                  border: t.accent ? '1px solid rgba(196,168,109,0.30)' : '1px solid rgba(0,0,0,0.06)',
+                }}>
+                  <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: A.mutedText, marginBottom: 8 }}>{t.label}</div>
+                  <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 22, color: t.accent ? A.warning : A.ink, letterSpacing: '-0.4px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {formatRupee(t.value)}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
