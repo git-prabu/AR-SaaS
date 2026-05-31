@@ -14,7 +14,7 @@ import {
 import { uploadFile, buildImagePath, buildModelPath, fileSizeMB, deleteFile } from '../../../lib/saStorage';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
-import { PLANS as LIB_PLANS } from '../../../lib/plans';
+import { PLANS as LIB_PLANS, planCap, formatCap } from '../../../lib/plans';
 
 // Customer-facing menu URL. Uses NEXT_PUBLIC_SITE_URL (set in Vercel to
 // https://halohelm.com) with a halohelm.com fallback for local dev.
@@ -141,9 +141,13 @@ export default function RestaurantDetail() {
     setEditData({
       name:              restaurant.name || '',
       subdomain:         restaurant.subdomain || '',
-      plan:              restaurant.plan || 'basic',
-      maxItems:          restaurant.maxItems || 10,
-      maxStorageMB:      restaurant.maxStorageMB || 500,
+      // 'basic' is the legacy id; normalizePlanId in lib/plans maps it to 'starter'.
+      plan:              restaurant.plan || 'starter',
+      // Pre-fill with the CANONICAL cap for the current plan (not the
+      // possibly-stale doc value) so the superadmin sees the actual
+      // effective cap. Doc-stored value becomes a historical record only.
+      maxItems:          planCap(restaurant, 'maxItems'),
+      maxStorageMB:      planCap(restaurant, 'maxStorageMB'),
       itemsUsed:         restaurant.itemsUsed || 0,
       storageUsedMB:     restaurant.storageUsedMB || 0,
       isActive:          restaurant.isActive !== false,
@@ -394,8 +398,8 @@ export default function RestaurantDetail() {
             {/* Quick stats row */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
               {[
-                { label:'AR Items Used', value:`${restaurant.itemsUsed||0} / ${restaurant.maxItems||planInfo.maxItems}`, color:'#C4A86D', bg:'rgba(224,90,58,0.07)' },
-                { label:'Storage Used',  value:`${parseFloat(restaurant.storageUsedMB||0).toFixed(2)} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`, color:'#3F9E5A', bg:'rgba(63,158,90,0.12)' },
+                { label:'Menu Items', value:`${restaurant.itemsUsed||0} / ${formatCap(planCap(restaurant, 'maxItems'))}`, color:'#C4A86D', bg:'rgba(224,90,58,0.07)' },
+                { label:'Storage Used',  value:`${parseFloat(restaurant.storageUsedMB||0).toFixed(2)} / ${formatCap(planCap(restaurant, 'maxStorageMB'))} MB`, color:'#3F9E5A', bg:'rgba(63,158,90,0.12)' },
                 { label:'Payment',       value: restaurant.paymentStatus||'inactive', color: restaurant.paymentStatus==='active'?'#3F9E5A':'#D9534F', bg: restaurant.paymentStatus==='active'?'rgba(63,158,90,0.12)':'rgba(217,83,79,0.12)', cap:true },
                 { label:'Expires',       value: subEnd ? (isExpired ? 'Expired' : subEnd) : 'No subscription', color: isExpired?'#D9534F':'rgba(0,0,0,0.7)', bg:'rgba(0,0,0,0.04)' },
               ].map(s => (
@@ -432,7 +436,7 @@ export default function RestaurantDetail() {
                     {PLANS.map(p => (
                       <div key={p.id} onClick={()=>handlePlanChange(p.id)} style={{ flex:1, padding:'14px', borderRadius:14, border:`2px solid ${editData.plan===p.id?'rgba(224,90,58,0.5)':'rgba(0,0,0,0.09)'}`, background: editData.plan===p.id?'rgba(224,90,58,0.05)':'#FAFAF8', cursor:'pointer', textAlign:'center', transition:'all 0.15s' }}>
                         <div style={{ fontFamily:'Inter,sans-serif', fontWeight:700, fontSize:14, color: editData.plan===p.id?'#C4A86D':'#1A1A1A', marginBottom:4 }}>{p.label}</div>
-                        <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>{p.maxItems} items · {p.maxStorageMB>=1024?p.maxStorageMB/1024+'GB':p.maxStorageMB+'MB'}</div>
+                        <div style={{ fontSize:11, color:'rgba(0,0,0,0.45)' }}>{formatCap(p.maxItems)} items · {p.maxStorageMB>=1024?p.maxStorageMB/1024+'GB':p.maxStorageMB+'MB'}</div>
                       </div>
                     ))}
                   </div>
@@ -520,8 +524,8 @@ export default function RestaurantDetail() {
                 <div style={{ ...S.card, padding:24 }}>
                   <div style={{ fontFamily:'Inter,sans-serif', fontWeight:700, fontSize:14, color:'#1A1A1A', marginBottom:16 }}>Usage & Subscription</div>
                   {[
-                    ['Items Used',    `${restaurant.itemsUsed||0} / ${restaurant.maxItems||planInfo.maxItems}`],
-                    ['Storage',       `${parseFloat(restaurant.storageUsedMB||0).toFixed(2)} / ${restaurant.maxStorageMB||planInfo.maxStorageMB} MB`],
+                    ['Items Used',    `${restaurant.itemsUsed||0} / ${formatCap(planCap(restaurant, 'maxItems'))}`],
+                    ['Storage',       `${parseFloat(restaurant.storageUsedMB||0).toFixed(2)} / ${formatCap(planCap(restaurant, 'maxStorageMB'))} MB`],
                     ['Sub Start',     restaurant.subscriptionStart || '—'],
                     ['Sub End',       restaurant.subscriptionEnd || '—'],
                     ['Days Left',     daysLeft !== null ? (isExpired ? 'Expired' : `${daysLeft} days`) : '—'],

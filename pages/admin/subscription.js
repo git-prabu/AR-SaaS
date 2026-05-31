@@ -279,7 +279,7 @@ export default function AdminSubscription() {
                       : A.success,
                     suffix: computed.effectiveDaysLeft !== null ? 'd' : '',
                   },
-                  { label: 'AR ITEMS', value: `${restaurant?.itemsUsed || 0}/${formatCap(planCap(restaurant, 'maxItems'))}`, color: A.forestText },
+                  { label: 'MENU ITEMS', value: `${restaurant?.itemsUsed || 0}/${formatCap(planCap(restaurant, 'maxItems'))}`, color: A.forestText },
                 ].map(s => (
                   <div key={s.label} style={{
                     padding: '16px 18px', borderRadius: 10,
@@ -454,7 +454,7 @@ export default function AdminSubscription() {
                 {/* Usage bars */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
                   <UsageBar
-                    label="AR Items"
+                    label="Menu Items"
                     used={restaurant.itemsUsed || 0}
                     max={planCap(restaurant, 'maxItems')}
                   />

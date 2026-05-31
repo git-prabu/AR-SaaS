@@ -4,7 +4,7 @@ import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import ConfirmModal from '../../components/ConfirmModal';
 import { getAllRestaurants, updateRestaurant } from '../../lib/saDb';
 import toast from 'react-hot-toast';
-import { PLANS as LIB_PLANS } from '../../lib/plans';
+import { PLANS as LIB_PLANS, planCap, formatCap } from '../../lib/plans';
 
 // ═══ Aspire palette — same tokens as admin pages ═══
 const A = {
@@ -108,8 +108,11 @@ export default function SuperAdminPlans() {
 
   const getEdit = (r) => edits[r.id] || {
     plan:              r.plan              || 'starter',
-    maxItems:          r.maxItems          ?? 20,
-    maxStorageMB:      r.maxStorageMB      ?? 1024,
+    // Pre-fill with the CANONICAL cap for the restaurant's current plan
+    // — not the possibly-stale doc value. Edit form still saves to the
+    // doc (historical), enforcement always reads from the canonical plan.
+    maxItems:          planCap(r, 'maxItems'),
+    maxStorageMB:      planCap(r, 'maxStorageMB'),
     subscriptionStart: r.subscriptionStart || '',
     subscriptionEnd:   r.subscriptionEnd   || '',
     paymentStatus:     r.paymentStatus     || 'inactive',
@@ -296,8 +299,10 @@ export default function SuperAdminPlans() {
             const isOpen  = expanded === r.id;
             const original = {
               plan: r.plan || 'starter',
-              maxItems: r.maxItems ?? 20,
-              maxStorageMB: r.maxStorageMB ?? 1024,
+              // Canonical for the restaurant's plan, so the "Reset" / dirty
+              // check compares against the actual effective cap.
+              maxItems: planCap(r, 'maxItems'),
+              maxStorageMB: planCap(r, 'maxStorageMB'),
               subscriptionStart: r.subscriptionStart || '',
               subscriptionEnd: r.subscriptionEnd || '',
               paymentStatus: r.paymentStatus || 'inactive',
@@ -359,7 +364,7 @@ export default function SuperAdminPlans() {
                             }}>
                               <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 13, color: sel ? A.warningDim : A.ink }}>{p.label}</div>
                               <div style={{ fontFamily: A.font, fontSize: 12, fontWeight: 700, color: sel ? A.warningDim : A.mutedText, marginTop: 2 }}>₹{p.price?.toLocaleString('en-IN')}/mo</div>
-                              <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, marginTop: 3 }}>{p.maxItems} items · {p.maxStorageMB >= 1024 ? p.maxStorageMB / 1024 + ' GB' : p.maxStorageMB + ' MB'}</div>
+                              <div style={{ fontFamily: A.font, fontSize: 11, color: A.faintText, marginTop: 3 }}>{formatCap(p.maxItems)} items · {p.maxStorageMB >= 1024 ? p.maxStorageMB / 1024 + ' GB' : p.maxStorageMB + ' MB'}</div>
                             </div>
                           );
                         })}
