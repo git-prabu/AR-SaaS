@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import SuperAdminLayout from '../../../components/layout/SuperAdminLayout';
 import ConfirmModal from '../../../components/ConfirmModal';
+import { useSuperAdminAuth } from '../../../hooks/useAuth';
 import {
   getRestaurantById, updateRestaurant,
   getAllMenuItems, updateMenuItem, deleteMenuItem,
@@ -15,6 +16,18 @@ import { uploadFile, buildImagePath, buildModelPath, fileSizeMB, deleteFile } fr
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 import { PLANS as LIB_PLANS, planCap, formatCap } from '../../../lib/plans';
+
+// "Sent N min/hr/days ago" for the welcome-email status. Same shape as
+// formatTimeAgo on the QR page — kept inline (not extracted) because the
+// rule of three doesn't apply yet.
+function timeAgo(ms) {
+  if (!ms) return '';
+  const diff = Date.now() - ms;
+  if (diff < 45_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} min ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} hr ago`;
+  return `${Math.floor(diff / 86_400_000)} days ago`;
+}
 
 // Customer-facing menu URL. Uses NEXT_PUBLIC_SITE_URL (set in Vercel to
 // https://halohelm.com) with a halohelm.com fallback for local dev.
@@ -102,11 +115,64 @@ export default function RestaurantDetail() {
   // regardless of severity.
   const [confirmDialog, setConfirmDialog] = useState(null);
 
+  // Welcome-email send state (superadmin-triggered manual onboarding mail).
+  // welcomeBusy disables the button + shows a spinner while POST is in
+  // flight. Result lands on the restaurant doc as welcomeEmailSentAt etc.,
+  // which we re-load below.
+  const [welcomeBusy, setWelcomeBusy] = useState(false);
+  const { user: superadminUser } = useSuperAdminAuth();
+
   // Load restaurant
   useEffect(() => {
     if (!id) return;
     getRestaurantById(id).then(r => { setRestaurant(r); setLoading(false); });
   }, [id]);
+
+  // Confirm + send the welcome email through the superadmin-auth'd
+  // /api/email/send-welcome endpoint. The endpoint resolves the recipient
+  // server-side (notificationsEmail → owner email fallback) so we don't
+  // have to know it from the client. On success, re-load the doc so the
+  // "Sent N ago" line updates.
+  const sendWelcomeEmail = () => {
+    if (!restaurant || !superadminUser) return;
+    const prevSent = restaurant.welcomeEmailSentAt;
+    setConfirmDialog({
+      title: prevSent ? 'Re-send welcome email?' : 'Send welcome email?',
+      body: prevSent
+        ? `This will send the welcome email to ${restaurant.name} again. Previous send was ${timeAgo(new Date(prevSent).getTime())} to ${restaurant.welcomeEmailRecipient || 'the saved recipient'}.`
+        : `This will send the welcome email to ${restaurant.name}. Recipient is the Notifications email (set in /admin/settings) or the owner's login email if that's blank.`,
+      confirmLabel: prevSent ? 'Re-send' : 'Send',
+      cancelLabel: 'Cancel',
+      destructive: false,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setWelcomeBusy(true);
+        try {
+          const idToken = await superadminUser.getIdToken(true);
+          const res = await fetch('/api/email/send-welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ restaurantId: id }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error || `Send failed (${res.status})`);
+          }
+          toast.success(`Welcome email sent to ${data.recipient}`);
+          // Refresh the doc so welcomeEmailSentAt updates without a reload.
+          try {
+            const updated = await getRestaurantById(id);
+            if (updated) setRestaurant(updated);
+          } catch { /* non-fatal — page still works with the stale stamp */ }
+        } catch (e) {
+          console.error('[send-welcome] failed:', e);
+          toast.error(e.message || 'Failed to send welcome email');
+        } finally {
+          setWelcomeBusy(false);
+        }
+      },
+    });
+  };
 
   // Load tab data on demand
   useEffect(() => {
@@ -368,10 +434,36 @@ export default function RestaurantDetail() {
                   </div>
                 </div>
               </div>
-              <div style={{ display:'flex', gap:10 }}>
+              <div style={{ display:'flex', gap:10, alignItems:'flex-start', flexWrap:'wrap' }}>
                 <a href={getMenuURL(restaurant.subdomain)} target="_blank" rel="noreferrer" style={{ padding:'9px 18px', borderRadius:12, border:'1.5px solid rgba(0,0,0,0.12)', background:'transparent', fontSize:13, fontWeight:600, color:'rgba(0,0,0,0.6)', textDecoration:'none', display:'flex', alignItems:'center', gap:6 }}>
                   View Menu ↗
                 </a>
+                {/* Welcome email — superadmin manual send. Status text
+                    underneath shows when it was last sent (or "Not sent
+                    yet") so a re-send is never accidental. */}
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'stretch', gap:4 }}>
+                  <button
+                    onClick={sendWelcomeEmail}
+                    disabled={welcomeBusy || !superadminUser}
+                    style={{
+                      padding:'9px 18px', borderRadius:12,
+                      border:'1.5px solid rgba(196,168,109,0.40)',
+                      background:'rgba(196,168,109,0.10)',
+                      fontSize:13, fontWeight:700, fontFamily:'Inter,sans-serif',
+                      color:'#A08656',
+                      cursor: welcomeBusy ? 'not-allowed' : 'pointer',
+                      opacity: welcomeBusy ? 0.6 : 1,
+                      display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+                    }}
+                  >
+                    {welcomeBusy ? 'Sending…' : (restaurant.welcomeEmailSentAt ? '↻ Re-send welcome email' : '✉ Send welcome email')}
+                  </button>
+                  <div style={{ fontSize:10.5, color:'rgba(0,0,0,0.45)', textAlign:'center', fontWeight:600 }}>
+                    {restaurant.welcomeEmailSentAt
+                      ? `Sent ${timeAgo(new Date(restaurant.welcomeEmailSentAt).getTime())}${restaurant.welcomeEmailRecipient ? ` to ${restaurant.welcomeEmailRecipient}` : ''}`
+                      : 'Not sent yet'}
+                  </div>
+                </div>
                 {!editing && (
                   <button onClick={startEdit} style={{ padding:'9px 18px', borderRadius:12, border:'none', background:'#1A1A1A', color:'#EDEDED', fontSize:13, fontWeight:700, fontFamily:'Inter,sans-serif', cursor:'pointer' }}>
                     Edit Restaurant

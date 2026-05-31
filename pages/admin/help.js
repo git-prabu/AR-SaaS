@@ -62,7 +62,15 @@ const FAQ_GROUPS = [
       },
       {
         q: 'How do I update my restaurant info (name, GSTIN, FSSAI)?',
-        a: <>Go to <Link href="/admin/settings" style={lnk}>Settings</Link> → update the fields → Save. Changes apply immediately to bills, receipts, and the customer menu.</>,
+        a: <>Go to <Link href="/admin/settings" style={lnk}>Business Info</Link> → update the fields → Save. Changes apply immediately to bills, receipts, and the customer menu.</>,
+      },
+      {
+        q: 'How do I set my restaurant logo?',
+        a: <>Go to <Link href="/admin/settings" style={lnk}>Business Info</Link> → scroll to <strong>Restaurant Profile</strong> → click <strong>Upload logo</strong>. Square images work best (PNG, JPG, or WebP) up to 2&nbsp;MB. The logo shows on your customer menu header right next to your restaurant name. Replace or remove anytime.</>,
+      },
+      {
+        q: 'How do I share my customer menu URL?',
+        a: <>Your public menu URL is <code style={kbd}>halohelm.com/restaurant/&lt;your-subdomain&gt;</code>. Find it on <Link href="/admin/settings" style={lnk}>Business Info</Link> → click <strong>Copy URL</strong>. Share via WhatsApp, social media, or print on receipts.</>,
       },
     ],
   },
@@ -93,6 +101,10 @@ const FAQ_GROUPS = [
       {
         q: 'How do customers pay?',
         a: <>Three options the customer chooses from on the bill modal: <strong>UPI</strong> (Google Pay / PhonePe / Paytm deep link OR scan QR), <strong>Cash</strong>, or <strong>Card</strong>. UPI is preferred — staff sees the payment request and confirms it (or it auto-confirms if Auto-Confirm UPI is enabled).</>,
+      },
+      {
+        q: 'Where do I set my UPI ID?',
+        a: <>Go to <Link href="/admin/gateway" style={lnk}>Payment Gateway</Link> → the UPI ID card at the top → paste your UPI ID (e.g. <code style={kbd}>yourrestaurant@ybl</code>) → Save. Customers see this as a Pay-by-UPI option on the bill — money lands directly in your account, no fee. (Until June 2026 this lived on Business Info; it moved to Payment Gateway so all payment config is in one place.)</>,
       },
       {
         q: 'How do I set up Auto-Confirm UPI?',
@@ -133,16 +145,71 @@ const FAQ_GROUPS = [
     title: 'Customer Menu Page',
     items: [
       {
-        q: 'How do I share my customer menu URL?',
-        a: <>Your public menu URL is <code style={kbd}>halohelm.com/restaurant/&lt;your-subdomain&gt;</code>. Use the "Copy menu URL" button on <Link href="/admin/settings" style={lnk}>Settings</Link>. Share via WhatsApp, social media, or print on receipts.</>,
-      },
-      {
         q: "Customers say the menu didn't update after I changed it",
         a: <>The customer page caches for ~60 seconds (for speed). Ask the customer to refresh after a minute. If they have HaloHelm as a PWA installed, they may need to close and reopen the tab.</>,
       },
       {
         q: 'Can customers leave feedback?',
         a: <>Yes — after their order is served, they see a star-rating prompt. Feedback lands on the <Link href="/admin/feedback" style={lnk}>Feedback</Link> page. You can reply to comments and mark them resolved.</>,
+      },
+    ],
+  },
+  {
+    title: 'Customers & Marketing',
+    items: [
+      {
+        q: 'Where do I see who my regular customers are?',
+        a: <>Go to <Link href="/admin/customers" style={lnk}>Customers</Link>. The list is auto-sorted by most recent visit. Each row shows total visits, total spent, last seen, and the date they first ordered with you ("Customer since…").</>,
+      },
+      {
+        q: 'How do I find customers who came in this week / month?',
+        a: <>On the <Link href="/admin/customers" style={lnk}>Customers</Link> page, use the date chips above the search bar — <strong>Last 7 days · Last 30 days · Last 90 days</strong>. Combine with the text search to find someone specific within that window.</>,
+      },
+      {
+        q: 'Why do some customers show "Customer since —"?',
+        a: <>That customer was created before we started tracking first-visit dates, OR they were imported without an order history. Use <strong>Sync from orders</strong> at the top of the <Link href="/admin/customers" style={lnk}>Customers</Link> page — it rebuilds visit dates from existing orders.</>,
+      },
+      {
+        q: 'How do I send a WhatsApp / email blast to my customers?',
+        a: <>Go to <Link href="/admin/campaigns" style={lnk}>Marketing</Link> → pick the audience (everyone, by tag, or lapsed) → write your message → send. WhatsApp opens click-to-chat for each recipient (free, unlimited). Email blasts are capped at 40 recipients per send and 5 sends per day per restaurant — for bigger lists use WhatsApp.</>,
+      },
+    ],
+  },
+  {
+    title: 'Menu & Promotions',
+    items: [
+      {
+        q: 'How do I create a discount coupon (e.g. SAVE20)?',
+        a: <>Go to <Link href="/admin/promotions" style={lnk}>Promotions</Link> → Coupons tab → <strong>+ New Coupon</strong> → set code (SAVE20), discount type (% or flat ₹), minimum order, and expiry date → Save. Customers enter the code on the bill modal to apply it.</>,
+      },
+      {
+        q: 'How do I bundle items into a combo (e.g. burger + fries + drink)?',
+        a: <>Go to <Link href="/admin/promotions" style={lnk}>Promotions</Link> → Combos tab → <strong>+ New Combo</strong> → name it, pick the items + quantities, set the combo price → Save. Combos appear at the top of the customer menu and on every item card as upsells.</>,
+      },
+      {
+        q: 'How do I run a happy-hour offer (e.g. 20% off 4-6 PM)?',
+        a: <>Go to <Link href="/admin/promotions" style={lnk}>Promotions</Link> → Offers tab → <strong>+ New Offer</strong> → set the discount, the day/hour window, and an optional minimum bill → Save. The discount auto-applies on the customer bill during the active window.</>,
+      },
+      {
+        q: 'How many menu items can I have?',
+        a: <>Starter: <strong>50 items</strong>, Growth: <strong>100 items</strong>, Pro: <strong>unlimited</strong>. Your current usage is shown on <Link href="/admin/subscription" style={lnk}>Subscription</Link>. To raise the cap, upgrade your plan.</>,
+      },
+    ],
+  },
+  {
+    title: 'Reports & Analytics',
+    items: [
+      {
+        q: "What's the difference between Analytics and Reports?",
+        a: <><Link href="/admin/analytics" style={lnk}>Analytics</Link> is for trends — revenue over time, top dishes, peak hours, customer return rate. <Link href="/admin/reports" style={lnk}>Reports</Link> is for accounting — daily totals, payment-method breakdown, GST summary, exportable CSVs for your accountant.</>,
+      },
+      {
+        q: 'How do I see my GST collected for the month?',
+        a: <>Go to <Link href="/admin/reports" style={lnk}>Reports</Link> → pick a date range → the GST summary breaks down CGST + SGST + total tax collected per bill. Export to CSV for your accountant.</>,
+      },
+      {
+        q: 'Where do I close the day / generate a Z-report?',
+        a: <>Go to <Link href="/admin/day-close" style={lnk}>Day Close</Link> → review the day's orders + cash drawer → click <strong>Close Day</strong>. The Z-report is generated automatically and saved — you can re-print or export anytime from the same page.</>,
       },
     ],
   },
@@ -199,6 +266,61 @@ export default function AdminHelp() {
             <a href="mailto:hello@halohelm.com" style={lnk}>Email us</a>{' '}
             and we&apos;ll get back within a day.
           </p>
+
+          {/* ─── First-30-minutes quick-start ─── */}
+          {/* Sits above the searchable FAQ. New owners see this first
+              and have a clear ordered path through the 3 setup steps
+              that mirror the welcome email. Returning owners scroll
+              past it to the FAQ. */}
+          <div style={{
+            marginBottom: 28, padding: '22px 24px',
+            background: 'linear-gradient(135deg, rgba(196,168,109,0.10), rgba(196,168,109,0.04))',
+            border: '1px solid rgba(196,168,109,0.25)',
+            borderRadius: 14,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: A.warningDim, letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: 8 }}>
+              First 30 minutes
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, marginBottom: 14, letterSpacing: '-0.3px' }}>
+              Get your restaurant live in 3 steps
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                {
+                  step: '1',
+                  title: 'Add your menu items',
+                  body: <>Open <Link href="/admin/items" style={lnk}>Menu Items</Link> → <strong>+ Add Item</strong>. Name, price, photo, category. Customers see new items within seconds of saving.</>,
+                },
+                {
+                  step: '2',
+                  title: 'Set up payments + UPI',
+                  body: <>Go to <Link href="/admin/gateway" style={lnk}>Payment Gateway</Link> → paste your UPI ID at the top → Save. That's enough to start taking payments. Auto-Confirm and Razorpay can come later.</>,
+                },
+                {
+                  step: '3',
+                  title: 'Generate & print your table QR codes',
+                  body: <>Open <Link href="/admin/qrcode" style={lnk}>QR &amp; Tables</Link> → set table count → <strong>Generate</strong> → download/print. Stick one QR on each table. Print once — they keep working forever, even when you rotate the security token.</>,
+                },
+              ].map(s => (
+                <div key={s.step} style={{
+                  display: 'flex', gap: 14, alignItems: 'flex-start',
+                  padding: '12px 14px', background: A.shell,
+                  border: A.border, borderRadius: 10,
+                }}>
+                  <div style={{
+                    flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
+                    background: A.ink, color: A.cream,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 800,
+                  }}>{s.step}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: A.ink, marginBottom: 2 }}>{s.title}</div>
+                    <div style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.55 }}>{s.body}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* FAQ groups */}
           {FAQ_GROUPS.map((group, gi) => (

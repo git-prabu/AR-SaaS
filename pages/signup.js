@@ -300,21 +300,11 @@ export default function Signup() {
         }
       }
 
-      // 5. Phase M — Fire-and-forget welcome email. We don't block the
-      //    redirect on this: signup itself already succeeded, the email
-      //    is ancillary. The endpoint is idempotent (stamps welcomeEmailSentAt
-      //    on the restaurant doc) so a retry during a flaky network
-      //    doesn't double-mail. We log failures to the console only.
-      try {
-        const idToken = await fbUser.getIdToken();
-        fetch('/api/email/send-welcome', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-        }).catch(err => console.warn('welcome email POST failed:', err?.message));
-      } catch (err) {
-        console.warn('idToken fetch for welcome email failed:', err?.message);
-      }
+      // 5. Welcome email is no longer auto-fired at signup. (Jun 2026
+      //    owner request: superadmin manually sends from /superadmin/
+      //    restaurant/[id] so the trigger isn't dependent on signup-time
+      //    timing of email-template / sender-config review.) The
+      //    /api/email/send-welcome endpoint now requires superadmin auth.
 
       // 6. Show the right success screen. Email/password gets a verify-inbox
       //    notice; Google goes straight to "all set" since email is already
