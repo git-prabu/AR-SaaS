@@ -54,6 +54,33 @@ function relativeDay(iso) {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+// Absolute short date for the "Customer since" anchor — "12 Jan" inside the
+// current year, "12 Jan 2025" otherwise. Relative time works for recent
+// visits but is awkward for the first-seen anchor ("since 2y ago" is
+// noise compared to "since 12 Jan 2024" which the owner can act on).
+function shortDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-IN', sameYear
+    ? { day: '2-digit', month: 'short' }
+    : { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Filter cutoff for the "Last visit" date chips above the search bar.
+// Returns the millisecond threshold; everything with lastSeenAt at or
+// after this passes. `all` returns null = no date filter.
+function visitCutoffMs(key) {
+  const now = Date.now();
+  switch (key) {
+    case '7d':  return now -   7 * 86400000;
+    case '30d': return now -  30 * 86400000;
+    case '90d': return now -  90 * 86400000;
+    default:    return null;
+  }
+}
+
 const EMPTY = { name: '', phone: '', email: '', tags: '', notes: '', marketingOptOut: false };
 
 export default function AdminCustomers() {
@@ -67,6 +94,9 @@ export default function AdminCustomers() {
   const [rest, setRest] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState('');
+  // Date filter for the "Last visit" chips above the search bar. Default
+  // 'all' so behaviour is unchanged for owners who don't touch the chips.
+  const [dateFilter, setDateFilter] = useState('all'); // 'all' | '7d' | '30d' | '90d'
   const [syncing, setSyncing] = useState(false);
   const [drawer, setDrawer] = useState(null);   // null | { mode:'new' } | { mode:'edit', phone }
   const [form, setForm] = useState(EMPTY);
@@ -112,10 +142,22 @@ export default function AdminCustomers() {
 
   const sorted = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const cutoff = visitCutoffMs(dateFilter);
     return [...customers]
-      .filter(c => !q || [c.name, c.phone, c.email, (c.tags || []).join(' ')].some(f => String(f || '').toLowerCase().includes(q)))
+      .filter(c => {
+        // Last-visit window: chip narrows to "in last N days". Customers
+        // with no lastSeenAt are excluded from filtered views — they have
+        // no observed visit to land inside any window.
+        if (cutoff !== null) {
+          const t = c.lastSeenAt ? new Date(c.lastSeenAt).getTime() : 0;
+          if (!t || t < cutoff) return false;
+        }
+        // Text search across name / phone / email / tags (unchanged).
+        if (!q) return true;
+        return [c.name, c.phone, c.email, (c.tags || []).join(' ')].some(f => String(f || '').toLowerCase().includes(q));
+      })
       .sort((a, b) => String(b.lastSeenAt || '').localeCompare(String(a.lastSeenAt || '')));
-  }, [customers, search]);
+  }, [customers, search, dateFilter]);
 
   const totals = useMemo(() => {
     let visits = 0, spent = 0, points = 0;
@@ -292,6 +334,42 @@ export default function AdminCustomers() {
           </div>
           )}
 
+          {/* Filter chips — narrow the list by when the customer last
+              visited. Sits above search so the owner can shrink the set
+              first ("regulars this week"), then text-search within it. */}
+          {customers.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginRight: 4 }}>
+                Last visit
+              </span>
+              {[
+                { k: 'all', label: 'All' },
+                { k: '7d',  label: 'Last 7 days' },
+                { k: '30d', label: 'Last 30 days' },
+                { k: '90d', label: 'Last 90 days' },
+              ].map(opt => {
+                const sel = dateFilter === opt.k;
+                return (
+                  <button
+                    key={opt.k}
+                    type="button"
+                    onClick={() => setDateFilter(opt.k)}
+                    style={{
+                      padding: '6px 12px', borderRadius: 16,
+                      border: sel ? 'none' : '1px solid rgba(0,0,0,0.08)',
+                      background: sel ? A.ink : A.shell,
+                      color: sel ? A.cream : A.mutedText,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      fontFamily: INTER,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Search */}
           {customers.length > 0 && (
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, phone, email or tag…" style={{ ...inputStyle, maxWidth: 420, marginBottom: 18 }} />
@@ -301,7 +379,11 @@ export default function AdminCustomers() {
             <EmptyState title="No customers yet" subtitle="Tap “Sync from orders” to build your guest list from existing orders &amp; bookings, or add one manually." />
           )}
           {loaded && customers.length > 0 && sorted.length === 0 && (
-            <div style={{ color: A.mutedText, fontSize: 14, padding: '10px 2px' }}>No customers match “{search}”.</div>
+            <div style={{ color: A.mutedText, fontSize: 14, padding: '10px 2px' }}>
+              {search.trim()
+                ? <>No customers match “{search}”{dateFilter !== 'all' ? ' in that date range' : ''}.</>
+                : <>No customers visited in that date range.</>}
+            </div>
           )}
 
           {/* List */}
@@ -321,6 +403,9 @@ export default function AdminCustomers() {
                       <a href={`https://wa.me/91${c.phone}`} target="_blank" rel="noopener noreferrer" style={{ color: A.whatsapp, fontWeight: 700, textDecoration: 'none' }}>WhatsApp</a>
                       {c.email ? <span>{c.email}</span> : null}
                       <span style={{ color: A.faintText }}>Last seen {relativeDay(c.lastSeenAt)}</span>
+                      {c.firstSeenAt && (
+                        <span style={{ color: A.faintText }}>· Customer since {shortDate(c.firstSeenAt)}</span>
+                      )}
                     </div>
                   </div>
 
