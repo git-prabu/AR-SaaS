@@ -47,18 +47,39 @@ export default async function handler(req, res) {
     // expiryDaysFor() falls back to monthly (30 days) when period is missing,
     // so legacy orders created before Phase E continue to work unchanged.
     const days = expiryDaysFor(period);
-    const expiry = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
-    // Phase B (Petpooja hybrid) — pre-update read of the restaurant
-    // doc so we can detect a downgrade FROM Pro and auto-disconnect
-    // Petpooja. Otherwise the restaurant gets stuck in
-    // petpooja_hybrid mode without an eligible plan, which means
-    // every order push silently fails the plan-gate at runtime.
+    // Pre-update read of the restaurant doc. Used for two things:
+    //   (a) Pro-ration: when the customer still has remaining paid time
+    //       (active subscription with subscriptionEnd in the future),
+    //       we extend FROM that endpoint instead of resetting to today.
+    //       This keeps mid-cycle switches and early renewals fair —
+    //       e.g. Growth-Monthly user with 20 days left switching to
+    //       Growth-Annual gets today+385 days, not today+365. Trial
+    //       time and expired/grace time are NOT carried forward
+    //       (trial was free; grace is a soft buffer, not paid time).
+    //   (b) Phase B (Petpooja hybrid) — detect downgrade FROM Pro so
+    //       we can auto-disconnect Petpooja. Otherwise the restaurant
+    //       gets stuck in petpooja_hybrid mode without an eligible
+    //       plan, which means every order push silently fails the
+    //       plan-gate at runtime.
     let oldDoc = null;
     try {
       const snap = await adminDb.collection('restaurants').doc(restaurantId).get();
       if (snap.exists) oldDoc = snap.data();
     } catch { /* non-fatal — proceed without downgrade-detection */ }
+
+    // Pro-ration: figure out the start point for the new period.
+    let extendFrom = now;
+    let carriedOverDays = 0;
+    const oldEndIso = oldDoc?.subscriptionEnd;
+    if (oldEndIso && oldDoc?.paymentStatus === 'active') {
+      const oldEnd = new Date(oldEndIso);
+      if (!isNaN(oldEnd.getTime()) && oldEnd > now) {
+        extendFrom = oldEnd;
+        carriedOverDays = Math.ceil((oldEnd - now) / (24 * 60 * 60 * 1000));
+      }
+    }
+    const expiry = new Date(extendFrom.getTime() + days * 24 * 60 * 60 * 1000);
 
     await adminDb.collection('restaurants').doc(restaurantId).update({
       plan:              plan.id,
@@ -90,7 +111,11 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({
+      success: true,
+      newExpiry: expiry.toISOString().split('T')[0],
+      carriedOverDays, // Days carried forward from a prior active subscription (0 if new/renewed-after-expiry).
+    });
   } catch (err) {
     console.error('Payment verification error:', err);
     return res.status(500).json({ error: 'Failed to update subscription' });

@@ -102,10 +102,25 @@ export default function AdminSubscription() {
       .catch(err => { console.error('subscription load error:', err); setLoading(false); });
   }, [rid]);
 
-  // ─── Razorpay upgrade flow — UNTOUCHED logic from b6fa233 ───────────
+  // ─── Razorpay upgrade flow ─────────────────────────────────────────
   const handleUpgrade = async (plan) => {
     if (!window.Razorpay) { toast.error('Payment system not loaded. Please refresh.'); return; }
     setPaying(plan.id);
+
+    // Classify the move so the success toast says the right verb. Same
+    // logic the plan-card buttons use, captured at click time so the
+    // closure passed into Razorpay stays consistent even if the user
+    // changes the period tab while the payment modal is open.
+    const normalizedCurrent = normalizePlanId(restaurant?.plan);
+    const samePlan = plan.id === normalizedCurrent;
+    const planIdx = PLANS.findIndex(p => p.id === plan.id);
+    const currentIdx = PLANS.findIndex(p => p.id === normalizedCurrent);
+    const isDowngrade = !samePlan
+      && !(computed?.isTrial)
+      && planIdx >= 0
+      && currentIdx >= 0
+      && planIdx < currentIdx;
+
     try {
       // May 5: idempotencyKey makes flaky-network double-clicks map to
       // a single Razorpay receipt. (The auth-gate attempt was reverted
@@ -132,12 +147,22 @@ export default function AdminSubscription() {
         description: `${plan.name} Plan — ${getPeriod(period).label}`,
         order_id: data.orderId,
         handler: async (response) => {
-          await fetch('/api/payments/verify', {
+          const verifyRes = await fetch('/api/payments/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...response, planId: plan.id, restaurantId: rid }),
           });
-          toast.success(`Successfully upgraded to ${plan.name} plan!`);
+          const verifyData = await verifyRes.json().catch(() => ({}));
+
+          // Verb matches the actual move. Carry-over note appears only
+          // when verify.js reports days carried forward from a prior
+          // active subscription (Phase E pro-ration on mid-cycle switch).
+          const action = samePlan ? 'Switched to' : isDowngrade ? 'Downgraded to' : 'Upgraded to';
+          const carry = Number(verifyData?.carriedOverDays) || 0;
+          const carryNote = carry > 0
+            ? ` — ${carry} day${carry === 1 ? '' : 's'} carried over from your previous cycle.`
+            : '';
+          toast.success(`${action} ${plan.name} plan!${carryNote}`);
           setRestaurant(await getRestaurantById(rid));
         },
         prefill: { email: userData?.email || '' },
@@ -523,9 +548,23 @@ export default function AdminSubscription() {
                     // longer cycle on the same plan (e.g. Growth Monthly → Growth
                     // Annual). Legacy docs without subscriptionPeriod are
                     // treated as monthly, which matches how they were billed.
-                    const samePlan = plan.id === restaurant.plan;
+                    // restaurant.plan is normalized via normalizePlanId so a
+                    // legacy doc with plan: 'basic' correctly matches Starter.
+                    const normalizedCurrent = normalizePlanId(restaurant.plan);
+                    const samePlan = plan.id === normalizedCurrent;
                     const currentPeriod = restaurant.subscriptionPeriod || 'monthly';
                     const isCurrent = !computed.isTrial && samePlan && period === currentPeriod;
+                    // Tier rank from PLANS array order (starter=0, growth=1, pro=2).
+                    // Used to label cross-tier moves as Upgrade vs Downgrade so
+                    // a Pro user looking at the Starter tile no longer sees a
+                    // misleading "Upgrade to Starter".
+                    const planIdx = PLANS.findIndex(p => p.id === plan.id);
+                    const currentIdx = PLANS.findIndex(p => p.id === normalizedCurrent);
+                    const isDowngrade = !samePlan
+                      && !computed.isTrial
+                      && planIdx >= 0
+                      && currentIdx >= 0
+                      && planIdx < currentIdx;
                     const isPopular = !!plan.popular;
                     return (
                       <div key={plan.id} className="ar-plan-card" style={{
@@ -676,7 +715,9 @@ export default function AdminSubscription() {
                               // Strip the " · 1 mo free" suffix so the button
                               // reads cleanly: "Switch to Annual", "Switch to 6 months".
                               ? `Switch to ${getPeriod(period).label.split(' · ')[0]}`
-                              : 'Upgrade to ' + plan.name}
+                              : isDowngrade
+                                ? 'Downgrade to ' + plan.name
+                                : 'Upgrade to ' + plan.name}
                         </button>
                       </div>
                     );
