@@ -195,7 +195,7 @@ export default function TermsOfService() {
             <DetailBlock>
               <strong>Starter</strong> &mdash; ₹999/month<br />
               <strong>Growth</strong> &mdash; ₹2,499/month<br />
-              <strong>Pro</strong> &mdash; ₹4,999/month<br /><br />
+              <strong>Pro</strong> &mdash; ₹3,499/month<br /><br />
               All prices are in Indian Rupees (INR), exclusive of GST. Feature limits and inclusions for each Plan are
               published on our pricing page at <a href="https://halohelm.com" style={linkStyle}>halohelm.com</a> and
               may be updated from time to time.

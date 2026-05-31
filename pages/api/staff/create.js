@@ -8,6 +8,7 @@
 import { adminDb } from '../../../lib/firebaseAdmin';
 import admin from 'firebase-admin';
 import { hashPin, requireStaffManageAuth, ensureStaffAuthUser, generateRandomPin } from '../../../lib/staffAuth';
+import { getPlan, normalizePlanId } from '../../../lib/plans';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -60,6 +61,31 @@ export default async function handler(req, res) {
   }
 
   const rid = admin_.restaurantId;
+
+  // ─── Plan cap: maxStaff ───────────────────────────────────
+  // Block creating more staff than the restaurant's current plan permits.
+  // Cap lives on the restaurant doc (written at signup + each payment);
+  // for legacy docs that predate maxStaff we fall back to the canonical
+  // Starter cap from lib/plans.js — never trips for restaurants that
+  // already had unlimited staff under the old (no-cap) model.
+  try {
+    const [restSnap, staffSnap] = await Promise.all([
+      adminDb.collection('restaurants').doc(rid).get(),
+      adminDb.collection('restaurants').doc(rid).collection('staff').get(),
+    ]);
+    const restData = restSnap.exists ? restSnap.data() : {};
+    const cap = Number(restData.maxStaff) || getPlan(normalizePlanId(restData.plan)).maxStaff;
+    if (staffSnap.size >= cap) {
+      return res.status(403).json({
+        error: `Staff limit reached (${staffSnap.size}/${cap}). Upgrade your plan to add more staff.`,
+      });
+    }
+  } catch (e) {
+    // Non-fatal: a transient Firestore read failure shouldn't block a
+    // legitimate add. Logged for observability; the cap simply isn't
+    // checked for this request.
+    console.warn('[staff/create] maxStaff check failed:', e?.message);
+  }
 
   // ─── Escalation guard (RBAC) ──────────────────────────────
   // A staff-manager (non-owner) may onboard operational staff, but can NOT

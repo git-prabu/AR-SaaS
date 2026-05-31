@@ -860,7 +860,7 @@ export default function AdminAnalytics() {
 
   const exportCSV = () => {
     // Overview now combines visits + revenue + orders (Orders & Revenue tab folded in).
-    if (tab === 'overview') downloadCSV(combinedChartData.map(d => ({ date: d.date, visits: d.visits, revenue: d.revenue, orders: d.orders })), `analytics-${bounds.key}.csv`);
+    if (tab === 'overview' || !hasAdvancedAnalytics) downloadCSV(combinedChartData.map(d => ({ date: d.date, visits: d.visits, revenue: d.revenue, orders: d.orders })), `analytics-${bounds.key}.csv`);
     else downloadCSV(itemIntelligence.map(i => ({ name: i.name, category: i.category || '', units_sold: i.ordered || 0, revenue: Math.round(i.revenue || 0), views: i.views || 0, ar_views: i.arViews || 0, rating_avg: i.rating || 0 })), `menu-performance-${bounds.key}.csv`);
   };
 
@@ -1355,7 +1355,7 @@ export default function AdminAnalytics() {
               <div style={{ width: 28, height: 28, border: `3px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
 
-          ) : tab === 'overview' ? (
+          ) : (tab === 'overview' || !hasAdvancedAnalytics) ? (
             <div style={{ animation: 'fadeUp 0.2s ease' }}>
               {/* Journey + Dish Performance — grid default stretch so both cards equal height */}
               <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginBottom: 14 }}>

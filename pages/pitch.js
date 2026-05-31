@@ -1202,8 +1202,8 @@ export default function Pitch() {
         <div style={{ marginTop: 32, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, textAlign: 'left' }}>
           {[
             { plan: 'Starter ₹999',   payback: 'Pays for itself with 4 extra dishes a month',   hint: '₹250 avg dish · 4 dishes/mo = ₹1,000' },
-            { plan: 'Growth ₹2,499',  payback: 'Pays for itself with 8 extra dishes a month',   hint: 'Most restaurants see 30+ extra orders' },
-            { plan: 'Pro ₹4,999',     payback: 'Pays for itself with 17 extra dishes a month',  hint: 'Petpooja-integrated kitchens see even more' },
+            { plan: 'Growth ₹2,499',  payback: 'Pays for itself with 9 extra dishes a month',   hint: 'Most restaurants see 30+ extra orders' },
+            { plan: 'Pro ₹3,499',     payback: 'Pays for itself with 12 extra dishes a month',  hint: 'Petpooja-integrated kitchens see even more' },
           ].map(r => (
             <div key={r.plan} style={{ padding: '18px 20px', background: C.glassWarm, border: `1px solid ${C.borderAcc}`, borderRadius: 14 }}>
               <div style={{ fontFamily: 'Bebas Neue,sans-serif', fontSize: 13, letterSpacing: '0.10em', color: C.primaryLt, marginBottom: 6 }}>{r.plan}</div>
@@ -1230,11 +1230,11 @@ export default function Pitch() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
           {[
             { name: 'Starter', price: '₹999',   per: '/mo', glow: false, tag: null,
-              features: ['20 menu items', 'QR code menu', 'AI Smart Assistant', 'Basic analytics', 'Multi-language (EN/TA/HI)'] },
+              features: ['50 menu items', '15 AR models', 'QR code menu', 'AI Smart Picker', 'Basic analytics', 'Customers + reservations', 'Multi-language (EN/TA/HI)'] },
             { name: 'Growth',  price: '₹2,499', per: '/mo', glow: true,  tag: 'Most Popular',
-              features: ['60 menu items', 'AR food visualisation', 'AI upselling', 'Customer ratings', 'Waiter call system', 'Daily summary email'] },
-            { name: 'Pro',     price: '₹4,999', per: '/mo', glow: false, tag: null,
-              features: ['150 menu items', 'Petpooja POS sync', 'CSV bulk import', 'Advanced analytics', 'Priority support', 'Custom branding'] },
+              features: ['100 menu items', '50 AR models', 'Everything in Starter', 'AI upselling', 'Promotions: offers + coupons', 'Marketing: WhatsApp + email', 'Waitlist + waiter calls', 'Advanced analytics'] },
+            { name: 'Pro',     price: '₹3,499', per: '/mo', glow: false, tag: null,
+              features: ['Unlimited menu items', '100 AR models', 'Everything in Growth', 'Vendors / expenses / POs', 'Petpooja POS sync', 'Priority support', 'Custom branding'] },
           ].map((p) => (
             <div key={p.name} style={{
               background: p.glow ? `linear-gradient(145deg,rgba(247,155,61,0.14),rgba(247,155,61,0.05))` : C.glass,

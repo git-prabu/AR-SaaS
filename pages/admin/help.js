@@ -117,7 +117,7 @@ const FAQ_GROUPS = [
       },
       {
         q: 'What does each plan cost?',
-        a: <>Starter <strong>₹999/month</strong>, Growth <strong>₹2,499/month</strong>, Pro <strong>₹4,999/month</strong>. All prices exclude GST. Full feature breakdown on <Link href="/admin/subscription" style={lnk}>Subscription</Link>.</>,
+        a: <>Starter <strong>₹999/month</strong>, Growth <strong>₹2,499/month</strong>, Pro <strong>₹3,499/month</strong>. All prices exclude GST. Annual plans get 2 months free. Full feature breakdown on <Link href="/admin/subscription" style={lnk}>Subscription</Link>.</>,
       },
       {
         q: 'How do I cancel my subscription?',

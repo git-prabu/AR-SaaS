@@ -6,7 +6,8 @@ import { useSuperAdminAuth } from '../../hooks/useAuth';
 import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants, saDb } from '../../lib/saDb';
 import { withActor, bumpStorageUsed } from '../../lib/db';
 import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/saStorage';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
+import { getPlan, normalizePlanId } from '../../lib/plans';
 // saDb is the superAdminDb instance — use instead of db for all SA Firestore writes
 const db = saDb;
 import toast from 'react-hot-toast';
@@ -91,6 +92,27 @@ export default function SuperAdminRequests() {
     if (!restaurant) { toast.error('Restaurant not found'); return; }
     const sizeMB = fileSizeMB(modelFile);
     if ((restaurant.storageUsedMB || 0) + sizeMB > (restaurant.maxStorageMB || 500)) { toast.error('Restaurant storage limit exceeded'); return; }
+
+    // Phase A enforcement (added in Phase G audit) — maxARModels cap.
+    // Block approval if the restaurant already has the plan's allowance
+    // of AR models. Items with arReady=true count toward the cap; legacy
+    // items without arReady but with a modelURL also count.
+    try {
+      const cap = Number(restaurant.maxARModels) || getPlan(normalizePlanId(restaurant.plan)).maxARModels;
+      const itemsSnap = await getDocs(collection(db, 'restaurants', rid, 'menuItems'));
+      const arCount = itemsSnap.docs.filter(d => {
+        const it = d.data();
+        return it.arReady === true || !!it.modelURL;
+      }).length;
+      if (arCount >= cap) {
+        toast.error(`AR model limit reached (${arCount}/${cap}). Restaurant must upgrade or delete an AR-enabled item first.`);
+        return;
+      }
+    } catch (e) {
+      console.warn('[approve] maxARModels check failed:', e?.message);
+      // fall through — better to attempt the approval than block on a transient read.
+    }
+
     setUploading(req.id); setProgress(0);
     try {
       const modelURL = await uploadFile(modelFile, buildModelPath(rid, modelFile.name), setProgress);
