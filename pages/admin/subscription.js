@@ -3,6 +3,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById } from '../../lib/db';
+import { db } from '../../lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS, BILLING_PERIODS, getEffectivePrice, getEffectivePriceInPaise, getPeriod, planCap, formatCap } from '../../lib/plans';
 import toast from 'react-hot-toast';
 
@@ -90,16 +92,31 @@ export default function AdminSubscription() {
 
   useEffect(() => {
     if (!rid) return;
-    getRestaurantById(rid)
-      .then(r => {
+    // Live subscribe to the restaurant doc so usage metrics update without a
+    // page refresh. Storage / items / staff bumps land on the doc via atomic
+    // increment from elsewhere (lib/db.js bumpStorageUsed, submitRequestAndPublish,
+    // superadmin AR approval, etc.) — without this listener the user would
+    // see stale numbers until they navigated away and came back.
+    let firstSnap = true;
+    const unsub = onSnapshot(
+      doc(db, 'restaurants', rid),
+      (snap) => {
+        if (!snap.exists()) { setLoading(false); return; }
+        const r = { id: snap.id, ...snap.data() };
         setRestaurant(r);
-        // Default the period selector to the user's current billing cycle so
-        // e.g. an Annual subscriber lands on the Annual tab. They can still
-        // switch tabs to upgrade/downgrade their cycle on the same plan.
-        if (r?.subscriptionPeriod) setPeriod(r.subscriptionPeriod);
+        if (firstSnap) {
+          firstSnap = false;
+          // Default the period selector to the user's current billing cycle
+          // so e.g. an Annual subscriber lands on the Annual tab. ONLY on
+          // first snap so subsequent updates (e.g. a storageUsedMB bump
+          // after an upload) don't yank the period tab the user just clicked.
+          if (r?.subscriptionPeriod) setPeriod(r.subscriptionPeriod);
+        }
         setLoading(false);
-      })
-      .catch(err => { console.error('subscription load error:', err); setLoading(false); });
+      },
+      (err) => { console.error('subscription load error:', err); setLoading(false); }
+    );
+    return unsub;
   }, [rid]);
 
   // ─── Razorpay upgrade flow ─────────────────────────────────────────
