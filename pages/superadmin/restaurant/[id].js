@@ -14,18 +14,25 @@ import {
 import { uploadFile, buildImagePath, buildModelPath, fileSizeMB, deleteFile } from '../../../lib/saStorage';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
+import { PLANS as LIB_PLANS } from '../../../lib/plans';
 
 // Customer-facing menu URL. Uses NEXT_PUBLIC_SITE_URL (set in Vercel to
 // https://halohelm.com) with a halohelm.com fallback for local dev.
 const getMenuURL = (subdomain) =>
   `${process.env.NEXT_PUBLIC_SITE_URL || 'https://halohelm.com'}/restaurant/${subdomain}`;
 
-// Plans now match lib/plans.js: starter / growth / pro
-const PLANS = [
-  { id: 'starter', label: 'Starter', maxItems:  20, maxStorageMB:  1024 },
-  { id: 'growth',  label: 'Growth',  maxItems:  60, maxStorageMB:  3072 },
-  { id: 'pro',     label: 'Pro',     maxItems: 150, maxStorageMB: 10240 },
-];
+// Plans — DERIVED from lib/plans.js (single source of truth). The local
+// { id, label, maxItems, maxStorageMB, maxARModels, maxStaff } shape is
+// preserved so existing render code reads p.label / p.maxItems unchanged.
+// Edit lib/plans.js to change limits; this page picks up the change.
+const PLANS = LIB_PLANS.map(p => ({
+  id:            p.id,
+  label:         p.name,
+  maxItems:      p.maxItems,
+  maxARModels:   p.maxARModels,
+  maxStorageMB:  p.maxStorageMB,
+  maxStaff:      p.maxStaff,
+}));
 const SPICE_LEVELS = ['None','Mild','Medium','Spicy','Very Spicy'];
 const OFFER_BADGES = ['Chef\'s Special','Best Seller','Must Try','New','Limited'];
 

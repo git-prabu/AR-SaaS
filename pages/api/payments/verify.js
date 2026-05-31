@@ -58,7 +58,9 @@ export default async function handler(req, res) {
     await adminDb.collection('restaurants').doc(restaurantId).update({
       plan:              plan.id,
       maxItems:          plan.maxItems,
+      maxARModels:       plan.maxARModels,
       maxStorageMB:      plan.maxStorageMB,
+      maxStaff:          plan.maxStaff,
       subscriptionStart: now.toISOString().split('T')[0],
       subscriptionEnd:   expiry.toISOString().split('T')[0],
       planExpiresAt:     expiry.toISOString(),  // authoritative expiry timestamp

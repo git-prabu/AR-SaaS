@@ -158,7 +158,9 @@ export default async function handler(req, res) {
     // Server-locked plan + billing — these MUST come from PLANS, never the body
     plan:            planDef.id,
     maxItems:        planDef.maxItems,
+    maxARModels:     planDef.maxARModels,
     maxStorageMB:    planDef.maxStorageMB,
+    maxStaff:        planDef.maxStaff,
     paymentStatus:   'trial',
     trialEndsAt,
     // Audit

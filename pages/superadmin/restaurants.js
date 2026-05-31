@@ -8,6 +8,12 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 // auth (adminAuth) is correct here — new restaurant admins authenticate via adminAuth
 import { auth } from '../../lib/firebaseAuth';
 import toast from 'react-hot-toast';
+import { getPlan } from '../../lib/plans';
+
+// Starter is the implicit fallback when a restaurant doc is missing
+// maxItems (legacy data or aborted signup). Pulled from lib/plans.js
+// so the number stays in sync with the canonical Starter cap.
+const STARTER_MAX_ITEMS = getPlan('starter').maxItems;
 
 const BLANK = { name: '', subdomain: '', email: '', password: '' };
 
@@ -267,7 +273,7 @@ export default function SuperAdminRestaurants() {
                           ...PLAN_PILL,
                         }}>{plan}</span>
                       </div>
-                      <div style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText }}>{r.itemsUsed || 0}/{r.maxItems || 10}</div>
+                      <div style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText }}>{r.itemsUsed || 0}/{r.maxItems || STARTER_MAX_ITEMS}</div>
                       <div>
                         <span style={{
                           padding: '3px 10px', borderRadius: 20,
@@ -285,7 +291,7 @@ export default function SuperAdminRestaurants() {
                           fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.warningDim,
                           cursor: 'pointer', textDecoration: 'none', whiteSpace: 'nowrap',
                         }}>View →</Link>
-                        <button onClick={() => { setEditId(isEdit ? null : r.id); setEditData({ plan: r.plan || 'starter', isActive: r.isActive !== false, maxItems: r.maxItems || 10 }); }} style={{
+                        <button onClick={() => { setEditId(isEdit ? null : r.id); setEditData({ plan: r.plan || 'starter', isActive: r.isActive !== false, maxItems: r.maxItems || STARTER_MAX_ITEMS }); }} style={{
                           padding: '6px 12px', borderRadius: 8,
                           border: A.borderStrong, background: 'transparent',
                           fontFamily: A.font, fontSize: 12, fontWeight: 600, color: A.mutedText, cursor: 'pointer',

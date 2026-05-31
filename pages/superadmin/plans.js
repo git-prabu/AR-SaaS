@@ -4,6 +4,7 @@ import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import ConfirmModal from '../../components/ConfirmModal';
 import { getAllRestaurants, updateRestaurant } from '../../lib/saDb';
 import toast from 'react-hot-toast';
+import { PLANS as LIB_PLANS } from '../../lib/plans';
 
 // ═══ Aspire palette — same tokens as admin pages ═══
 const A = {
@@ -24,14 +25,20 @@ const A = {
   cardShadow: '0 2px 10px rgba(0,0,0,0.03)',
 };
 
-// Plan definitions — kept in sync with lib/plans.js. Visual styling is monotone
-// (gold accent only); the original rainbow per-plan colours were dropped to
-// match Aspire's restrained palette.
-const PLANS = [
-  { id: 'starter', label: 'Starter', price:  999, maxItems:  20, maxStorageMB:  1024 },
-  { id: 'growth',  label: 'Growth',  price: 2499, maxItems:  60, maxStorageMB:  3072 },
-  { id: 'pro',     label: 'Pro',     price: 4999, maxItems: 150, maxStorageMB: 10240 },
-];
+// Plan definitions — DERIVED from lib/plans.js (single source of truth).
+// Edit lib/plans.js to change pricing or limits; this page picks up the
+// change automatically. The local { id, label, price, maxItems,
+// maxStorageMB, maxARModels, maxStaff } shape is preserved so the render
+// code that reads p.label / p.price / p.maxItems stays unchanged.
+const PLANS = LIB_PLANS.map(p => ({
+  id:            p.id,
+  label:         p.name,
+  price:         p.price,
+  maxItems:      p.maxItems,
+  maxARModels:   p.maxARModels,
+  maxStorageMB:  p.maxStorageMB,
+  maxStaff:      p.maxStaff,
+}));
 
 const inputStyle = {
   width: '100%', padding: '10px 12px', boxSizing: 'border-box',
