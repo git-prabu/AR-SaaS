@@ -17,7 +17,8 @@
 // can at most create stranded Razorpay orders (which expire on
 // Razorpay's side and don't affect anything).
 import Razorpay from 'razorpay';
-import { normalizePlanId, PLANS, getPriceInPaise, getPeriod } from '../../../lib/plans';
+import { normalizePlanId, PLANS, getEffectivePriceInPaise, getPeriod } from '../../../lib/plans';
+import { adminDb } from '../../../lib/firebaseAdmin';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -48,8 +49,18 @@ export default async function handler(req, res) {
       ? `rcpt_${restaurantId.slice(0, 8)}_${safeIdem}`.slice(0, 40)
       : `rcpt_${restaurantId.slice(0, 8)}_${Date.now()}`.slice(0, 40);
 
+    // Phase F — honor founding-partner pricing if the restaurant doc has
+    // a `foundingPricing` override for this (plan × period). Falls back to
+    // the standard plan price when absent or partial. Server-side read so
+    // the price can't be tampered with from the client.
+    let restaurantDoc = null;
+    try {
+      const snap = await adminDb.collection('restaurants').doc(restaurantId).get();
+      if (snap.exists) restaurantDoc = snap.data();
+    } catch { /* non-fatal — proceed with standard pricing */ }
+
     const order = await razorpay.orders.create({
-      amount:   getPriceInPaise(plan.id, billingPeriod),
+      amount:   getEffectivePriceInPaise(plan.id, billingPeriod, restaurantDoc),
       currency: 'INR',
       receipt,
       // `period` rides along in notes so /api/payments/verify can use it

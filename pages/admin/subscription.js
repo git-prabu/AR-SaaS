@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById } from '../../lib/db';
-import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS, BILLING_PERIODS, getPrice, getPriceInPaise, getPeriod } from '../../lib/plans';
+import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS, BILLING_PERIODS, getEffectivePrice, getEffectivePriceInPaise, getPeriod } from '../../lib/plans';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as the rest of the admin chrome ═══
@@ -115,7 +115,7 @@ export default function AdminSubscription() {
       }
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: getPriceInPaise(plan.id, period),
+        amount: getEffectivePriceInPaise(plan.id, period, restaurant),
         currency: 'INR',
         name: 'HaloHelm',
         description: `${plan.name} Plan — ${getPeriod(period).label}`,
@@ -561,11 +561,14 @@ export default function AdminSubscription() {
                             for the selected billing period; for non-monthly
                             periods we add a "(₹X/mo equiv.)" hint below. */}
                         {(() => {
-                          const priceInr = getPrice(plan.id, period);
-                          const monthly = getPrice(plan.id, 'monthly');
+                          const priceInr = getEffectivePrice(plan.id, period, restaurant);
+                          const monthly = getEffectivePrice(plan.id, 'monthly', restaurant);
                           const days = getPeriod(period).days;
                           const monthsCovered = days / 30;
                           const perMonth = Math.round(priceInr / monthsCovered);
+                          // Phase F — surface when this restaurant has a founding-
+                          // partner override for this exact (plan × period).
+                          const isFounding = !!restaurant?.foundingPricing?.[plan.id]?.[period];
                           return (
                             <div style={{ marginBottom: 18 }}>
                               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
@@ -579,6 +582,11 @@ export default function AdminSubscription() {
                               {period !== 'monthly' && (
                                 <div style={{ fontSize: 11, color: A.mutedText, marginTop: 4 }}>
                                   ≈ ₹{perMonth.toLocaleString('en-IN')}/mo · save ₹{((monthly * monthsCovered) - priceInr).toLocaleString('en-IN')}
+                                </div>
+                              )}
+                              {isFounding && (
+                                <div style={{ fontSize: 10, fontWeight: 700, color: A.success, marginTop: 5, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                  ★ Founding partner price
                                 </div>
                               )}
                             </div>
