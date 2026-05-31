@@ -7,6 +7,7 @@ import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore'
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
 import { playOrderSound, playCallSound, playPaymentSound } from '../../lib/sounds';
 import { canUsePetpoojaIntegration } from '../../lib/plans';
+import { getSubscriptionStatus, isBypassRoute } from '../../lib/subscription';
 import EmailVerifyBanner from '../EmailVerifyBanner';
 import PwaInstallPrompt from '../PwaInstallPrompt';
 
@@ -113,6 +114,65 @@ export const NavIcon = ({ name }) => {
   }
 };
 
+// ── Phase C: subscription gates ────────────────────────────────────
+// SubscriptionBanner renders only during the 'grace' window — a coloured
+// strip at the top of admin pages with a renew CTA. SubscriptionLockView
+// swaps in when access is locked (post-grace), replacing the page's
+// children so the owner can't keep operating; a renew link is the way out.
+
+function SubscriptionBanner({ status }) {
+  if (!status || status.state !== 'grace') return null;
+  const dl = status.daysLeft;
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #C4A86D 0%, #A08656 100%)',
+      color: '#FFFFFF', padding: '11px 28px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 14, flexWrap: 'wrap',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.45 }}>
+        ⚠ Subscription expired. You’re in a {dl}-day grace period — renew now to avoid losing access.
+      </div>
+      <Link href="/admin/subscription" style={{
+        padding: '7px 16px', borderRadius: 8, background: '#FFFFFF', color: '#1A1A1A',
+        fontWeight: 700, fontSize: 12, textDecoration: 'none', whiteSpace: 'nowrap',
+      }}>Renew now →</Link>
+    </div>
+  );
+}
+
+function SubscriptionLockView() {
+  return (
+    <div style={{
+      minHeight: 'calc(100vh - 40px)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      padding: '40px 24px', background: '#EDEDED',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    }}>
+      <div style={{
+        maxWidth: 480, background: '#FFFFFF', borderRadius: 16, padding: '40px 36px',
+        boxShadow: '0 4px 30px rgba(0,0,0,0.06)', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 56, lineHeight: 1, marginBottom: 18 }}>🔒</div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, letterSpacing: '-0.4px' }}>
+          Subscription expired
+        </h1>
+        <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.55)', lineHeight: 1.55, marginBottom: 26 }}>
+          Your trial / paid period ended more than 12 days ago, so admin access is
+          paused. Renew your plan to restore everything — your menu, orders, and
+          data are all safe and come right back the moment payment goes through.
+        </p>
+        <Link href="/admin/subscription" style={{
+          display: 'inline-block', padding: '12px 22px', borderRadius: 10,
+          background: '#1A1A1A', color: '#FFFFFF',
+          fontWeight: 700, fontSize: 14, textDecoration: 'none',
+        }}>Renew subscription →</Link>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminLayout({ children }) {
   const { user, userData, loading, signOut } = useAuth();
   const router = useRouter();
@@ -124,13 +184,27 @@ export default function AdminLayout({ children }) {
   // link instantly without a refresh. Only `plan` is needed here so
   // we keep the listener cheap.
   const [restaurantPlan, setRestaurantPlan] = useState(null);
+  // Phase C — full restaurant doc subscribed live so the subscription banner /
+  // lock screen react the instant a payment confirms (planExpiresAt jumps).
+  const [restaurantDoc, setRestaurantDoc] = useState(null);
   useEffect(() => {
-    if (!rid) { setRestaurantPlan(null); return; }
+    if (!rid) { setRestaurantPlan(null); setRestaurantDoc(null); return; }
     const unsub = onSnapshot(doc(db, 'restaurants', rid), (snap) => {
-      if (snap.exists()) setRestaurantPlan(snap.data().plan || null);
+      if (snap.exists()) {
+        const data = snap.data();
+        setRestaurantPlan(data.plan || null);
+        setRestaurantDoc(data);
+      }
     }, () => { /* ignore — sidebar still renders, proOnly items just stay hidden */ });
     return unsub;
   }, [rid]);
+
+  // Phase C — derived subscription state. `unknown` (no expiry dates) and
+  // `active` both render normally. `grace` shows the warning banner; an
+  // `expired` status replaces the page children with the lock view, unless
+  // the route is on the bypass list (subscription / security / help).
+  const subStatus = useMemo(() => getSubscriptionStatus(restaurantDoc), [restaurantDoc]);
+  const isLocked = subStatus.state === 'expired' && !isBypassRoute(router.pathname);
 
   // ─── RESPONSIVE SIDEBAR STATE ────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -452,12 +526,20 @@ export default function AdminLayout({ children }) {
 
       <AdminDataProvider value={{ orders: allOrders, waiterCalls: allWaiterCalls, ordersLoaded, callsLoaded }}>
         <main className="admin-main" style={{ flex: 1, marginLeft: 240, minHeight: '100vh', overflowY: 'auto' }}>
+          {/* Phase C — subscription grace banner. Only renders during the
+              12-day grace window; silent otherwise. Sits above the email-
+              verification banner so the most urgent gate shows first. */}
+          <SubscriptionBanner status={subStatus} />
           {/* Persistent banner — shows only when the signed-in admin's
               email isn't yet verified. Self-dismisses for the session
               once the X is clicked, and the Resend button has a 60s
               cooldown to avoid spamming Firebase. */}
           <EmailVerifyBanner />
-          {children}
+          {/* Phase C — when access is locked past grace, the children are
+              replaced by the lock view so the owner can't keep operating.
+              Bypass routes (/admin/subscription, /security, /help) still
+              render normally so renewal stays reachable. */}
+          {isLocked ? <SubscriptionLockView /> : children}
           {/* Bottom-right card asking admins to install HaloHelm as a
               PWA. Renders only when the browser fires
               beforeinstallprompt (Chrome/Edge/Brave/Samsung), the app

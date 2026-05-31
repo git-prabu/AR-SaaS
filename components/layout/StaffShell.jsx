@@ -13,18 +13,64 @@ import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { staffAuth } from '../../lib/firebaseAuth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { staffDb } from '../../lib/firebase';
 import { navSections, NavIcon } from './AdminLayout';
 import { PERMISSION_ROUTES, STAFF_ENABLED } from '../../lib/permissions';
 import { readStaffSession } from '../../lib/staffSession';
+import { getSubscriptionStatus } from '../../lib/subscription';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 // route → permission key (PERMISSION_ROUTES is perm → route).
 const ROUTE_PERM = Object.fromEntries(Object.entries(PERMISSION_ROUTES).map(([k, v]) => [v, k]));
 
+// ── Phase C: staff-side subscription lock ──────────────────────────
+// Mirrors the owner-side lock in AdminLayout but with staff-appropriate
+// copy: a staffer can't pay, so the only action is "ask the owner".
+function StaffSubscriptionLock() {
+  return (
+    <div style={{
+      minHeight: 'calc(100vh - 40px)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      padding: '40px 24px', background: '#EDEDED',
+      fontFamily: INTER,
+    }}>
+      <div style={{
+        maxWidth: 460, background: '#FFFFFF', borderRadius: 16, padding: '40px 36px',
+        boxShadow: '0 4px 30px rgba(0,0,0,0.06)', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 56, lineHeight: 1, marginBottom: 18 }}>🔒</div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, letterSpacing: '-0.4px' }}>
+          Subscription expired
+        </h1>
+        <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.55)', lineHeight: 1.55 }}>
+          This restaurant’s subscription ended more than 12 days ago, so the
+          admin tools are paused. Please ask the owner / manager to renew —
+          everything comes right back the moment payment goes through.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function StaffShell({ active, children }) {
   const router = useRouter();
   const [session, setSession] = useState(null);
   useEffect(() => { setSession(readStaffSession()); }, []);
+
+  // Phase C — subscribe to the restaurant doc so the staff shell can lock
+  // out the UI the moment the owner's subscription falls past grace. The
+  // restaurant doc is publicly readable per firestore.rules, so staffDb
+  // can pull it without elevated perms.
+  const [restaurantDoc, setRestaurantDoc] = useState(null);
+  useEffect(() => {
+    if (!session?.restaurantId) { setRestaurantDoc(null); return; }
+    const unsub = onSnapshot(doc(staffDb, 'restaurants', session.restaurantId), (snap) => {
+      if (snap.exists()) setRestaurantDoc(snap.data());
+    }, () => { /* fail open — staff still see the nav, lock just doesn't trigger */ });
+    return unsub;
+  }, [session?.restaurantId]);
+  const isLocked = getSubscriptionStatus(restaurantDoc).state === 'expired';
 
   const perms = Array.isArray(session?.perms) ? session.perms : [];
   const enabled = new Set(STAFF_ENABLED);
@@ -123,7 +169,7 @@ export default function StaffShell({ active, children }) {
       </aside>
 
       <main className="staff-shell-main" style={{ flex: 1, marginLeft: 240, minHeight: '100vh', overflowY: 'auto' }}>
-        {children}
+        {isLocked ? <StaffSubscriptionLock /> : children}
       </main>
     </div>
   );
