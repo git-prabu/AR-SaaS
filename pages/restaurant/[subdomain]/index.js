@@ -5724,8 +5724,19 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
                     });
                   })()}
                 </div>
-                {/* Logo sits in center */}
-                <div className="r-logo" style={{ position: 'relative', zIndex: 1, width: 44, height: 44 }}>🍽️</div>
+                {/* Logo sits in center. Renders the uploaded logo when the
+                    owner has saved one (admin/settings → Restaurant Profile
+                    → Logo), otherwise falls back to the original 🍽️ emoji
+                    so legacy restaurants without a logo look identical. */}
+                <div className="r-logo" style={{ position: 'relative', zIndex: 1, width: 44, height: 44 }}>
+                  {restaurant.logoUrl ? (
+                    <img
+                      src={restaurant.logoUrl}
+                      alt={(restaurant.name || 'Restaurant') + ' logo'}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12, display: 'block' }}
+                    />
+                  ) : '🍽️'}
+                </div>
               </div>
               {/* Name + subtitle — flex:1 so it takes all available space */}
               <div className="r-name-wrap">

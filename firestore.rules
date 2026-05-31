@@ -135,8 +135,13 @@ service cloud.firestore {
           // security rationale as itemsUsed: owners can't self-upgrade their
           // plan with it, and the maxStorageMB cap is enforced separately.
           'storageUsedMB',
-          // Future / defensive fields admin code references
-          'tableCount', 'logoUrl', 'isAcceptingOrders',
+          // Future / defensive fields admin code references.
+          // logoUrl + logoSize: restaurant brand mark uploaded from
+          // /admin/settings → Restaurant Profile. logoSize (MB) is tracked
+          // separately so a logo replace / remove can release the right
+          // delta on storageUsedMB. Same security stance as itemsUsed:
+          // owner-only, capped by maxStorageMB enforced elsewhere.
+          'tableCount', 'logoUrl', 'logoSize', 'isAcceptingOrders',
           // Audit stamp from lib/db.js withActor() — rides on every write
           'lastModifiedBy', 'lastModifiedAt'
         ]);

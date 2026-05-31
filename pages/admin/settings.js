@@ -1,8 +1,9 @@
 import Head from 'next/head';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
-import { getRestaurantById, updateRestaurant } from '../../lib/db';
+import { getRestaurantById, updateRestaurant, bumpStorageUsed } from '../../lib/db';
+import { uploadImage, fileSizeMB, deleteFile, buildImagePath, extractStoragePath } from '../../lib/storage';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette (same tokens as the rest of the admin chrome) ═══
@@ -153,6 +154,17 @@ export default function AdminSettings() {
   // updating it after save triggers a re-render and isDirty recomputes.
   const [initialForm, setInitialForm] = useState(null);
 
+  // ─── Logo state ────────────────────────────────────────────────────
+  // Logo lives outside `form` because it doesn't participate in the
+  // dirty-tracking / "Save changes" flow — each upload / remove writes
+  // to Firestore immediately (matching the category-image pattern on
+  // /admin/items), so there's no "unsaved logo" state to track.
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoSize, setLogoSize] = useState(0);          // MB on the doc, used for delta on replace/remove
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoProgress, setLogoProgress] = useState(0);  // 0–100 during upload
+  const logoInputRef = useRef(null);
+
   // ─── Initial load ──────────────────────────────────────────────────
   useEffect(() => {
     if (!rid) return;
@@ -177,6 +189,9 @@ export default function AdminSettings() {
       setForm(next);
       setInitialForm(next);
       setSubdomain(r.subdomain || '');
+      // Logo is outside the dirty-tracking form — separate state.
+      setLogoUrl(r.logoUrl || '');
+      setLogoSize(Number(r.logoSize) || 0);
       setLoading(false);
     }).catch(err => {
       console.error('settings load error:', err);
@@ -272,6 +287,83 @@ export default function AdminSettings() {
     const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://halohelm.com';
     navigator.clipboard.writeText(`${base}/restaurant/${subdomain}`);
     toast.success('Menu URL copied!');
+  };
+
+  // ─── Logo handlers ─────────────────────────────────────────────────
+  // Each handler writes to Firestore immediately (no "Save changes" gate)
+  // and keeps storageUsedMB in sync via bumpStorageUsed:
+  //   upload    → delta = +newSize − oldSize  (replace clears via deleteFile)
+  //   remove    → delta = −oldSize             (also deleteFile to free the bucket)
+  // Old logo file is best-effort deleted to avoid orphan growth in the
+  // bucket — this is the orphan-cleanup pattern the single-image replace
+  // on /admin/items doesn't have yet.
+  const handleLogoUpload = async (file) => {
+    if (!file || !rid) return;
+    if (!file.type.startsWith('image/')) { toast.error('Logo must be an image file.'); return; }
+    if (fileSizeMB(file) > 2) { toast.error('Logo must be under 2 MB.'); return; }
+    setLogoBusy(true);
+    setLogoProgress(0);
+    const oldUrl = logoUrl;
+    const oldSize = logoSize;
+    try {
+      // Upload through the auto-resize pipeline at 256×256 — logo renders
+      // at 44×44 (88×88 retina) on the customer header, so 256 is plenty
+      // headroom for any future place we display it (e.g. printed bill).
+      const path = buildImagePath(rid, `logo_${file.name}`);
+      const url = await uploadImage(
+        file,
+        path,
+        (pct) => setLogoProgress(pct),
+        { maxWidth: 256, maxHeight: 256, quality: 0.85 },
+      );
+      const newSize = fileSizeMB(file); // bill the source size (matches handleImageUpload pattern in items.js)
+      await updateRestaurant(rid, { logoUrl: url, logoSize: newSize });
+      setLogoUrl(url);
+      setLogoSize(newSize);
+      // Forward-tracked storage delta. bumpStorageUsed is a no-op for 0,
+      // so first-time upload (oldSize === 0) just bumps by newSize.
+      try { await bumpStorageUsed(rid, newSize - oldSize); } catch { /* best-effort */ }
+      // Free the old file from the bucket. Best-effort: a failure leaves
+      // an orphan, not corrupted state.
+      if (oldUrl) {
+        const oldPath = extractStoragePath(oldUrl);
+        if (oldPath) deleteFile(oldPath).catch(() => {});
+      }
+      toast.success(oldUrl ? 'Logo updated!' : 'Logo uploaded!');
+    } catch (e) {
+      console.error('logo upload failed:', e);
+      toast.error('Upload failed: ' + (e?.message || 'unknown'));
+    } finally {
+      setLogoBusy(false);
+      setLogoProgress(0);
+      // Clear the hidden file input so the same file can be re-picked.
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!rid || !logoUrl) return;
+    setLogoBusy(true);
+    const oldUrl = logoUrl;
+    const oldSize = logoSize;
+    try {
+      await updateRestaurant(rid, { logoUrl: null, logoSize: 0 });
+      setLogoUrl('');
+      setLogoSize(0);
+      if (oldSize > 0) {
+        try { await bumpStorageUsed(rid, -oldSize); } catch { /* best-effort */ }
+      }
+      if (oldUrl) {
+        const oldPath = extractStoragePath(oldUrl);
+        if (oldPath) deleteFile(oldPath).catch(() => {});
+      }
+      toast.success('Logo removed.');
+    } catch (e) {
+      console.error('logo remove failed:', e);
+      toast.error('Could not remove logo: ' + (e?.message || 'unknown'));
+    } finally {
+      setLogoBusy(false);
+    }
   };
 
   // ─── Derived stats for the matte-black card ─────────────────────────
@@ -502,6 +594,73 @@ export default function AdminSettings() {
                   <SectionHeader label="RESTAURANT PROFILE" />
                   <div style={sectionDescStyle}>
                     Public details about your restaurant. Cuisine helps Google find you in local search.
+                  </div>
+
+                  {/* Logo — public brand mark shown on the customer menu header.
+                      Writes immediately (no Save-changes gate) so each upload /
+                      remove keeps storageUsedMB in sync without depending on
+                      whether the user remembers to click Save. */}
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={labelStyle}>Logo <span style={{ color: A.faintText, fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>· optional</span></label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{
+                        width: 64, height: 64, borderRadius: 14, flexShrink: 0,
+                        background: logoUrl ? A.shellDarker : 'linear-gradient(145deg,#B8472D,#F4C06A)',
+                        border: '1px solid rgba(0,0,0,0.08)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        overflow: 'hidden',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                      }}>
+                        {logoUrl ? (
+                          <img src={logoUrl} alt="Restaurant logo" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          <span style={{ fontSize: 28 }}>🍽️</span>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => logoInputRef.current?.click()}
+                            disabled={logoBusy}
+                            style={{
+                              padding: '8px 14px', borderRadius: 8,
+                              border: 'none', background: A.ink, color: A.cream,
+                              fontSize: 12, fontWeight: 700, fontFamily: A.font,
+                              cursor: logoBusy ? 'not-allowed' : 'pointer',
+                              opacity: logoBusy ? 0.6 : 1,
+                            }}
+                          >
+                            {logoBusy && logoProgress > 0 ? `Uploading ${logoProgress}%` : (logoUrl ? 'Replace logo' : 'Upload logo')}
+                          </button>
+                          {logoUrl && !logoBusy && (
+                            <button
+                              type="button"
+                              onClick={handleLogoRemove}
+                              style={{
+                                padding: '8px 14px', borderRadius: 8,
+                                border: '1px solid rgba(217,83,79,0.30)',
+                                background: 'rgba(217,83,79,0.08)', color: A.danger,
+                                fontSize: 12, fontWeight: 700, fontFamily: A.font,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: A.faintText, marginTop: 8, lineHeight: 1.5 }}>
+                          Shows next to your restaurant name on the customer menu. Square images work best (PNG, JPG, or WebP). Max 2 MB; we automatically resize to 256×256.
+                        </div>
+                      </div>
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
                   </div>
 
                   {/* Subdomain — read-only (changing it would break printed QR codes) */}
