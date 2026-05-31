@@ -42,6 +42,25 @@ const SIZES = [
   { label: 'Large',  value: 1024, desc: 'Print / poster' },
 ];
 
+// localStorage key for the last-generated per-table QR set, scoped per
+// restaurant so different restaurants don't collide on the same browser.
+// Bumped to v1 — if we ever change the persisted shape, bump again so
+// stale entries auto-invalidate (JSON.parse would still succeed but the
+// shape would be wrong; key bump avoids the partial-shape risk).
+const TABLE_QR_STORAGE_KEY = (rid) => `qr_tables_v1_${rid}`;
+
+// Relative time formatter for the "Generated N min ago" label. The page
+// already ticks every 60s (see setTick below), so this label refreshes
+// in place without a re-fetch.
+function formatTimeAgo(ms) {
+  if (!ms) return '';
+  const diff = Date.now() - ms;
+  if (diff < 45_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} min ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} hr ago`;
+  return `${Math.floor(diff / 86_400_000)} days ago`;
+}
+
 // Color styles — Light/Gold/Dark to fit the Aspire palette consistently.
 // (Original "Coral" replaced with Gold so the previewed QR card matches the
 // rest of the redesigned admin chrome.)
@@ -72,6 +91,12 @@ export default function AdminQRCode() {
   const [tableQRs, setTableQRs] = useState([]);   // [{ table, dataURL }]
   const [generatingTables, setGeneratingTables] = useState(false);
   const [tablesDone, setTablesDone] = useState(false);
+  // Persistence metadata so the rehydrated set knows when it was made
+  // and which style was used — the printed/downloaded QRs already encode
+  // the saved style, so showing a hint when the picker drifts later
+  // prevents owners from thinking the saved set is wrong.
+  const [generatedAt, setGeneratedAt] = useState(null);   // ms timestamp when this set was generated
+  const [persistedStyle, setPersistedStyle] = useState(null); // style label baked into the saved set
 
   // Table sessions
   const [sessions, setSessions] = useState({}); // { tableNum: sessionDoc }
@@ -110,8 +135,29 @@ export default function AdminQRCode() {
     return unsub;
   }, [rid, canView, scopedDb]);
 
-  // ─── Reset table QRs when style changes so they stay in sync ───────
-  useEffect(() => { setTableQRs([]); setTablesDone(false); }, [selectedStyle]);
+  // ─── Rehydrate last-generated per-table QR set from localStorage ──
+  // Replaces the old "reset on style change" effect which threw away
+  // the user's generated set the moment they tapped a different color
+  // — a real bug, since the printed/downloaded QRs encode the saved
+  // style and don't need to re-render when the picker moves. The set
+  // now stays put until the next explicit "Generate QR Codes" click.
+  // Per-restaurant key so two restaurants in the same browser don't
+  // collide. Failures (private mode, quota exceeded, corrupted JSON)
+  // are silently ignored — page still works, just starts blank.
+  useEffect(() => {
+    if (!rid || typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(TABLE_QR_STORAGE_KEY(rid));
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed?.tableQRs) || parsed.tableQRs.length === 0) return;
+      setTableQRs(parsed.tableQRs);
+      setTableCount(Number(parsed.tableCount) || parsed.tableQRs.length);
+      setGeneratedAt(Number(parsed.generatedAt) || null);
+      setPersistedStyle(parsed.style || null);
+      setTablesDone(true);
+    } catch { /* corrupted entry or no storage — treat as no saved set */ }
+  }, [rid]);
 
   // Uses NEXT_PUBLIC_SITE_URL (set in Vercel) so generated QR codes always
   // point at the live customer domain. Fallback to halohelm.com if the env
@@ -178,6 +224,28 @@ export default function AdminQRCode() {
         setTableQRs([...results]); // progressive update
       }
       setTablesDone(true);
+      // Stamp + persist the completed set so a navigate-away (or page
+      // reload) doesn't lose it. Saving only on completion — partial
+      // results from a failed run don't leak into the saved state.
+      const now = Date.now();
+      const styleLabel = selectedStyle.label;
+      setGeneratedAt(now);
+      setPersistedStyle(styleLabel);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(TABLE_QR_STORAGE_KEY(rid), JSON.stringify({
+            tableCount,
+            style: styleLabel,
+            generatedAt: now,
+            tableQRs: results,
+          }));
+        }
+      } catch (e) {
+        // QuotaExceededError (rare — 50 QRs ≈ 500 KB, well under the
+        // 5 MB cap), private-browsing block, or storage disabled. Not
+        // fatal: the set is still in memory for this session.
+        console.warn('[qrcode] could not persist tableQRs:', e?.message);
+      }
       toast.success(`Generated ${tableCount} table QR codes!`);
     } catch { toast.error('Failed to generate table QR codes'); }
     finally { setGeneratingTables(false); }
@@ -606,8 +674,22 @@ export default function AdminQRCode() {
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>+</button>
                   </div>
-                  <span style={{ fontSize: 11, color: A.faintText, flex: 1, minWidth: 0 }}>
-                    Tables 1 – {tableCount} · uses current color style
+                  <span style={{ fontSize: 11, color: A.faintText, flex: 1, minWidth: 0, lineHeight: 1.45 }}>
+                    {tableQRs.length > 0 && generatedAt ? (
+                      <>
+                        Generated {formatTimeAgo(generatedAt)} · {tableQRs.length} table{tableQRs.length === 1 ? '' : 's'}{persistedStyle ? ` · ${persistedStyle} style` : ''}
+                        {persistedStyle && persistedStyle !== selectedStyle.label && (
+                          <>
+                            <br />
+                            <span style={{ color: A.warningDim, fontWeight: 600 }}>
+                              Style picker now shows {selectedStyle.label} — click Generate to re-create at the new style.
+                            </span>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>Tables 1 – {tableCount} · uses current color style</>
+                    )}
                   </span>
                   {tablesDone && tableQRs.length > 0 && (
                     <button onClick={printAllTableQRs} className="qr-action-btn" style={{
