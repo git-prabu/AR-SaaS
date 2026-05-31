@@ -91,7 +91,14 @@ export default function AdminSubscription() {
   useEffect(() => {
     if (!rid) return;
     getRestaurantById(rid)
-      .then(r => { setRestaurant(r); setLoading(false); })
+      .then(r => {
+        setRestaurant(r);
+        // Default the period selector to the user's current billing cycle so
+        // e.g. an Annual subscriber lands on the Annual tab. They can still
+        // switch tabs to upgrade/downgrade their cycle on the same plan.
+        if (r?.subscriptionPeriod) setPeriod(r.subscriptionPeriod);
+        setLoading(false);
+      })
       .catch(err => { console.error('subscription load error:', err); setLoading(false); });
   }, [rid]);
 
@@ -510,7 +517,15 @@ export default function AdminSubscription() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
                   {PLANS.map(plan => {
-                    const isCurrent = !computed.isTrial && plan.id === restaurant.plan;
+                    // "Current" means same plan AND same billing cycle. Without
+                    // the period check, a Monthly subscriber would see "CURRENT"
+                    // on every period tab and be blocked from switching to a
+                    // longer cycle on the same plan (e.g. Growth Monthly → Growth
+                    // Annual). Legacy docs without subscriptionPeriod are
+                    // treated as monthly, which matches how they were billed.
+                    const samePlan = plan.id === restaurant.plan;
+                    const currentPeriod = restaurant.subscriptionPeriod || 'monthly';
+                    const isCurrent = !computed.isTrial && samePlan && period === currentPeriod;
                     const isPopular = !!plan.popular;
                     return (
                       <div key={plan.id} className="ar-plan-card" style={{
@@ -653,7 +668,15 @@ export default function AdminSubscription() {
                               <span style={{ width: 11, height: 11, border: `2px solid ${A.cream}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
                               Opening…
                             </>
-                          ) : (computed.isTrial ? 'Choose this plan' : 'Upgrade to ' + plan.name)}
+                          ) : computed.isTrial
+                            ? 'Choose this plan'
+                            : samePlan
+                              // Same plan, different billing cycle — they're
+                              // changing their commitment length, not their tier.
+                              // Strip the " · 1 mo free" suffix so the button
+                              // reads cleanly: "Switch to Annual", "Switch to 6 months".
+                              ? `Switch to ${getPeriod(period).label.split(' · ')[0]}`
+                              : 'Upgrade to ' + plan.name}
                         </button>
                       </div>
                     );
