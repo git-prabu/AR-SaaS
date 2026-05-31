@@ -129,6 +129,12 @@ service cloud.firestore {
           // rules" toast on every item add — item was created but the
           // counter bump landed on a closed-door rule.)
           'itemsUsed',
+          // Storage accounting counter — bumped by lib/db.js bumpStorageUsed()
+          // when an admin / staff member uploads or deletes an image / AR model
+          // (Phase B, 30 May 2026). Forward-tracked + atomic increment. Same
+          // security rationale as itemsUsed: owners can't self-upgrade their
+          // plan with it, and the maxStorageMB cap is enforced separately.
+          'storageUsedMB',
           // Future / defensive fields admin code references
           'tableCount', 'logoUrl', 'isAcceptingOrders',
           // Audit stamp from lib/db.js withActor() — rides on every write
@@ -144,7 +150,7 @@ service cloud.firestore {
       allow update: if (staffCan(restaurantId, 'menuItems') || staffCan(restaurantId, 'addItems'))
         && isActiveStaff(restaurantId)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['categoryOrder', 'categoryImages', 'itemsUsed', 'lastModifiedBy', 'lastModifiedAt']);
+          .hasOnly(['categoryOrder', 'categoryImages', 'itemsUsed', 'storageUsedMB', 'lastModifiedBy', 'lastModifiedAt']);
       // Phase 3 hardening (H4 + W1, 16 May 2026): client-side create
       // is now BANNED. The previous `allow create: if isAuth();` let
       // any signed-in user write a restaurant doc with arbitrary

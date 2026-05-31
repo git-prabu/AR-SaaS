@@ -496,6 +496,10 @@ export default function AdminRequests() {
           fats:     Number(form.fats)     || null,
         },
         imageURL,
+        // Bytes are tracked at upload time so deleteMenuItem can release
+        // them later. submitRequestAndPublish will save this on the item
+        // doc + bump the restaurant's storageUsedMB metric.
+        imageSize: imageFile ? fileSizeMB(imageFile) : 0,
       }, restaurant, { db: scopedDb });
       toast.success('Item published to menu! AR will be added once our team uploads the 3D model.');
       setForm(BLANK); setImageFile(null); setImagePreview(null); setShowForm(false); setShowTranslations(false);

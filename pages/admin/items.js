@@ -6,7 +6,7 @@ import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import { useRouter } from 'next/router';
-import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey, updateRestaurant } from '../../lib/db';
+import { getAllMenuItems, updateMenuItem, deleteMenuItem, getCombos, getAllOffers, createMenuItem, todayKey, updateRestaurant, bumpStorageUsed } from '../../lib/db';
 import { exportRowsCsv } from '../../lib/csv';
 import { uploadFile, uploadImage, buildImagePath, fileSizeMB, optimizeOneImage, deleteFile } from '../../lib/storage';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -542,8 +542,15 @@ export default function AdminItems() {
         setImgUpload(u => ({ ...u, [item.id]: { uploading: true, progress: pct } })),
         undefined, scopedStorage
       );
-      await updateMenuItem(rid, item.id, { imageURL: url }, dbOpt);
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url } : i));
+      // Track storage: replace the previously-tracked size with the new file's
+      // size. uploadImage may have resized the image, but we conservatively
+      // bill the source size — accurate enough for plan caps and consistent
+      // with the 5 MB upload limit shown above.
+      const newImageSizeMB = fileSizeMB(file);
+      const oldImageSizeMB = Number(item.imageSize) || 0;
+      await updateMenuItem(rid, item.id, { imageURL: url, imageSize: newImageSizeMB }, dbOpt);
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, imageURL: url, imageSize: newImageSizeMB } : i));
+      try { await bumpStorageUsed(rid, newImageSizeMB - oldImageSizeMB, dbOpt); } catch { /* best-effort */ }
       toast.success('Image updated');
     } catch (e) { toast.error('Upload failed: ' + e.message); }
     finally { setImgUpload(u => ({ ...u, [item.id]: { uploading: false, progress: 0 } })); }
@@ -839,9 +846,15 @@ export default function AdminItems() {
             const result = await optimizeOneImage(rid, it, undefined, scopedStorage);
             if (!result) { skipped += 1; }
             else {
-              await updateMenuItem(rid, it.id, { imageURL: result.newURL }, dbOpt);
-              setItems(prev => prev.map(x => x.id === it.id ? { ...x, imageURL: result.newURL } : x));
+              // Storage: replace the previously-tracked size (or 0 for
+              // legacy items) with the actual post-optimize size, and
+              // adjust the restaurant's storageUsedMB by the delta.
+              const newSizeMB = result.sizeAfter / (1024 * 1024);
+              const oldSizeMB = Number(it.imageSize) || 0;
+              await updateMenuItem(rid, it.id, { imageURL: result.newURL, imageSize: newSizeMB }, dbOpt);
+              setItems(prev => prev.map(x => x.id === it.id ? { ...x, imageURL: result.newURL, imageSize: newSizeMB } : x));
               if (result.oldPath) deleteFile(result.oldPath, scopedStorage).catch(() => {});
+              try { await bumpStorageUsed(rid, newSizeMB - oldSizeMB, dbOpt); } catch { /* best-effort */ }
               processed += 1;
               savedBytes += (result.sizeBefore - result.sizeAfter);
             }

@@ -4,7 +4,7 @@ import SuperAdminLayout from '../../components/layout/SuperAdminLayout';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useSuperAdminAuth } from '../../hooks/useAuth';
 import { getAllPendingRequests, getAllRestaurants, getRequests, updateRequestStatus, updateRestaurant, getAllMenuItemsAllRestaurants, saDb } from '../../lib/saDb';
-import { withActor } from '../../lib/db';
+import { withActor, bumpStorageUsed } from '../../lib/db';
 import { uploadFile, buildModelPath, fileSizeMB } from '../../lib/saStorage';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 // saDb is the superAdminDb instance — use instead of db for all SA Firestore writes
@@ -97,12 +97,15 @@ export default function SuperAdminRequests() {
       // Menu item already exists (published at submission) — just unlock AR on it
       await updateDoc(doc(db, 'restaurants', rid, 'menuItems', req.id), withActor({
         modelURL,
+        modelSize: sizeMB,         // released by deleteMenuItem
         arReady: true,
         updatedAt: serverTimestamp(),
       }));
       await updateRequestStatus(rid, req.id, 'approved', modelURL);
-      // Only update storage — itemsUsed was incremented at submission time
-      await updateRestaurant(rid, { storageUsedMB: parseFloat(((restaurant.storageUsedMB || 0) + sizeMB).toFixed(2)) });
+      // Atomic increment via bumpStorageUsed — avoids the race the old
+      // "read prev + write new" pattern had under concurrent uploads.
+      // itemsUsed was already incremented at submission time.
+      await bumpStorageUsed(rid, sizeMB, { db });
       toast.success(`"${req.name}" AR approved and unlocked!`);
       setModelFiles(f => { const n = { ...f }; delete n[req.id]; return n; });
       load();
