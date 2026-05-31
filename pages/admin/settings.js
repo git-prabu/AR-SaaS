@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import Link from 'next/link';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -241,7 +242,10 @@ export default function AdminSettings() {
         address: form.address.trim(),
         phone: form.phone.trim(),
         fssaiNo: form.fssaiNo.trim(),
-        upiId: form.upiId.trim(),
+        // upiId intentionally NOT written here — moved to /admin/gateway.
+        // Including it would silently clobber whatever the owner saves on
+        // the gateway page. The form still reads upiId for the bill
+        // preview, but only the gateway page writes it.
         cuisine: form.cuisine.trim(),
         city: form.city.trim(),
         googlePlaceId: form.googlePlaceId.trim(),
@@ -263,7 +267,8 @@ export default function AdminSettings() {
         address: form.address.trim(),
         phone: form.phone.trim(),
         fssaiNo: form.fssaiNo.trim(),
-        upiId: form.upiId.trim(),
+        // upiId comes through via the `...form` spread, untrimmed —
+        // settings doesn't manage it anymore (see comment above).
         cuisine: form.cuisine.trim(),
         city: form.city.trim(),
         googlePlaceId: form.googlePlaceId.trim(),
@@ -367,12 +372,14 @@ export default function AdminSettings() {
   };
 
   // ─── Derived stats for the matte-black card ─────────────────────────
+  // upiActive removed when UPI moved to /admin/gateway — settings tile
+  // would have shown a stale "On/Off" the moment the owner changed UPI
+  // from the gateway page (settings doesn't subscribe to live doc).
   const stats = useMemo(() => ({
     gst: parseFloat(form.gstPercent) || 0,
     serviceCharge: parseFloat(form.serviceChargePercent) || 0,
-    upiActive: form.upiId.trim().length > 0,
     gstActive: form.gstNumber.trim().length > 0,
-  }), [form.gstPercent, form.serviceChargePercent, form.upiId, form.gstNumber]);
+  }), [form.gstPercent, form.serviceChargePercent, form.gstNumber]);
 
   // ─── Live bill preview values — mirror what the customer bill renderer uses ─
   // These re-render every time the form changes, no save needed.
@@ -464,12 +471,14 @@ export default function AdminSettings() {
                 {loading ? 'Loading…' : 'Live · applies to all new bills'}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
                 { label: 'GST',            value: `${stats.gst}%`,           color: stats.gst > 0 ? A.warning : A.forestText },
                 { label: 'SERVICE CHARGE', value: `${stats.serviceCharge}%`, color: stats.serviceCharge > 0 ? A.warning : A.forestText },
                 { label: 'GSTIN',          value: stats.gstActive ? 'On' : '—', color: stats.gstActive ? A.success : A.forestTextFaint },
-                { label: 'UPI PAYMENT',    value: stats.upiActive ? 'On' : 'Off', color: stats.upiActive ? A.success : A.forestTextFaint },
+                // UPI PAYMENT tile removed — UPI is now managed on
+                // /admin/gateway. Settings shouldn't claim ownership of
+                // a status it doesn't control.
               ].map(s => (
                 <div key={s.label} style={{
                   padding: '16px 18px', borderRadius: 10,
@@ -761,25 +770,28 @@ export default function AdminSettings() {
                   </div>
                 </div>
 
-                {/* SECTION 5: UPI Payment */}
+                {/* SECTION 5: UPI Payment — moved to Payment Gateway.
+                    Owners used to find UPI ID here; we kept the section so
+                    the redirect is obvious instead of leaving a gap that
+                    looks like the field went missing. */}
                 <div style={sectionCardStyle}>
-                  <SectionHeader label="UPI PAYMENT" rightBadge={stats.upiActive ? 'Active' : null} />
+                  <SectionHeader label="UPI PAYMENT" rightBadge="Moved" />
                   <div style={sectionDescStyle}>
-                    Allow customers to pay directly via UPI from their phone. Leave blank to hide UPI option on the bill.
+                    Your UPI ID is now managed on the <strong style={{ color: A.mutedText }}>Payment Gateway</strong> page, alongside Auto-Confirm UPI and the full Razorpay / Paytm checkout flows.
                   </div>
-
-                  <div>
-                    <label style={labelStyle}>UPI ID</label>
-                    <input
-                      className="ar-input"
-                      value={form.upiId} onChange={update('upiId')}
-                      style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }}
-                      placeholder="e.g. yourrestaurant@ybl or 9876543210@paytm"
-                    />
-                    <div style={{ fontSize: 11, color: A.faintText, marginTop: 6, lineHeight: 1.5 }}>
-                      Your UPI ID from GPay, PhonePe, Paytm, or any UPI app. Customers will be able to pay you directly.
-                    </div>
-                  </div>
+                  <Link
+                    href="/admin/gateway"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '9px 16px', borderRadius: 8,
+                      background: A.ink, color: A.cream,
+                      fontSize: 13, fontWeight: 700, fontFamily: A.font,
+                      textDecoration: 'none',
+                      marginTop: 4,
+                    }}
+                  >
+                    Open Payment Gateway →
+                  </Link>
                 </div>
 
                 {/* SECTION 6: Daily summary email */}

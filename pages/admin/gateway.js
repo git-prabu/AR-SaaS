@@ -17,6 +17,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import toast from 'react-hot-toast';
 import { auth } from '../../lib/firebaseAuth';
+import { getRestaurantById, updateRestaurant } from '../../lib/db';
 
 const A = {
   font: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -64,6 +65,16 @@ export default function AdminGatewayPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
+
+  // Direct UPI ID — the simplest payment channel. Moved here from
+  // /admin/settings → UPI PAYMENT (relocated for context). Stored on
+  // the restaurant doc as `upiId`, NOT inside the gateway config
+  // (which only holds Paytm/Razorpay/PhonePe credentials). Independent
+  // of the Auto-Confirm and Full Gateway tabs below — those can stay
+  // off and the bill still shows this UPI ID for direct customer pay.
+  const [upiId, setUpiId] = useState('');
+  const [upiInitial, setUpiInitial] = useState('');
+  const [upiSaving, setUpiSaving] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && rid) {
@@ -132,6 +143,42 @@ export default function AdminGatewayPage() {
     return () => { alive = false; };
   }, [rid]);
 
+  // Load the saved UPI ID from the restaurant doc separately — it lives
+  // on the doc itself, not inside the gateway config blob.
+  useEffect(() => {
+    if (!rid) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await getRestaurantById(rid);
+        if (!alive || !r) return;
+        const saved = (r.upiId || '').trim();
+        setUpiId(saved);
+        setUpiInitial(saved);
+      } catch (e) {
+        console.error('[gateway] Failed to load UPI ID:', e);
+      }
+    })();
+    return () => { alive = false; };
+  }, [rid]);
+
+  const saveUpi = async () => {
+    if (!rid) return;
+    const trimmed = upiId.trim();
+    if (trimmed === upiInitial) { toast('No changes to save'); return; }
+    setUpiSaving(true);
+    try {
+      await updateRestaurant(rid, { upiId: trimmed });
+      setUpiInitial(trimmed);
+      toast.success(trimmed ? 'UPI ID saved' : 'UPI ID cleared');
+    } catch (e) {
+      console.error('[gateway] UPI save failed:', e);
+      toast.error('Could not save UPI: ' + (e?.message || 'unknown'));
+    } finally {
+      setUpiSaving(false);
+    }
+  };
+
   const save = async () => {
     if (!rid) return;
     setSaving(true);
@@ -171,6 +218,44 @@ export default function AdminGatewayPage() {
             the "paid" signal). <strong>Full Gateway</strong> routes money through Razorpay/Paytm
             checkout for cards + UPI + netbanking (~2% fee, settled T+1).
           </p>
+
+          {/* ─── Direct UPI ID (always visible — simplest payment channel) ───
+              Moved here from /admin/settings → UPI PAYMENT. Sits above the
+              tabs because every restaurant needs this regardless of which
+              gateway they pick, and the Razorpay/Paytm flows already
+              reference it as a fallback when their gateway credentials
+              aren't configured. */}
+          <Card title="UPI ID"
+            hint="Your direct UPI ID (GPay / PhonePe / Paytm / any UPI app). The customer bill shows this as a Pay-by-UPI option — money lands in your account, no fee, no routing. Leave blank to hide UPI on the bill.">
+            <Field label="UPI ID">
+              <input
+                value={upiId}
+                onChange={e => setUpiId(e.target.value)}
+                placeholder="e.g. yourrestaurant@ybl or 9876543210@paytm"
+                style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }}
+              />
+            </Field>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <button
+                onClick={saveUpi}
+                disabled={upiSaving || upiId.trim() === upiInitial}
+                style={{
+                  padding: '9px 18px', borderRadius: 8, border: 'none',
+                  background: A.ink, color: A.cream,
+                  fontSize: 13, fontWeight: 700, fontFamily: A.font,
+                  cursor: (upiSaving || upiId.trim() === upiInitial) ? 'not-allowed' : 'pointer',
+                  opacity: (upiSaving || upiId.trim() === upiInitial) ? 0.5 : 1,
+                }}
+              >
+                {upiSaving ? 'Saving…' : 'Save UPI ID'}
+              </button>
+              {upiInitial && upiId.trim() === upiInitial && (
+                <span style={{ fontSize: 11, color: A.success, fontWeight: 600 }}>
+                  ✓ Active
+                </span>
+              )}
+            </div>
+          </Card>
 
           {/* Top-level tabs */}
           <div style={{
