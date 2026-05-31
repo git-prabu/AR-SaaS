@@ -209,7 +209,7 @@ export default function PetpoojaConnect() {
   if (loading) {
     return (
       <AdminLayout>
-        <Head><title>Petpooja Integration — Admin</title></Head>
+        <Head><title>Petpooja POS — HaloHelm</title></Head>
         <div style={{ padding: 32, fontFamily: A.font, color: A.mutedText }}>Loading…</div>
       </AdminLayout>
     );
@@ -219,7 +219,7 @@ export default function PetpoojaConnect() {
   if (!planEligible) {
     return (
       <AdminLayout>
-        <Head><title>Petpooja Integration — Pro plan required</title></Head>
+        <Head><title>Petpooja POS — Pro plan required</title></Head>
         <div style={{ padding: '32px 28px', maxWidth: 720, margin: '0 auto', fontFamily: A.font }}>
           <div style={{ fontSize: 11, color: A.faintText, letterSpacing: '0.05em', marginBottom: 6 }}>Admin · Integrations</div>
           <h1 style={{ fontSize: 26, fontWeight: 600, color: A.ink, letterSpacing: '-0.4px', margin: '0 0 16px' }}>Petpooja integration</h1>
@@ -253,7 +253,7 @@ export default function PetpoojaConnect() {
       : 'never';
     return (
       <AdminLayout>
-        <Head><title>Petpooja Integration — Connected</title></Head>
+        <Head><title>Petpooja POS — Connected</title></Head>
         <div style={{ padding: '32px 28px', maxWidth: 920, margin: '0 auto', fontFamily: A.font }}>
           <div style={{ fontSize: 11, color: A.faintText, letterSpacing: '0.05em', marginBottom: 6 }}>Admin · Integrations</div>
           <h1 style={{ fontSize: 26, fontWeight: 600, color: A.ink, letterSpacing: '-0.4px', margin: '0 0 24px' }}>Petpooja integration</h1>
@@ -323,7 +323,7 @@ export default function PetpoojaConnect() {
   // Pro plan, not connected — show the form.
   return (
     <AdminLayout>
-      <Head><title>Connect Petpooja — Admin</title></Head>
+      <Head><title>Petpooja POS — Connect</title></Head>
       <div style={{ padding: '32px 28px', maxWidth: 720, margin: '0 auto', fontFamily: A.font }}>
         <div style={{ fontSize: 11, color: A.faintText, letterSpacing: '0.05em', marginBottom: 6 }}>Admin · Integrations</div>
         <h1 style={{ fontSize: 26, fontWeight: 600, color: A.ink, letterSpacing: '-0.4px', margin: '0 0 8px' }}>Connect Petpooja</h1>

@@ -491,7 +491,7 @@ export default function NotificationsPage() {
 
   return (
     <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/notifications">
-      <Head><title>Live Activity — HaloHelm</title></Head>
+      <Head><title>Activity Log — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }

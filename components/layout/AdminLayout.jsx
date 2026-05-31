@@ -29,67 +29,100 @@ function minPlanForPerm(perm) {
   return null;
 }
 
+// Re-grouped + renamed to put each page in a contextual bucket.
+// Old groupings (OVERVIEW / OPERATIONS / PURCHASES / CATALOG / PEOPLE /
+// SETUP) mixed concerns — e.g. "Day Close" sat under OVERVIEW even though
+// it's an end-of-shift operation, and Marketing/Reservations/Waitlist
+// were lumped under "PEOPLE" alongside Staff/Roles. SETUP had become a
+// dumping ground (billing + help + config + integrations in one bucket).
+//
+// New shape:
+//   DASHBOARD  — reporting + the activity feed
+//   OPERATIONS — daily floor + kitchen + payments (incl. day close)
+//   MENU       — catalogue + promotions
+//   GUESTS     — everything diner-facing: CRM, reservations, waitlist,
+//                feedback, marketing campaigns
+//   PURCHASES  — vendor side: expenses / vendors / POs
+//   TEAM       — internal: staff + roles
+//   SETUP      — restaurant-config (QR, payment provider, business info,
+//                Google, security, POS integrations)
+//   ACCOUNT    — billing + help (the things that aren't restaurant config
+//                but live on the platform side)
+//
+// Renames (approved): Settings → Business Info (page is identity + GST/
+// tax + bill format, not generic "settings"); Petpooja → Petpooja POS;
+// Table View → Tables; Activity → Activity Log. Waiter and Roles kept
+// at the owner's request.
 export const navSections = [
   {
-    label: 'OVERVIEW', items: [
-      { href: '/admin/analytics',     label: 'Analytics', icon: 'chart' },
-      { href: '/admin/reports',       label: 'Reports',   icon: 'dollar' },
-      { href: '/admin/day-close',     label: 'Day Close', icon: 'crown' },
-      { href: '/admin/notifications', label: 'Activity',  icon: 'bell-ring' },
+    label: 'DASHBOARD', items: [
+      { href: '/admin/analytics',     label: 'Analytics',    icon: 'chart' },
+      { href: '/admin/reports',       label: 'Reports',      icon: 'dollar' },
+      { href: '/admin/notifications', label: 'Activity Log', icon: 'bell-ring' },
     ]
   },
   {
     label: 'OPERATIONS', items: [
-      { href: '/admin/tables',    label: 'Table View', icon: 'grid' },
+      { href: '/admin/tables',    label: 'Tables',    icon: 'grid' },
       { href: '/admin/new-order', label: 'New Order', icon: 'plus' },
       { href: '/admin/orders',    label: 'Orders',    icon: 'clipboard' },
       { href: '/admin/kitchen',   label: 'Kitchen',   icon: 'chef' },
       { href: '/admin/waiter',    label: 'Waiter',    icon: 'bell' },
       { href: '/admin/payments',  label: 'Payments',  icon: 'card' },
+      // Day Close belongs here — it's the end-of-shift operational step,
+      // not a dashboard view. Was previously under OVERVIEW.
+      { href: '/admin/day-close', label: 'Day Close', icon: 'crown' },
+    ]
+  },
+  {
+    label: 'MENU', items: [
+      { href: '/admin/items',      label: 'Menu Items', icon: 'utensils' },
+      { href: '/admin/requests',   label: 'Add Items',  icon: 'plus' },
+      // Single Promotions entry replaces the old Combos / Offers / Coupons
+      // trio. The /admin/promotions page hosts all 3 with inline drawers;
+      // /admin/{combos,offers,coupons} redirect there for backwards compat.
+      { href: '/admin/promotions', label: 'Promotions', icon: 'tag' },
+    ]
+  },
+  {
+    label: 'GUESTS', items: [
+      { href: '/admin/customers',    label: 'Customers',    icon: 'contact' },
+      { href: '/admin/reservations', label: 'Reservations', icon: 'calendar' },
+      { href: '/admin/waitlist',     label: 'Waitlist',     icon: 'hourglass' },
+      { href: '/admin/feedback',     label: 'Feedback',     icon: 'star' },
+      { href: '/admin/campaigns',    label: 'Marketing',    icon: 'megaphone' },
     ]
   },
   {
     label: 'PURCHASES', items: [
-      { href: '/admin/expenses',        label: 'Expenses',   icon: 'receipt' },
-      { href: '/admin/vendors',         label: 'Vendors',    icon: 'truck' },
+      { href: '/admin/expenses',        label: 'Expenses',        icon: 'receipt' },
+      { href: '/admin/vendors',         label: 'Vendors',         icon: 'truck' },
       { href: '/admin/purchase-orders', label: 'Purchase Orders', icon: 'package' },
     ]
   },
   {
-    label: 'CATALOG', items: [
-      { href: '/admin/items',      label: 'Menu Items',  icon: 'utensils' },
-      { href: '/admin/requests',   label: 'Add Items',   icon: 'plus' },
-      // Single Promotions entry replaces the old Combos / Offers / Coupons
-      // trio. The /admin/promotions page hosts all 3 with inline drawers;
-      // /admin/{combos,offers,coupons} redirect there for backwards compat.
-      { href: '/admin/promotions', label: 'Promotions',  icon: 'tag' },
-    ]
-  },
-  {
-    label: 'PEOPLE', items: [
-      { href: '/admin/customers',    label: 'Customers',    icon: 'contact' },
-      { href: '/admin/campaigns',    label: 'Marketing',    icon: 'megaphone' },
-      { href: '/admin/reservations', label: 'Reservations', icon: 'calendar' },
-      { href: '/admin/waitlist',     label: 'Waitlist',     icon: 'hourglass' },
-      { href: '/admin/staff',    label: 'Staff',    icon: 'users' },
-      { href: '/admin/roles',    label: 'Roles',    icon: 'key' },
-      { href: '/admin/feedback', label: 'Feedback', icon: 'star' },
+    label: 'TEAM', items: [
+      { href: '/admin/staff', label: 'Staff', icon: 'users' },
+      { href: '/admin/roles', label: 'Roles', icon: 'key' },
     ]
   },
   {
     label: 'SETUP', items: [
-      { href: '/admin/qrcode',       label: 'QR & Tables',  icon: 'qr' },
-      { href: '/admin/gateway',      label: 'Payment Gateway', icon: 'card' },
-      // Phase B (Petpooja hybrid) — Pro-only nav entry. Filtered out
-      // at render time by canUsePetpoojaIntegration() so non-Pro
-      // plans never see it. Server still enforces, this is the
-      // cosmetic gate.
-      { href: '/admin/petpooja-connect', label: 'Petpooja',  icon: 'plug', proOnly: true },
-      { href: '/admin/settings',          label: 'Settings',     icon: 'gear' },
+      { href: '/admin/qrcode',  label: 'QR & Tables',     icon: 'qr' },
+      { href: '/admin/gateway', label: 'Payment Gateway', icon: 'card' },
+      // Phase B (Petpooja hybrid) — Pro-only nav entry. Filtered out at
+      // render time by canUsePetpoojaIntegration() so non-Pro plans
+      // never see it. Server still enforces, this is the cosmetic gate.
+      { href: '/admin/petpooja-connect',  label: 'Petpooja POS',      icon: 'plug', proOnly: true },
+      { href: '/admin/settings',          label: 'Business Info',     icon: 'gear' },
       { href: '/admin/google',            label: 'Connect to Google', icon: 'globe' },
-      { href: '/admin/settings/security', label: 'Security',     icon: 'shield' },
-      { href: '/admin/subscription',      label: 'Subscription', icon: 'crown' },
-      { href: '/admin/help',              label: 'Help & FAQ',   icon: 'help' },
+      { href: '/admin/settings/security', label: 'Security',          icon: 'shield' },
+    ]
+  },
+  {
+    label: 'ACCOUNT', items: [
+      { href: '/admin/subscription', label: 'Subscription', icon: 'crown' },
+      { href: '/admin/help',         label: 'Help & FAQ',   icon: 'help' },
     ]
   },
 ];

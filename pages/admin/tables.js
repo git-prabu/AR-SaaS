@@ -479,7 +479,7 @@ export default function AdminTables() {
 
   return (
     <>
-      <Head><title>Table View — HaloHelm</title></Head>
+      <Head><title>Tables — HaloHelm</title></Head>
       <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/tables">
         <div style={{ padding: '28px 26px', maxWidth: 1100, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
 

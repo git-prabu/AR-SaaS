@@ -428,7 +428,7 @@ export default function AdminSettings() {
   // ═════════════════════════════════════════════════════════════════════
   return (
     <AdminLayout>
-      <Head><title>Settings — HaloHelm</title></Head>
+      <Head><title>Business Info — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font, paddingBottom: isDirty ? 80 : 0 }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
@@ -446,10 +446,10 @@ export default function AdminSettings() {
             <div style={{ fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>Setup</span>
               <span style={{ opacity: 0.5 }}>›</span>
-              <span style={{ color: A.mutedText }}>Settings</span>
+              <span style={{ color: A.mutedText }}>Business Info</span>
             </div>
             <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
-              {form.restaurantName || restaurantNameFallback} <span style={{ color: A.mutedText, fontWeight: 500 }}>Settings</span>
+              {form.restaurantName || restaurantNameFallback} <span style={{ color: A.mutedText, fontWeight: 500 }}>Business Info</span>
             </div>
             <div style={{ fontSize: 12, color: A.mutedText, marginTop: 4 }}>
               Manage GST, billing details, restaurant profile, and what appears on customer bills.
@@ -829,7 +829,7 @@ export default function AdminSettings() {
                         <span style={{ width: 13, height: 13, border: `2.5px solid ${A.cream}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
                         Saving…
                       </>
-                    ) : 'Save Settings'}
+                    ) : 'Save changes'}
                   </button>
                 )}
               </div>
@@ -994,7 +994,7 @@ export default function AdminSettings() {
                   <span style={{ width: 12, height: 12, border: `2.5px solid ${A.cream}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
                   Saving…
                 </>
-              ) : 'Save Settings'}
+              ) : 'Save changes'}
             </button>
           </div>
         )}
