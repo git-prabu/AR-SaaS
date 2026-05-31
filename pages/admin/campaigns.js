@@ -51,7 +51,7 @@ export default function AdminCampaigns() {
   // RBAC: owner OR a staff member whose role grants 'marketing'. Staff read
   // customers + campaigns via staffDb. Email sending stays owner-only (it needs
   // an admin token + Gmail setup), so the email channel is hidden for staff.
-  const { ready, isAdmin, rid, scopedDb, canView, user, userData, staffSession } = useFeatureAccess('marketing');
+  const { ready, isAdmin, rid, scopedDb, canView, user, userData, staffSession, planAllowsFeature } = useFeatureAccess('marketing');
 
   const [customers, setCustomers] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -159,7 +159,7 @@ export default function AdminCampaigns() {
   });
 
   if (!ready) {
-    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/campaigns"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/campaigns" permKey="marketing" planAllowsFeature={planAllowsFeature}><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   const noCustomers = loaded && customers.length === 0;
@@ -167,7 +167,7 @@ export default function AdminCampaigns() {
   return (
     <>
       <Head><title>Marketing — HaloHelm</title></Head>
-      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/campaigns">
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/campaigns" permKey="marketing" planAllowsFeature={planAllowsFeature}>
         <div style={{ padding: '28px 26px', maxWidth: 920, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Marketing</h1>

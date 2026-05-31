@@ -19,6 +19,8 @@ import { useRouter } from 'next/router';
 import { useAuth } from './useAuth';
 import { db, staffDb, storage, staffStorage } from '../lib/firebase';
 import { readStaffSession } from '../lib/staffSession';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { canUseFeature } from '../lib/plans';
 
 export function useFeatureAccess(permKey) {
   const router = useRouter();
@@ -58,5 +60,23 @@ export function useFeatureAccess(permKey) {
     if (!staffPerms.includes(permKey)) { router.replace('/staff/home'); return; }
   }, [authLoading, isAdmin, sessionChecked, staffSession, permKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { ready, isAdmin, isStaff, canView, rid, scopedDb, scopedStorage, staffPerms, staffSession, userData, user };
+  // Phase D — plan gating. Subscribe to the restaurant doc so the page
+  // knows the current plan tier and can render an "Upgrade required"
+  // screen when the feature isn't on this tier. Restaurant doc is
+  // publicly readable (firestore.rules), so either scopedDb works.
+  const [restaurant, setRestaurant] = useState(null);
+  useEffect(() => {
+    if (!rid) { setRestaurant(null); return; }
+    const unsub = onSnapshot(doc(scopedDb, 'restaurants', rid), (snap) => {
+      if (snap.exists()) setRestaurant(snap.data());
+    }, () => { /* fail-OPEN — page renders normally if we can't read the doc */ });
+    return unsub;
+  }, [rid, scopedDb]);
+
+  // null while we're still loading the restaurant doc — pages should
+  // treat null as "don't know yet" (fail-OPEN) so the page renders
+  // normally for the first ~300 ms instead of flashing an upgrade screen.
+  const planAllowsFeature = restaurant ? canUseFeature(restaurant, permKey) : null;
+
+  return { ready, isAdmin, isStaff, canView, rid, scopedDb, scopedStorage, staffPerms, staffSession, userData, user, restaurant, planAllowsFeature };
 }

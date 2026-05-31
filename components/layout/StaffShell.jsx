@@ -19,6 +19,7 @@ import { navSections, NavIcon } from './AdminLayout';
 import { PERMISSION_ROUTES, STAFF_ENABLED } from '../../lib/permissions';
 import { readStaffSession } from '../../lib/staffSession';
 import { getSubscriptionStatus } from '../../lib/subscription';
+import { canUseFeature } from '../../lib/plans';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 // route → permission key (PERMISSION_ROUTES is perm → route).
@@ -75,11 +76,17 @@ export default function StaffShell({ active, children }) {
   const perms = Array.isArray(session?.perms) ? session.perms : [];
   const enabled = new Set(STAFF_ENABLED);
 
+  // Phase D — also gate by the restaurant's plan so a staff role granted
+  // (e.g.) 'promotions' on a Starter restaurant doesn't see Promotions.
+  // Fail-OPEN if the restaurant doc hasn't loaded yet to avoid hiding the
+  // whole sidebar in the first 300 ms after mount.
+  const planAllows = (pk) => !restaurantDoc || canUseFeature(restaurantDoc, pk);
+
   const sections = navSections.map(s => ({
     label: s.label,
     items: s.items.filter(it => {
       const pk = ROUTE_PERM[it.href];
-      return pk && enabled.has(pk) && perms.includes(pk);
+      return pk && enabled.has(pk) && perms.includes(pk) && planAllows(pk);
     }),
   })).filter(s => s.items.length > 0);
 

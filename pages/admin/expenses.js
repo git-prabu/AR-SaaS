@@ -72,7 +72,7 @@ const emptyForm = () => ({ date: todayKey(), category: '', amount: '', paymentMo
 export default function AdminExpenses() {
   const router = useRouter();
   // RBAC: owner OR a staff member whose role grants 'expenses'.
-  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('expenses');
+  const { ready, isAdmin, rid, scopedDb, canView, planAllowsFeature } = useFeatureAccess('expenses');
 
   const [expenses, setExpenses] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -197,7 +197,7 @@ export default function AdminExpenses() {
   });
 
   if (!ready) {
-    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/expenses"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/expenses" permKey="expenses" planAllowsFeature={planAllowsFeature}><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   const isThisMonth = month === today.slice(0, 7);
@@ -205,7 +205,7 @@ export default function AdminExpenses() {
   return (
     <>
       <Head><title>Expenses — HaloHelm</title></Head>
-      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/expenses">
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/expenses" permKey="expenses" planAllowsFeature={planAllowsFeature}>
         <div style={{ padding: '28px 26px', maxWidth: 960, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Expenses</h1>

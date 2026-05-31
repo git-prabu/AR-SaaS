@@ -70,7 +70,7 @@ const emptyPO = () => ({ vendorId: '', date: todayKey(), items: [emptyRow()], ta
 export default function AdminPurchaseOrders() {
   const router = useRouter();
   // RBAC: owner OR a staff member whose role grants 'purchaseOrders'.
-  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('purchaseOrders');
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession, planAllowsFeature } = useFeatureAccess('purchaseOrders');
 
   const [pos, setPos] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -250,13 +250,13 @@ export default function AdminPurchaseOrders() {
   };
 
   if (!ready) {
-    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/purchase-orders"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/purchase-orders" permKey="purchaseOrders" planAllowsFeature={planAllowsFeature}><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Purchase Orders — HaloHelm</title></Head>
-      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/purchase-orders">
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/purchase-orders" permKey="purchaseOrders" planAllowsFeature={planAllowsFeature}>
         <div style={{ padding: '28px 26px', maxWidth: 980, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
             <div>

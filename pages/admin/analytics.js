@@ -7,6 +7,7 @@ import {
   getWaiterCallsCount, getOrders, getFeedback, todayKey,
 } from '../../lib/db';
 import { exportObjectsCsv } from '../../lib/csv';
+import { canUseFeature } from '../../lib/plans';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
@@ -189,7 +190,11 @@ function getPeriodBounds(period, customRange) {
 export default function AdminAnalytics() {
   // RBAC: owner (full AdminLayout) OR a staff member whose role grants
   // 'analytics' (StaffShell + staff Firestore connection). Read-only page.
-  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('analytics');
+  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession, restaurant } = useFeatureAccess('analytics');
+  // Phase D — tier split. Starter shows only the Overview tab + basic
+  // trend; the Menu Performance tab and Restaurant Health insights
+  // require Growth+ (the 'analyticsAdvanced' sub-permission).
+  const hasAdvancedAnalytics = canUseFeature(restaurant, 'analyticsAdvanced');
   const [analytics, setAnalytics] = useState([]);
   const [prevAnal, setPrevAnal] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -1293,7 +1298,7 @@ export default function AdminAnalytics() {
           <div style={{ position: 'sticky', top: 0, zIndex: 10, background: A.cream, marginLeft: -28, marginRight: -28, padding: '0 28px', borderBottom: '2px solid rgba(38,52,49,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: 0 }}>
-                {[['overview', 'Overview'], ['menu', 'Menu Performance']].map(([id, label]) => (
+                {[['overview', 'Overview'], ...(hasAdvancedAnalytics ? [['menu', 'Menu Performance']] : [])].map(([id, label]) => (
                   <button key={id} onClick={() => setTab(id)} style={{
                     padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: A.font,
                     fontSize: 13, fontWeight: tab === id ? 700 : 500,
@@ -1725,8 +1730,9 @@ export default function AdminAnalytics() {
                   );
                 })()}
               </div>
-              {/* ── Smart Insights (Aspire light) ── */}
-              {insights.length > 0 && (
+              {/* ── Smart Insights (Aspire light) ── Phase D: gated to
+                  Growth+ via the analyticsAdvanced sub-permission. */}
+              {hasAdvancedAnalytics && insights.length > 0 && (
                 <BentoGlow style={{
                   background: '#FFFFFF',
                   borderRadius: 14, padding: '18px 22px', marginBottom: 14,

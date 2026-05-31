@@ -130,7 +130,7 @@ export default function AdminPromotions() {
   const router = useRouter();
   // RBAC: owner OR a staff member whose role grants 'promotions'. Staff read +
   // write offers / coupons / combos through staffDb.
-  const { ready, isAdmin, rid, scopedDb, canView } = useFeatureAccess('promotions');
+  const { ready, isAdmin, rid, scopedDb, canView, planAllowsFeature } = useFeatureAccess('promotions');
 
   const [tab, setTab] = useState('offers');
   const [offers, setOffers] = useState([]);
@@ -449,7 +449,7 @@ export default function AdminPromotions() {
   const activeTabMeta = TABS.find(t => t.k === tab);
 
   return (
-    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/promotions">
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/promotions" permKey="promotions" planAllowsFeature={planAllowsFeature}>
       <PageHead title="Promotions" />
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`

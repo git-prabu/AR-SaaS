@@ -73,7 +73,7 @@ export default function AdminWaitlist() {
   const { userData } = useAuth();
   const router = useRouter();
   // RBAC: owner OR a staff member whose role grants 'waitlist'.
-  const { ready, isAdmin, rid, scopedDb, canView, staffSession } = useFeatureAccess('waitlist');
+  const { ready, isAdmin, rid, scopedDb, canView, staffSession, planAllowsFeature } = useFeatureAccess('waitlist');
   const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'our restaurant';
 
   const [entries, setEntries] = useState([]);
@@ -203,13 +203,13 @@ export default function AdminWaitlist() {
   });
 
   if (!ready) {
-    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/waitlist"><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
+    return <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/waitlist" permKey="waitlist" planAllowsFeature={planAllowsFeature}><div style={{ padding: 40, fontFamily: A.font, color: A.mutedText }}>Loading…</div></FeatureShell>;
   }
 
   return (
     <>
       <Head><title>Waitlist — HaloHelm</title></Head>
-      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/waitlist">
+      <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/waitlist" permKey="waitlist" planAllowsFeature={planAllowsFeature}>
         <div style={{ padding: '28px 26px', maxWidth: 920, margin: '0 auto', fontFamily: A.font, color: A.ink }}>
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', margin: 0 }}>Waitlist</h1>

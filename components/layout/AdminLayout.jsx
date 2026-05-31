@@ -6,10 +6,28 @@ import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore';
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
 import { playOrderSound, playCallSound, playPaymentSound } from '../../lib/sounds';
-import { canUsePetpoojaIntegration } from '../../lib/plans';
+import { canUseFeature, PLANS } from '../../lib/plans';
+import { PERMISSION_ROUTES } from '../../lib/permissions';
 import { getSubscriptionStatus, isBypassRoute } from '../../lib/subscription';
 import EmailVerifyBanner from '../EmailVerifyBanner';
 import PwaInstallPrompt from '../PwaInstallPrompt';
+
+// Inverse of PERMISSION_ROUTES (nav-href → permission key). Used by the
+// sidebar to know which permission a nav item needs and, in turn, the
+// minimum plan tier that unlocks it (for the upgrade-badge label).
+const NAV_ROUTE_PERM = Object.fromEntries(Object.entries(PERMISSION_ROUTES).map(([k, v]) => [v, k]));
+
+// For a given permission key, return the cheapest plan (in PLANS order)
+// that includes it — drives the "GROWTH" / "PRO" badge next to locked
+// nav items. null if no plan includes it (shouldn't happen with the
+// canonical PLANS, but we fail-closed if it does).
+function minPlanForPerm(perm) {
+  if (!perm) return null;
+  for (const p of PLANS) {
+    if (Array.isArray(p.includedPerms) && p.includedPerms.includes(perm)) return p;
+  }
+  return null;
+}
 
 export const navSections = [
   {
@@ -476,14 +494,26 @@ export default function AdminLayout({ children }) {
                   {section.label}
                 </div>
                 {section.items.map(item => {
-                  const locked = item.proOnly && !canUsePetpoojaIntegration(restaurantPlan);
+                  // Phase D — plan gating. Items needing a higher plan than
+                  // the current restaurant has are rendered as a "locked"
+                  // tile that routes to /admin/subscription with an upgrade
+                  // badge (GROWTH / PRO). Routes with no permission key
+                  // (gateway, security, subscription, help, google) are
+                  // owner-only base routes — always shown for the owner.
+                  const perm = NAV_ROUTE_PERM[item.href];
+                  const needsPerm = !!perm && !canUseFeature(restaurantPlan, perm);
+                  const requiredPlan = needsPerm ? minPlanForPerm(perm) : null;
+                  const locked = needsPerm;
                   return (
-                    <Link key={item.href} href={item.href}
-                      className={`nlnk${isActive(item.href) ? ' on' : ''}`}
-                      onClick={isMobile ? closeSidebar : undefined}>
+                    <Link key={item.href}
+                      href={locked ? '/admin/subscription' : item.href}
+                      className={`nlnk${!locked && isActive(item.href) ? ' on' : ''}`}
+                      onClick={isMobile ? closeSidebar : undefined}
+                      style={locked ? { opacity: 0.6 } : undefined}
+                      title={locked && requiredPlan ? `Available on ${requiredPlan.name} — click to upgrade` : undefined}>
                       <span className="nav-icon"><NavIcon name={item.icon} /></span>
                       <span style={{ flex: 1 }}>{item.label}</span>
-                      {locked && (
+                      {locked && requiredPlan && (
                         <span style={{
                           marginLeft: 'auto',
                           fontSize: 9,
@@ -493,7 +523,8 @@ export default function AdminLayout({ children }) {
                           borderRadius: 4,
                           background: 'rgba(196,168,109,0.15)',
                           color: '#A08656',
-                        }}>PRO</span>
+                          textTransform: 'uppercase',
+                        }}>{requiredPlan.name}</span>
                       )}
                     </Link>
                   );
