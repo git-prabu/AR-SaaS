@@ -358,7 +358,7 @@ export default function RestaurantDetail() {
                       {restaurant.isActive ? '● Active' : '● Inactive'}
                     </span>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background:'rgba(0,0,0,0.06)', color:'rgba(0,0,0,0.5)', textTransform:'capitalize' }}>
-                      {restaurant.plan || 'basic'} plan
+                      {restaurant.plan || 'starter'} plan
                     </span>
                     {daysLeft !== null && (
                       <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, background: isExpired?'rgba(217,83,79,0.2)':daysLeft<=14?'rgba(224,90,58,0.1)':'rgba(63,158,90,0.15)', color: isExpired?'#D9534F':daysLeft<=14?'#A08656':'#3F9E5A' }}>
@@ -511,7 +511,7 @@ export default function RestaurantDetail() {
                   {[
                     ['Name',      restaurant.name],
                     ['Subdomain', restaurant.subdomain + '.halohelm.com'],
-                    ['Plan',      restaurant.plan || 'basic'],
+                    ['Plan',      restaurant.plan || 'starter'],
                     ['Status',    restaurant.isActive ? 'Active' : 'Inactive'],
                     ['Payment',   restaurant.paymentStatus || 'inactive'],
                   ].map(([k,v]) => (

@@ -16,6 +16,7 @@ import { adminDb } from '../../../lib/firebaseAdmin';
 import { requireAdminAuth } from '../../../lib/staffAuth';
 import { sendEmail } from '../../../lib/email';
 import { checkRateLimit } from '../../../lib/rateLimit';
+import { canUseFeature } from '../../../lib/plans';
 
 const MAX_RECIPIENTS = 40;     // per send (keeps us inside the function time budget)
 const CHUNK = 8;               // parallel sends per batch
@@ -55,6 +56,22 @@ export default async function handler(req, res) {
   try { ctx = await requireAdminAuth(req); }
   catch (e) { return res.status(401).json({ error: 'Unauthorized', detail: e.message }); }
   const rid = ctx.restaurantId;
+
+  // Phase D-server-gate: marketing campaigns are Growth+. Defense in depth
+  // for someone bypassing the UI and calling this endpoint directly. We
+  // read the restaurant doc once to know the plan, then canUseFeature
+  // gates everything below.
+  try {
+    const planSnap = await adminDb.doc(`restaurants/${rid}`).get();
+    const planData = planSnap.exists ? planSnap.data() : {};
+    if (!canUseFeature(planData, 'marketing')) {
+      return res.status(403).json({ error: 'Marketing campaigns are a Growth/Pro feature. Please upgrade your plan.' });
+    }
+  } catch (e) {
+    console.warn('[campaign-email] plan check failed:', e?.message);
+    // Fail-OPEN: a transient Firestore hiccup shouldn't block a legitimate
+    // Growth/Pro owner. The UI gate is the primary block.
+  }
 
   const { subject, message, audience } = req.body || {};
   const subj = String(subject || '').trim().slice(0, 140);
