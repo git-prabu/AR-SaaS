@@ -91,14 +91,18 @@ export default function SuperAdminRequests() {
     const restaurant = restaurants.find(r => r.id === rid);
     if (!restaurant) { toast.error('Restaurant not found'); return; }
     const sizeMB = fileSizeMB(modelFile);
-    if ((restaurant.storageUsedMB || 0) + sizeMB > (restaurant.maxStorageMB || 500)) { toast.error('Restaurant storage limit exceeded'); return; }
+    // Phase G — canonical plan caps (the doc value can be stale for
+    // restaurants whose plan limits changed since their last payment).
+    const storageCap = getPlan(normalizePlanId(restaurant.plan)).maxStorageMB;
+    if ((restaurant.storageUsedMB || 0) + sizeMB > storageCap) { toast.error('Restaurant storage limit exceeded'); return; }
 
     // Phase A enforcement (added in Phase G audit) — maxARModels cap.
     // Block approval if the restaurant already has the plan's allowance
     // of AR models. Items with arReady=true count toward the cap; legacy
     // items without arReady but with a modelURL also count.
     try {
-      const cap = Number(restaurant.maxARModels) || getPlan(normalizePlanId(restaurant.plan)).maxARModels;
+      // Phase G — canonical cap (doc value is historical / stale-prone).
+      const cap = getPlan(normalizePlanId(restaurant.plan)).maxARModels;
       const itemsSnap = await getDocs(collection(db, 'restaurants', rid, 'menuItems'));
       const arCount = itemsSnap.docs.filter(d => {
         const it = d.data();

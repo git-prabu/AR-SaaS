@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById } from '../../lib/db';
-import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS, BILLING_PERIODS, getEffectivePrice, getEffectivePriceInPaise, getPeriod } from '../../lib/plans';
+import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS, BILLING_PERIODS, getEffectivePrice, getEffectivePriceInPaise, getPeriod, planCap, formatCap } from '../../lib/plans';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as the rest of the admin chrome ═══
@@ -51,14 +51,18 @@ function formatDate(input) {
 
 // ═══ Inline usage bar component ═══
 function UsageBar({ label, used, max, unit = '' }) {
-  const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
+  // Phase G — UNLIMITED tiers (Pro maxItems / maxStaff = 99999) render as
+  // "Unlimited" instead of the raw sentinel, and the bar stays at 0%
+  // since there's nothing meaningful to track against infinity.
+  const isUnlimited = formatCap(max) === 'Unlimited';
+  const pct = (max > 0 && !isUnlimited) ? Math.min(100, Math.round((used / max) * 100)) : 0;
   const color = pct > 80 ? A.danger : pct > 60 ? A.warning : A.success;
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</span>
         <span style={{ fontSize: 12, color: A.faintText, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
-          {used}{unit} / {max}{unit}
+          {used}{unit} / {isUnlimited ? 'Unlimited' : `${max}${unit}`}
         </span>
       </div>
       <div style={{ height: 6, background: A.subtleBg, borderRadius: 3, overflow: 'hidden' }}>
@@ -275,7 +279,7 @@ export default function AdminSubscription() {
                       : A.success,
                     suffix: computed.effectiveDaysLeft !== null ? 'd' : '',
                   },
-                  { label: 'AR ITEMS', value: `${restaurant?.itemsUsed || 0}/${restaurant?.maxItems || computed.currentPlan.maxItems}`, color: A.forestText },
+                  { label: 'AR ITEMS', value: `${restaurant?.itemsUsed || 0}/${formatCap(planCap(restaurant, 'maxItems'))}`, color: A.forestText },
                 ].map(s => (
                   <div key={s.label} style={{
                     padding: '16px 18px', borderRadius: 10,
@@ -452,12 +456,12 @@ export default function AdminSubscription() {
                   <UsageBar
                     label="AR Items"
                     used={restaurant.itemsUsed || 0}
-                    max={restaurant.maxItems || computed.currentPlan.maxItems}
+                    max={planCap(restaurant, 'maxItems')}
                   />
                   <UsageBar
                     label="Storage"
                     used={restaurant.storageUsedMB || 0}
-                    max={restaurant.maxStorageMB || computed.currentPlan.maxStorageMB}
+                    max={planCap(restaurant, 'maxStorageMB')}
                     unit="MB"
                   />
                 </div>
@@ -596,7 +600,7 @@ export default function AdminSubscription() {
                         {/* Features */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
                           {[
-                            `${plan.maxItems} AR menu items`,
+                            `${formatCap(plan.maxItems)} AR menu items`,
                             `${plan.maxStorageMB >= 1024 ? (plan.maxStorageMB / 1024) + ' GB' : plan.maxStorageMB + ' MB'} storage for 3D models`,
                             'Real-time analytics',
                             'QR code generator + custom subdomain',

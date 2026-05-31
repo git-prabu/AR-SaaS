@@ -4,6 +4,7 @@ import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import { getRequests, submitRequestAndPublish, getAllMenuItems, deleteRequest, getRestaurantById } from '../../lib/db';
+import { planCap, formatCap } from '../../lib/plans';
 import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -263,7 +264,12 @@ export default function AdminRequests() {
 
   // ─── Plan-limit derived values ─────────────────────────────────────
   const itemsUsed = restaurant?.itemsUsed || 0;
-  const maxItems  = restaurant?.maxItems  || 10;
+  // Phase G — always read from the canonical plan cap, so existing
+  // restaurants pick up new tier limits the moment lib/plans.js
+  // changes (the stale value possibly written on the doc by an older
+  // verify.js run is ignored). UNLIMITED renders as "Unlimited" via
+  // formatCap() in the display below.
+  const maxItems  = planCap(restaurant, 'maxItems');
   const remaining = Math.max(0, maxItems - itemsUsed);
   const atLimit   = itemsUsed >= maxItems;
   const planPct   = maxItems ? Math.min(100, (itemsUsed / maxItems) * 100) : 0;
@@ -616,7 +622,7 @@ export default function AdminRequests() {
               <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>MENU ITEMS</span>
               <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
               <span style={{ fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>
-                {itemsUsed} of {maxItems} used
+                {itemsUsed} of {formatCap(maxItems)} used
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
@@ -660,7 +666,7 @@ export default function AdminRequests() {
             }}>
               <span style={{ fontSize: 16 }}>⚠</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: A.dangerDim, flex: 1 }}>
-                You've reached your plan's item limit ({itemsUsed}/{maxItems}). Upgrade to add more items.
+                You've reached your plan's item limit ({itemsUsed}/{formatCap(maxItems)}). Upgrade to add more items.
               </span>
             </div>
           )}

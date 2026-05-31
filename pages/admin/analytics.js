@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import Link from 'next/link';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import FeatureShell from '../../components/layout/FeatureShell';
@@ -1308,6 +1309,25 @@ export default function AdminAnalytics() {
                     marginBottom: -2, transition: 'all 0.15s',
                   }}>{label}</button>
                 ))}
+                {/* Phase G — surface the locked tab on Starter so the
+                    feature gap is visible at a glance. Links to the
+                    upgrade page. */}
+                {!hasAdvancedAnalytics && (
+                  <Link href="/admin/subscription" style={{
+                    padding: '10px 18px', display: 'inline-flex', alignItems: 'center', gap: 8,
+                    fontFamily: A.font, fontSize: 12, fontWeight: 500,
+                    color: 'rgba(38,52,49,0.5)', textDecoration: 'none',
+                    borderBottom: '2.5px solid transparent', marginBottom: -2,
+                    opacity: 0.85,
+                  }}>
+                    <span style={{ fontSize: 11 }}>🔒</span>
+                    Menu Performance + Insights
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                      background: 'rgba(196,168,109,0.15)', color: '#A08656', letterSpacing: '0.04em',
+                    }}>GROWTH</span>
+                  </Link>
+                )}
               </div>
               {/* Sticky tab-bar period pills. Mirrors the main header selector
                   (shared `period` + `customRange` state). Rendered with chip-style

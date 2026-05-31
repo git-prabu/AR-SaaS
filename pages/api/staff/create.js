@@ -74,7 +74,11 @@ export default async function handler(req, res) {
       adminDb.collection('restaurants').doc(rid).collection('staff').get(),
     ]);
     const restData = restSnap.exists ? restSnap.data() : {};
-    const cap = Number(restData.maxStaff) || getPlan(normalizePlanId(restData.plan)).maxStaff;
+    // Phase G — always read the canonical plan cap. The doc value
+    // (written by verify.js on each payment) is a historical record
+    // only; existing restaurants on Growth/Pro need to pick up new
+    // tier caps the moment lib/plans.js changes, without a migration.
+    const cap = getPlan(normalizePlanId(restData.plan)).maxStaff;
     if (staffSnap.size >= cap) {
       return res.status(403).json({
         error: `Staff limit reached (${staffSnap.size}/${cap}). Upgrade your plan to add more staff.`,
