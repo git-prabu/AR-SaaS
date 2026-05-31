@@ -1,10 +1,11 @@
 // pages/api/payments/verify.js
 // Verifies Razorpay signature, then writes plan + limits + expiry to the
-// restaurant doc. Expiry is BILLING_PERIOD_DAYS from now (monthly by default).
+// restaurant doc. Expiry is expiryDaysFor(period) days from now — period
+// rides on order.notes from create-order.js (monthly / 3mo / 6mo / annual).
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { adminDb } from '../../../lib/firebaseAdmin';
-import { getPlan, BILLING_PERIOD_DAYS, canUsePetpoojaIntegration } from '../../../lib/plans';
+import { getPlan, expiryDaysFor, canUsePetpoojaIntegration } from '../../../lib/plans';
 import { disconnect as petpoojaDisconnect } from '../../../lib/petpoojaSync';
 
 export default async function handler(req, res) {
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
   const order = await razorpay.orders.fetch(razorpay_order_id);
   const planId = order.notes?.planId;
   const restaurantId = order.notes?.restaurantId;
+  const period = order.notes?.period; // Phase E — monthly / threeMonth / sixMonth / annual
   if (!planId || !restaurantId) {
     return res.status(400).json({ error: 'Missing order metadata' });
   }
@@ -42,7 +44,10 @@ export default async function handler(req, res) {
   try {
     const plan = getPlan(planId);   // falls back to Starter if id unknown
     const now = new Date();
-    const expiry = new Date(now.getTime() + BILLING_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+    // expiryDaysFor() falls back to monthly (30 days) when period is missing,
+    // so legacy orders created before Phase E continue to work unchanged.
+    const days = expiryDaysFor(period);
+    const expiry = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     // Phase B (Petpooja hybrid) — pre-update read of the restaurant
     // doc so we can detect a downgrade FROM Pro and auto-disconnect
@@ -61,11 +66,12 @@ export default async function handler(req, res) {
       maxARModels:       plan.maxARModels,
       maxStorageMB:      plan.maxStorageMB,
       maxStaff:          plan.maxStaff,
-      subscriptionStart: now.toISOString().split('T')[0],
-      subscriptionEnd:   expiry.toISOString().split('T')[0],
-      planExpiresAt:     expiry.toISOString(),  // authoritative expiry timestamp
-      paymentStatus:     'active',
-      lastPaymentId:     razorpay_payment_id,
+      subscriptionStart:  now.toISOString().split('T')[0],
+      subscriptionEnd:    expiry.toISOString().split('T')[0],
+      subscriptionPeriod: period || 'monthly', // Phase E — for renewal UI
+      planExpiresAt:      expiry.toISOString(), // authoritative expiry timestamp
+      paymentStatus:      'active',
+      lastPaymentId:      razorpay_payment_id,
     });
 
     // After the plan write succeeds, check if the new plan is no

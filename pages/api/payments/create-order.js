@@ -17,12 +17,12 @@
 // can at most create stranded Razorpay orders (which expire on
 // Razorpay's side and don't affect anything).
 import Razorpay from 'razorpay';
-import { getPlan, normalizePlanId, PLANS } from '../../../lib/plans';
+import { normalizePlanId, PLANS, getPriceInPaise, getPeriod } from '../../../lib/plans';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { planId, restaurantId, idempotencyKey } = req.body || {};
+  const { planId, restaurantId, idempotencyKey, period } = req.body || {};
   const normalizedId = normalizePlanId(planId);
   const plan = PLANS.find(p => p.id === normalizedId);
   if (!plan) {
@@ -31,6 +31,9 @@ export default async function handler(req, res) {
   if (!restaurantId || typeof restaurantId !== 'string') {
     return res.status(400).json({ error: 'restaurantId is required' });
   }
+  // Phase E — period defaults to monthly for legacy callers that don't pass one.
+  // getPeriod() falls back to monthly on an unknown id, so this is safe.
+  const billingPeriod = getPeriod(period).id;
 
   try {
     const razorpay = new Razorpay({
@@ -46,10 +49,12 @@ export default async function handler(req, res) {
       : `rcpt_${restaurantId.slice(0, 8)}_${Date.now()}`.slice(0, 40);
 
     const order = await razorpay.orders.create({
-      amount:   plan.priceInPaise,
+      amount:   getPriceInPaise(plan.id, billingPeriod),
       currency: 'INR',
       receipt,
-      notes:    { planId: plan.id, restaurantId },
+      // `period` rides along in notes so /api/payments/verify can use it
+      // to set planExpiresAt to the right number of days (30/90/180/365).
+      notes:    { planId: plan.id, restaurantId, period: billingPeriod },
     });
 
     return res.status(200).json({ orderId: order.id });

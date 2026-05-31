@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById } from '../../lib/db';
-import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS } from '../../lib/plans';
+import { PLANS, normalizePlanId, BILLING_PERIOD_DAYS, BILLING_PERIODS, getPrice, getPriceInPaise, getPeriod } from '../../lib/plans';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette — same tokens as the rest of the admin chrome ═══
@@ -79,6 +79,10 @@ export default function AdminSubscription() {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(null);
+  // Phase E — selected billing period for the new multi-period checkout.
+  // Defaults to 'monthly' so legacy behaviour is unchanged when the user
+  // doesn't touch the period toggle.
+  const [period, setPeriod] = useState('monthly');
 
   useEffect(() => {
     if (!rid) return;
@@ -99,7 +103,7 @@ export default function AdminSubscription() {
       const res = await fetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: plan.id, restaurantId: rid, idempotencyKey }),
+        body: JSON.stringify({ planId: plan.id, restaurantId: rid, idempotencyKey, period }),
       });
       const data = await res.json();
       if (!data.orderId) {
@@ -111,10 +115,10 @@ export default function AdminSubscription() {
       }
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: plan.priceInPaise,
+        amount: getPriceInPaise(plan.id, period),
         currency: 'INR',
         name: 'HaloHelm',
-        description: `${plan.name} Plan — monthly`,
+        description: `${plan.name} Plan — ${getPeriod(period).label}`,
         order_id: data.orderId,
         handler: async (response) => {
           await fetch('/api/payments/verify', {
@@ -472,8 +476,32 @@ export default function AdminSubscription() {
                   </span>
                   <div style={{ flex: 1, height: 1, background: 'rgba(196,168,109,0.20)' }} />
                 </div>
-                <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 18, lineHeight: 1.5 }}>
-                  All plans are billed monthly. Pay securely via Razorpay (UPI, cards, netbanking). Your menu stays live the whole time.
+                <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 14, lineHeight: 1.5 }}>
+                  Pay securely via Razorpay (UPI, cards, netbanking). Your menu stays live the whole time.
+                </div>
+
+                {/* Phase E — billing-period selector. Drives the prices in
+                    the plan tiles below and rides into Razorpay so the
+                    expiry lands at 30 / 90 / 180 / 365 days. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+                  {BILLING_PERIODS.map(p => (
+                    <button key={p.id} onClick={() => setPeriod(p.id)} style={{
+                      padding: '8px 14px', borderRadius: 9, cursor: 'pointer',
+                      fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                      border: period === p.id ? `1.5px solid ${A.warning}` : '1px solid rgba(0,0,0,0.10)',
+                      background: period === p.id ? 'rgba(196,168,109,0.10)' : A.shell,
+                      color: A.ink,
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}>
+                      {p.label}
+                      {p.savingsLabel && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                          background: 'rgba(63,158,90,0.10)', color: A.success,
+                        }}>{p.savingsLabel}</span>
+                      )}
+                    </button>
+                  ))}
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -529,15 +557,33 @@ export default function AdminSubscription() {
                           {plan.name}
                         </div>
 
-                        {/* Price */}
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 18 }}>
-                          <span style={{ fontWeight: 700, fontSize: 30, color: A.ink, letterSpacing: '-0.5px' }}>
-                            ₹{plan.price.toLocaleString('en-IN')}
-                          </span>
-                          <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>
-                            / {plan.period}
-                          </span>
-                        </div>
+                        {/* Price — period-aware (Phase E). Shows the price
+                            for the selected billing period; for non-monthly
+                            periods we add a "(₹X/mo equiv.)" hint below. */}
+                        {(() => {
+                          const priceInr = getPrice(plan.id, period);
+                          const monthly = getPrice(plan.id, 'monthly');
+                          const days = getPeriod(period).days;
+                          const monthsCovered = days / 30;
+                          const perMonth = Math.round(priceInr / monthsCovered);
+                          return (
+                            <div style={{ marginBottom: 18 }}>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                                <span style={{ fontWeight: 700, fontSize: 30, color: A.ink, letterSpacing: '-0.5px' }}>
+                                  ₹{priceInr.toLocaleString('en-IN')}
+                                </span>
+                                <span style={{ fontSize: 12, color: A.mutedText, fontWeight: 500 }}>
+                                  / {getPeriod(period).label}
+                                </span>
+                              </div>
+                              {period !== 'monthly' && (
+                                <div style={{ fontSize: 11, color: A.mutedText, marginTop: 4 }}>
+                                  ≈ ₹{perMonth.toLocaleString('en-IN')}/mo · save ₹{((monthly * monthsCovered) - priceInr).toLocaleString('en-IN')}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {/* Features */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
