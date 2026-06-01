@@ -204,9 +204,12 @@ export default function AdminNewOrder() {
           </div>
         </div>
 
-        <div style={{ padding: '0 28px 60px', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 18 }}>
-          {/* LEFT — Menu */}
-          <div style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden' }}>
+        <div className="ar-new-order-grid" style={{ padding: '0 28px 60px', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 18 }}>
+          {/* LEFT — Menu (on mobile this renders SECOND because the
+              cart's order-type/table/channel block is the first thing
+              the user needs to set — see .ar-new-order-grid CSS in
+              globals.css for the order: 2 / order: 1 reorder.) */}
+          <div className="ar-new-order-menu" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden' }}>
             {/* Filters */}
             <div style={{ padding: '14px 18px', borderBottom: A.border, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <input
@@ -249,7 +252,7 @@ export default function AdminNewOrder() {
                   No items match the filter.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+                <div className="ar-new-order-items" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
                   {filtered.map(item => {
                     const soldOut = item.availableUntil === todayKey();
                     return (
@@ -291,8 +294,11 @@ export default function AdminNewOrder() {
             </div>
           </div>
 
-          {/* RIGHT — Cart + order details */}
-          <div style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 140px)' }}>
+          {/* RIGHT — Cart + order details (renders FIRST on mobile so
+              the owner sees the order setup before the menu items
+              scroll begins — order-type / table / channel selection
+              are the necessary precondition for adding items). */}
+          <div className="ar-new-order-cart" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 140px)' }}>
             {/* Order-type toggle */}
             <div style={{ padding: '14px 18px', borderBottom: A.border }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Order type</div>
@@ -403,7 +409,8 @@ export default function AdminNewOrder() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px' }}>
               {cart.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 40, color: A.faintText, fontSize: 13 }}>
-                  Tap items on the left to add.
+                  <span className="ar-hide-mobile">Tap items on the left to add.</span>
+                  <span className="ar-show-mobile">Scroll down and tap items to add to this order.</span>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

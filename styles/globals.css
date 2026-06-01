@@ -179,6 +179,28 @@ html, body { overflow-x: hidden; }
   }
 }
 
+/* /admin/new-order mobile layout
+   Desktop: 2-col (menu LEFT 1fr, cart RIGHT 380px)
+   Mobile : single col, cart FIRST (order-type/table/channel setup),
+            then menu items, so the owner picks their order context
+            before scrolling through dishes. The .order: 1 / 2 trick
+            does the reorder without restructuring the DOM. */
+@media (max-width: 767px) {
+  .ar-new-order-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .ar-new-order-cart  { order: 1; max-height: none !important; }
+  .ar-new-order-menu  { order: 2; }
+  /* Items grid: desktop minmax(180px) is 1 column on a 320-360px
+     phone — switch to 2-col tile cards for a Petpooja-like
+     pick-from-grid feel. */
+  .ar-new-order-items {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+}
+
 /* Container for wide tables on phones (items / analytics / reports).
    Wraps the existing wide grid so it horizontally scrolls inside its
    own box instead of pushing the whole page sideways. Edge-fade mask

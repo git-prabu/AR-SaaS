@@ -226,10 +226,10 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
         </div>
 
         {/* Body — same 2-pane layout as /admin/new-order */}
-        <div className="nom-grid" style={{ flex: 1, padding: 16, display: 'grid', gridTemplateColumns: '1fr 380px', gap: 14, overflow: 'hidden' }}>
+        <div className="nom-grid ar-new-order-grid" style={{ flex: 1, padding: 16, display: 'grid', gridTemplateColumns: '1fr 380px', gap: 14, overflow: 'hidden' }}>
 
-          {/* LEFT — Menu */}
-          <div style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* LEFT — Menu (renders SECOND on mobile via .ar-new-order-menu) */}
+          <div className="ar-new-order-menu" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '12px 16px', borderBottom: A.border, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <input
                 value={search} onChange={e => setSearch(e.target.value)}
@@ -264,7 +264,7 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
                   No items match the filter.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
+                <div className="ar-new-order-items" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
                   {filtered.map(item => {
                     // Same sold-out gate as /admin/new-order — `availableUntil`
                     // set to today's date key means staff already flagged this
@@ -309,8 +309,11 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
             </div>
           </div>
 
-          {/* RIGHT — Cart + customer/table fields + totals */}
-          <div className="nom-cart-pane" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 180px)' }}>
+          {/* RIGHT — Cart + customer/table fields + totals (renders FIRST
+              on mobile via .ar-new-order-cart so the operator sees the
+              order-type / table / channel setup before scrolling through
+              menu items). */}
+          <div className="nom-cart-pane ar-new-order-cart" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 180px)' }}>
             {/* Order-type toggle — hidden in captain (locked-table) mode */}
             {!lockedTable && (
               <div style={{ padding: '12px 16px', borderBottom: A.border }}>
@@ -402,7 +405,8 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
               {cart.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 40, color: A.faintText, fontSize: 13 }}>
-                  Tap items on the left to add.
+                  <span className="ar-hide-mobile">Tap items on the left to add.</span>
+                  <span className="ar-show-mobile">Scroll down and tap items to add to this order.</span>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
