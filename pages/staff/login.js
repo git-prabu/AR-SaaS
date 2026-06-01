@@ -13,10 +13,11 @@
 //   7. Redirect to /admin/kitchen or /admin/waiter based on role.
 import Head from 'next/head';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { signOut } from 'firebase/auth';
 import { useStaffAuth } from '../../hooks/useStaffAuth';
+import PwaInstallPrompt from '../../components/PwaInstallPrompt';
 import { adminAuth, superAdminAuth } from '../../lib/firebaseAuth';
 import { getRestaurantBySubdomain } from '../../lib/db';
 import { computeStaffLanding } from '../../lib/permissions';
@@ -43,6 +44,33 @@ export default function StaffLogin() {
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // iOS Add-to-Home-Screen hint. iOS Safari does NOT fire the
+  // beforeinstallprompt event that <PwaInstallPrompt /> listens for —
+  // so on iPhones the staff would never see an install prompt at all.
+  // We show a small one-line hint (visible only on iOS Safari, only
+  // when not already installed) telling them to tap Share → Add to
+  // Home Screen. Stored-dismissal in localStorage so a staffer who
+  // already installed (or said no thanks) doesn't keep seeing it.
+  const [showIosHint, setShowIosHint] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      // Already installed? Don't nag.
+      if (window.matchMedia?.('(display-mode: standalone)').matches) return;
+      if (window.navigator?.standalone === true) return;
+      // Dismissed before? Don't show again.
+      if (localStorage.getItem('ar_staff_ios_hint_dismissed') === '1') return;
+    } catch {}
+    const ua = (navigator.userAgent || '').toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+    const isSafari = /safari/.test(ua) && !/crios|fxios|edgios/.test(ua);
+    if (isIOS && isSafari) setShowIosHint(true);
+  }, []);
+  const dismissIosHint = () => {
+    setShowIosHint(false);
+    try { localStorage.setItem('ar_staff_ios_hint_dismissed', '1'); } catch {}
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -145,6 +173,31 @@ export default function StaffLogin() {
         `}</style>
 
         <div style={{ width: '100%', maxWidth: 420, animation: 'fadeUp 0.4s ease both' }}>
+          {/* iOS Safari install hint — desktop-style toast at the top
+              telling iPhone staff how to add the app to their home
+              screen. Hidden after dismissal. */}
+          {showIosHint && (
+            <div style={{
+              background: 'rgba(26,26,26,0.95)', color: A.cream,
+              borderRadius: 12, padding: '12px 14px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', gap: 12,
+              boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
+              fontFamily: A.font, fontSize: 12.5, lineHeight: 1.45,
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>Add to Home Screen</div>
+                <div style={{ opacity: 0.75 }}>
+                  Tap the <strong>Share</strong> button below, then choose <strong>Add to Home Screen</strong> — the app launches straight into staff sign-in.
+                </div>
+              </div>
+              <button onClick={dismissIosHint}
+                aria-label="Dismiss"
+                style={{ background: 'none', border: 'none', color: A.cream, opacity: 0.6, fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1 }}>
+                ×
+              </button>
+            </div>
+          )}
+
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <Link href="/" style={{ textDecoration: 'none' }}>
               <div style={{ fontFamily: A.font, fontWeight: 600, fontSize: 22, color: A.ink, letterSpacing: '-0.4px' }}>
@@ -250,6 +303,9 @@ export default function StaffLogin() {
           </div>
         </div>
       </div>
+      {/* Android/Chrome Install button — fires when browser supports
+          beforeinstallprompt (iPhones use the hint at the top instead). */}
+      <PwaInstallPrompt />
     </>
   );
 }

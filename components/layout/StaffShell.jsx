@@ -17,6 +17,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { staffDb } from '../../lib/firebase';
 import { navSections, NavIcon } from './AdminLayout';
 import MobilePullToRefresh from '../MobilePullToRefresh';
+import PwaInstallPrompt from '../PwaInstallPrompt';
 import { PERMISSION_ROUTES, STAFF_ENABLED } from '../../lib/permissions';
 import { readStaffSession } from '../../lib/staffSession';
 import { getSubscriptionStatus } from '../../lib/subscription';
@@ -236,6 +237,11 @@ export default function StaffShell({ active, children }) {
 
       <main className="staff-shell-main" style={{ flex: 1, marginLeft: 240, minHeight: '100vh', overflowY: 'auto' }}>
         {isLocked ? <StaffSubscriptionLock /> : children}
+        {/* Android/Chrome install prompt — shows automatically when the
+            browser fires beforeinstallprompt. iOS Safari doesn't fire
+            that event (a separate iOS Add-to-Home-Screen hint sits on
+            /staff/login for that platform). */}
+        <PwaInstallPrompt />
       </main>
     </div>
     </MobilePullToRefresh>

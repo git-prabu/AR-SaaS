@@ -59,6 +59,15 @@ export default function App({ Component, pageProps }) {
   // always win and clobber the customer page's per-restaurant
   // manifest with the admin-focused one.
   const isCustomerPage = router.pathname.startsWith('/restaurant/') || router.pathname.startsWith('/r/');
+  // Staff portal (/staff/*) needs its OWN manifest with start_url
+  // /staff/home, NOT /admin (the owner login). Without this, a staff
+  // member who installs the app from /staff/login lands at /admin
+  // when they reopen it — and they can't sign in there because they
+  // don't have an admin account. The staff-manifest.json also has
+  // staff-specific shortcuts (Kitchen / Waiter / Orders that point
+  // to /staff/* paths, which the existing next.config.js
+  // rewrite serves from /admin/* pages with the staff token). */
+  const isStaffPage = router.pathname.startsWith('/staff/');
 
   // Register the service worker once the app has mounted. Only runs in the
   // browser and only once per page load. Next.js hot-reload in dev sometimes
@@ -86,7 +95,16 @@ export default function App({ Component, pageProps }) {
     <ErrorBoundary>
       {!isCustomerPage && (
         <Head>
-          <link rel="manifest" href="/manifest.json" />
+          <link
+            rel="manifest"
+            href={isStaffPage ? '/staff-manifest.json' : '/manifest.json'}
+          />
+          {/* iOS Safari doesn't honour manifest start_url — it always
+              opens the URL the user was on when they tapped Add to
+              Home Screen. apple-mobile-web-app-capable + viewport are
+              already set in _document.js so the home-screen icon
+              behaves like a native app on iOS too. */}
+          <meta name="application-name" content={isStaffPage ? 'HaloHelm Staff' : 'HaloHelm'} />
         </Head>
       )}
       <AuthProviders>
