@@ -925,8 +925,10 @@ export default function AdminAnalytics() {
         {/* ═══ ASPIRE HEADER ═══ */}
         <div style={{ padding: '24px 28px 0' }}>
           <div style={{ margin: 0 }}>
-            {/* Title row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+            {/* Title row — flex stacks vertically on mobile via
+                .ar-analytics-header so the H1 and the period pills
+                don't fight for the same row width on a 360px phone. */}
+            <div className="ar-analytics-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, color: A.faintText, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>Dashboard</span>

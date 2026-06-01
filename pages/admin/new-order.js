@@ -22,6 +22,27 @@ import PageHead from '../../components/PageHead';
 import { getAllMenuItems, createOrder, getRestaurantById, todayKey } from '../../lib/db';
 import toast from 'react-hot-toast';
 
+// ── Search normalisation helpers (mirror of NewOrderModal) ─────────
+// Lowercase + diacritic strip so "creme brule" finds "Crème Brûlée".
+function normalizeForSearch(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, ''); // combining diacritical marks block
+}
+// Typo-tolerant contains: exact substring, or any one-character-removed
+// variant (handles a single missing/extra/wrong letter on 4+ char queries).
+function fuzzyContains(hay, word) {
+  if (!word) return true;
+  if (hay.includes(word)) return true;
+  if (word.length < 4) return false;
+  for (let i = 0; i < word.length; i++) {
+    const variant = word.slice(0, i) + word.slice(i + 1);
+    if (hay.includes(variant)) return true;
+  }
+  return false;
+}
+
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
   font: INTER,
@@ -89,12 +110,22 @@ export default function AdminNewOrder() {
 
   const categories = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))], [items]);
 
+  // Fuzzy / typo-tolerant search (same behaviour as NewOrderModal).
+  //  - Diacritic-strip so "creme brule" finds "Crème Brûlée"
+  //  - Every word in the query must appear somewhere — order-independent
+  //  - One-char typo tolerance on 4+ char words
+  //  - Searches name + category + description so "dessert" finds every
+  //    dessert item without needing the exact dish name
   const filtered = useMemo(() => {
     let result = items;
     if (category !== 'all') result = result.filter(i => i.category === category);
-    const q = search.trim().toLowerCase();
-    if (q) result = result.filter(i => (i.name || '').toLowerCase().includes(q));
-    return result;
+    const q = normalizeForSearch(search.trim());
+    if (!q) return result;
+    const words = q.split(/\s+/).filter(Boolean);
+    return result.filter(i => {
+      const hay = normalizeForSearch(`${i.name || ''} ${i.category || ''} ${i.description || ''}`);
+      return words.every(w => fuzzyContains(hay, w));
+    });
   }, [items, category, search]);
 
   const addToCart = (item) => {

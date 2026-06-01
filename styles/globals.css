@@ -179,6 +179,63 @@ html, body { overflow-x: hidden; }
   }
 }
 
+/* Tighten card-style inner padding on phones. The matte-black summary
+   cards on /admin/reports (Money Summary) and /admin/analytics
+   (Restaurant Health) use padding: '20px 24px' / '22px 24px' which on
+   a 360px phone left only ~145px per tile in the 2-col grid — content
+   started clipping on the right. Mobile gets 14-16px padding instead. */
+@media (max-width: 767px) {
+  div[style*="padding: '20px 24px'"],
+  div[style*="padding: '22px 24px'"],
+  div[style*="padding: '20px 22px'"],
+  div[style*="padding: '18px 22px'"],
+  div[style*="padding: '16px 18px'"] {
+    padding: 14px 14px !important;
+  }
+}
+
+/* Analytics page header — H1 + period selector stack vertically on
+   phones so they don't fight for the same row width. On desktop the
+   default flex-row-space-between layout is kept. */
+@media (max-width: 767px) {
+  .ar-analytics-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .ar-analytics-header > div:first-child > div:nth-child(2) {
+    /* The big "<Restaurant Name> Analytics" headline */
+    font-size: 22px !important;
+  }
+}
+
+/* Kitchen LIVE KITCHEN stats card on phones — compact horizontal strip
+   showing the counters in one row instead of stacking. The big numbers
+   stay readable, label widths shrink, the SERVED TODAY tile keeps
+   visibility. (Owner specifically asked NOT to hide it on mobile, just
+   make it small.) */
+@media (max-width: 767px) {
+  .ar-kitchen-live {
+    padding: 10px 12px !important;
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+  }
+  .ar-kitchen-live > div {
+    /* Inner flex row — keep horizontal, allow wrap as a fallback */
+    gap: 12px !important;
+  }
+  .ar-kitchen-live * {
+    font-size: 11px !important;
+  }
+  /* Restore larger size on the actual stat values — they live in
+     bigger inline font-size declarations inside the row */
+  .ar-kitchen-live [style*="font-size: 20px"],
+  .ar-kitchen-live [style*="font-size: 22px"],
+  .ar-kitchen-live [style*="font-size: 24px"],
+  .ar-kitchen-live [style*="font-size: 26px"] {
+    font-size: 18px !important;
+  }
+}
+
 /* /admin/new-order mobile layout
    Desktop: 2-col (menu LEFT 1fr, cart RIGHT 380px)
    Mobile : single col, cart FIRST (order-type/table/channel setup),
@@ -190,7 +247,26 @@ html, body { overflow-x: hidden; }
     grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
-  .ar-new-order-cart  { order: 1; max-height: none !important; }
+  /* Cart panel: collapse to a compact strip when empty so the MENU
+     ITEMS (the thing the owner actually needs to tap) dominate the
+     visible screen — matches the Petpooja behaviour the owner
+     specifically asked for. The empty-state helper text is hidden
+     via .ar-show-mobile selector below. */
+  .ar-new-order-cart  {
+    order: 1;
+    max-height: none !important;
+  }
+  .ar-new-order-cart > div[style*="flex: 1"][style*="overflowY"] {
+    /* The empty cart items list shouldn't take any flex space on
+       phones — flex:1 was making it consume 200px+ of empty area. */
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+    padding: 4px 16px !important;
+  }
+  /* Hide the "Scroll down and tap items" helper inside the empty
+     cart — once the cart is below the menu items its parent already
+     made the relationship obvious, no copy needed. */
+  .ar-new-order-cart .ar-show-mobile { display: none !important; }
   .ar-new-order-menu  { order: 2; }
   /* Items grid: desktop minmax(180px) is 1 column on a 320-360px
      phone — switch to 2-col tile cards for a Petpooja-like

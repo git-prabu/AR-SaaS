@@ -48,6 +48,30 @@ export default function MobilePullToRefresh({ children }) {
       // Pull-to-refresh only starts when the user is already at scroll-top.
       // Anywhere else, this is a normal scroll — leave it alone.
       if (window.scrollY > 0) return;
+
+      // Skip PTR if the touch starts INSIDE a modal / sheet (any element
+      // up the ancestor chain whose computed `position` is `fixed`). The
+      // take-order modal on /admin/tables and /admin/waiter is fixed,
+      // and without this guard pulling down inside the modal triggered
+      // a refresh on the page behind it — owner reported as "very
+      // annoying". The walk stops at <body> because the layout shell
+      // itself uses transforms, not fixed positioning, on the children
+      // that should trigger PTR.
+      let el = e.target;
+      while (el && el !== document.body && el !== document.documentElement) {
+        const cs = window.getComputedStyle(el);
+        if (cs.position === 'fixed') {
+          // Anything fixed with a non-trivial z-index is treated as an
+          // overlay — modal, sheet, backdrop, bottom-nav. The mobile
+          // top-bar is also fixed but at z-index 18 (modals are 60+);
+          // we accept the small false-positive there because pulling
+          // from the top bar isn't a useful gesture anyway.
+          const z = parseInt(cs.zIndex, 10);
+          if (!Number.isNaN(z) && z >= 10) return;
+        }
+        el = el.parentElement;
+      }
+
       touchStartY.current = e.touches[0].clientY;
       isPulling.current = true;
     };

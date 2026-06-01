@@ -11,7 +11,9 @@
       "Bash(wslpath -w /tmp/handoff_unpacked/word/document.xml)",
       "Bash(cygpath -w /tmp/handoff_unpacked/word/document.xml)",
       "mcp__Claude_Preview__preview_start",
-      "mcp__mcp-registry__search_mcp_registry"
+      "mcp__mcp-registry__search_mcp_registry",
+      "Bash(python -c ' *)",
+      "Bash(python -m pip install openpyxl --quiet)"
     ]
   }
 }
