@@ -10,6 +10,16 @@ export default function Document() {
     // https://nextjs.org/docs/messages/missing-data-scroll-behavior
     <Html lang="en" data-scroll-behavior="smooth">
       <Head>
+        {/* ── Mobile viewport — REQUIRED ─────────────────────────────
+            Without this, every admin / staff page renders at ~980px
+            desktop width on phones, then the browser shrinks it
+            visually to fit. Result: everything looks tiny, taps
+            land in the wrong place, users have to pinch-zoom.
+            Customer page sets its own viewport in its <Head>; this
+            covers admin / staff / superadmin / signup / landing.
+            `viewport-fit=cover` lets safe-area insets work on
+            iPhones with notches (used by sticky bottom UI later). */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* model-viewer loaded inside AR iframe only */}
         {/* Google Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

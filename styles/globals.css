@@ -50,6 +50,90 @@ html {
   font-family: 'Inter', sans-serif;
 }
 
+/* ── Mobile defense-in-depth ─────────────────────────────────────────
+   Prevent stray inner elements (wide tables on /admin/items, charts on
+   /admin/analytics) from triggering whole-page horizontal scroll on
+   phones. Pages that legitimately need horizontal scroll inside a
+   container use their own overflow-x: auto on that container. */
+html, body { overflow-x: hidden; }
+
+/* ── iOS auto-zoom prevention ────────────────────────────────────────
+   Safari on iPhone auto-zooms when the user focuses an input whose
+   font-size is below 16px. ~15 admin pages have inputs at 13-14px
+   for desktop density. This rule forces them to 16px on mobile only
+   (using !important to beat React inline styles). The visual size
+   stays similar because the page itself is now rendered at device
+   width (viewport meta in _document.js), not the shrunken 980px. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Reusable mobile-responsive utilities ──────────────────────────── */
+
+/* 4-tile stat grid: 4 cols on desktop, 2 cols on phones.
+   Applied to every "stat card row" across 14+ admin pages so we don't
+   maintain per-page media queries. */
+.ar-tile-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 767px) {
+  .ar-tile-grid-4 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
+
+/* 3-tile stat grid: 3 cols on desktop, 1 col on phones. */
+.ar-tile-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 767px) {
+  .ar-tile-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
+
+/* Two-column form rows that stack on phones — replaces the
+   `gridTemplateColumns: '1fr 1fr'` pattern on business-info, requests,
+   promotions, qrcode, vendors, items, analytics forms. */
+.ar-form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 767px) {
+  .ar-form-row-2 { grid-template-columns: 1fr; gap: 12px; }
+}
+
+/* Hide on phones — for desktop-only content (right-column previews,
+   founding-partner pricing footer, page-header subtitles, breadcrumbs). */
+@media (max-width: 767px) {
+  .ar-hide-mobile { display: none !important; }
+}
+
+/* Show only on phones — for mobile-specific alternates (e.g. card
+   layouts that replace wide tables). */
+.ar-show-mobile { display: none !important; }
+@media (max-width: 767px) {
+  .ar-show-mobile { display: block !important; }
+}
+
+/* Mobile-tight padding — replaces desktop page padding (28px 26px) so
+   narrow phones don't lose 52px to whitespace. Apply to the outermost
+   page <div>. */
+@media (max-width: 767px) {
+  .ar-page-pad { padding: 16px 14px !important; }
+}
+
+/* Minimum 44pt touch target on mobile — Apple HIG / Android 48dp.
+   Apply to small action buttons (Edit/Delete/Rename pills). */
+@media (max-width: 767px) {
+  .ar-touch-target { min-height: 44px !important; }
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: rgba(247,155,61,0.06); }
