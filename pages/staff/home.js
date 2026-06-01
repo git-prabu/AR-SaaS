@@ -22,14 +22,53 @@ export default function StaffHome() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [checked, setChecked] = useState(false);
+  // True while we're routing the user away to the correct landing page
+  // (login, kitchen, or waiter). Render returns null in that window so
+  // the user never sees a flash of the hub content meant for a
+  // different audience.
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => { setSession(readStaffSession()); setChecked(true); }, []);
-  useEffect(() => { if (checked && !session) router.replace('/staff/login'); }, [checked, session, router]);
+
+  // Routing decision — runs once session check completes.
+  //
+  //   No session         → /staff/login
+  //   Pure waiter        → /staff/waiter (no custom RBAC role)
+  //   Pure kitchen       → /staff/kitchen (no custom RBAC role)
+  //   Custom RBAC role   → stay here (the hub IS their landing)
+  //
+  // The pure-waiter / pure-kitchen branch is the fix for "PWA reopens
+  // to 'No features assigned yet'" — the staff manifest's start_url
+  // is /staff/home, so closing and reopening the installed app always
+  // lands here regardless of role. Without these redirects, a pure
+  // waiter (role='waiter', roleId=null) sees the "No features
+  // assigned yet" hub state because featurePerms strips out their
+  // base 'waiter' role. Logging out and back in worked only because
+  // the login flow routes pure stations straight to their station
+  // page (skipping the hub).
+  useEffect(() => {
+    if (!checked) return;
+    if (!session) {
+      setRedirecting(true);
+      router.replace('/staff/login');
+      return;
+    }
+    if (!session.roleId) {
+      if (session.role === 'waiter')  { setRedirecting(true); router.replace('/staff/waiter');  return; }
+      if (session.role === 'kitchen') { setRedirecting(true); router.replace('/staff/kitchen'); return; }
+    }
+  }, [checked, session, router]);
 
   const perms = Array.isArray(session?.perms) ? session.perms : [];
   const featurePerms = perms.filter(k => k !== 'kitchen' && k !== 'waiter');
   const liveNow = featurePerms.filter(k => ENABLED.has(k));
   const comingSoon = featurePerms.filter(k => !ENABLED.has(k));
+
+  // Suppress render until the routing decision is finalised. Otherwise
+  // a pure waiter would see one paint of the "No features assigned"
+  // card before the redirect kicks in — exactly the flash the owner
+  // reported.
+  if (!checked || redirecting) return null;
 
   const card = { background: '#fff', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)' };
 
