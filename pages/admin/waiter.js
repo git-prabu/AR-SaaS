@@ -715,7 +715,13 @@ export default function WaiterDashboard() {
         }
       `}</style>
 
-      {/* ═══ Header ═══ */}
+      {/* ═══ Header ═══
+          Personalised when a staff session is signed in (the common
+          case — owners on /admin/waiter rarely sit here all day; the
+          waiter staff member does). Falls back to the plain "Waiter
+          Dashboard" title for owners so we don't pretend the owner is
+          a station staffer. UI Phase 4 — small shift-card-style touch
+          that gives the role personality. */}
       <div style={{ padding: '24px 28px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 14, flexWrap: 'wrap' }}>
           <div>
@@ -724,9 +730,37 @@ export default function WaiterDashboard() {
               <span style={{ opacity: 0.5 }}>›</span>
               <span style={{ color: A.mutedText }}>Waiter</span>
             </div>
-            <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
-              Waiter <span style={{ color: A.mutedText, fontWeight: 500 }}>Dashboard</span>
-            </div>
+            {staffSession?.name ? (
+              <>
+                <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                  {(() => {
+                    const h = new Date().getHours();
+                    return h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
+                  })()}{' '}
+                  <span style={{ color: A.warningDim, fontStyle: 'italic', fontWeight: 500 }}>
+                    {staffSession.name.split(' ')[0]}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12.5, color: A.mutedText, marginTop: 6, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: A.success, boxShadow: `0 0 4px ${A.success}` }} />
+                    Waiter station
+                  </span>
+                  {staffSession.restaurantName && (
+                    <>
+                      <span style={{ opacity: 0.45 }}>·</span>
+                      <span>{staffSession.restaurantName}</span>
+                    </>
+                  )}
+                  <span style={{ opacity: 0.45 }}>·</span>
+                  <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontWeight: 600, fontSize: 28, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                Waiter <span style={{ color: A.mutedText, fontWeight: 500 }}>Dashboard</span>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start' }}>
