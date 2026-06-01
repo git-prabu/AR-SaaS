@@ -625,7 +625,7 @@ export default function AdminRequests() {
                 {itemsUsed} of {formatCap(maxItems)} used
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'TOTAL',         value: stats.total,    color: A.forestText },
                 { label: 'AWAITING AR',   value: stats.pending,  color: stats.pending  > 0 ? A.warning : A.forestText },
@@ -964,7 +964,7 @@ export default function AdminRequests() {
                       <span style={{ fontSize: 11, color: A.success, fontWeight: 700 }}>✓ Values filled — edit if needed</span>
                     )}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                  <div className="ar-tile-grid-4">
                     {['calories', 'protein', 'carbs', 'fats'].map(n => (
                       <div key={n}>
                         <label style={{ ...labelStyle, fontSize: 10 }}>

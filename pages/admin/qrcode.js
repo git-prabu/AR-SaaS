@@ -410,7 +410,7 @@ export default function AdminQRCode() {
                 Live · {tableCount} table{tableCount === 1 ? '' : 's'}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'CONFIGURED', value: tableCount,             color: A.forestText },
                 { label: 'ACTIVE',     value: sessionStats.active,    color: sessionStats.active   > 0 ? A.success : A.forestText },

@@ -485,7 +485,7 @@ export default function AdminOrders() {
                 {todayStats.servedCount} served · {todayStats.inFlight} in flight
               </span>
             </div>
-            <div className="tiles-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="tiles-grid ar-tile-grid-4">
               {/* NEW ORDERS — gold with pulsing dot */}
               <div style={{ padding: '16px 18px', borderRadius: 10, background: A.forestSubtleBg, border: A.forestBorder }}>
                 <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>

@@ -656,7 +656,7 @@ export default function AdminReports() {
               <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
               <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{orderCount} order{orderCount === 1 ? '' : 's'}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {/* Gross revenue — gold (unchanged — gold was always designed for dark bg) */}
               <div style={{ padding: '16px 18px', borderRadius: 10, background: A.forestSubtleBg, border: A.forestBorder }}>
                 <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.forestTextFaint, marginBottom: 8 }}>GROSS REVENUE</div>
@@ -723,7 +723,7 @@ export default function AdminReports() {
                 background: '#FFFFFF', border: A.borderStrong, borderRadius: 8, cursor: 'pointer',
               }}>Export GST CSV</button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'Taxable Value', value: gstSummary.taxable, accent: false },
                 { label: 'CGST', value: gstSummary.cgst, accent: false },

@@ -336,7 +336,7 @@ export default function AdminFeedback() {
                 All-time · {stats.total} review{stats.total === 1 ? '' : 's'}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {/* Average — special: the gold accent + stars below */}
               <div style={{
                 padding: '16px 18px', borderRadius: 10,

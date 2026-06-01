@@ -414,7 +414,7 @@ export default function AdminDayClose() {
                   : formatLongDate(selectedDate)}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'ORDERS',        value: summary.totalOrders,                       color: A.forestText },
                 { label: 'PAID',          value: summary.paidCount,                          color: A.success },
@@ -434,7 +434,7 @@ export default function AdminDayClose() {
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.55)', marginBottom: 14 }}>
               Sales breakdown <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: 'rgba(0,0,0,0.38)' }}>· paid orders</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'Discounts', value: summary.discountTotal },
                 { label: 'Service charge', value: summary.serviceChargeTotal },

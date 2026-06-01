@@ -602,7 +602,7 @@ export default function StaffManagement() {
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'TOTAL',    value: stats.total,    accent: false },
                 { label: 'KITCHEN',  value: stats.kitchen,  accent: true  },

@@ -992,7 +992,7 @@ export default function AdminAnalytics() {
                 <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
                 <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>{todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              <div className="ar-tile-grid-4">
                 {[
                   { label: 'VISITORS', value: todayVisits, prefix: '', accent: false },
                   { label: 'ORDERS', value: todayOrderCount, prefix: '', accent: false },
@@ -1034,7 +1034,7 @@ export default function AdminAnalytics() {
               <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, fontWeight: 500 }}>vs previous period</span>
             </div>
             {/* Inner stat tiles — subtle cream bg to differentiate from the wrapper */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'VISITORS', value: totalVisits, prefix: '', d: delta(totalVisits, prevVisits) },
                 { label: 'ORDERS', value: totalOrders, prefix: '' },

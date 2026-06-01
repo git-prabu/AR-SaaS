@@ -315,7 +315,7 @@ export default function AdminSubscription() {
                   {computed.isTrial ? 'Free trial' : computed.isActive ? 'Live · billed monthly' : 'Inactive'}
                 </span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              <div className="ar-tile-grid-4">
                 {[
                   { label: 'CURRENT PLAN', value: computed.currentPlan.name, color: A.forestText },
                   { label: 'STATUS',       value: computed.statusLabel,       color: computed.statusColor === A.mutedText ? A.forestTextFaint : computed.statusColor },

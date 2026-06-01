@@ -157,7 +157,7 @@ function DashboardContent() {
               {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          <div className="ar-tile-grid-4">
             {[
               { label: 'REVENUE', value: formatRupee(stats.revenue), color: A.warning },
               { label: 'ORDERS',  value: stats.ordersToday,           color: A.forestText },

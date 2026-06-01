@@ -601,7 +601,7 @@ export default function NotificationsPage() {
                 {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-4">
               {[
                 { label: 'PENDING', value: stats.pending, accent: stats.pending > 0 },
                 { label: 'TODAY',   value: stats.today,   accent: false },
