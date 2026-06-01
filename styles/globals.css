@@ -236,6 +236,104 @@ html, body { overflow-x: hidden; }
   }
 }
 
+/* Matte-black DISHES / PROMOTIONS / CUSTOMERS / STAFF / TABLES stats
+   strip — the gradient-black header that sits above the filter row on
+   /admin/items, /admin/promotions, /admin/qrcode, /admin/staff, etc.
+   Desktop uses `flex flexWrap:wrap` which on phones stacks each stat
+   tile to its own line (the owner's "vertically very big" complaint).
+
+   Mobile fix:
+     - Force flexWrap: nowrap so all tiles stay in ONE ROW
+     - Horizontal scroll inside the card if the row exceeds viewport
+     - Edge fade hint at the right so it's discoverable
+     - Tighten font + gap so 4-5 tiles fit on a 360px screen
+     - Hide the leading dot+label group ("● DISHES") + the vertical
+       divider after it — the page heading already tells the owner
+       what this card is about, so the label is desktop polish only.
+*/
+@media (max-width: 767px) {
+  .ar-stat-strip {
+    padding: 10px 12px !important;
+    margin-bottom: 12px !important;
+  }
+  /* Outer flex row */
+  .ar-stat-strip > div[style*="display: flex"] {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 14px !important;
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 14px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 14px), transparent 100%);
+  }
+  /* The dot+label group is the FIRST flex child; hide it on mobile.
+     The 1px vertical divider that immediately follows it is the
+     SECOND child — also hide so we don't leak its width. */
+  .ar-stat-strip > div[style*="display: flex"] > div:first-child,
+  .ar-stat-strip > div[style*="display: flex"] > div:nth-child(2) {
+    display: none !important;
+  }
+  /* Inner tiles row (3rd child) — keep horizontal, smaller gap, no wrap */
+  .ar-stat-strip > div[style*="display: flex"] > div:nth-child(3) {
+    flex-wrap: nowrap !important;
+    gap: 14px !important;
+    flex-shrink: 0 !important;
+  }
+  /* The vertical dividers BETWEEN tiles become tiny on phones so we
+     don't lose horizontal space to them. */
+  .ar-stat-strip [style*="width: 1px"] {
+    height: 24px !important;
+  }
+  /* Tile font sizes — keep the value bold but smaller */
+  .ar-stat-strip [style*="font-size: 20px"],
+  .ar-stat-strip [style*="font-size: 22px"],
+  .ar-stat-strip [style*="font-size: 24px"],
+  .ar-stat-strip [style*="font-size: 26px"],
+  .ar-stat-strip [style*="font-size: 28px"] {
+    font-size: 17px !important;
+  }
+  .ar-stat-strip [style*="font-size: 10px"],
+  .ar-stat-strip [style*="font-size: 11px"] {
+    white-space: nowrap;
+  }
+}
+
+/* Tab-bar strip (Offers / Coupons / Combos · All / Active / Scheduled / Expired)
+   that overflows on phones — add the same horizontal-scroll pattern as
+   .ar-stat-strip so all tabs stay reachable on a single row. */
+@media (max-width: 767px) {
+  .ar-tab-strip {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 14px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 14px), transparent 100%);
+  }
+  .ar-tab-strip > * { flex-shrink: 0; }
+}
+
+/* Big page H1 + action-row on mobile — fix overflow on /admin/items
+   (DISHES card), /admin/promotions, /admin/staff, /admin/qrcode, etc.
+   The page-header row often has the title on the left and 2-3 action
+   pills on the right; on phones they collide. Stack them. */
+@media (max-width: 767px) {
+  .ar-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+}
+
+/* Subscription plan-pick tiles — desktop 3-col (Starter/Growth/Pro),
+   mobile 1-col so each plan gets full width and all the features under
+   it are legible. Avoids the squashed 110px-wide tile look that hid
+   feature lists. */
+@media (max-width: 767px) {
+  .ar-plan-tiles {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
 /* /admin/new-order mobile layout
    Desktop: 2-col (menu LEFT 1fr, cart RIGHT 380px)
    Mobile : single col, cart FIRST (order-type/table/channel setup),

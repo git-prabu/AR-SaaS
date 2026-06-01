@@ -1057,8 +1057,11 @@ export default function AdminItems() {
 
             {/* Export / Import CSV — Petpooja-compatible columns. Import
                 creates new docs (does NOT update existing items) so a
-                misclick can't overwrite a curated menu. */}
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignSelf: 'flex-start' }}>
+                misclick can't overwrite a curated menu.
+                .ar-tab-strip on mobile allows horizontal scroll if the
+                3 buttons don't fit on one row — owner reported the
+                "Optimize images" button getting cut off on the right. */}
+            <div className="ar-tab-strip" style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignSelf: 'flex-start', maxWidth: '100%' }}>
               <button onClick={exportCSV} disabled={items.length === 0 || importing}
                 style={{
                   padding: '9px 16px', borderRadius: 9, border: A.borderStrong,
@@ -1107,8 +1110,10 @@ export default function AdminItems() {
             </div>
           </div>
 
-          {/* Stats strip */}
-          <div style={{
+          {/* Stats strip — .ar-stat-strip compacts to a single horizontal
+              scroll row on mobile (5 tiles in one row instead of stacking
+              vertically to ~300px tall). Owner asked for this specifically. */}
+          <div className="ar-stat-strip" style={{
             background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
             borderRadius: 12, padding: '12px 18px', marginTop: 12, marginBottom: 14,
             border: A.forestBorder, boxShadow: '0 4px 16px rgba(38,52,49,0.12)',
@@ -1142,7 +1147,7 @@ export default function AdminItems() {
             display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
           }}>
             {/* Status tabs */}
-            <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
+            <div className="ar-tab-strip" style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 10, padding: 3, maxWidth: '100%' }}>
               {[
                 ['all', 'All', items.length],
                 ['active', 'Active', stats.active],
@@ -1564,6 +1569,7 @@ export default function AdminItems() {
                             background: (item.offerColor || '#C07050') + '18',
                             color: item.offerColor || '#C07050',
                             fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                            whiteSpace: 'nowrap', /* prevent "CHEF'S SPECIAL" wrapping onto two lines and overlapping the dish name on narrow columns */
                           }}>{item.offerLabel}</span>
                         )}
                         {item.isPopular && <Pill color={A.warning}>Popular</Pill>}

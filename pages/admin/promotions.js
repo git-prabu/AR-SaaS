@@ -516,7 +516,7 @@ export default function AdminPromotions() {
           )}
 
           {/* Tabs */}
-          <div style={{ display: 'inline-flex', background: A.shell, border: A.border, borderRadius: 10, padding: 3, marginBottom: 14, boxShadow: A.shadowCard }}>
+          <div className="ar-tab-strip" style={{ display: 'inline-flex', background: A.shell, border: A.border, borderRadius: 10, padding: 3, marginBottom: 14, boxShadow: A.shadowCard, maxWidth: '100%' }}>
             {TABS.map(t => {
               const active = tab === t.k;
               const count = tabCounts[t.k];
@@ -726,7 +726,7 @@ AdminPromotions.getLayout = (page) => page;
 
 function StatsStrip({ label, tiles }) {
   return (
-    <div style={{
+    <div className="ar-stat-strip" style={{
       background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
       borderRadius: 12, padding: '12px 18px', marginTop: 12, marginBottom: 14,
       border: A.forestBorder, boxShadow: '0 4px 16px rgba(38,52,49,0.12)',
@@ -757,7 +757,7 @@ function FilterBar({ pills, value, onChange, search, setSearch, placeholder, cou
       boxShadow: A.shadowCard, padding: '12px 18px',
       display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
     }}>
-      <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
+      <div className="ar-tab-strip" style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 10, padding: 3, maxWidth: '100%' }}>
         {pills.map(([val, label, count]) => {
           const active = value === val;
           return (

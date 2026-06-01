@@ -396,7 +396,7 @@ export default function AdminQRCode() {
           </div>
 
           {/* ═══ TABLES — matte-black signature stat card ═══ */}
-          <div style={{
+          <div className="ar-stat-strip" style={{
             background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
             borderRadius: 14, padding: '20px 24px', marginBottom: 14,
             border: A.forestBorder,

@@ -465,7 +465,7 @@ export default function AdminDayClose() {
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning }} />
                   <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>Payment Breakdown</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div className="ar-tile-grid-3">
                   {[
                     { key: 'cash',   label: 'Cash' },
                     { key: 'card',   label: 'Card' },
@@ -539,7 +539,7 @@ export default function AdminDayClose() {
                     />
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, paddingTop: 14, borderTop: A.border }}>
+                <div className="ar-tile-grid-3" style={{ paddingTop: 14, borderTop: A.border }}>
                   <div style={{ padding: '12px 16px', borderRadius: 10, background: A.shellDarker }}>
                     <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.faintText, marginBottom: 6 }}>Expected cash</div>
                     <div style={{ fontWeight: 700, fontSize: 20, color: A.ink, fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(expectedCash)}</div>

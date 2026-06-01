@@ -557,7 +557,7 @@ export default function AdminSubscription() {
                   ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                <div className="ar-plan-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
                   {PLANS.map(plan => {
                     // "Current" means same plan AND same billing cycle. Without
                     // the period check, a Monthly subscriber would see "CURRENT"
