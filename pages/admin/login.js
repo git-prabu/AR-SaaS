@@ -48,6 +48,32 @@ export default function AdminLogin() {
   const { signIn, signOut } = useAuth();
   const router = useRouter();
 
+  // Staff PWA recovery — owners who installed the app BEFORE the staff
+  // manifest fix landed (when the static /manifest.json had
+  // start_url: /admin) end up here when they tap the installed icon,
+  // even if they're staff trying to reach /staff/login. Detect that
+  // case and bounce them automatically.
+  //
+  // Trigger conditions (all required):
+  //   1. We're in standalone PWA mode (display-mode: standalone or
+  //      iOS navigator.standalone).
+  //   2. localStorage shows the user has visited /staff/login at least
+  //      once on this device — i.e. they ARE staff, not an owner who
+  //      just happened to install the admin app.
+  //   3. There's no current admin session redirecting them in
+  //      (we don't want to fight a real owner login flow).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches
+        || window.navigator?.standalone === true;
+      if (!isStandalone) return;
+      if (localStorage.getItem('ar_last_login_intent') !== 'staff') return;
+      // Staff PWA opened the admin login by accident — bounce.
+      router.replace('/staff/login');
+    } catch { /* fail-open: stay on admin login */ }
+  }, [router]);
+
   // Forgot-password inline panel state
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -339,9 +365,21 @@ export default function AdminLogin() {
               <div style={{ fontSize: 28, fontWeight: 600, color: A.ink, letterSpacing: '-0.5px', lineHeight: 1.1, marginBottom: 8 }}>
                 Welcome back.
               </div>
-              <div style={{ fontSize: 14, color: A.mutedText, lineHeight: 1.55 }}>
+              <div style={{ fontSize: 14, color: A.mutedText, lineHeight: 1.55, marginBottom: 14 }}>
                 Sign in to your restaurant admin account.
               </div>
+              {/* Staff sign-in shortcut. Visible to anyone — but especially
+                  important for someone who installed the PWA from /admin/login
+                  before the staff manifest fix and is stuck here. */}
+              <Link href="/staff/login" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 8,
+                background: A.cream, border: A.border,
+                fontSize: 12.5, fontWeight: 600, color: A.warningDim,
+                textDecoration: 'none',
+              }}>
+                Looking for staff sign-in? <span style={{ marginLeft: 2 }}>→</span>
+              </Link>
             </div>
 
             <form onSubmit={handleSubmit}>

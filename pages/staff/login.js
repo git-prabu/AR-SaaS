@@ -55,6 +55,11 @@ export default function StaffLogin() {
   const [showIosHint, setShowIosHint] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // Stamp this device as "staff intent" — used by /admin/login to
+    // auto-redirect a staff member who installed the OLD PWA (when
+    // the static manifest still pointed to /admin) back to the right
+    // sign-in screen instead of stranding them on the owner login.
+    try { localStorage.setItem('ar_last_login_intent', 'staff'); } catch {}
     try {
       // Already installed? Don't nag.
       if (window.matchMedia?.('(display-mode: standalone)').matches) return;
