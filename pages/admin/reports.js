@@ -827,8 +827,11 @@ export default function AdminReports() {
             })()}
           </div>
 
-          {/* ── Daily ledger ── */}
-          <div className="print-card" style={{ ...card, padding: '22px 24px' }}>
+          {/* ── Daily ledger ──
+              Hidden on mobile per owner request — the wide ledger is
+              meant for accountant-style desktop review. Mobile owners
+              get headline period KPIs above + GST summary below. */}
+          <div className="print-card ar-hide-mobile" style={{ ...card, padding: '22px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
               <div>
                 <div style={secTitle}>Daily ledger</div>
@@ -875,8 +878,11 @@ export default function AdminReports() {
             )}
           </div>
 
-          {/* ── Payment methods + Top items — 2-col row ── */}
-          <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          {/* ── Payment methods + Top items — 2-col row ──
+              Hidden on mobile per owner request — both panels need
+              the desktop two-column layout to read; mobile gets the
+              GST summary which is the bookkeeping-critical one. */}
+          <div className="ar-form-row-2 ar-hide-mobile" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
             {/* Payment methods */}
             <div className="print-card" style={{ ...card, margin: 0, padding: '22px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 }}>

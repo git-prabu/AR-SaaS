@@ -159,6 +159,24 @@ html, body { overflow-x: hidden; }
   div[style*="padding: '32px 28px 28px'"] {
     padding: 16px 14px !important;
   }
+  /* Variants with only horizontal-or-bottom padding (no top) — used on
+     the dashboard for inner sections that sit under the page header. */
+  div[style*="padding: '0 28px'"],
+  div[style*="padding: '0 28px 60px'"],
+  div[style*="padding: '0 28px 28px'"] {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+}
+
+/* Dashboard 2-column grid (Left content + Right sidebar/actions) that
+   becomes single-column on phones. Used on /admin/index and any other
+   page with a `1fr Xpx` desktop layout where the second column should
+   stack below on mobile rather than squish. */
+@media (max-width: 767px) {
+  .ar-dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* Container for wide tables on phones (items / analytics / reports).

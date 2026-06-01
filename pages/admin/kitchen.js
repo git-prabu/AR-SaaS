@@ -729,8 +729,13 @@ export default function KitchenDisplay() {
           </div>
         </div>
 
-        {/* ═══ LIVE KITCHEN stats card — spans full content width, compact for practical use ═══ */}
-        <div style={{
+        {/* ═══ LIVE KITCHEN stats card — spans full content width, compact for practical use ═══
+            Hidden on mobile per owner request — on phones it was taking
+            ~60% of the screen with ACTIVE / OLDEST / SERVED TODAY tiles
+            that don't help kitchen staff actually plate orders. The
+            order cards below are what kitchen actually uses; this stats
+            card is a tablet/wall-mount nice-to-have. */}
+        <div className="ar-hide-mobile" style={{
           background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
           borderRadius: 12, padding: '12px 18px', marginTop: 14, marginBottom: 14,
           border: A.forestBorder,

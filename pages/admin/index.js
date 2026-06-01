@@ -181,7 +181,7 @@ function DashboardContent() {
         <OnboardingChecklist rid={rid} ordersCount={orders.length} />
       </div>
 
-      <div style={{ padding: '0 28px 60px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14 }}>
+      <div className="ar-dashboard-grid" style={{ padding: '0 28px 60px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: 14 }}>
         {/* ═══ LEFT — Needs attention ═══ */}
         <div style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, padding: '22px 26px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -225,8 +225,12 @@ function DashboardContent() {
           )}
         </div>
 
-        {/* ═══ RIGHT — Quick actions ═══ */}
-        <div style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, padding: '22px 26px' }}>
+        {/* ═══ RIGHT — Quick actions ═══
+            Hidden on mobile — every action here is reachable via the
+            sidebar drawer anyway. Owner reported the right-column
+            stacked underneath the Needs Attention card on phones and
+            added scroll without giving new value. */}
+        <div className="ar-hide-mobile" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, padding: '22px 26px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning }} />
             <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>Quick Actions</span>

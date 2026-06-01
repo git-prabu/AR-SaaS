@@ -1515,8 +1515,11 @@ export default function AdminAnalytics() {
                 </BentoGlow>
               </div>
 
-              {/* Waiter + Top Menu Items — grid default stretch so both columns equal height */}
-              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginBottom: 14 }}>
+              {/* Waiter + Top Menu Items — grid default stretch so both columns equal height.
+                  Hidden on mobile per owner request — deep analysis like
+                  Top Menu Items table is desktop-only; mobile owners get
+                  the LIVE TODAY + headline numbers above. */}
+              <div className="ar-hide-mobile" style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, marginBottom: 14 }}>
                 {/* Left column: Waiter Summary + Busiest Day + Customer Mix */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
                   {/* Customer Mix — top card */}
@@ -1751,8 +1754,11 @@ export default function AdminAnalytics() {
                 })()}
               </div>
               {/* ── Smart Insights (Aspire light) ── Phase D: gated to
-                  Growth+ via the analyticsAdvanced sub-permission. */}
+                  Growth+ via the analyticsAdvanced sub-permission.
+                  Hidden on mobile — strategic insight reading happens
+                  on desktop / tablet where the full bento layout fits. */}
               {hasAdvancedAnalytics && insights.length > 0 && (
+                <div className="ar-hide-mobile">
                 <BentoGlow style={{
                   background: '#FFFFFF',
                   borderRadius: 14, padding: '18px 22px', marginBottom: 14,
@@ -1788,6 +1794,7 @@ export default function AdminAnalytics() {
                     })}
                   </div>
                 </BentoGlow>
+                </div>
               )}
 
               <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -2240,10 +2247,11 @@ export default function AdminAnalytics() {
             </div>
           )}
 
-          {/* ── RESTAURANT HEALTH — Matte black signature card, bookend to LIVE TODAY ── */}
-          {/*    Direction 3 split layout: diagnosis on the left, alerts feed on the right. ── */}
+          {/* ── RESTAURANT HEALTH — Matte black signature card, bookend to LIVE TODAY ──
+              Hidden on mobile per owner request — the split diagnosis/alerts
+              layout needs desktop width to be readable. ── */}
           {!loading && (
-            <div style={{
+            <div className="ar-hide-mobile" style={{
               background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
               borderRadius: 14, padding: '22px 24px', marginTop: 14,
               border: A.forestBorder,
