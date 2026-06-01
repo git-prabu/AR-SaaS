@@ -329,6 +329,49 @@ html, body { overflow-x: hidden; }
   }
 }
 
+/* Staff card on phones — the 3 action buttons (Disable / Edit / Delete)
+   were taking ~150px on the right and squeezing the name+username
+   column so badly that "Username" was being truncated to "Userna".
+   Mobile fix: pull the actions out of the inline row and let them
+   wrap to a NEW LINE below the avatar+info. */
+@media (max-width: 767px) {
+  .staff-card {
+    flex-wrap: wrap !important;
+  }
+  .staff-card-actions {
+    flex-basis: 100% !important;
+    justify-content: flex-start !important;
+    margin-top: 6px !important;
+    border-top: 1px solid rgba(0,0,0,0.04);
+    padding-top: 10px;
+  }
+}
+
+/* /admin/business-info layout — desktop is 1.4fr (form) + 1fr (bill
+   preview, hidden on mobile via .ar-hide-mobile). Even with the
+   preview display:none, the GRID still calculated columns at 1.4fr
+   1fr so the form rendered at ~58% width with the right 42% empty.
+   Force single-column on phones so the form fills 100% of usable
+   width. */
+@media (max-width: 767px) {
+  .ar-business-info-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+}
+
+/* Waiter "DONE TODAY" label getting cut to "DONE TODA" — the
+   .ar-stat-strip label rule was forcing whitespace:nowrap but a
+   font-size cap was too tight. Increase the small-label font-size
+   minimum slightly so 9-char labels like "DONE TODAY" fit. */
+@media (max-width: 767px) {
+  .ar-stat-strip > div > div:nth-child(3) > * > div:first-child,
+  .ar-kitchen-live > div > div:nth-child(3) > * > div:first-child {
+    font-size: 9.5px !important;
+    letter-spacing: 0.06em !important;
+  }
+}
+
 /* /admin/new-order mobile layout
    Desktop: 2-col (menu LEFT 1fr, cart RIGHT 380px)
    Mobile : single col, cart FIRST (order-type/table/channel setup),

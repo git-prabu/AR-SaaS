@@ -866,7 +866,7 @@ export default function StaffManagement() {
                     </div>
 
                     {/* Actions */}
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <div className="staff-card-actions" style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <button onClick={() => handleToggleActive(s)} disabled={busy} className="staff-icon-btn" style={{
                         padding: '7px 12px', borderRadius: 8, border: A.border, background: A.shell,
                         color: isInactive ? A.success : A.ink, fontSize: 12, fontWeight: 600,

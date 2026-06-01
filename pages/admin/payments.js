@@ -679,7 +679,7 @@ export default function AdminPayments() {
           </div>
 
           {/* Signature matte-black stats card — compact single-row layout matching kitchen/waiter */}
-          <div style={{
+          <div className="ar-stat-strip" style={{
             background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
             borderRadius: 12, padding: '12px 18px', marginTop: 12, marginBottom: 14,
             border: A.forestBorder,

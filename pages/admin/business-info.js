@@ -457,7 +457,7 @@ export default function AdminSettings() {
           </div>
 
           {/* ═══ BILLING SETUP — matte-black signature stat card ═══ */}
-          <div style={{
+          <div className="ar-stat-strip" style={{
             background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
             borderRadius: 14, padding: '20px 24px', marginBottom: 14,
             border: A.forestBorder,
@@ -508,7 +508,7 @@ export default function AdminSettings() {
               <div style={{ fontSize: 13, color: A.mutedText, fontWeight: 600 }}>Loading settings…</div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+            <div className="ar-business-info-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
 
               {/* ─── LEFT COLUMN: FORMS ─── */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

@@ -992,7 +992,7 @@ export default function WaiterDashboard() {
                       background: edgeColor,
                     }} />
 
-                    <div style={{
+                    <div className="waiter-action-grid" style={{
                       display: 'grid',
                       gridTemplateColumns: '1fr auto auto',
                       gap: 18, alignItems: 'center',
@@ -1059,7 +1059,7 @@ export default function WaiterDashboard() {
                       </div>
 
                       {/* Right: action button */}
-                      <button className="waiter-action-btn"
+                      <button className="waiter-action-btn waiter-action-cta"
                         onClick={() => handleAction(item)}
                         disabled={resolvingId === item.id}
                         style={{
