@@ -127,6 +127,26 @@ export default function StaffShell({ active, children }) {
   const A_MUTED = 'rgba(0,0,0,0.55)', A_FAINT = 'rgba(0,0,0,0.38)';
   const A_HOVER = 'rgba(0,0,0,0.04)', A_BORDER = 'rgba(0,0,0,0.06)', A_GOLD = '#C4A86D';
 
+  // ── Mobile bottom nav (UI Phase 2) ──────────────────────────────────
+  // Most-used staff actions get a fixed bottom tab bar on mobile so
+  // switching screens is one tap instead of "open drawer → scroll →
+  // tap link". Priority list below — only slots the staffer actually
+  // has permission for are shown. Always append a "More" slot that
+  // re-opens the hamburger drawer for the long tail of features.
+  //
+  // Only renders on mobile (CSS-gated) AND only when the staffer has
+  // at least one matching perm — otherwise the bar would be a single
+  // "More" button which is just a worse hamburger.
+  const BOTTOM_NAV_PRIORITY = [
+    { perm: 'tables',   label: 'Tables',  href: '/staff/tables',    icon: 'M3 4h6v6H3zM11 4h6v6h-6zM3 12h6v6H3zM11 12h6v6h-6z' },
+    { perm: 'newOrder', label: 'New',     href: '/staff/new-order', icon: 'M10 4v12M4 10h12' },
+    { perm: 'orders',   label: 'Orders',  href: '/staff/orders',    icon: 'M4 5h12M4 10h12M4 15h12' },
+    { perm: 'payments', label: 'Pay',     href: '/staff/payments',  icon: 'M3 6h14v8H3zM3 9h14' },
+  ];
+  const bottomTabs = BOTTOM_NAV_PRIORITY
+    .filter(t => enabled.has(t.perm) && perms.includes(t.perm) && planAllows(t.perm));
+  const showBottomNav = bottomTabs.length >= 1;
+
   return (
     <MobilePullToRefresh>
     <div style={{ minHeight: '100vh', background: A_PAGE, fontFamily: INTER, color: A_INK, display: 'flex' }}>
@@ -141,6 +161,8 @@ export default function StaffShell({ active, children }) {
         .staff-shell-aside{transition:transform 0.25s cubic-bezier(.4,0,.2,1);}
         .staff-mobile-topbar{display:none;}
         .staff-backdrop{display:none;}
+        /* Mobile bottom nav — hidden on desktop. */
+        .staff-bottom-nav{display:none;}
         @media(max-width:767px){
           .staff-shell-aside{transform:translateX(-100%);}
           .staff-shell-aside.open{transform:translateX(0);}
@@ -159,6 +181,32 @@ export default function StaffShell({ active, children }) {
             -webkit-tap-highlight-color:transparent;
           }
           .slnk{padding:12px 14px;font-size:14px;}
+          /* Bottom nav — fixed, full-width, safe-area-aware. */
+          .staff-bottom-nav{
+            display:flex;position:fixed;bottom:0;left:0;right:0;
+            z-index:17;
+            background:${A_BG};border-top:1px solid ${A_BORDER};
+            padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;
+            box-shadow:0 -4px 16px rgba(0,0,0,0.06);
+          }
+          .staff-bottom-nav .tab{
+            flex:1;min-width:0;
+            display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+            padding:6px 4px;border-radius:8px;
+            border:none;background:transparent;color:${A_MUTED};
+            font-family:${INTER};font-size:10.5px;font-weight:600;letter-spacing:0.02em;
+            text-decoration:none;cursor:pointer;
+            transition:color .15s, background .15s;
+            -webkit-tap-highlight-color:transparent;
+          }
+          .staff-bottom-nav .tab:hover{background:${A_HOVER};color:${A_INK};}
+          .staff-bottom-nav .tab.on{color:${A_INK};}
+          .staff-bottom-nav .tab.on .tab-icon{color:${A_GOLD};}
+          .staff-bottom-nav .tab-icon{width:22px;height:22px;color:${A_MUTED};transition:color .15s;}
+          /* Reserve breathing room at the bottom of the main content so
+             the last row isn't covered by the bottom nav. The bar's
+             content area is ~56px + safe-area inset. */
+          .staff-shell-main{padding-bottom:calc(64px + env(safe-area-inset-bottom)) !important;}
         }
       `}</style>
 
@@ -243,6 +291,41 @@ export default function StaffShell({ active, children }) {
             /staff/login for that platform). */}
         <PwaInstallPrompt />
       </main>
+
+      {/* Mobile bottom nav — fixed bar with up to 4 shortcuts + a
+          "More" button that re-opens the hamburger drawer. CSS-gated
+          to mobile widths; further hidden when the subscription lock
+          is up (no point routing somewhere that's locked anyway) and
+          when the staffer doesn't have any of the priority perms. */}
+      {showBottomNav && !isLocked && (
+        <nav className="staff-bottom-nav" aria-label="Quick navigation">
+          {bottomTabs.map(t => {
+            const on = isActive(t.href);
+            return (
+              <Link key={t.perm} href={t.href} className={`tab${on ? ' on' : ''}`}>
+                <svg className="tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d={t.icon} />
+                </svg>
+                <span>{t.label}</span>
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            className="tab"
+            onClick={() => setSidebarOpen(o => !o)}
+            aria-label="Open full menu"
+          >
+            <svg className="tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {/* three-dot ellipsis */}
+              <circle cx="4" cy="10" r="1" />
+              <circle cx="10" cy="10" r="1" />
+              <circle cx="16" cy="10" r="1" />
+            </svg>
+            <span>More</span>
+          </button>
+        </nav>
+      )}
     </div>
     </MobilePullToRefresh>
   );
