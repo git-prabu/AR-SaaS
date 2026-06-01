@@ -11,7 +11,7 @@
 // Or stand-alone:
 //   <Input type="email" placeholder="..." value={x} onChange={...} />
 //
-// Designed to mirror the inline-style inputs already used on settings.js
+// Designed to mirror the inline-style inputs already used on business-info.js
 // and similar pages so swapping in this component doesn't change the
 // look — it just removes the copy-paste.
 

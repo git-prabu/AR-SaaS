@@ -570,7 +570,7 @@ export default function AdminItems() {
     const editingItem = items.find(i => i.id === editingId);
     if (editingItem?.petpoojaItemId) {
       if (isHybrid) {
-        toast.error('This item is managed in Petpooja. Edit name/price/category there, then sync from /admin/petpooja-connect.');
+        toast.error('This item is managed in Petpooja. Edit name/price/category there, then sync from /admin/petpooja-pos.');
       } else {
         toast.error('This item came from Petpooja. Re-upgrade to Pro and reconnect Petpooja to manage it.');
       }
@@ -1048,7 +1048,7 @@ export default function AdminItems() {
                 }}>
                   <span style={{ fontSize: 16 }}>🔌</span>
                   <span><strong>Menu is managed in Petpooja.</strong> Item names, prices, categories, and stock are read-only here — edit them in your Petpooja dashboard, then sync. You can still upload images, AR models, and discovery tags from this page.</span>
-                  <Link href="/admin/petpooja-connect" style={{ marginLeft: 'auto', fontSize: 12, color: A.warningDim, fontWeight: 600, textDecoration: 'none' }}>
+                  <Link href="/admin/petpooja-pos" style={{ marginLeft: 'auto', fontSize: 12, color: A.warningDim, fontWeight: 600, textDecoration: 'none' }}>
                     Manage integration →
                   </Link>
                 </div>

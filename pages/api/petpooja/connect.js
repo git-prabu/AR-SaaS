@@ -1,7 +1,7 @@
 // pages/api/petpooja/connect.js
 // Phase B (Petpooja hybrid) — Validate + save Petpooja credentials.
 //
-// Called from the /admin/petpooja-connect onboarding wizard's
+// Called from the /admin/petpooja-pos onboarding wizard's
 // "Test connection" + "Save & connect" flow.
 //
 // Auth: admin idToken (only the restaurant's own admin or staff,

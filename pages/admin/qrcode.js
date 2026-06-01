@@ -7,7 +7,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
 
-// ═══ Aspire palette — same tokens as analytics/staff/notifications/feedback/requests ═══
+// ═══ Aspire palette — same tokens as analytics/staff/activity-log/feedback/requests ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
   font: INTER,

@@ -3,7 +3,7 @@
 // Petpooja and mirror to our Firestore menuItems collection.
 //
 // Trigger paths:
-//   1. Manual: admin clicks "Sync menu now" on /admin/petpooja-connect
+//   1. Manual: admin clicks "Sync menu now" on /admin/petpooja-pos
 //   2. Initial: called automatically by /api/petpooja/connect after a
 //      successful save (so the restaurant sees their menu immediately)
 //   3. Scheduled: Vercel cron job hits this endpoint every 6 hours

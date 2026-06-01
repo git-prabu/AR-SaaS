@@ -87,7 +87,7 @@ service cloud.firestore {
       // The allowlist below is the COMPLETE set of fields the admin
       // legitimately edits via the admin UI. Every entry was verified
       // by grepping every updateRestaurant() call site in the codebase
-      // (pages/admin/settings.js, items.js, notifications.js,
+      // (pages/admin/business-info.js, items.js, activity-log.js,
       // admin/index.js, qrcode.js). Petpooja sync + payment config
       // writes happen via the Admin SDK in API routes (bypass these
       // rules) so they're unaffected.
@@ -97,20 +97,21 @@ service cloud.firestore {
       // list will surface as "permission denied" in the toast.
       allow update: if isRestaurantAdmin(restaurantId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          // Core info (admin/settings.js)
+          // Core info (admin/business-info.js)
           'name', 'address', 'phone', 'city', 'cuisine',
-          // Google integration — Place ID the owner pastes in Settings so the
-          // feedback page can deep-link to "Leave a Google review". Public,
-          // non-sensitive string (no security impact). Owner-only (absent from
-          // the staff allowlist below). (Phase 9, 27 May 2026)
+          // Google integration — Place ID the owner pastes in Business Info
+          // so the feedback page can deep-link to "Leave a Google review".
+          // Public, non-sensitive string (no security impact). Owner-only
+          // (absent from the staff allowlist below). (Phase 9, 27 May 2026)
           'googlePlaceId',
-          // Tax + billing (admin/settings.js)
+          // Tax + billing (admin/business-info.js)
           'gstPercent', 'serviceChargePercent', 'gstNumber', 'hsnCode', 'fssaiNo',
-          // Payment + branding (admin/settings.js)
+          // Payment + branding (upiId moved to admin/gateway.js Jun 2026;
+          // billFooter + notificationsEmail still on admin/business-info.js)
           'upiId', 'billFooter', 'notificationsEmail',
           // Menu organisation (admin/items.js)
           'categoryOrder', 'categoryImages',
-          // Operational toggles (admin/notifications.js)
+          // Operational toggles (admin/activity-log.js)
           'waiterCallsEnabled',
           // Loyalty config (admin/customers.js — Phase 4, 22 May 2026).
           // Pure config the owner sets in the CRM page: master switch,
@@ -137,7 +138,7 @@ service cloud.firestore {
           'storageUsedMB',
           // Future / defensive fields admin code references.
           // logoUrl + logoSize: restaurant brand mark uploaded from
-          // /admin/settings → Restaurant Profile. logoSize (MB) is tracked
+          // /admin/business-info → Restaurant Profile. logoSize (MB) is tracked
           // separately so a logo replace / remove can release the right
           // delta on storageUsedMB. Same security stance as itemsUsed:
           // owner-only, capped by maxStorageMB enforced elsewhere.
@@ -817,7 +818,7 @@ service cloud.firestore {
       // Phase 3 hardening (W2, 16 May 2026): allow a signed-in user to
       // sync their own users/{uid}.email field to match Firebase Auth.
       // Background: admins change their email via
-      // pages/admin/settings/security.js using verifyBeforeUpdateEmail
+      // pages/admin/security.js using verifyBeforeUpdateEmail
       // — Firebase swaps the auth email only after the verification
       // link is clicked. Before W2, nothing wrote the new email back to
       // users/{uid}.email, so lib/dailySummary.js (which uses that

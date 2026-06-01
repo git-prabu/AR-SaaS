@@ -295,7 +295,7 @@ export default function Signup() {
         try {
           await sendEmailVerification(fbUser);
         } catch (err) {
-          // Non-fatal — they can resend from /admin/settings/security later.
+          // Non-fatal — they can resend from /admin/security later.
           console.warn('sendEmailVerification failed:', err?.message);
         }
       }

@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   // become "Sangeetha Vegetarian Restaurant — Mylapor" mid-word. The
   // ellipsis makes it obvious to the user that the rendered short
   // name was clipped, so they can shorten their restaurant name in
-  // /admin/settings if it matters for their PWA install card.
+  // /admin/business-info if it matters for their PWA install card.
   const rawName  = restaurant?.name || FALLBACK.name;
   const restName  = rawName.length > 45 ? rawName.slice(0, 44) + '…' : rawName;
   const shortName = rawName.length > 12 ? rawName.slice(0, 11) + '…' : rawName;

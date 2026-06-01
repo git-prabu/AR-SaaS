@@ -6,7 +6,7 @@ import FeatureShell from '../../components/layout/FeatureShell';
 import { getFeedback, markFeedbackRead, markAllFeedbackRead, updateFeedbackNote, deleteFeedback } from '../../lib/db';
 import toast from 'react-hot-toast';
 
-// ═══ Aspire palette — same tokens as analytics/kitchen/waiter/staff/notifications ═══
+// ═══ Aspire palette — same tokens as analytics/kitchen/waiter/staff/activity-log ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
   font: INTER,

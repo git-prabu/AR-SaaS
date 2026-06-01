@@ -62,15 +62,15 @@ const FAQ_GROUPS = [
       },
       {
         q: 'How do I update my restaurant info (name, GSTIN, FSSAI)?',
-        a: <>Go to <Link href="/admin/settings" style={lnk}>Business Info</Link> → update the fields → Save. Changes apply immediately to bills, receipts, and the customer menu.</>,
+        a: <>Go to <Link href="/admin/business-info" style={lnk}>Business Info</Link> → update the fields → Save. Changes apply immediately to bills, receipts, and the customer menu.</>,
       },
       {
         q: 'How do I set my restaurant logo?',
-        a: <>Go to <Link href="/admin/settings" style={lnk}>Business Info</Link> → scroll to <strong>Restaurant Profile</strong> → click <strong>Upload logo</strong>. Square images work best (PNG, JPG, or WebP) up to 2&nbsp;MB. The logo shows on your customer menu header right next to your restaurant name. Replace or remove anytime.</>,
+        a: <>Go to <Link href="/admin/business-info" style={lnk}>Business Info</Link> → scroll to <strong>Restaurant Profile</strong> → click <strong>Upload logo</strong>. Square images work best (PNG, JPG, or WebP) up to 2&nbsp;MB. The logo shows on your customer menu header right next to your restaurant name. Replace or remove anytime.</>,
       },
       {
         q: 'How do I share my customer menu URL?',
-        a: <>Your public menu URL is <code style={kbd}>halohelm.com/restaurant/&lt;your-subdomain&gt;</code>. Find it on <Link href="/admin/settings" style={lnk}>Business Info</Link> → click <strong>Copy URL</strong>. Share via WhatsApp, social media, or print on receipts.</>,
+        a: <>Your public menu URL is <code style={kbd}>halohelm.com/restaurant/&lt;your-subdomain&gt;</code>. Find it on <Link href="/admin/business-info" style={lnk}>Business Info</Link> → click <strong>Copy URL</strong>. Share via WhatsApp, social media, or print on receipts.</>,
       },
     ],
   },
@@ -218,15 +218,15 @@ const FAQ_GROUPS = [
     items: [
       {
         q: 'How do I change my password?',
-        a: <>Go to <Link href="/admin/settings/security" style={lnk}>Settings → Security</Link> → enter your current password and the new one → Update. If you forgot your current password, sign out and use the "Forgot password?" link on the sign-in page.</>,
+        a: <>Go to <Link href="/admin/security" style={lnk}>Security</Link> → enter your current password and the new one → Update. If you forgot your current password, sign out and use the "Forgot password?" link on the sign-in page.</>,
       },
       {
         q: 'How do I change my email address?',
-        a: <>Go to <Link href="/admin/settings/security" style={lnk}>Settings → Security</Link> → Change Email. We send a verification link to the new email — your old email keeps working until you click the link, so there's no risk of typo lock-out.</>,
+        a: <>Go to <Link href="/admin/security" style={lnk}>Security</Link> → Change Email. We send a verification link to the new email — your old email keeps working until you click the link, so there's no risk of typo lock-out.</>,
       },
       {
         q: 'I signed up with Google — can I add a password too?',
-        a: <>Not directly through HaloHelm. Manage your Google account password from your Google account security settings (linked from <Link href="/admin/settings/security" style={lnk}>Settings → Security</Link>).</>,
+        a: <>Not directly through HaloHelm. Manage your Google account password from your Google account security settings (linked from <Link href="/admin/security" style={lnk}>Security</Link>).</>,
       },
     ],
   },

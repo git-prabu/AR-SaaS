@@ -75,7 +75,7 @@ export default async function handler(req, res) {
   }
 
   if (!recipient) {
-    return res.status(400).json({ error: 'No recipient — set Notifications email on /admin/settings or check that an owner user doc exists.' });
+    return res.status(400).json({ error: 'No recipient — set Notifications email on /admin/business-info or check that an owner user doc exists.' });
   }
 
   // ── Build + send ──

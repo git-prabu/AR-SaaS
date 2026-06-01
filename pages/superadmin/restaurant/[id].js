@@ -140,7 +140,7 @@ export default function RestaurantDetail() {
       title: prevSent ? 'Re-send welcome email?' : 'Send welcome email?',
       body: prevSent
         ? `This will send the welcome email to ${restaurant.name} again. Previous send was ${timeAgo(new Date(prevSent).getTime())} to ${restaurant.welcomeEmailRecipient || 'the saved recipient'}.`
-        : `This will send the welcome email to ${restaurant.name}. Recipient is the Notifications email (set in /admin/settings) or the owner's login email if that's blank.`,
+        : `This will send the welcome email to ${restaurant.name}. Recipient is the Notifications email (set in /admin/business-info) or the owner's login email if that's blank.`,
       confirmLabel: prevSent ? 'Re-send' : 'Send',
       cancelLabel: 'Cancel',
       destructive: false,

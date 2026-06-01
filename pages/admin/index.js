@@ -316,7 +316,7 @@ function OnboardingChecklist({ rid, ordersCount }) {
   const orderDone   = ordersCount > 0;
 
   const steps = [
-    { key: 'profile', done: profileDone, label: 'Complete restaurant profile', sub: 'Address, phone, cuisine — shown on customer menu + bills.', href: '/admin/settings' },
+    { key: 'profile', done: profileDone, label: 'Complete restaurant profile', sub: 'Address, phone, cuisine — shown on customer menu + bills.', href: '/admin/business-info' },
     { key: 'items',   done: itemsDone,   label: 'Add your first menu item',     sub: 'Photo, name, price. AR model can come later.',                  href: '/admin/requests' },
     { key: 'tables',  done: tablesDone,  label: 'Generate table QR codes',      sub: 'Print + place on each table — customers scan to order.',        href: '/admin/qrcode' },
     { key: 'staff',   done: staffDone,   label: 'Invite kitchen + waiter staff', sub: 'Each staff gets a 4-digit PIN to log in on their tablet.',     href: '/admin/staff' },

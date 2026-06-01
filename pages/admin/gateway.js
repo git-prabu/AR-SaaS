@@ -67,7 +67,7 @@ export default function AdminGatewayPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
 
   // Direct UPI ID — the simplest payment channel. Moved here from
-  // /admin/settings → UPI PAYMENT (relocated for context). Stored on
+  // /admin/business-info → UPI PAYMENT (relocated for context). Stored on
   // the restaurant doc as `upiId`, NOT inside the gateway config
   // (which only holds Paytm/Razorpay/PhonePe credentials). Independent
   // of the Auto-Confirm and Full Gateway tabs below — those can stay
@@ -220,7 +220,7 @@ export default function AdminGatewayPage() {
           </p>
 
           {/* ─── Direct UPI ID (always visible — simplest payment channel) ───
-              Moved here from /admin/settings → UPI PAYMENT. Sits above the
+              Moved here from /admin/business-info → UPI PAYMENT. Sits above the
               tabs because every restaurant needs this regardless of which
               gateway they pick, and the Razorpay/Paytm flows already
               reference it as a fallback when their gateway credentials

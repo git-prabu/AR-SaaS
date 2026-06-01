@@ -170,7 +170,7 @@ export default function ConnectGoogle() {
           ) : !subdomain ? (
             <div style={{ background: A.shell, borderRadius: 14, border: A.border, padding: 36, textAlign: 'center', boxShadow: A.cardShadow, fontSize: 13, color: A.mutedText }}>
               We couldn’t load your restaurant link yet. Please refresh, or set it up in{' '}
-              <Link href="/admin/settings" style={{ color: A.warningDim, fontWeight: 700 }}>Settings</Link>.
+              <Link href="/admin/business-info" style={{ color: A.warningDim, fontWeight: 700 }}>Business Info</Link>.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720 }}>
@@ -222,12 +222,12 @@ export default function ConnectGoogle() {
                   </>
                 ) : (
                   <div style={{ marginTop: 14 }}>
-                    <Link href="/admin/settings" style={{
+                    <Link href="/admin/business-info" style={{
                       display: 'inline-flex', alignItems: 'center', gap: 8,
                       padding: '10px 16px', borderRadius: 9, background: A.google, color: '#fff',
                       fontSize: 13, fontWeight: 700, textDecoration: 'none',
                     }}>
-                      Add Google Place ID in Settings →
+                      Add Google Place ID in Business Info →
                     </Link>
                     <div style={{ fontSize: 11.5, color: A.faintText, marginTop: 10, lineHeight: 1.5 }}>
                       Find yours with Google’s free <strong style={{ color: A.mutedText }}>Place ID Finder</strong>{' '}

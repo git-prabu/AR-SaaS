@@ -84,6 +84,32 @@ const nextConfig = {
       ],
     };
   },
+
+  // ── URL renames for the page-rename pass (2026-06-01) ──────────────
+  // Four admin pages got their URLs renamed to match their (already-
+  // renamed) sidebar labels. These permanent (308) redirects keep
+  // existing owner bookmarks working — a hit on the old URL bounces
+  // to the new one. Browsers cache 308 aggressively, which is what we
+  // want here (the rename is final, not experimental).
+  //
+  // Also covers the corresponding /staff/* paths because of the
+  // afterFiles rewrite above — anyone with a /staff/settings bookmark
+  // would otherwise 404 once /admin/settings is gone.
+  async redirects() {
+    return [
+      { source: '/admin/settings',          destination: '/admin/business-info', permanent: true },
+      { source: '/admin/settings/security', destination: '/admin/security',      permanent: true },
+      { source: '/admin/notifications',     destination: '/admin/activity-log',  permanent: true },
+      { source: '/admin/petpooja-connect',  destination: '/admin/petpooja-pos',  permanent: true },
+      // Mirror redirects for staff URLs (the rewrite turns /staff/X
+      // into /admin/X, so /staff/settings would otherwise dead-end at
+      // the missing /admin/settings file).
+      { source: '/staff/settings',          destination: '/staff/business-info', permanent: true },
+      { source: '/staff/settings/security', destination: '/staff/security',      permanent: true },
+      { source: '/staff/notifications',     destination: '/staff/activity-log',  permanent: true },
+      { source: '/staff/petpooja-connect',  destination: '/staff/petpooja-pos',  permanent: true },
+    ];
+  },
 };
 
 module.exports = nextConfig;

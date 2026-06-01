@@ -58,7 +58,7 @@ export const navSections = [
     label: 'DASHBOARD', items: [
       { href: '/admin/analytics',     label: 'Analytics',    icon: 'chart' },
       { href: '/admin/reports',       label: 'Reports',      icon: 'dollar' },
-      { href: '/admin/notifications', label: 'Activity Log', icon: 'bell-ring' },
+      { href: '/admin/activity-log', label: 'Activity Log', icon: 'bell-ring' },
     ]
   },
   {
@@ -113,10 +113,10 @@ export const navSections = [
       // Phase B (Petpooja hybrid) — Pro-only nav entry. Filtered out at
       // render time by canUsePetpoojaIntegration() so non-Pro plans
       // never see it. Server still enforces, this is the cosmetic gate.
-      { href: '/admin/petpooja-connect',  label: 'Petpooja POS',      icon: 'plug', proOnly: true },
-      { href: '/admin/settings',          label: 'Business Info',     icon: 'gear' },
-      { href: '/admin/google',            label: 'Connect to Google', icon: 'globe' },
-      { href: '/admin/settings/security', label: 'Security',          icon: 'shield' },
+      { href: '/admin/petpooja-pos',  label: 'Petpooja POS',      icon: 'plug', proOnly: true },
+      { href: '/admin/business-info', label: 'Business Info',     icon: 'gear' },
+      { href: '/admin/google',        label: 'Connect to Google', icon: 'globe' },
+      { href: '/admin/security',      label: 'Security',          icon: 'shield' },
     ]
   },
   {

@@ -9,7 +9,7 @@ import { uploadFile, buildImagePath, fileSizeMB } from '../../lib/storage';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
-// ═══ Aspire palette — same tokens as analytics/staff/notifications/feedback ═══
+// ═══ Aspire palette — same tokens as analytics/staff/activity-log/feedback ═══
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
   font: INTER,
