@@ -219,6 +219,19 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
       .filter(c => c.qty > 0)
     );
   };
+  // Phase 5 polish: per-item note. Sent to the kitchen alongside the
+  // item so a "no onion" or "extra spicy" annotation lands on the
+  // right dish (not buried in one whole-order "special instructions"
+  // field). The cart item shape already had `note: ''` — we just
+  // light it up here. KOT printing reads c.note when present and adds
+  // it as the second line under the dish name.
+  const setItemNote = (id, note) => {
+    setCart(prev => prev.map(c => c.id === id ? { ...c, note } : c));
+  };
+  // Track which cart rows have their note input expanded. A row stays
+  // closed until the user taps "Add note", then it expands inline.
+  // Closing collapses the input but leaves the saved note in place.
+  const [openNotes, setOpenNotes] = useState({}); // { [itemId]: true }
 
   // Quick lookup: current qty for an item id in the cart. Used by the
   // menu-card counter (no qty → big circular "+", qty>0 → "− N +" pill).
@@ -396,25 +409,60 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
           <span className="ar-show-mobile">No items yet — tap “Back to menu” to add.</span>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {cart.map(c => (
-            <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                <div style={{ fontSize: 11, color: A.mutedText, fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(c.price)} × {c.qty}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {cart.map(c => {
+            const noteOpen = openNotes[c.id] || !!c.note;
+            return (
+              <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                      <span style={{ fontSize: 11, color: A.mutedText, fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(c.price)} × {c.qty}</span>
+                      {!noteOpen && (
+                        <button
+                          type="button"
+                          onClick={() => setOpenNotes(prev => ({ ...prev, [c.id]: true }))}
+                          style={{
+                            padding: '2px 8px', borderRadius: 999,
+                            background: A.subtleBg, border: 'none',
+                            fontSize: 10.5, fontWeight: 600, color: A.warningDim,
+                            cursor: 'pointer', fontFamily: A.font,
+                            letterSpacing: '0.02em',
+                          }}>
+                          + Note
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 8, overflow: 'hidden' }}>
+                    <button className="nom-qty-btn" onClick={() => changeQty(c.id, -1)}
+                      style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>−</button>
+                    <span style={{ padding: '4px 10px', fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 24, textAlign: 'center' }}>{c.qty}</span>
+                    <button className="nom-qty-btn" onClick={() => changeQty(c.id, 1)}
+                      style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>+</button>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 56, textAlign: 'right' }}>
+                    {formatRupee(c.price * c.qty)}
+                  </span>
+                </div>
+                {noteOpen && (
+                  <input
+                    value={c.note || ''}
+                    onChange={e => setItemNote(c.id, e.target.value)}
+                    placeholder="e.g. no onion, extra spicy"
+                    className="nom-input"
+                    style={{
+                      width: '100%', padding: '7px 10px', boxSizing: 'border-box',
+                      background: A.shellDarker, border: A.border, borderRadius: 6,
+                      fontSize: 12, color: A.ink, fontFamily: A.font,
+                      transition: 'border-color 0.15s, box-shadow 0.15s',
+                    }}
+                  />
+                )}
               </div>
-              <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 8, overflow: 'hidden' }}>
-                <button className="nom-qty-btn" onClick={() => changeQty(c.id, -1)}
-                  style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>−</button>
-                <span style={{ padding: '4px 10px', fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 24, textAlign: 'center' }}>{c.qty}</span>
-                <button className="nom-qty-btn" onClick={() => changeQty(c.id, 1)}
-                  style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>+</button>
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 56, textAlign: 'right' }}>
-                {formatRupee(c.price * c.qty)}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
