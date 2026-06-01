@@ -456,8 +456,14 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {/* ═══ BILLING SETUP — matte-black signature stat card ═══ */}
-          <div className="ar-stat-strip" style={{
+          {/* ═══ BILLING SETUP — matte-black signature stat card ═══
+              NOTE: this card uses Structure A (label-row-then-tile-grid)
+              so the inner tiles use .ar-tile-grid-3 for responsive
+              2-col-on-mobile. Do NOT add .ar-stat-strip here — that
+              class targets a different structure (Structure B with
+              label+divider+tiles in a single flex row) and would
+              accidentally hide the entire tile grid on mobile. */}
+          <div style={{
             background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
             borderRadius: 14, padding: '20px 24px', marginBottom: 14,
             border: A.forestBorder,
@@ -471,7 +477,7 @@ export default function AdminSettings() {
                 {loading ? 'Loading…' : 'Live · applies to all new bills'}
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <div className="ar-tile-grid-3">
               {[
                 { label: 'GST',            value: `${stats.gst}%`,           color: stats.gst > 0 ? A.warning : A.forestText },
                 { label: 'SERVICE CHARGE', value: `${stats.serviceCharge}%`, color: stats.serviceCharge > 0 ? A.warning : A.forestText },

@@ -587,8 +587,12 @@ export default function StaffManagement() {
             </div>
           )}
 
-          {/* ═══ TEAM — matte-black signature stats card (LIVE TODAY pattern) ═══ */}
-          <div className="ar-stat-strip" style={{
+          {/* ═══ TEAM — matte-black signature stats card (LIVE TODAY pattern) ═══
+              Structure A card (label row then tile grid) — inner already
+              uses .ar-tile-grid-4 so the 4 stats become 2x2 on mobile.
+              Removed the .ar-stat-strip class — that's for Structure B
+              cards which have label+divider+tiles in a single flex row. */}
+          <div style={{
             background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
             borderRadius: 14, padding: '20px 24px', marginBottom: 14,
             border: A.forestBorder,

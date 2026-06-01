@@ -368,7 +368,7 @@ export default function AdminPurchaseOrders() {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 12, marginBottom: 18 }}>
+              <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 12, marginBottom: 18 }}>
                 <div>
                   <label style={labelStyle}>Vendor</label>
                   <select style={inputStyle} value={form.vendorId} onChange={e => setForm(f => ({ ...f, vendorId: e.target.value }))}>
