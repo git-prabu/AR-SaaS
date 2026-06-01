@@ -145,25 +145,27 @@ html, body { overflow-x: hidden; }
 }
 
 /* Tighten desktop page padding on phones.
-   Catches the common admin-page wrapper pattern `padding: '28px 26px'`
-   (and similar 24-32 / 26-28 variants) via attribute selector. On a
-   360px screen the desktop padding ate 52px of width; on phones we
-   tighten to 14-16px so content actually breathes. */
+   IMPORTANT: React serialises inline styles WITHOUT the JSX quotes —
+   so `style={{ padding: '28px 26px' }}` renders as
+   `style="padding: 28px 26px"` (no quotes in the value). The attribute
+   selectors below MUST NOT include quotes around the value or they
+   won't match. (Earlier version had quotes and silently no-op'd —
+   owner reported "still cramped" and was correct.) */
 @media (max-width: 767px) {
-  div[style*="padding: '28px 26px'"],
-  div[style*="padding: '24px 28px'"],
-  div[style*="padding: '32px 28px'"],
-  div[style*="padding: '28px 28px'"],
-  div[style*="padding: '24px 28px 0'"],
-  div[style*="padding: '28px 26px 0'"],
-  div[style*="padding: '32px 28px 28px'"] {
+  div[style*="padding: 28px 26px"],
+  div[style*="padding: 24px 28px"],
+  div[style*="padding: 32px 28px"],
+  div[style*="padding: 28px 28px"],
+  div[style*="padding: 24px 28px 0"],
+  div[style*="padding: 28px 26px 0"],
+  div[style*="padding: 32px 28px 28px"] {
     padding: 16px 14px !important;
   }
   /* Variants with only horizontal-or-bottom padding (no top) — used on
      the dashboard for inner sections that sit under the page header. */
-  div[style*="padding: '0 28px'"],
-  div[style*="padding: '0 28px 60px'"],
-  div[style*="padding: '0 28px 28px'"] {
+  div[style*="padding: 0 28px"],
+  div[style*="padding: 0 28px 60px"],
+  div[style*="padding: 0 28px 28px"] {
     padding-left: 14px !important;
     padding-right: 14px !important;
   }
@@ -181,15 +183,16 @@ html, body { overflow-x: hidden; }
 
 /* Tighten card-style inner padding on phones. The matte-black summary
    cards on /admin/reports (Money Summary) and /admin/analytics
-   (Restaurant Health) use padding: '20px 24px' / '22px 24px' which on
+   (Restaurant Health) use padding: 20px 24px / 22px 24px which on
    a 360px phone left only ~145px per tile in the 2-col grid — content
-   started clipping on the right. Mobile gets 14-16px padding instead. */
+   started clipping on the right. Mobile gets 14-16px padding instead.
+   (Same quote-stripping fix as the page padding rule above.) */
 @media (max-width: 767px) {
-  div[style*="padding: '20px 24px'"],
-  div[style*="padding: '22px 24px'"],
-  div[style*="padding: '20px 22px'"],
-  div[style*="padding: '18px 22px'"],
-  div[style*="padding: '16px 18px'"] {
+  div[style*="padding: 20px 24px"],
+  div[style*="padding: 22px 24px"],
+  div[style*="padding: 20px 22px"],
+  div[style*="padding: 18px 22px"],
+  div[style*="padding: 16px 18px"] {
     padding: 14px 14px !important;
   }
 }
@@ -208,91 +211,83 @@ html, body { overflow-x: hidden; }
   }
 }
 
-/* Kitchen LIVE KITCHEN stats card on phones — compact horizontal strip
-   showing the counters in one row instead of stacking. The big numbers
-   stay readable, label widths shrink, the SERVED TODAY tile keeps
-   visibility. (Owner specifically asked NOT to hide it on mobile, just
-   make it small.) */
+/* Kitchen LIVE KITCHEN + DISHES/TEAM/PROMOTIONS/TABLES matte-black
+   stats strip on phones.
+   IMPORTANT: previous version used `[style*="..."]` attribute selectors
+   on inline styles. React serialises inline styles in a format those
+   selectors didn't match (the quote-around-value issue) so the entire
+   ruleset silently no-op'd — owner reported "still vertically very big"
+   and was correct. This rewrite uses POSITIONAL > div selectors which
+   work regardless of how React serialises the style attribute.
+
+   Internal shape (consistent across all stat-strip cards in this app):
+     <div class="ar-stat-strip">                outer card
+       <div>                                    flex row, flexWrap wrap
+         <div>label group (● DISHES)</div>      child 1 — HIDE on mobile
+         <div>1px vertical divider</div>        child 2 — HIDE on mobile
+         <div>tiles row</div>                   child 3 — keep, scroll
+       </div>
+     </div>
+
+   We force the OUTER flex row to nowrap + overflow-x:auto so all
+   tiles stay on a single horizontal row (the owner's request:
+   "make it one row, not stacked vertically"). */
 @media (max-width: 767px) {
+  .ar-stat-strip,
   .ar-kitchen-live {
     padding: 10px 12px !important;
     margin-top: 10px !important;
     margin-bottom: 10px !important;
   }
+
+  /* OUTER flex row (the single direct child of the card) */
+  .ar-stat-strip > div,
   .ar-kitchen-live > div {
-    /* Inner flex row — keep horizontal, allow wrap as a fallback */
-    gap: 12px !important;
-  }
-  .ar-kitchen-live * {
-    font-size: 11px !important;
-  }
-  /* Restore larger size on the actual stat values — they live in
-     bigger inline font-size declarations inside the row */
-  .ar-kitchen-live [style*="font-size: 20px"],
-  .ar-kitchen-live [style*="font-size: 22px"],
-  .ar-kitchen-live [style*="font-size: 24px"],
-  .ar-kitchen-live [style*="font-size: 26px"] {
-    font-size: 18px !important;
-  }
-}
-
-/* Matte-black DISHES / PROMOTIONS / CUSTOMERS / STAFF / TABLES stats
-   strip — the gradient-black header that sits above the filter row on
-   /admin/items, /admin/promotions, /admin/qrcode, /admin/staff, etc.
-   Desktop uses `flex flexWrap:wrap` which on phones stacks each stat
-   tile to its own line (the owner's "vertically very big" complaint).
-
-   Mobile fix:
-     - Force flexWrap: nowrap so all tiles stay in ONE ROW
-     - Horizontal scroll inside the card if the row exceeds viewport
-     - Edge fade hint at the right so it's discoverable
-     - Tighten font + gap so 4-5 tiles fit on a 360px screen
-     - Hide the leading dot+label group ("● DISHES") + the vertical
-       divider after it — the page heading already tells the owner
-       what this card is about, so the label is desktop polish only.
-*/
-@media (max-width: 767px) {
-  .ar-stat-strip {
-    padding: 10px 12px !important;
-    margin-bottom: 12px !important;
-  }
-  /* Outer flex row */
-  .ar-stat-strip > div[style*="display: flex"] {
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
     gap: 14px !important;
-    mask-image: linear-gradient(to right, black 0, black calc(100% - 14px), transparent 100%);
+    /* Edge fade hint at the right so user knows there's more to swipe */
     -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 14px), transparent 100%);
+    /* Prevent the outer card from shrinking the row */
+    align-items: center !important;
   }
-  /* The dot+label group is the FIRST flex child; hide it on mobile.
-     The 1px vertical divider that immediately follows it is the
-     SECOND child — also hide so we don't leak its width. */
-  .ar-stat-strip > div[style*="display: flex"] > div:first-child,
-  .ar-stat-strip > div[style*="display: flex"] > div:nth-child(2) {
+
+  /* HIDE the leading dot+label group AND the vertical divider after it.
+     Position-based — child 1 and child 2 of the outer row. The page
+     heading already says what card this is, so the inner "● DISHES"
+     label is desktop polish only. */
+  .ar-stat-strip > div > div:first-child,
+  .ar-stat-strip > div > div:nth-child(2),
+  .ar-kitchen-live > div > div:first-child,
+  .ar-kitchen-live > div > div:nth-child(2) {
     display: none !important;
   }
-  /* Inner tiles row (3rd child) — keep horizontal, smaller gap, no wrap */
-  .ar-stat-strip > div[style*="display: flex"] > div:nth-child(3) {
+
+  /* Tiles container (3rd child of outer row) — keep horizontal, tight gap */
+  .ar-stat-strip > div > div:nth-child(3),
+  .ar-kitchen-live > div > div:nth-child(3) {
     flex-wrap: nowrap !important;
     gap: 14px !important;
     flex-shrink: 0 !important;
   }
-  /* The vertical dividers BETWEEN tiles become tiny on phones so we
-     don't lose horizontal space to them. */
-  .ar-stat-strip [style*="width: 1px"] {
-    height: 24px !important;
+
+  /* StatTile internals — each tile is a flex column of [label, value].
+     Tighten the value font (28-32px on desktop → 18-20px on mobile)
+     while keeping labels readable. Apply to all descendants of stat
+     strips since StatTile is an inline component with inline styles. */
+  .ar-stat-strip > div > div:nth-child(3) > * {
+    flex-shrink: 0 !important;
   }
-  /* Tile font sizes — keep the value bold but smaller */
-  .ar-stat-strip [style*="font-size: 20px"],
-  .ar-stat-strip [style*="font-size: 22px"],
-  .ar-stat-strip [style*="font-size: 24px"],
-  .ar-stat-strip [style*="font-size: 26px"],
-  .ar-stat-strip [style*="font-size: 28px"] {
-    font-size: 17px !important;
+  .ar-stat-strip > div > div:nth-child(3) > * > div:last-child,
+  .ar-kitchen-live > div > div:nth-child(3) > * > div:last-child {
+    font-size: 18px !important;
+    white-space: nowrap;
   }
-  .ar-stat-strip [style*="font-size: 10px"],
-  .ar-stat-strip [style*="font-size: 11px"] {
+  .ar-stat-strip > div > div:nth-child(3) > * > div:first-child,
+  .ar-kitchen-live > div > div:nth-child(3) > * > div:first-child {
+    font-size: 10px !important;
     white-space: nowrap;
   }
 }

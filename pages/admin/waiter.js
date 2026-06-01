@@ -795,7 +795,7 @@ export default function WaiterDashboard() {
         </div>
 
         {/* ═══ LIVE SERVICE stats card — full width, compact ═══ */}
-        <div style={{
+        <div className="ar-stat-strip" style={{
           background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
           borderRadius: 12, padding: '12px 18px', marginTop: 14, marginBottom: 14,
           border: A.forestBorder,
