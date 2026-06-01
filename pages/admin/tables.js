@@ -533,43 +533,76 @@ export default function AdminTables() {
                 return (
                   <div key={area.id} style={{ marginBottom: 28 }}>
                     <h2 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 12px', letterSpacing: '-0.2px', color: A.ink }}>{area.name}</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 16 }}>
                       {at.map(t => {
                         const st = statesByTable[t.id] || { status: STATUS.blank, total: 0, itemCount: 0 };
                         const s = st.status;
                         const busy = s.key !== 'blank';
+                        const cap = Math.max(2, Math.min(12, Number(t.capacity) || 4));
+                        // Distribute the capacity dots across top + bottom
+                        // edges so the card visually reads as "a table with
+                        // chairs around it" (refs 2 + 5). Odd counts get an
+                        // extra dot on the top edge by convention.
+                        const topSeats = Math.ceil(cap / 2);
+                        const botSeats = Math.floor(cap / 2);
+                        // Dot color: status colour when busy (subtle visual
+                        // link between the table card and its occupied
+                        // chairs), neutral grey when blank.
+                        const seatDot = busy ? s.dot : 'rgba(0,0,0,0.18)';
+                        const SeatRow = ({ count }) => (
+                          <div style={{
+                            display: 'flex', justifyContent: 'space-evenly',
+                            padding: '0 14px', gap: 4,
+                          }}>
+                            {Array.from({ length: count }).map((_, i) => (
+                              <span key={i} style={{
+                                width: 7, height: 7, borderRadius: '50%',
+                                background: seatDot,
+                              }} />
+                            ))}
+                          </div>
+                        );
                         return (
                           // Busy table → open the bill panel. Free table →
                           // open the captain order modal to start an order.
-                          <button key={t.id}
-                            onClick={() => busy ? setDetailTable(t) : setOrderModalTable({ code: t.code, label: t.label })}
-                            style={{
-                              textAlign: 'left', cursor: 'pointer',
-                              background: s.bg, border: `1.5px solid ${s.bd}`, borderRadius: 12,
-                              padding: '13px 14px', minHeight: 84, fontFamily: A.font,
-                              display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8,
-                            }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-                              <span style={{ fontSize: 14, fontWeight: 800, color: A.ink, lineHeight: 1.2 }}>{t.label}</span>
-                              <span style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, flexShrink: 0, marginTop: 3 }} />
-                            </div>
-                            {busy ? (
-                              <div>
-                                <div style={{ fontSize: 11.5, fontWeight: 700, color: s.fg, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{s.label}</div>
-                                {s.key === 'seated' ? (
-                                  <div style={{ fontSize: 12.5, fontWeight: 700, color: A.ink, marginTop: 2 }}>
-                                    {st.seatedName || 'Guest'}{st.seatedPartySize ? <span style={{ fontWeight: 600, color: A.mutedText, fontSize: 11 }}> · {st.seatedPartySize} pax</span> : null}
-                                  </div>
-                                ) : (
-                                  <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, marginTop: 2 }}>
-                                    ₹{Math.round(st.total)}{st.itemCount ? <span style={{ fontWeight: 600, color: A.mutedText, fontSize: 11 }}> · {st.itemCount} item{st.itemCount === 1 ? '' : 's'}</span> : null}
-                                  </div>
-                                )}
+                          // Wrapped in a flex column so the seat-dot rows
+                          // can sit visually attached to the card edges.
+                          <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <SeatRow count={topSeats} />
+                            <button
+                              onClick={() => busy ? setDetailTable(t) : setOrderModalTable({ code: t.code, label: t.label })}
+                              style={{
+                                textAlign: 'left', cursor: 'pointer',
+                                background: s.bg, border: `1.5px solid ${s.bd}`, borderRadius: 12,
+                                padding: '13px 14px', minHeight: 84, fontFamily: A.font,
+                                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 8,
+                                transition: 'transform 0.12s, box-shadow 0.12s',
+                              }}
+                              onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'; }}
+                              onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                                <span style={{ fontSize: 14, fontWeight: 800, color: A.ink, lineHeight: 1.2 }}>{t.label}</span>
+                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, flexShrink: 0, marginTop: 3, boxShadow: busy ? `0 0 6px ${s.dot}80` : 'none' }} />
                               </div>
-                            ) : (
-                              <div style={{ fontSize: 11.5, fontWeight: 600, color: A.faintText }}>{t.capacity || 4} seats · tap to order</div>
-                            )}
-                          </button>
+                              {busy ? (
+                                <div>
+                                  <div style={{ fontSize: 11.5, fontWeight: 700, color: s.fg, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{s.label}</div>
+                                  {s.key === 'seated' ? (
+                                    <div style={{ fontSize: 12.5, fontWeight: 700, color: A.ink, marginTop: 2 }}>
+                                      {st.seatedName || 'Guest'}{st.seatedPartySize ? <span style={{ fontWeight: 600, color: A.mutedText, fontSize: 11 }}> · {st.seatedPartySize} pax</span> : null}
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: 13, fontWeight: 800, color: A.ink, marginTop: 2 }}>
+                                      ₹{Math.round(st.total)}{st.itemCount ? <span style={{ fontWeight: 600, color: A.mutedText, fontSize: 11 }}> · {st.itemCount} item{st.itemCount === 1 ? '' : 's'}</span> : null}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: 11.5, fontWeight: 600, color: A.faintText }}>{cap} seats · tap to order</div>
+                              )}
+                            </button>
+                            {botSeats > 0 && <SeatRow count={botSeats} />}
+                          </div>
                         );
                       })}
                     </div>
