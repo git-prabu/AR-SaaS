@@ -838,8 +838,8 @@ export default function AdminReports() {
             {ledgerRows.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '30px 0', color: A.faintText, fontSize: 13 }}>No orders in this period</div>
             ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 80px 100px 90px', gap: 12, padding: '0 4px 10px', borderBottom: A.border }}>
+              <div className="ar-wide-table">
+                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 80px 100px 90px', minWidth: 560, gap: 12, padding: '0 4px 10px', borderBottom: A.border }}>
                   <div style={labelSm}>Date</div>
                   <div style={labelSm}>Visual</div>
                   <div style={{ ...labelSm, textAlign: 'right' }}>Orders</div>
@@ -848,7 +848,7 @@ export default function AdminReports() {
                 </div>
                 {ledgerRows.map((r, i) => (
                   <div key={i} className="row-hover" style={{
-                    display: 'grid', gridTemplateColumns: '140px 1fr 80px 100px 90px', gap: 12, alignItems: 'center',
+                    display: 'grid', gridTemplateColumns: '140px 1fr 80px 100px 90px', minWidth: 560, gap: 12, alignItems: 'center',
                     padding: '11px 4px', borderBottom: A.border, fontVariantNumeric: 'tabular-nums',
                   }}>
                     <span style={{ fontFamily: A.font, fontSize: 13, color: A.ink }}>{r.label}</span>
@@ -862,7 +862,7 @@ export default function AdminReports() {
                 ))}
                 {/* Totals row */}
                 <div style={{
-                  display: 'grid', gridTemplateColumns: '140px 1fr 80px 100px 90px', gap: 12, alignItems: 'center',
+                  display: 'grid', gridTemplateColumns: '140px 1fr 80px 100px 90px', minWidth: 560, gap: 12, alignItems: 'center',
                   padding: '14px 4px 4px', fontVariantNumeric: 'tabular-nums',
                 }}>
                   <span style={{ ...labelSm }}>Total</span>
@@ -871,7 +871,7 @@ export default function AdminReports() {
                   <span style={{ fontFamily: A.font, fontSize: 14, color: A.warning, textAlign: 'right', fontWeight: 700 }}>{formatRupee(gross)}</span>
                   <span style={{ fontFamily: A.font, fontSize: 12, color: A.mutedText, textAlign: 'right' }}>{avgOrder > 0 ? formatRupee(avgOrder) : '—'}</span>
                 </div>
-              </>
+              </div>
             )}
           </div>
 
