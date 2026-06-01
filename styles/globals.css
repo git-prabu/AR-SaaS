@@ -163,16 +163,17 @@ html, body { overflow-x: hidden; }
 
 /* Container for wide tables on phones (items / analytics / reports).
    Wraps the existing wide grid so it horizontally scrolls inside its
-   own box instead of pushing the whole page sideways. The handle bar
-   on top hints that there's more content to swipe to. Pages opt in
-   by wrapping their wide grid in <div className="ar-wide-table">. */
+   own box instead of pushing the whole page sideways. Edge-fade mask
+   hints there's more content to swipe to.
+   !important on overflow-x defeats per-page inline overflow:'hidden'. */
 .ar-wide-table { width: 100%; }
 @media (max-width: 767px) {
   .ar-wide-table {
-    overflow-x: auto;
+    overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
-    /* Visual edge fade so the user sees there's more content off-screen */
-    mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+    /* Visual edge fade — right edge softly fades to hint at hidden content */
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
   }
 }
 

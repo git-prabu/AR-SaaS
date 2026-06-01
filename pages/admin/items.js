@@ -1392,7 +1392,7 @@ export default function AdminItems() {
               onCta={items.length === 0 ? () => router.push('/admin/requests') : null}
             />
           ) : (
-            <div style={{
+            <div className="ar-wide-table" style={{
               background: A.shell, borderRadius: 14, border: A.border,
               boxShadow: A.shadowCard, overflow: 'hidden',
             }}>
@@ -1400,6 +1400,7 @@ export default function AdminItems() {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '28px 36px 56px 1fr 110px 90px 90px 110px 100px',
+                minWidth: 720,
                 gap: 10, alignItems: 'center',
                 padding: '10px 18px',
                 borderBottom: A.border,
@@ -1474,6 +1475,7 @@ export default function AdminItems() {
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '28px 36px 56px 1fr 110px 90px 90px 110px 100px',
+                      minWidth: 720,
                       gap: 10, alignItems: 'center',
                       padding: '12px 18px',
                       borderBottom: idx === displayed.length - 1 ? 'none' : A.border,
