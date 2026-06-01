@@ -162,7 +162,10 @@ export default function WaiterDashboard() {
     const isAdmin = !!userData?.restaurantId;
     if (isAdmin) return;
     if (staffSession?.role === 'waiter') return;
-    if (staffSession?.role === 'kitchen') { router.replace('/admin/kitchen'); return; }
+    // Route staff to /staff/kitchen (not /admin/kitchen) so the URL stays
+    // inside the installed staff PWA's manifest scope ("/staff/"). The
+    // afterFiles rewrite still serves admin/kitchen.js content.
+    if (staffSession?.role === 'kitchen') { router.replace('/staff/kitchen'); return; }
     // Any other signed-in staffer (a custom role without waiter access) goes to
     // their hub, which shows what they CAN reach; logged-out → login.
     router.replace(staffSession ? '/staff/home' : '/staff/login');

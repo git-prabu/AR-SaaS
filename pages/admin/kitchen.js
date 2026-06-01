@@ -175,7 +175,10 @@ export default function KitchenDisplay() {
     const isAdmin = !!userData?.restaurantId;
     if (isAdmin) return; // admin: full access
     if (staffSession?.role === 'kitchen') return; // kitchen staff: allow
-    if (staffSession?.role === 'waiter') { router.replace('/admin/waiter'); return; }
+    // Route staff to /staff/waiter (not /admin/waiter) so the URL stays
+    // inside the installed staff PWA's manifest scope ("/staff/"). The
+    // afterFiles rewrite still serves admin/waiter.js content.
+    if (staffSession?.role === 'waiter') { router.replace('/staff/waiter'); return; }
     // Any other signed-in staffer (a custom role without kitchen access) goes
     // to their hub, which shows what they CAN reach; logged-out → login.
     router.replace(staffSession ? '/staff/home' : '/staff/login');

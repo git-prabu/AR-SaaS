@@ -151,9 +151,21 @@ export default function StaffLogin() {
       // kitchen screen), where they can see + reach everything their role
       // grants. Pure station staff (no custom role) go straight to their
       // dedicated kitchen / waiter screen as before.
+      //
+      // Important: send them to /staff/kitchen and /staff/waiter (NOT
+      // /admin/kitchen / /admin/waiter). The next.config.js afterFiles
+      // rewrite serves the same admin/kitchen.js / admin/waiter.js
+      // page content under those /staff/ URLs, but the visible URL
+      // stays inside the installed staff PWA's manifest scope
+      // ("/staff/"). Without this, iOS Safari treats the navigation
+      // as "out of scope" and pops the page out into an in-app Safari
+      // sheet (the brown "Done" bar at top of screen) — and tapping
+      // Done in that sheet kills the session. Same risk on Android
+      // Chrome (opens Custom Tab look). Keeping the URL in scope
+      // keeps the user inside the PWA shell.
       const landing = data.roleId
         ? '/staff/home'
-        : (data.role === 'kitchen' ? '/admin/kitchen' : data.role === 'waiter' ? '/admin/waiter' : '/staff/home');
+        : (data.role === 'kitchen' ? '/staff/kitchen' : data.role === 'waiter' ? '/staff/waiter' : '/staff/home');
       router.push(landing);
     } catch (err) {
       console.error('Staff login error:', err);

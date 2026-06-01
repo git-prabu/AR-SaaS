@@ -115,6 +115,29 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, submitting]);
 
+  // Body-scroll-lock while the modal is open. Without this, scrolling
+  // inside the modal on mobile bleeds through to the page behind:
+  // when the inner scroll container hits its top or bottom, the
+  // touchmove keeps going and drags the waiter dashboard underneath
+  // (owner reported this). Lock the body for the lifetime of the
+  // modal; restore the previous overflow + scroll position on unmount.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    const prevOverflow = body.style.overflow;
+    const prevPaddingRight = body.style.paddingRight;
+    // Preserve scroll position by compensating for the scrollbar that
+    // disappears when overflow:hidden is set (desktop only; mobile has
+    // no scrollbar so the diff is 0).
+    const scrollbarW = window.innerWidth - document.documentElement.clientWidth;
+    body.style.overflow = 'hidden';
+    if (scrollbarW > 0) body.style.paddingRight = `${scrollbarW}px`;
+    return () => {
+      body.style.overflow = prevOverflow;
+      body.style.paddingRight = prevPaddingRight;
+    };
+  }, []);
+
   const categories = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.category).filter(Boolean)))], [items]);
 
   // Fuzzy / typo-tolerant search.
@@ -224,12 +247,45 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
       <style>{`
         @keyframes nom-fade-in { from { opacity: 0; } to { opacity: 1; } }
         @keyframes nom-spin { to { transform: rotate(360deg); } }
+        @keyframes nom-slide-up { from { transform: translateY(100%); } to { transform: none; } }
         .nom-input:focus { border-color: ${A.ink}; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); outline: none; }
         .nom-menu-card:hover { border-color: rgba(0,0,0,0.15); transform: translateY(-1px); }
         .nom-qty-btn:hover { background: ${A.subtleBg}; }
+        /* overscroll-behavior:contain stops touch scrolls inside the
+           menu / cart from leaking out to the page behind once they
+           hit the top or bottom of the scroller. Needs the body-scroll
+           lock too (the effect above) — together they fully isolate
+           modal scrolling from the underlying waiter dashboard. */
+        .nom-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+        /* Sticky mobile action bar — desktop-hidden by default. */
+        .nom-mobile-bar { display: none; }
         @media (max-width: 900px) {
           .nom-grid { grid-template-columns: 1fr !important; }
           .nom-cart-pane { max-height: none !important; }
+          /* Sticky-fixed bottom action bar on mobile, showing live
+             cart count + grand total + Place Order button. The waiter
+             can scroll the menu freely and place the order from
+             anywhere without scrolling back up to the cart pane.
+             Plain fixed positioning so it stays glued to the viewport
+             bottom even when the keyboard / native scroll position
+             changes. iOS safe-area inset keeps it above the bottom
+             home-indicator bar on notched iPhones. */
+          .nom-mobile-bar {
+            display: flex !important;
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 110;
+            padding: 12px 14px calc(12px + env(safe-area-inset-bottom)) 14px;
+            background: ${A.ink}; color: ${A.cream};
+            box-shadow: 0 -6px 20px rgba(0,0,0,0.28);
+            align-items: center; gap: 12px;
+            animation: nom-slide-up 0.22s ease both;
+          }
+          /* Hide the in-cart-pane totals + submit on mobile since the
+             floating bar replaces them. Keeps the cart pane focused on
+             order setup (type / table) + item list. */
+          .nom-desktop-bottom { display: none !important; }
+          /* Reserve breathing room at the bottom of the cart pane so
+             the floating bar doesn't cover the last cart item. */
+          .nom-cart-pane > .nom-cart-list-wrap { padding-bottom: 100px !important; }
         }
       `}</style>
 
@@ -288,7 +344,7 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
               ))}
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: 12, minHeight: 280 }}>
+            <div className="nom-scroll" style={{ flex: 1, overflowY: 'auto', padding: 12, minHeight: 280 }}>
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 60 }}>
                   <div style={{ width: 26, height: 26, border: `3px solid ${A.warning}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'nom-spin 0.8s linear infinite', margin: '0 auto 10px' }} />
@@ -437,7 +493,7 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
             </div>
 
             {/* Cart items */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+            <div className="nom-scroll nom-cart-list-wrap" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
               {cart.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 40, color: A.faintText, fontSize: 13 }}>
                   <span className="ar-hide-mobile">Tap items on the left to add.</span>
@@ -479,8 +535,11 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
               </div>
             )}
 
-            {/* Totals + submit */}
-            <div style={{ padding: '12px 16px', borderTop: A.border, background: A.shellDarker }}>
+            {/* Totals + submit — desktop only. On mobile the floating
+                bottom bar below replaces this so the operator can place
+                the order from anywhere on the page without scrolling
+                back up to the cart pane. */}
+            <div className="nom-desktop-bottom" style={{ padding: '12px 16px', borderTop: A.border, background: A.shellDarker }}>
               {cart.length > 0 && (
                 <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.subtotal)}</span></div>
@@ -538,6 +597,46 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
               )}
             </div>
           </div>
+        </div>
+
+        {/* Sticky bottom action bar — MOBILE ONLY. CSS in the <style>
+            block above un-hides it under 900px. Always shows: lets
+            the waiter see live cart count + total while browsing the
+            menu, and place the order with one tap from anywhere.
+            Disabled when canSubmit is false (e.g. no table number
+            entered yet) — disabled state shows what's still needed
+            so the waiter knows what to fix. */}
+        <div className="nom-mobile-bar">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(234,231,227,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>
+              {cart.length === 0
+                ? 'Cart empty'
+                : `${totals.itemCount} item${totals.itemCount === 1 ? '' : 's'}`}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: A.cream, letterSpacing: '-0.3px', fontFamily: "'JetBrains Mono', monospace" }}>
+              {formatRupee(totals.grandTotal)}
+            </div>
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            style={{
+              padding: '12px 18px', borderRadius: 10, border: 'none',
+              background: canSubmit ? A.warning : 'rgba(234,231,227,0.18)',
+              color: canSubmit ? A.ink : 'rgba(234,231,227,0.45)',
+              fontSize: 14, fontWeight: 700, fontFamily: A.font,
+              cursor: canSubmit ? 'pointer' : 'not-allowed',
+              whiteSpace: 'nowrap',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              minWidth: 140, justifyContent: 'center',
+            }}>
+            {submitting ? (
+              <>
+                <span style={{ width: 14, height: 14, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'nom-spin 0.7s linear infinite' }} />
+                Sending…
+              </>
+            ) : cart.length === 0 ? 'Add items' : !canSubmit ? (orderType === 'dinein' ? 'Enter table' : 'Enter name') : 'Place Order →'}
+          </button>
         </div>
       </div>
     </div>
