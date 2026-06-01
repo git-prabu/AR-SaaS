@@ -1,4 +1,4 @@
-// pages/admin/settings/security.js
+// pages/admin/security.js
 //
 // Account security panel for restaurant admins. Three things live here:
 //   1. Change Password — only shown for accounts created with email/password
@@ -36,8 +36,8 @@ import {
   verifyBeforeUpdateEmail,
   sendEmailVerification,
 } from 'firebase/auth';
-import { useAuth } from '../../../hooks/useAuth';
-import AdminLayout from '../../../components/layout/AdminLayout';
+import { useAuth } from '../../hooks/useAuth';
+import AdminLayout from '../../components/layout/AdminLayout';
 import toast from 'react-hot-toast';
 
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -254,8 +254,8 @@ export default function SecuritySettings() {
 
           {/* Page header */}
           <div style={{ marginBottom: 24 }}>
-            <Link href="/admin/settings" style={{ fontSize: 12, color: A.mutedText, textDecoration: 'none', fontWeight: 600 }}>
-              ← Back to Settings
+            <Link href="/admin/business-info" style={{ fontSize: 12, color: A.mutedText, textDecoration: 'none', fontWeight: 600 }}>
+              ← Back to Business Info
             </Link>
             <div style={{ fontSize: 26, fontWeight: 700, color: A.ink, letterSpacing: '-0.4px', marginTop: 8, marginBottom: 4 }}>
               Account Security
