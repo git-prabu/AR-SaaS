@@ -47,30 +47,79 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const { signIn, signOut } = useAuth();
   const router = useRouter();
+  // True the moment we detect the page is being loaded inside an installed
+  // PWA (Add-to-Home-Screen / Install App). Used to show the prominent
+  // "Continue to Staff Sign-in" banner at the top so a staff member whose
+  // PWA opened admin/login by accident has a giant, impossible-to-miss
+  // tap target — even if the auto-redirect below didn't fire (e.g. no
+  // localStorage flag because the PWA was installed before that code
+  // shipped, or fetched manifest doesn't carry "staff" markers).
+  const [showStandaloneBanner, setShowStandaloneBanner] = useState(false);
 
   // Staff PWA recovery — owners who installed the app BEFORE the staff
-  // manifest fix landed (when the static /manifest.json had
-  // start_url: /admin) end up here when they tap the installed icon,
+  // manifest fix landed end up here when they tap the installed icon,
   // even if they're staff trying to reach /staff/login. Detect that
-  // case and bounce them automatically.
+  // case and bounce them automatically. Multiple detection methods so
+  // at least one works regardless of how Chrome / iOS Safari behave:
   //
-  // Trigger conditions (all required):
-  //   1. We're in standalone PWA mode (display-mode: standalone or
-  //      iOS navigator.standalone).
-  //   2. localStorage shows the user has visited /staff/login at least
-  //      once on this device — i.e. they ARE staff, not an owner who
-  //      just happened to install the admin app.
-  //   3. There's no current admin session redirecting them in
-  //      (we don't want to fight a real owner login flow).
+  //   1. localStorage flag (set when this device has ever visited
+  //      /staff/login — most reliable when present)
+  //   2. Manifest <link> href ending in 'staff-manifest.json' — kicks
+  //      in if the PWA was reinstalled after the fix
+  //   3. Fetched manifest content showing scope/name/start_url that
+  //      indicate "Staff" — defense in depth for weird caching
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    let didRedirect = false;
+    const goStaff = () => {
+      if (didRedirect) return;
+      didRedirect = true;
+      // Hard navigation (not router.replace) — Next.js client routing
+      // sometimes silently no-ops inside a standalone PWA whose
+      // service worker is mid-update. A real navigation always wins.
+      window.location.replace('/staff/login');
+    };
     try {
       const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches
         || window.navigator?.standalone === true;
       if (!isStandalone) return;
-      if (localStorage.getItem('ar_last_login_intent') !== 'staff') return;
-      // Staff PWA opened the admin login by accident — bounce.
-      router.replace('/staff/login');
+      // Flip on the standalone banner regardless of which detection
+      // path matches below — even if we CAN'T auto-redirect (no
+      // localStorage flag, no staff manifest markers), at least give
+      // the user a giant tap target labelled "Staff Sign-in".
+      setShowStandaloneBanner(true);
+
+      // (1) Cheap localStorage check first.
+      if (localStorage.getItem('ar_last_login_intent') === 'staff') {
+        goStaff();
+        return;
+      }
+
+      // (2) Manifest link href tells us which manifest the page is
+      // currently advertising. If staff, redirect.
+      const link = document.querySelector('link[rel="manifest"]');
+      const href = link?.href || '';
+      if (href.includes('staff-manifest')) {
+        goStaff();
+        return;
+      }
+
+      // (3) Fetch manifest content and inspect — catches old PWAs whose
+      // baked-in manifest is named "HaloHelm Staff" even though the
+      // server is now serving /manifest.json for this admin route.
+      if (href) {
+        fetch(href).then(r => r.ok ? r.json() : null).then(m => {
+          if (!m) return;
+          const name = String(m.name || '').toLowerCase();
+          const sname = String(m.short_name || '').toLowerCase();
+          const scope = String(m.scope || '');
+          const start = String(m.start_url || '');
+          if (
+            name.includes('staff') || sname.includes('staff') ||
+            scope.includes('/staff') || start.includes('/staff')
+          ) goStaff();
+        }).catch(() => {});
+      }
     } catch { /* fail-open: stay on admin login */ }
   }, [router]);
 
@@ -358,6 +407,43 @@ export default function AdminLogin() {
               </Link>
             </div>
 
+            {/* Standalone-PWA recovery banner — only renders when the
+                page is being loaded inside an installed app shell.
+                Most owners install the admin PWA from a desktop browser
+                and don't see this; staff who installed from
+                /staff/login and somehow ended up here get an
+                impossible-to-miss button. Plain <a> with a real href
+                so it works even if React/Next routing is broken. */}
+            {showStandaloneBanner && (
+              <a
+                href="/staff/login"
+                onClick={() => {
+                  try { localStorage.setItem('ar_last_login_intent', 'staff'); } catch {}
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: 12, padding: '16px 18px', marginBottom: 22,
+                  borderRadius: 12,
+                  background: A.ink, color: A.cream,
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                  border: '1px solid rgba(196,168,109,0.30)',
+                }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: A.warning, letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: 4 }}>
+                    Staff member?
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>
+                    Continue to Staff Sign-in
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'rgba(234,231,227,0.65)', marginTop: 3, lineHeight: 1.4 }}>
+                    Kitchen, waiter and captain staff sign in here, not above.
+                  </div>
+                </div>
+                <span style={{ fontSize: 22, color: A.warning, flexShrink: 0 }}>→</span>
+              </a>
+            )}
+
             <div style={{ marginBottom: 32 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
                 Restaurant Admin
@@ -368,18 +454,27 @@ export default function AdminLogin() {
               <div style={{ fontSize: 14, color: A.mutedText, lineHeight: 1.55, marginBottom: 14 }}>
                 Sign in to your restaurant admin account.
               </div>
-              {/* Staff sign-in shortcut. Visible to anyone — but especially
-                  important for someone who installed the PWA from /admin/login
-                  before the staff manifest fix and is stuck here. */}
-              <Link href="/staff/login" style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 8,
-                background: A.cream, border: A.border,
-                fontSize: 12.5, fontWeight: 600, color: A.warningDim,
-                textDecoration: 'none',
-              }}>
+              {/* Staff sign-in shortcut. Plain <a> instead of Next.js
+                  <Link> because client-side routing inside a standalone
+                  PWA (with a service worker mid-update) can silently
+                  no-op the click — owner reported this exact symptom.
+                  A real href= triggers a full navigation that always
+                  works. Also stamps the staff-intent flag on click so
+                  next launch of the PWA auto-redirects without any
+                  user effort. */}
+              <a href="/staff/login"
+                onClick={() => {
+                  try { localStorage.setItem('ar_last_login_intent', 'staff'); } catch {}
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 8,
+                  background: A.cream, border: A.border,
+                  fontSize: 12.5, fontWeight: 600, color: A.warningDim,
+                  textDecoration: 'none',
+                }}>
                 Looking for staff sign-in? <span style={{ marginLeft: 2 }}>→</span>
-              </Link>
+              </a>
             </div>
 
             <form onSubmit={handleSubmit}>

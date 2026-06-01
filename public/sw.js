@@ -170,7 +170,20 @@
 // next visit. No behavior change otherwise.
 // ar-v27 (May 27) — customer page gained the post-feedback "Leave a Google
 // review" step. Bump so returning diners re-fetch the fresh bundle.
-const CACHE_VERSION  = 'ar-v27';
+// ar-v28 (Jun 1) — Staff PWA recovery follow-up. Owner reported the
+// installed Staff PWA was opening /admin/login (instead of /staff/login),
+// AND that tapping the new "Looking for staff sign-in?" link did nothing.
+// Root cause likely a combination of:
+//   - Old cached /admin/login HTML (from before the recovery code
+//     existed) being served by the SW's "navigate fallback to cache"
+//     on this device.
+//   - Cached HTML doesn't have the new auto-redirect or banner code,
+//     so the page just sits there.
+// Bumping the version makes activate() purge every ar-v27 cache entry
+// — the next launch refetches /admin/login from network and gets the
+// new HTML with the auto-redirect + the prominent standalone-mode
+// "Continue to Staff Sign-in" banner. No code-strategy changes.
+const CACHE_VERSION  = 'ar-v28';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
