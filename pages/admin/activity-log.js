@@ -490,7 +490,7 @@ export default function NotificationsPage() {
   const waiterCallsEnabled = restaurantSettings?.waiterCallsEnabled !== false;
 
   return (
-    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/notifications">
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/activity-log">
       <Head><title>Activity Log — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`

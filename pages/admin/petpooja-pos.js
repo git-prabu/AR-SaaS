@@ -1,4 +1,4 @@
-// pages/admin/petpooja-connect.js
+// pages/admin/petpooja-pos.js
 // Phase B (Petpooja hybrid) — onboarding wizard.
 //
 // Three states this page handles:
