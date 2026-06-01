@@ -23,10 +23,26 @@
 //   onPlaced     — called after a successful createOrder. Receives the
 //                  new orderId. Caller decides whether to close the
 //                  modal, refresh a list, or navigate.
+//   lockedTable  — { code, label } — captain flow from Table View:
+//                  forces dine-in for that table, hides toggle + input.
 //
 // Tax math, status routing (dine-in vs takeaway, paid_now vs unpaid)
 // and field validation MIRROR /admin/new-order exactly so behaviour is
 // identical regardless of which page launches the modal.
+//
+// ─── UI Phase 1 redesign (refs 3 + 5) ────────────────────────────────
+// Mobile is now a two-screen flow:
+//   1. MENU view (default): pure menu browsing — image-led item cards
+//      with circular [+] / [− qty +] counters, sticky black bottom bar
+//      showing "[N items] ₹XXX · View Order →".
+//   2. CART view (slides up on bottom-bar tap): full order review —
+//      setup (type / table / customer), itemised cart with stepper
+//      per row, totals, place CTA. Back arrow returns to menu.
+// Desktop keeps the 2-pane side-by-side layout (menu LEFT, cart RIGHT)
+// because there's screen real estate for it, but the menu cards
+// themselves get the same image-led polish.
+// All BEHAVIOUR — state, validation, submit, locked-table mode, sold-
+// out gating, tax math — is unchanged from the previous version.
 
 import { useEffect, useMemo, useState } from 'react';
 import { getAllMenuItems, createOrder, getRestaurantById, todayKey } from '../lib/db';
@@ -54,6 +70,26 @@ function fuzzyContains(hay, word) {
   return false;
 }
 
+// Stable 2-colour gradient per item id — used as the menu-card image
+// when item.imageURL is missing. Hash-driven so each item keeps the
+// SAME gradient across re-renders (no reshuffling), but the palette
+// rotates across items so the grid still feels varied.
+function gradientFor(id) {
+  const palettes = [
+    ['#FCE4B6', '#F0BE73'], // amber
+    ['#D7E4D2', '#A8C49C'], // sage
+    ['#E0DEEF', '#B8B3D8'], // lavender
+    ['#FDD9D7', '#F5A29D'], // coral
+    ['#D2E6EE', '#9CC7D8'], // sky
+    ['#EBE3D5', '#C9B997'], // sand
+  ];
+  let h = 0;
+  const s = String(id || 'x');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  const [from, to] = palettes[Math.abs(h) % palettes.length];
+  return `linear-gradient(135deg, ${from} 0%, ${to} 100%)`;
+}
+
 const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const A = {
   font: INTER,
@@ -76,9 +112,7 @@ const A = {
 const formatRupee = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 
 export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lockedTable }) {
-  // lockedTable = { code, label } — when set (captain flow from Table
-  // View), the order is forced to dine-in for that exact table: the
-  // type toggle + table input are hidden and the table is pre-filled.
+  // ─── State (UNCHANGED behaviour-wise) ─────────────────────────────
   const [items, setItems] = useState([]);
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +129,12 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
   const [paidNow, setPaidNow] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // NEW: mobile two-view toggle. Doesn't affect desktop (which always
+  // shows both panes side by side via CSS).
+  //   'menu' → image-led menu browser with sticky bottom bar
+  //   'cart' → full-screen sheet with setup + items + totals + Place
+  const [mobileSheet, setMobileSheet] = useState('menu');
+
   // Fetch menu + restaurant once when the modal opens.
   useEffect(() => {
     if (!rid) return;
@@ -109,26 +149,31 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
   }, [rid]);
 
   // ESC closes the modal — keyboard a11y + power-user friendly.
+  // On mobile, ESC from the cart sheet returns to the menu instead
+  // of closing the whole modal — matches the usual back-button mental
+  // model on phones.
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !submitting) onClose?.(); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || submitting) return;
+      if (mobileSheet === 'cart') { setMobileSheet('menu'); return; }
+      onClose?.();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, submitting]);
+  }, [onClose, submitting, mobileSheet]);
 
   // Body-scroll-lock while the modal is open. Without this, scrolling
   // inside the modal on mobile bleeds through to the page behind:
   // when the inner scroll container hits its top or bottom, the
-  // touchmove keeps going and drags the waiter dashboard underneath
-  // (owner reported this). Lock the body for the lifetime of the
-  // modal; restore the previous overflow + scroll position on unmount.
+  // touchmove keeps going and drags the waiter dashboard underneath.
+  // Lock body overflow for the lifetime of the modal; restore on close.
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const body = document.body;
     const prevOverflow = body.style.overflow;
     const prevPaddingRight = body.style.paddingRight;
-    // Preserve scroll position by compensating for the scrollbar that
-    // disappears when overflow:hidden is set (desktop only; mobile has
-    // no scrollbar so the diff is 0).
+    // Compensate for the scrollbar that disappears when overflow:hidden
+    // is set on desktop (mobile typically has no scrollbar so diff=0).
     const scrollbarW = window.innerWidth - document.documentElement.clientWidth;
     body.style.overflow = 'hidden';
     if (scrollbarW > 0) body.style.paddingRight = `${scrollbarW}px`;
@@ -175,6 +220,10 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
     );
   };
 
+  // Quick lookup: current qty for an item id in the cart. Used by the
+  // menu-card counter (no qty → big circular "+", qty>0 → "− N +" pill).
+  const cartQtyFor = (id) => cart.find(c => c.id === id)?.qty || 0;
+
   // Tax math — mirrors /admin/new-order exactly (which itself mirrors
   // the customer checkout flow). CGST + SGST split out of `gstPercent`,
   // service charge separate, round-off to whole rupees.
@@ -194,6 +243,16 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
   const canSubmit = cart.length > 0 && !submitting && (
     orderType === 'dinein' ? tableNumber.trim().length > 0 : customerName.trim().length > 0
   );
+  // Tells the waiter what's missing so they can fix it. Used both in
+  // the disabled CTA label on mobile and in a small banner on the
+  // cart sheet.
+  const missingHint = (() => {
+    if (submitting) return null;
+    if (cart.length === 0) return 'Add items';
+    if (orderType === 'dinein' && !tableNumber.trim()) return 'Enter table';
+    if (orderType !== 'dinein' && !customerName.trim()) return 'Enter name';
+    return null;
+  })();
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -233,6 +292,198 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
     setSubmitting(false);
   };
 
+  // ─── Small inline components for readability ──────────────────────
+
+  // The setup block (order type / table / customer / paid-now) — used
+  // at the top of the cart sheet on both mobile and desktop. Identical
+  // behaviour to the previous version, just extracted so the cart
+  // sheet structure reads cleanly.
+  const SetupBlock = () => (
+    <>
+      {!lockedTable && (
+        <div style={{ padding: '12px 16px', borderBottom: A.border }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Order type</div>
+          <div style={{ display: 'inline-flex', width: '100%', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
+            {[
+              { k: 'dinein',   label: 'Dine-in' },
+              { k: 'takeaway', label: 'Takeaway' },
+            ].map(t => (
+              <button key={t.k} onClick={() => setOrderType(t.k)}
+                style={{
+                  flex: 1, padding: '8px 10px', borderRadius: 7, border: 'none',
+                  background: orderType === t.k ? A.ink : 'transparent',
+                  color: orderType === t.k ? A.cream : A.mutedText,
+                  fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ padding: '12px 16px', borderBottom: A.border, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {lockedTable ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Adding to</span>
+            <span style={{ padding: '6px 12px', borderRadius: 8, background: A.ink, color: A.cream, fontSize: 14, fontWeight: 700 }}>
+              {lockedTable.label || `Table ${lockedTable.code}`}
+            </span>
+          </div>
+        ) : orderType === 'dinein' ? (
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Table number *</label>
+            <input
+              value={tableNumber} onChange={e => setTableNumber(e.target.value)}
+              placeholder="e.g. 5" required
+              className="nom-input"
+              style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: A.shell, border: A.borderStrong, borderRadius: 8, fontSize: 14, color: A.ink, fontFamily: A.font, transition: 'border-color 0.15s, box-shadow 0.15s' }}
+            />
+          </div>
+        ) : (
+          <>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Customer name *</label>
+              <input
+                value={customerName} onChange={e => setCustomerName(e.target.value)}
+                placeholder="e.g. Priya" required
+                className="nom-input"
+                style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: A.shell, border: A.borderStrong, borderRadius: 8, fontSize: 14, color: A.ink, fontFamily: A.font, transition: 'border-color 0.15s, box-shadow 0.15s' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Phone (optional)</label>
+              <input
+                value={customerPhone} onChange={e => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="10-digit mobile"
+                className="nom-input"
+                style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: A.shell, border: A.borderStrong, borderRadius: 8, fontSize: 14, color: A.ink, fontFamily: "'JetBrains Mono', monospace", transition: 'border-color 0.15s, box-shadow 0.15s' }}
+              />
+            </div>
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', background: paidNow ? 'rgba(63,158,90,0.08)' : A.subtleBg,
+              border: paidNow ? `1px solid rgba(63,158,90,0.35)` : A.borderStrong,
+              borderRadius: 8, cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={paidNow}
+                onChange={e => setPaidNow(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: A.success, cursor: 'pointer' }}
+              />
+              <span style={{ flex: 1, fontSize: 13, color: A.ink, fontWeight: 600 }}>
+                Customer paid cash now
+              </span>
+              <span style={{ fontSize: 11, color: A.mutedText, fontWeight: 500 }}>
+                {paidNow ? 'Sends to kitchen immediately' : 'Hold until paid'}
+              </span>
+            </label>
+          </>
+        )}
+      </div>
+    </>
+  );
+
+  // Cart items list with row stepper (used at center of cart sheet
+  // on mobile and middle of cart pane on desktop). Empty-state copy
+  // adapts to whether we're on mobile (where menu is on a different
+  // screen) or desktop (menu is side-by-side).
+  const CartList = () => (
+    <div className="nom-scroll nom-cart-list-wrap" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+      {cart.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: A.faintText, fontSize: 13, lineHeight: 1.5 }}>
+          <span className="ar-hide-mobile">Tap items on the left to add.</span>
+          <span className="ar-show-mobile">No items yet — tap “Back to menu” to add.</span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {cart.map(c => (
+            <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                <div style={{ fontSize: 11, color: A.mutedText, fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(c.price)} × {c.qty}</div>
+              </div>
+              <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 8, overflow: 'hidden' }}>
+                <button className="nom-qty-btn" onClick={() => changeQty(c.id, -1)}
+                  style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>−</button>
+                <span style={{ padding: '4px 10px', fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 24, textAlign: 'center' }}>{c.qty}</span>
+                <button className="nom-qty-btn" onClick={() => changeQty(c.id, 1)}
+                  style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>+</button>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 56, textAlign: 'right' }}>
+                {formatRupee(c.price * c.qty)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Totals breakdown + the big Place Order CTA. Same numbers and
+  // submit behaviour as before; rendered both inside the desktop cart
+  // pane and at the bottom of the mobile cart sheet.
+  const TotalsAndSubmit = () => (
+    <div className="nom-totals" style={{ padding: '12px 16px', borderTop: A.border, background: A.shellDarker }}>
+      {cart.length > 0 && (
+        <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.subtotal)}</span></div>
+          {totals.gstPct > 0 && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>CGST {totals.gstPct / 2}%</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.cgst)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>SGST {totals.gstPct / 2}%</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.sgst)}</span></div>
+            </>
+          )}
+          {totals.serviceCharge > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service {restaurant?.serviceChargePercent || 0}%</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.serviceCharge)}</span></div>
+          )}
+          {Math.abs(totals.roundOff) > 0.01 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Round-off</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{totals.roundOff > 0 ? '+' : ''}{formatRupee(totals.roundOff)}</span></div>
+          )}
+        </div>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: A.ink, letterSpacing: '-0.1px' }}>Total {totals.itemCount > 0 ? `(${totals.itemCount} item${totals.itemCount === 1 ? '' : 's'})` : ''}</span>
+        <span style={{ fontSize: 22, fontWeight: 700, color: A.ink, letterSpacing: '-0.5px', fontFamily: "'JetBrains Mono', monospace" }}>
+          {formatRupee(totals.grandTotal)}
+        </span>
+      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={!canSubmit}
+        style={{
+          width: '100%', padding: '14px',
+          borderRadius: 10, border: 'none',
+          background: canSubmit ? A.ink : A.subtleBg,
+          color: canSubmit ? A.cream : A.faintText,
+          fontSize: 14, fontWeight: 600, fontFamily: A.font,
+          cursor: canSubmit ? 'pointer' : 'not-allowed',
+          transition: 'all 0.15s',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+        {submitting ? (
+          <>
+            <span style={{ width: 14, height: 14, border: `2px solid ${A.cream}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'nom-spin 0.7s linear infinite' }} />
+            Sending…
+          </>
+        ) : missingHint ? missingHint : `Place Order → Kitchen`}
+      </button>
+      {cart.length > 0 && (
+        <button
+          onClick={() => { if (confirm('Clear the cart?')) setCart([]); }}
+          style={{
+            width: '100%', marginTop: 8, padding: '8px',
+            borderRadius: 8, border: A.border,
+            background: 'transparent', color: A.mutedText,
+            fontSize: 12, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
+          }}>
+          Clear cart
+        </button>
+      )}
+    </div>
+  );
+
+  // ─── Render ───────────────────────────────────────────────────────
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose?.(); }}
@@ -251,25 +502,54 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
         .nom-input:focus { border-color: ${A.ink}; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); outline: none; }
         .nom-menu-card:hover { border-color: rgba(0,0,0,0.15); transform: translateY(-1px); }
         .nom-qty-btn:hover { background: ${A.subtleBg}; }
+        /* The big circular [+] add button on each item card, and the
+           rounded [− qty +] pill that replaces it once the item is in
+           the cart. Plain CSS so we don't recompute styles on every
+           render of a 200-item menu. */
+        .nom-card-add {
+          width: 32px; height: 32px; border-radius: 50%; border: none;
+          background: ${A.ink}; color: ${A.cream};
+          font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+          transition: transform 0.12s, box-shadow 0.12s;
+        }
+        .nom-card-add:hover { transform: scale(1.06); box-shadow: 0 3px 10px rgba(0,0,0,0.22); }
+        .nom-card-pill {
+          display: inline-flex; align-items: center;
+          background: ${A.ink}; color: ${A.cream};
+          border-radius: 999px; padding: 2px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+        }
+        .nom-card-pill button {
+          width: 26px; height: 26px; border-radius: 50%;
+          border: none; background: transparent; color: ${A.cream};
+          font-size: 15px; font-weight: 700; cursor: pointer; line-height: 1;
+        }
+        .nom-card-pill button:hover { background: rgba(255,255,255,0.08); }
+        .nom-card-pill .qty {
+          padding: 0 8px; font-size: 13px; font-weight: 700;
+          font-family: 'JetBrains Mono', monospace; min-width: 18px; text-align: center;
+        }
         /* overscroll-behavior:contain stops touch scrolls inside the
            menu / cart from leaking out to the page behind once they
-           hit the top or bottom of the scroller. Needs the body-scroll
-           lock too (the effect above) — together they fully isolate
-           modal scrolling from the underlying waiter dashboard. */
+           hit the top or bottom of the scroller. Pairs with the body-
+           scroll lock effect above. */
         .nom-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
         /* Sticky mobile action bar — desktop-hidden by default. */
         .nom-mobile-bar { display: none; }
+        /* Mobile back-to-menu header inside the cart sheet — hidden on
+           desktop where the cart is permanently visible beside menu. */
+        .nom-cart-back { display: none; }
         @media (max-width: 900px) {
           .nom-grid { grid-template-columns: 1fr !important; }
           .nom-cart-pane { max-height: none !important; }
-          /* Sticky-fixed bottom action bar on mobile, showing live
-             cart count + grand total + Place Order button. The waiter
-             can scroll the menu freely and place the order from
-             anywhere without scrolling back up to the cart pane.
-             Plain fixed positioning so it stays glued to the viewport
-             bottom even when the keyboard / native scroll position
-             changes. iOS safe-area inset keeps it above the bottom
-             home-indicator bar on notched iPhones. */
+          /* Two-view mobile flow: only one pane is visible at a time.
+             The other is removed from layout via display:none — its
+             internal scroll state is preserved by keeping the node
+             mounted (React doesn't unmount, just hides). */
+          .nom-mobile-hidden { display: none !important; }
+          /* Sticky-fixed bottom action bar on mobile. Tap → opens cart
+             sheet. iOS safe-area inset keeps it above the home indicator. */
           .nom-mobile-bar {
             display: flex !important;
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 110;
@@ -277,15 +557,18 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
             background: ${A.ink}; color: ${A.cream};
             box-shadow: 0 -6px 20px rgba(0,0,0,0.28);
             align-items: center; gap: 12px;
+            cursor: pointer; user-select: none;
             animation: nom-slide-up 0.22s ease both;
           }
-          /* Hide the in-cart-pane totals + submit on mobile since the
-             floating bar replaces them. Keeps the cart pane focused on
-             order setup (type / table) + item list. */
-          .nom-desktop-bottom { display: none !important; }
-          /* Reserve breathing room at the bottom of the cart pane so
-             the floating bar doesn't cover the last cart item. */
-          .nom-cart-pane > .nom-cart-list-wrap { padding-bottom: 100px !important; }
+          /* Back-to-menu header at top of the cart sheet on mobile. */
+          .nom-cart-back { display: flex !important; }
+          /* Reserve breathing room at the bottom of the menu grid on
+             mobile so the floating bar doesn't cover the last row. */
+          .nom-pane-menu .nom-scroll { padding-bottom: 96px !important; }
+          /* The mobile cart sheet should fill the whole modal vertically
+             (no max-height) so the totals + Place CTA sit at the bottom
+             of the screen, not floating. */
+          .nom-pane-cart { animation: nom-slide-up 0.22s ease both; }
         }
       `}</style>
 
@@ -316,17 +599,20 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
             }}>×</button>
         </div>
 
-        {/* Body — same 2-pane layout as /admin/new-order */}
+        {/* Body — desktop 2-pane, mobile 1-pane-at-a-time (toggled) */}
         <div className="nom-grid ar-new-order-grid" style={{ flex: 1, padding: 16, display: 'grid', gridTemplateColumns: '1fr 380px', gap: 14, overflow: 'hidden' }}>
 
-          {/* LEFT — Menu (renders SECOND on mobile via .ar-new-order-menu) */}
-          <div className="ar-new-order-menu" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 16px', borderBottom: A.border, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* MENU PANE — left on desktop, screen 1 on mobile */}
+          <div
+            className={`nom-pane-menu ar-new-order-menu ${mobileSheet !== 'menu' ? 'nom-mobile-hidden' : ''}`}
+            style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '12px 16px', borderBottom: A.border, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span aria-hidden style={{ fontSize: 13, color: A.mutedText, lineHeight: 1 }}>🔍</span>
               <input
                 value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search menu…"
                 className="nom-input"
-                style={{ flex: 1, minWidth: 180, padding: '9px 14px', borderRadius: 8, border: A.borderStrong, background: A.shellDarker, fontSize: 13, fontFamily: A.font, color: A.ink, transition: 'border-color 0.15s, box-shadow 0.15s' }}
+                style={{ flex: 1, minWidth: 0, padding: '9px 14px', borderRadius: 8, border: A.borderStrong, background: A.shellDarker, fontSize: 13, fontFamily: A.font, color: A.ink, transition: 'border-color 0.15s, box-shadow 0.15s' }}
               />
             </div>
             <div style={{ padding: '8px 16px', borderBottom: A.border, display: 'flex', gap: 6, flexWrap: 'wrap', overflowX: 'auto' }}>
@@ -357,42 +643,103 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
               ) : (
                 <div className="ar-new-order-items" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
                   {filtered.map(item => {
-                    // Same sold-out gate as /admin/new-order — `availableUntil`
-                    // set to today's date key means staff already flagged this
-                    // dish out for the rest of the day.
                     const soldOut = item.availableUntil === todayKey();
+                    const qty = cartQtyFor(item.id);
                     return (
-                      <button key={item.id}
+                      <div key={item.id}
                         className="nom-menu-card"
-                        onClick={() => !soldOut && addToCart(item)}
-                        disabled={soldOut}
                         style={{
                           textAlign: 'left', background: A.shell,
-                          border: A.border, borderRadius: 10, padding: 12,
-                          cursor: soldOut ? 'not-allowed' : 'pointer',
-                          opacity: soldOut ? 0.5 : 1,
+                          border: A.border, borderRadius: 12, overflow: 'hidden',
+                          opacity: soldOut ? 0.55 : 1,
                           transition: 'all 0.15s',
                           fontFamily: A.font,
+                          display: 'flex', flexDirection: 'column',
+                          position: 'relative',
                         }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: A.ink, lineHeight: 1.3, marginBottom: 4 }}>
-                          {item.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: A.mutedText, marginBottom: 6 }}>
-                          {item.category || '—'}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace" }}>
-                            {formatRupee(item.price)}
-                          </span>
-                          {soldOut ? (
-                            <span style={{ fontSize: 9, fontWeight: 700, color: A.danger, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                              Sold out
+                        {/* Tap the image area / title to add to cart.
+                            Lets the waiter add by tapping anywhere on
+                            the card, not just the small + button. */}
+                        <button
+                          type="button"
+                          onClick={() => !soldOut && addToCart(item)}
+                          disabled={soldOut}
+                          style={{
+                            border: 'none', padding: 0, margin: 0,
+                            background: 'transparent', textAlign: 'left',
+                            cursor: soldOut ? 'not-allowed' : 'pointer',
+                            display: 'block',
+                          }}>
+                          {/* Image area — real photo if available,
+                              otherwise a deterministic gradient with
+                              the first letter of the item name. */}
+                          <div style={{
+                            width: '100%', aspectRatio: '4 / 3',
+                            background: item.imageURL ? '#f0f0f0' : gradientFor(item.id),
+                            position: 'relative', overflow: 'hidden',
+                          }}>
+                            {item.imageURL ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={item.imageURL} alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span style={{
+                                position: 'absolute', inset: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 32, fontWeight: 700, color: 'rgba(0,0,0,0.18)',
+                                fontFamily: A.font, letterSpacing: '-0.5px',
+                              }}>
+                                {(item.name || '?').trim().charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                            {soldOut && (
+                              <span style={{
+                                position: 'absolute', top: 8, left: 8,
+                                fontSize: 9, fontWeight: 700, color: '#fff',
+                                background: A.danger, padding: '3px 7px', borderRadius: 4,
+                                letterSpacing: '0.08em', textTransform: 'uppercase',
+                              }}>
+                                Sold out
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ padding: '10px 12px 12px 12px' }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: A.ink, lineHeight: 1.25, marginBottom: 3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {item.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: A.mutedText, marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.category || '—'}
+                            </div>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace" }}>
+                              {formatRupee(item.price)}
                             </span>
-                          ) : (
-                            <span style={{ fontSize: 11, color: A.warning, fontWeight: 700 }}>+ Add</span>
-                          )}
-                        </div>
-                      </button>
+                          </div>
+                        </button>
+                        {/* Floating add control — circular [+] when not
+                            in cart, [− qty +] pill when in cart. Sits
+                            at bottom-right of the card, overlapping the
+                            image bottom-edge for a tactile look. */}
+                        {!soldOut && (
+                          <div style={{ position: 'absolute', right: 10, bottom: 10 }}>
+                            {qty === 0 ? (
+                              <button
+                                type="button" aria-label={`Add ${item.name}`}
+                                onClick={(e) => { e.stopPropagation(); addToCart(item); }}
+                                className="nom-card-add">+</button>
+                            ) : (
+                              <span className="nom-card-pill">
+                                <button type="button" aria-label="Remove one"
+                                  onClick={(e) => { e.stopPropagation(); changeQty(item.id, -1); }}>−</button>
+                                <span className="qty">{qty}</span>
+                                <button type="button" aria-label="Add one more"
+                                  onClick={(e) => { e.stopPropagation(); changeQty(item.id, 1); }}>+</button>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -400,130 +747,35 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
             </div>
           </div>
 
-          {/* RIGHT — Cart + customer/table fields + totals (renders FIRST
-              on mobile via .ar-new-order-cart so the operator sees the
-              order-type / table / channel setup before scrolling through
-              menu items). */}
-          <div className="nom-cart-pane ar-new-order-cart" style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 180px)' }}>
-            {/* Order-type toggle — hidden in captain (locked-table) mode */}
-            {!lockedTable && (
-              <div style={{ padding: '12px 16px', borderBottom: A.border }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Order type</div>
-                <div style={{ display: 'inline-flex', width: '100%', background: A.subtleBg, borderRadius: 10, padding: 3 }}>
-                  {[
-                    { k: 'dinein',   label: 'Dine-in' },
-                    { k: 'takeaway', label: 'Takeaway' },
-                  ].map(t => (
-                    <button key={t.k} onClick={() => setOrderType(t.k)}
-                      style={{
-                        flex: 1, padding: '8px 10px', borderRadius: 7, border: 'none',
-                        background: orderType === t.k ? A.ink : 'transparent',
-                        color: orderType === t.k ? A.cream : A.mutedText,
-                        fontSize: 13, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
-                      }}>
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* CART PANE — right on desktop, slide-up sheet on mobile */}
+          <div
+            className={`nom-cart-pane nom-pane-cart ar-new-order-cart ${mobileSheet !== 'cart' ? 'nom-mobile-hidden' : ''}`}
+            style={{ background: A.shell, borderRadius: 14, border: A.border, boxShadow: A.cardShadow, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 180px)' }}>
 
-            {/* Customer / table fields */}
-            <div style={{ padding: '12px 16px', borderBottom: A.border, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {lockedTable ? (
-                // Captain mode — fixed table, no input.
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Adding to</span>
-                  <span style={{ padding: '6px 12px', borderRadius: 8, background: A.ink, color: A.cream, fontSize: 14, fontWeight: 700 }}>
-                    {lockedTable.label || `Table ${lockedTable.code}`}
-                  </span>
-                </div>
-              ) : orderType === 'dinein' ? (
-                <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Table number *</label>
-                  <input
-                    value={tableNumber} onChange={e => setTableNumber(e.target.value)}
-                    placeholder="e.g. 5" required
-                    className="nom-input"
-                    style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: A.shell, border: A.borderStrong, borderRadius: 8, fontSize: 14, color: A.ink, fontFamily: A.font, transition: 'border-color 0.15s, box-shadow 0.15s' }}
-                  />
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Customer name *</label>
-                    <input
-                      value={customerName} onChange={e => setCustomerName(e.target.value)}
-                      placeholder="e.g. Priya" required
-                      className="nom-input"
-                      style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: A.shell, border: A.borderStrong, borderRadius: 8, fontSize: 14, color: A.ink, fontFamily: A.font, transition: 'border-color 0.15s, box-shadow 0.15s' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>Phone (optional)</label>
-                    <input
-                      value={customerPhone} onChange={e => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="10-digit mobile"
-                      className="nom-input"
-                      style={{ width: '100%', padding: '10px 12px', boxSizing: 'border-box', background: A.shell, border: A.borderStrong, borderRadius: 8, fontSize: 14, color: A.ink, fontFamily: "'JetBrains Mono', monospace", transition: 'border-color 0.15s, box-shadow 0.15s' }}
-                    />
-                  </div>
-                  {/* Phase-F pay-now toggle: same semantics as /admin/new-order. */}
-                  <label style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 12px', background: paidNow ? 'rgba(63,158,90,0.08)' : A.subtleBg,
-                    border: paidNow ? `1px solid rgba(63,158,90,0.35)` : A.borderStrong,
-                    borderRadius: 8, cursor: 'pointer',
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={paidNow}
-                      onChange={e => setPaidNow(e.target.checked)}
-                      style={{ width: 16, height: 16, accentColor: A.success, cursor: 'pointer' }}
-                    />
-                    <span style={{ flex: 1, fontSize: 13, color: A.ink, fontWeight: 600 }}>
-                      Customer paid cash now
-                    </span>
-                    <span style={{ fontSize: 11, color: A.mutedText, fontWeight: 500 }}>
-                      {paidNow ? 'Sends to kitchen immediately' : 'Hold until paid'}
-                    </span>
-                  </label>
-                </>
-              )}
-            </div>
+            {/* Mobile-only back header — desktop hides via CSS */}
+            <button
+              type="button"
+              className="nom-cart-back"
+              onClick={() => setMobileSheet('menu')}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '12px 14px', borderBottom: A.border,
+                background: A.shellDarker, border: 'none',
+                fontFamily: A.font, fontSize: 13, fontWeight: 600,
+                color: A.ink, cursor: 'pointer',
+              }}>
+              <span style={{ fontSize: 18, lineHeight: 1, color: A.warningDim }}>←</span>
+              Back to menu
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: A.mutedText, fontWeight: 500 }}>
+                {cart.length > 0 ? `${totals.itemCount} item${totals.itemCount === 1 ? '' : 's'}` : 'Cart empty'}
+              </span>
+            </button>
 
-            {/* Cart items */}
-            <div className="nom-scroll nom-cart-list-wrap" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-              {cart.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 40, color: A.faintText, fontSize: 13 }}>
-                  <span className="ar-hide-mobile">Tap items on the left to add.</span>
-                  <span className="ar-show-mobile">Scroll down and tap items to add to this order.</span>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {cart.map(c => (
-                    <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                        <div style={{ fontSize: 11, color: A.mutedText, fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(c.price)} × {c.qty}</div>
-                      </div>
-                      <div style={{ display: 'inline-flex', background: A.subtleBg, borderRadius: 8, overflow: 'hidden' }}>
-                        <button className="nom-qty-btn" onClick={() => changeQty(c.id, -1)}
-                          style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>−</button>
-                        <span style={{ padding: '4px 10px', fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 24, textAlign: 'center' }}>{c.qty}</span>
-                        <button className="nom-qty-btn" onClick={() => changeQty(c.id, 1)}
-                          style={{ padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: A.ink, fontFamily: A.font }}>+</button>
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: A.ink, fontFamily: "'JetBrains Mono', monospace", minWidth: 56, textAlign: 'right' }}>
-                        {formatRupee(c.price * c.qty)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <SetupBlock />
+            <CartList />
 
-            {/* Special note */}
+            {/* Per-order special note (whole order, not per item — per-
+                item notes land in Phase 5). */}
             {cart.length > 0 && (
               <div style={{ padding: '10px 16px', borderTop: A.border }}>
                 <input
@@ -535,109 +787,47 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
               </div>
             )}
 
-            {/* Totals + submit — desktop only. On mobile the floating
-                bottom bar below replaces this so the operator can place
-                the order from anywhere on the page without scrolling
-                back up to the cart pane. */}
-            <div className="nom-desktop-bottom" style={{ padding: '12px 16px', borderTop: A.border, background: A.shellDarker }}>
-              {cart.length > 0 && (
-                <div style={{ fontSize: 12, color: A.mutedText, marginBottom: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.subtotal)}</span></div>
-                  {totals.gstPct > 0 && (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>CGST {totals.gstPct / 2}%</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.cgst)}</span></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>SGST {totals.gstPct / 2}%</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.sgst)}</span></div>
-                    </>
-                  )}
-                  {totals.serviceCharge > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Service {restaurant?.serviceChargePercent || 0}%</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatRupee(totals.serviceCharge)}</span></div>
-                  )}
-                  {Math.abs(totals.roundOff) > 0.01 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Round-off</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{totals.roundOff > 0 ? '+' : ''}{formatRupee(totals.roundOff)}</span></div>
-                  )}
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: A.ink, letterSpacing: '-0.1px' }}>Total {totals.itemCount > 0 ? `(${totals.itemCount} item${totals.itemCount === 1 ? '' : 's'})` : ''}</span>
-                <span style={{ fontSize: 22, fontWeight: 700, color: A.ink, letterSpacing: '-0.5px', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {formatRupee(totals.grandTotal)}
-                </span>
-              </div>
-              <button
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                style={{
-                  width: '100%', padding: '14px',
-                  borderRadius: 10, border: 'none',
-                  background: canSubmit ? A.ink : A.subtleBg,
-                  color: canSubmit ? A.cream : A.faintText,
-                  fontSize: 14, fontWeight: 600, fontFamily: A.font,
-                  cursor: canSubmit ? 'pointer' : 'not-allowed',
-                  transition: 'all 0.15s',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}>
-                {submitting ? (
-                  <>
-                    <span style={{ width: 14, height: 14, border: `2px solid ${A.cream}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'nom-spin 0.7s linear infinite' }} />
-                    Sending…
-                  </>
-                ) : `Place Order → Kitchen`}
-              </button>
-              {cart.length > 0 && (
-                <button
-                  onClick={() => { if (confirm('Clear the cart?')) setCart([]); }}
-                  style={{
-                    width: '100%', marginTop: 8, padding: '8px',
-                    borderRadius: 8, border: A.border,
-                    background: 'transparent', color: A.mutedText,
-                    fontSize: 12, fontWeight: 600, fontFamily: A.font, cursor: 'pointer',
-                  }}>
-                  Clear cart
-                </button>
-              )}
-            </div>
+            <TotalsAndSubmit />
           </div>
         </div>
 
-        {/* Sticky bottom action bar — MOBILE ONLY. CSS in the <style>
-            block above un-hides it under 900px. Always shows: lets
-            the waiter see live cart count + total while browsing the
-            menu, and place the order with one tap from anywhere.
-            Disabled when canSubmit is false (e.g. no table number
-            entered yet) — disabled state shows what's still needed
-            so the waiter knows what to fix. */}
-        <div className="nom-mobile-bar">
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(234,231,227,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>
-              {cart.length === 0
-                ? 'Cart empty'
-                : `${totals.itemCount} item${totals.itemCount === 1 ? '' : 's'}`}
+        {/* Sticky bottom action bar — MOBILE ONLY (menu view only).
+            Tap anywhere on the bar (not just the button) to open the
+            cart sheet. Big readable total + item count + "View Order"
+            CTA. When canSubmit is false the CTA still opens the cart
+            sheet (so the waiter can see what's missing) but it shows
+            the missing-field hint instead of "View Order". */}
+        {mobileSheet === 'menu' && (
+          <div
+            className="nom-mobile-bar"
+            onClick={() => setMobileSheet('cart')}
+            role="button" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setMobileSheet('cart'); }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(234,231,227,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>
+                {cart.length === 0
+                  ? 'Cart empty'
+                  : `${totals.itemCount} item${totals.itemCount === 1 ? '' : 's'}`}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: A.cream, letterSpacing: '-0.3px', fontFamily: "'JetBrains Mono', monospace" }}>
+                {formatRupee(totals.grandTotal)}
+              </div>
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: A.cream, letterSpacing: '-0.3px', fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatRupee(totals.grandTotal)}
-            </div>
+            <span
+              style={{
+                padding: '12px 18px', borderRadius: 10,
+                background: cart.length > 0 ? A.warning : 'rgba(234,231,227,0.18)',
+                color: cart.length > 0 ? A.ink : 'rgba(234,231,227,0.55)',
+                fontSize: 14, fontWeight: 700, fontFamily: A.font,
+                whiteSpace: 'nowrap',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                minWidth: 140, justifyContent: 'center',
+              }}>
+              {cart.length === 0 ? 'Add items' : `View order →`}
+            </span>
           </div>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            style={{
-              padding: '12px 18px', borderRadius: 10, border: 'none',
-              background: canSubmit ? A.warning : 'rgba(234,231,227,0.18)',
-              color: canSubmit ? A.ink : 'rgba(234,231,227,0.45)',
-              fontSize: 14, fontWeight: 700, fontFamily: A.font,
-              cursor: canSubmit ? 'pointer' : 'not-allowed',
-              whiteSpace: 'nowrap',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              minWidth: 140, justifyContent: 'center',
-            }}>
-            {submitting ? (
-              <>
-                <span style={{ width: 14, height: 14, border: `2px solid ${A.ink}`, borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'nom-spin 0.7s linear infinite' }} />
-                Sending…
-              </>
-            ) : cart.length === 0 ? 'Add items' : !canSubmit ? (orderType === 'dinein' ? 'Enter table' : 'Enter name') : 'Place Order →'}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -372,45 +372,34 @@ html, body { overflow-x: hidden; }
   }
 }
 
-/* /admin/new-order mobile layout
-   Desktop: 2-col (menu LEFT 1fr, cart RIGHT 380px)
-   Mobile : single col, cart FIRST (order-type/table/channel setup),
-            then menu items, so the owner picks their order context
-            before scrolling through dishes. The .order: 1 / 2 trick
-            does the reorder without restructuring the DOM. */
-@media (max-width: 767px) {
+/* /admin/new-order + NewOrderModal mobile layout
+   Desktop: 2-col (menu LEFT 1fr, cart RIGHT 380px) — both visible.
+   Mobile : single col. /admin/new-order vertically stacks
+            cart-first → menu-second (so the owner picks order
+            context before scrolling dishes). NewOrderModal uses a
+            two-screen toggle driven by its own `nom-mobile-hidden`
+            class — display:none !important in that class wins over
+            anything here, so the modal is unaffected by the cart-
+            first stacking rules below. */
+@media (max-width: 900px) {
   .ar-new-order-grid {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
-  /* Cart panel: collapse to a compact strip when empty so the MENU
-     ITEMS (the thing the owner actually needs to tap) dominate the
-     visible screen — matches the Petpooja behaviour the owner
-     specifically asked for. The empty-state helper text is hidden
-     via .ar-show-mobile selector below. */
-  .ar-new-order-cart  {
-    order: 1;
-    max-height: none !important;
-  }
-  .ar-new-order-cart > div[style*="flex: 1"][style*="overflowY"] {
-    /* The empty cart items list shouldn't take any flex space on
-       phones — flex:1 was making it consume 200px+ of empty area. */
-    flex: 0 0 auto !important;
-    min-height: 0 !important;
-    padding: 4px 16px !important;
-  }
-  /* Hide the "Scroll down and tap items" helper inside the empty
-     cart — once the cart is below the menu items its parent already
-     made the relationship obvious, no copy needed. */
-  .ar-new-order-cart .ar-show-mobile { display: none !important; }
+  .ar-new-order-cart  { order: 1; max-height: none !important; }
   .ar-new-order-menu  { order: 2; }
   /* Items grid: desktop minmax(180px) is 1 column on a 320-360px
-     phone — switch to 2-col tile cards for a Petpooja-like
-     pick-from-grid feel. */
+     phone — switch to 2-col tile cards (matches Petpooja feel). */
   .ar-new-order-items {
     grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px !important;
+    gap: 10px !important;
   }
+  /* Inside /admin/new-order's cart on mobile (stacked layout), hide
+     the empty-state helper text — the cart sits right below the menu
+     so the spatial relationship makes the prompt obvious. The :not()
+     scope explicitly EXCLUDES the modal cart pane (which shows on a
+     separate screen and DOES need the prompt). */
+  .ar-new-order-cart:not(.nom-pane-cart) .ar-show-mobile { display: none !important; }
 }
 
 /* Container for wide tables on phones (items / analytics / reports).
