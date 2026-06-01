@@ -834,8 +834,13 @@ export default function AdminSettings() {
                 )}
               </div>
 
-              {/* ─── RIGHT COLUMN: LIVE BILL PREVIEW (sticky) ─── */}
-              <div>
+              {/* ─── RIGHT COLUMN: LIVE BILL PREVIEW (sticky) ───
+                  Hidden on mobile (`.ar-hide-mobile`) — on phones it
+                  stacked underneath the form and became a giant dead
+                  block at the bottom of every save. Owners can preview
+                  the actual printed bill from /admin/payments → any
+                  order → 🖨 button. */}
+              <div className="ar-hide-mobile">
                 <div style={{
                   background: A.shell, borderRadius: 14,
                   border: A.border, padding: '20px 22px',

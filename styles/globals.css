@@ -131,6 +131,51 @@ html, body { overflow-x: hidden; }
   .ar-touch-target { min-height: 44px !important; }
 }
 
+/* Universal touch-target floor for ALL buttons on mobile.
+   Most admin pages have 27-30px tall buttons (padding: 4px 10px,
+   fontSize: 11) that are barely tappable on a phone. This forces
+   them to 44px tall (Apple HIG floor) without changing how they
+   look at desktop sizes. Buttons inside the kitchen / waiter
+   tablet UIs already have explicit larger sizes that this won't
+   shrink. */
+@media (max-width: 767px) {
+  button:not([data-no-min-height]) {
+    min-height: 44px;
+  }
+}
+
+/* Tighten desktop page padding on phones.
+   Catches the common admin-page wrapper pattern `padding: '28px 26px'`
+   (and similar 24-32 / 26-28 variants) via attribute selector. On a
+   360px screen the desktop padding ate 52px of width; on phones we
+   tighten to 14-16px so content actually breathes. */
+@media (max-width: 767px) {
+  div[style*="padding: '28px 26px'"],
+  div[style*="padding: '24px 28px'"],
+  div[style*="padding: '32px 28px'"],
+  div[style*="padding: '28px 28px'"],
+  div[style*="padding: '24px 28px 0'"],
+  div[style*="padding: '28px 26px 0'"],
+  div[style*="padding: '32px 28px 28px'"] {
+    padding: 16px 14px !important;
+  }
+}
+
+/* Container for wide tables on phones (items / analytics / reports).
+   Wraps the existing wide grid so it horizontally scrolls inside its
+   own box instead of pushing the whole page sideways. The handle bar
+   on top hints that there's more content to swipe to. Pages opt in
+   by wrapping their wide grid in <div className="ar-wide-table">. */
+.ar-wide-table { width: 100%; }
+@media (max-width: 767px) {
+  .ar-wide-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Visual edge fade so the user sees there's more content off-screen */
+    mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  }
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: rgba(247,155,61,0.06); }
