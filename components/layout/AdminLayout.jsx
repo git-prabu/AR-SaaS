@@ -11,6 +11,7 @@ import { PERMISSION_ROUTES } from '../../lib/permissions';
 import { getSubscriptionStatus, isBypassRoute } from '../../lib/subscription';
 import EmailVerifyBanner from '../EmailVerifyBanner';
 import PwaInstallPrompt from '../PwaInstallPrompt';
+import MobilePullToRefresh from '../MobilePullToRefresh';
 
 // Inverse of PERMISSION_ROUTES (nav-href → permission key). Used by the
 // sidebar to know which permission a nav item needs and, in turn, the
@@ -425,6 +426,7 @@ export default function AdminLayout({ children }) {
   const A_GOLD_DARK = '#A08656';        // darker gold for on-pill icon if needed
 
   return (
+    <MobilePullToRefresh>
     <div style={{ minHeight: '100vh', background: A_PAGE, fontFamily: INTER, color: A_INK, display: 'flex', position: 'relative' }}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -614,5 +616,6 @@ export default function AdminLayout({ children }) {
         </main>
       </AdminDataProvider>
     </div>
+    </MobilePullToRefresh>
   );
 }

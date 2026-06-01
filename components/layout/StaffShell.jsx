@@ -16,6 +16,7 @@ import { staffAuth } from '../../lib/firebaseAuth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { staffDb } from '../../lib/firebase';
 import { navSections, NavIcon } from './AdminLayout';
+import MobilePullToRefresh from '../MobilePullToRefresh';
 import { PERMISSION_ROUTES, STAFF_ENABLED } from '../../lib/permissions';
 import { readStaffSession } from '../../lib/staffSession';
 import { getSubscriptionStatus } from '../../lib/subscription';
@@ -126,6 +127,7 @@ export default function StaffShell({ active, children }) {
   const A_HOVER = 'rgba(0,0,0,0.04)', A_BORDER = 'rgba(0,0,0,0.06)', A_GOLD = '#C4A86D';
 
   return (
+    <MobilePullToRefresh>
     <div style={{ minHeight: '100vh', background: A_PAGE, fontFamily: INTER, color: A_INK, display: 'flex' }}>
       <style>{`
         .slnk{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-family:${INTER};
@@ -236,6 +238,7 @@ export default function StaffShell({ active, children }) {
         {isLocked ? <StaffSubscriptionLock /> : children}
       </main>
     </div>
+    </MobilePullToRefresh>
   );
 }
 
