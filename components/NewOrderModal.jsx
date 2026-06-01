@@ -560,23 +560,31 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
           font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer;
           box-shadow: 0 2px 6px rgba(0,0,0,0.18);
           transition: transform 0.12s, box-shadow 0.12s;
+          padding: 0;
         }
         .nom-card-add:hover { transform: scale(1.06); box-shadow: 0 3px 10px rgba(0,0,0,0.22); }
+        /* Tightened qty pill — fits within the same visual footprint
+           as the [+] button so it never balloons across the card.
+           Owner reported the original pill looked oversized on phones. */
         .nom-card-pill {
           display: inline-flex; align-items: center;
           background: ${A.ink}; color: ${A.cream};
-          border-radius: 999px; padding: 2px;
+          border-radius: 999px; padding: 0;
           box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+          height: 32px;
         }
         .nom-card-pill button {
-          width: 26px; height: 26px; border-radius: 50%;
+          width: 28px; height: 32px;
           border: none; background: transparent; color: ${A.cream};
-          font-size: 15px; font-weight: 700; cursor: pointer; line-height: 1;
+          font-size: 16px; font-weight: 700; cursor: pointer; line-height: 1;
+          padding: 0; border-radius: 999px;
+          display: inline-flex; align-items: center; justify-content: center;
         }
         .nom-card-pill button:hover { background: rgba(255,255,255,0.08); }
         .nom-card-pill .qty {
-          padding: 0 8px; font-size: 13px; font-weight: 700;
-          font-family: 'JetBrains Mono', monospace; min-width: 18px; text-align: center;
+          padding: 0 2px; font-size: 13px; font-weight: 700;
+          font-family: 'JetBrains Mono', monospace; min-width: 16px; text-align: center;
+          line-height: 1;
         }
         /* overscroll-behavior:contain stops touch scrolls inside the
            menu / cart from leaking out to the page behind once they
@@ -590,7 +598,6 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
         .nom-cart-back { display: none; }
         @media (max-width: 900px) {
           .nom-grid { grid-template-columns: 1fr !important; }
-          .nom-cart-pane { max-height: none !important; }
           /* Two-view mobile flow: only one pane is visible at a time.
              The other is removed from layout via display:none — its
              internal scroll state is preserved by keeping the node
@@ -613,10 +620,36 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
           /* Reserve breathing room at the bottom of the menu grid on
              mobile so the floating bar doesn't cover the last row. */
           .nom-pane-menu .nom-scroll { padding-bottom: 96px !important; }
-          /* The mobile cart sheet should fill the whole modal vertically
-             (no max-height) so the totals + Place CTA sit at the bottom
-             of the screen, not floating. */
-          .nom-pane-cart { animation: nom-slide-up 0.22s ease both; }
+          /* Cart sheet (mobile): single-scroll layout. Owner reported
+             the previous design had an inner scroll on cart items which
+             hid the 2nd / 3rd item with no visual hint they were there.
+             Now: the entire cart pane scrolls as ONE block; cart items,
+             setup, special note flow naturally; back header sticks at
+             top, Place Order CTA sticks at the bottom — always
+             reachable, never hidden. Height accounts for the modal's
+             outer 24px padding + 60px header. */
+          .nom-pane-cart {
+            max-height: calc(100vh - 130px) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch;
+            animation: nom-slide-up 0.22s ease both;
+          }
+          .nom-pane-cart .nom-cart-list-wrap {
+            flex: 0 0 auto !important;
+            overflow: visible !important;
+          }
+          .nom-pane-cart .nom-cart-back {
+            position: sticky; top: 0; z-index: 3;
+            background: ${A.shellDarker};
+          }
+          .nom-pane-cart .nom-totals {
+            position: sticky; bottom: 0; z-index: 2;
+            background: ${A.shellDarker};
+            border-top: 1px solid rgba(0,0,0,0.08);
+            padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+            box-shadow: 0 -4px 14px rgba(0,0,0,0.06);
+          }
         }
       `}</style>
 
@@ -663,7 +696,14 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
                 style={{ flex: 1, minWidth: 0, padding: '9px 14px', borderRadius: 8, border: A.borderStrong, background: A.shellDarker, fontSize: 13, fontFamily: A.font, color: A.ink, transition: 'border-color 0.15s, box-shadow 0.15s' }}
               />
             </div>
-            <div style={{ padding: '8px 16px', borderBottom: A.border, display: 'flex', gap: 6, flexWrap: 'wrap', overflowX: 'auto' }}>
+            {/* Category chips — single-row horizontal scroll. The
+                earlier flexWrap:'wrap' was pushing chips into 3 rows
+                on phones, which ate ~120px of vertical space and
+                shoved the first row of item cards halfway off-screen
+                (image area cropped, only the price + counter
+                visible). Single-line scroll keeps the chips compact
+                and lets the menu grid breathe. */}
+            <div className="nom-scroll" style={{ padding: '8px 16px', borderBottom: A.border, display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden' }}>
               {categories.map(c => (
                 <button key={c} onClick={() => setCategory(c)}
                   style={{
@@ -672,6 +712,7 @@ export default function NewOrderModal({ rid, actorLabel, onClose, onPlaced, lock
                     color: category === c ? A.cream : A.mutedText,
                     fontSize: 12, fontWeight: 600, fontFamily: A.font,
                     cursor: 'pointer', textTransform: 'capitalize', whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}>
                   {c === 'all' ? `All (${items.length})` : c}
                 </button>
