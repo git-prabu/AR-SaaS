@@ -96,16 +96,13 @@ html, body { overflow-x: hidden; }
   .ar-tile-grid-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
 }
 
-/* Two-column form rows that stack on phones — replaces the
-   `gridTemplateColumns: '1fr 1fr'` pattern on business-info, requests,
-   promotions, qrcode, vendors, items, analytics forms. */
-.ar-form-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
+/* Two-column form rows that stack on phones.
+   Mobile-only override using !important so per-file inline styles can
+   keep their custom gap values (8 / 10 / 12 / 14 / 18). Just adding
+   className="ar-form-row-2" alongside the existing 1fr-1fr inline
+   style is enough — on phones the class forces single-column. */
 @media (max-width: 767px) {
-  .ar-form-row-2 { grid-template-columns: 1fr; gap: 12px; }
+  .ar-form-row-2 { grid-template-columns: 1fr !important; }
 }
 
 /* Hide on phones — for desktop-only content (right-column previews,

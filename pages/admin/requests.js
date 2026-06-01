@@ -719,7 +719,7 @@ export default function AdminRequests() {
 
               <form onSubmit={handleSubmit}>
                 {/* ─── Row 1: Name + Category ─── */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                   <div>
                     <label style={labelStyle}>Item Name *</label>
                     <input
@@ -809,7 +809,7 @@ export default function AdminRequests() {
                 </div>
 
                 {/* ─── Row 2: Price + Prep Time ─── */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                   <div>
                     <label style={labelStyle}>Price (₹) *</label>
                     <div style={{ position: 'relative' }}>
@@ -896,7 +896,7 @@ export default function AdminRequests() {
                   </div>
                   {showTranslations && (
                     <div style={{ padding: '0 16px 16px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                      <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                         <div>
                           <label style={labelStyle}>Tamil Name (தமிழ்)</label>
                           <input className="ar-input" style={inputStyle} value={form.nameTA} onChange={e => setForm(f => ({ ...f, nameTA: e.target.value }))} placeholder="e.g. பட்டர் சிக்கன்" />
@@ -906,7 +906,7 @@ export default function AdminRequests() {
                           <input className="ar-input" style={inputStyle} value={form.nameHI} onChange={e => setForm(f => ({ ...f, nameHI: e.target.value }))} placeholder="e.g. बटर चिकन" />
                         </div>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
                           <label style={labelStyle}>Tamil Description</label>
                           <input className="ar-input" style={inputStyle} value={form.descriptionTA} onChange={e => setForm(f => ({ ...f, descriptionTA: e.target.value }))} placeholder="தமிழ் விளக்கம்…" />

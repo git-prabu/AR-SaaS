@@ -447,7 +447,7 @@ export default function AdminQRCode() {
           ) : (
             <>
               {/* ═══ SECTION 1: MAIN QR GENERATOR ═══ */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
 
                 {/* LEFT — QR Preview + URL + Actions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -510,7 +510,7 @@ export default function AdminQRCode() {
                   </div>
 
                   {/* Action buttons */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <button onClick={downloadQR} disabled={!qrDataURL || generating} className="qr-action-btn" style={{
                       padding: '11px', borderRadius: 10, border: 'none',
                       background: A.ink, color: A.cream,

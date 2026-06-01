@@ -286,7 +286,7 @@ export default function AdminVendors() {
                 <label style={labelStyle}>Vendor name *</label>
                 <input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Anand Vegetables" autoFocus />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={labelStyle}>Phone</label>
                   <input style={inputStyle} type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 15) }))} placeholder="Mobile" />
@@ -299,7 +299,7 @@ export default function AdminVendors() {
                   </select>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={labelStyle}>GSTIN</label>
                   <input style={inputStyle} value={form.gstin} onChange={e => setForm(f => ({ ...f, gstin: e.target.value.toUpperCase().slice(0, 15) }))} placeholder="Optional" />

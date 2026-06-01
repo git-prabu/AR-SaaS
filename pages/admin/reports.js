@@ -876,7 +876,7 @@ export default function AdminReports() {
           </div>
 
           {/* ── Payment methods + Top items — 2-col row ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
             {/* Payment methods */}
             <div className="print-card" style={{ ...card, margin: 0, padding: '22px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 }}>

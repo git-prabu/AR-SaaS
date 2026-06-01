@@ -1790,7 +1790,7 @@ export default function AdminAnalytics() {
                 </BentoGlow>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 {/* Peak Hours — Aspire-lite */}
                 {(() => {
                   const aspireFont = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -2103,7 +2103,7 @@ export default function AdminAnalytics() {
                     </div>
 
                     {/* Bottom row: 2 insight cards — positive + actionable */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       {/* Working best */}
                       {workingBest ? (
                         <div style={{ padding: '14px 16px', background: 'rgba(63,158,90,0.05)', border: '1px solid rgba(63,158,90,0.18)', borderRadius: 10 }}>
@@ -2351,7 +2351,7 @@ export default function AdminAnalytics() {
                         </div>
                       )}
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                         {[
                           { label: 'VISITS → ORDERS', value: viewToOrderRate + '%', sub: 'conversion' },
                           { label: 'AR ITEM ORDERS', value: arToOrderRate + '%', sub: 'of all orders' },

@@ -501,7 +501,7 @@ export default function AdminSubscription() {
                 )}
 
                 {/* Usage bars */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
                   <UsageBar
                     label="Menu Items"
                     used={restaurant.itemsUsed || 0}

@@ -1743,7 +1743,7 @@ export default function AdminItems() {
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="Chicken Biryani"
                     style={inputStyle} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
                     <input className="it-input"
                       value={form.nameTA || ''}
                       onChange={e => setForm(f => ({ ...f, nameTA: e.target.value }))}
@@ -1766,7 +1766,7 @@ export default function AdminItems() {
                     placeholder="Short, appealing description of the dish"
                     rows={2}
                     style={{ ...inputStyle, resize: 'vertical', minHeight: 56 }} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
                     <textarea className="it-input"
                       value={form.descriptionTA || ''}
                       onChange={e => setForm(f => ({ ...f, descriptionTA: e.target.value }))}

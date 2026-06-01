@@ -520,7 +520,7 @@ export default function AdminSettings() {
                     These values appear on every customer bill. CGST & SGST will each be half of the GST %.
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                     <div>
                       <label style={labelStyle}>GST % (Total)</label>
                       <div style={{ position: 'relative' }}>
@@ -584,7 +584,7 @@ export default function AdminSettings() {
                     <label style={labelStyle}>Address</label>
                     <textarea className="ar-input" value={form.address} onChange={update('address')} rows={2} style={{ ...inputStyle, resize: 'none', minHeight: 64, paddingTop: 10 }} placeholder="Full address for the bill header" />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div>
                       <label style={labelStyle}>Phone</label>
                       <input className="ar-input" value={form.phone} onChange={update('phone')} style={inputStyle} placeholder="e.g. 9994623456" />
@@ -701,7 +701,7 @@ export default function AdminSettings() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div>
                       <label style={labelStyle}>Cuisine Type</label>
                       <input className="ar-input" value={form.cuisine} onChange={update('cuisine')} style={inputStyle} placeholder="e.g. South Indian, Continental" />
@@ -741,7 +741,7 @@ export default function AdminSettings() {
                     Customize what appears at the bottom of customer bills. HSN/SAC code is required for GST compliance.
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                     <div>
                       <label style={labelStyle}>HSN / SAC Code</label>
                       <input className="ar-input" value={form.hsnCode} onChange={update('hsnCode')} style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }} placeholder="9963" maxLength={8} />

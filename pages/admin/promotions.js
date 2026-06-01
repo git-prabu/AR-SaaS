@@ -1138,7 +1138,7 @@ function OfferForm({ form, setForm, menuItems, itemSearch, setItemSearch, itemPi
         )}
       </Field>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+      <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
         <Field label="Start date" inline>
           <input className="promo-input" type="date"
             value={form.startDate}
@@ -1168,7 +1168,7 @@ function CouponForm({ form, setForm }) {
           style={{ ...inputStyle, fontFamily: A.mono, letterSpacing: '0.04em' }} />
       </Field>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+      <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
         <Field label="Discount type" required inline>
           <select className="promo-input"
             value={form.type}
@@ -1231,7 +1231,7 @@ function ComboForm({ form, setForm, menuItems, comboItemSearch, setComboItemSear
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+      <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
         <Field label="Combo name" required inline>
           <input className="promo-input"
             value={form.name}
