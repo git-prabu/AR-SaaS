@@ -10,7 +10,7 @@
 // So a staffer only ever sees links that actually work for them.
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { signOut } from 'firebase/auth';
 import { staffAuth } from '../../lib/firebaseAuth';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -103,6 +103,23 @@ export default function StaffShell({ active, children }) {
   const activePath = (router.asPath || '').split('?')[0];
   const isActive = (href) => activePath === href || activePath.startsWith(href);
 
+  // ─── Responsive sidebar (mirrors AdminLayout's pattern) ──────────────
+  // Mobile experience BEFORE: <768px collapsed the sidebar into a static
+  // horizontal-scrolling row at the top — staff had to swipe sideways
+  // through every category. Replaced with: hamburger top-bar + slide-out
+  // drawer + backdrop tap-to-close. Auto-closes on route change so a
+  // tapped link doesn't leave the drawer open over the new page.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  useEffect(() => { if (isMobile) setSidebarOpen(false); }, [router.asPath, isMobile]);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
   // Aspire palette (mirrors AdminLayout's sidebar).
   const A_BG = '#FFFFFF', A_PAGE = '#EDEDED', A_INK = '#1A1A1A';
   const A_MUTED = 'rgba(0,0,0,0.55)', A_FAINT = 'rgba(0,0,0,0.38)';
@@ -118,13 +135,51 @@ export default function StaffShell({ active, children }) {
         .slnk .nav-icon{flex-shrink:0;opacity:0.75;display:inline-flex;align-items:center;justify-content:center;}
         .slnk.on{background:${A_GOLD};color:#fff;font-weight:600;}
         .slnk.on .nav-icon{opacity:1;}
+        .staff-shell-aside{transition:transform 0.25s cubic-bezier(.4,0,.2,1);}
+        .staff-mobile-topbar{display:none;}
+        .staff-backdrop{display:none;}
         @media(max-width:767px){
-          .staff-shell-aside{position:static !important;width:100% !important;height:auto !important;flex-direction:row !important;overflow-x:auto;}
-          .staff-shell-main{margin-left:0 !important;}
+          .staff-shell-aside{transform:translateX(-100%);}
+          .staff-shell-aside.open{transform:translateX(0);}
+          .staff-shell-main{margin-left:0 !important;padding-top:56px !important;}
+          .staff-mobile-topbar{
+            display:flex;align-items:center;gap:12px;
+            position:fixed;top:0;left:0;right:0;z-index:18;
+            height:56px;padding:0 16px;
+            background:${A_BG};
+            border-bottom:1px solid ${A_BORDER};
+          }
+          .staff-backdrop{
+            display:block;position:fixed;inset:0;z-index:19;
+            background:rgba(0,0,0,0.35);
+            backdrop-filter:blur(4px);
+            -webkit-tap-highlight-color:transparent;
+          }
+          .slnk{padding:12px 14px;font-size:14px;}
         }
       `}</style>
 
-      <aside className="staff-shell-aside" style={{
+      {/* Mobile top bar — hamburger + brand. Visible only at <768px. */}
+      <div className="staff-mobile-topbar">
+        <button onClick={() => setSidebarOpen(o => !o)}
+          style={{ background: 'none', border: 'none', color: A_INK, fontSize: 20, cursor: 'pointer', padding: '4px 6px', lineHeight: 1, minHeight: 44, minWidth: 44 }}
+          aria-label="Toggle menu">
+          ☰
+        </button>
+        <div style={{ fontFamily: INTER, fontWeight: 600, fontSize: 17, color: A_INK, letterSpacing: '-0.3px' }}>
+          Halo<span style={{ color: A_GOLD, fontStyle: 'italic', fontWeight: 500 }}>Helm</span>
+        </div>
+        <div style={{ marginLeft: 'auto', fontSize: 11, color: A_MUTED, fontWeight: 600, textTransform: 'capitalize', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {session?.name || 'Staff'}
+        </div>
+      </div>
+
+      {/* Backdrop — tap to close. Only renders on mobile when drawer open. */}
+      {isMobile && sidebarOpen && (
+        <div className="staff-backdrop" onClick={closeSidebar} />
+      )}
+
+      <aside className={`staff-shell-aside${sidebarOpen ? ' open' : ''}`} style={{
         width: 240, flexShrink: 0, background: A_BG, position: 'fixed', inset: '0 auto 0 0', zIndex: 20,
         borderRight: `1px solid ${A_BORDER}`, display: 'flex', flexDirection: 'column',
       }}>
@@ -148,7 +203,9 @@ export default function StaffShell({ active, children }) {
                 {section.label}
               </div>
               {section.items.map(item => (
-                <Link key={item.href} href={toStaff(item.href)} className={`slnk${isActive(toStaff(item.href)) ? ' on' : ''}`}>
+                <Link key={item.href} href={toStaff(item.href)}
+                  className={`slnk${isActive(toStaff(item.href)) ? ' on' : ''}`}
+                  onClick={isMobile ? closeSidebar : undefined}>
                   <span className="nav-icon"><NavIcon name={item.icon} /></span>
                   <span style={{ flex: 1 }}>{item.label}</span>
                 </Link>
