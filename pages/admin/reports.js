@@ -970,8 +970,15 @@ export default function AdminReports() {
             </div>
           </div>
 
-          {/* ── Transactions list ── */}
-          <div className="print-card" style={{ ...card, padding: '22px 24px', marginBottom: 28 }}>
+          {/* ── Transactions list ──
+              Hidden on mobile per owner request. The 6-column transactions
+              grid (Order # / Table / Items / Method / Time / Amount) is
+              ~460px wide minimum and was overflowing the 360px phone
+              viewport — owner reported a screenshot showing the right-
+              side columns drifting off-screen with an empty grey area.
+              Detailed transactions browsing belongs on desktop / tablet;
+              mobile owners get the headline KPIs above + GST summary. */}
+          <div className="print-card ar-hide-mobile" style={{ ...card, padding: '22px 24px', marginBottom: 28 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={secTitle}>Transactions</div>
