@@ -4,19 +4,14 @@
    Scoped under .sv2 so it cannot bleed into legacy pages.
    ═══════════════════════════════════════════════════════════ */
 
-/* When /staff/v2 is mounted, the page page sets `.sv2-host` on
-   <html> and <body> so percentage heights resolve correctly down
-   to .frame and the bottom nav sits at the viewport bottom even
-   when the inner .scroll has more content than fits.
-   The `overflow: hidden` on body kills any outer-page scroll —
-   only the .scroll element inside the screen scrolls. */
-html.sv2-host, html.sv2-host body.sv2-host {
-  height: 100%;
-  overflow: hidden;
-}
-html.sv2-host body.sv2-host > #__next {
-  height: 100%;
-}
+/* Body / html stays untouched on /staff/v2 — the layout uses
+   simple block flow with `min-height: 100dvh` on .sv2 and a
+   `position: fixed` bottom nav. No more percentage-height chain
+   through html → body → #__next → .sv2 that breaks the moment
+   any link in the chain is missing an explicit height (which is
+   what happened on the user's iPhone, where the .sv2-host class
+   was being added by useEffect AFTER first paint, causing
+   collapse to zero height on initial render). */
 
 .sv2 {
   /* dark matte surfaces */
@@ -67,20 +62,17 @@ html.sv2-host body.sv2-host > #__next {
   --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Make the page fill the viewport in matte ink, regardless of
-     the host body background. Using `height` (not `min-height`) so
-     the frame chain stays anchored to viewport size — otherwise
-     iOS Safari grows the wrapper when content overflows and the
-     bottom nav sails off-screen. */
+  /* Simple, robust: min-height anchors to viewport, dvh handles
+     iOS Safari URL-bar resizing, padding-bottom leaves room for
+     the fixed bottom nav so the last scroll line is reachable.
+     Layout is block flow — no flex chain to break. */
   background: var(--surface);
   color: var(--tx);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 
 /* Reset within sv2 only (don't touch global *) */
@@ -88,6 +80,9 @@ html.sv2-host body.sv2-host > #__next {
 .sv2 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
 .sv2 input, .sv2 textarea { font-family: inherit; }
 .sv2 img { display: block; max-width: 100%; }
+/* Default SVG size — defends against any icon without an explicit
+   parent sizing rule rendering at the browser's 300x150 default. */
+.sv2 svg { width: 1em; height: 1em; flex-shrink: 0; }
 
 /* Layout flexbox children all permit shrinking (matches prototype's
    #root display:contents trick — we use a real class chain instead). */
@@ -98,38 +93,25 @@ html.sv2-host body.sv2-host > #__next {
 .sv2 .item-main, .sv2 .th-meta, .sv2 .li-body, .sv2 .table-pill,
 .sv2 .tp-meta { min-width: 0; }
 
-/* ── Phone frame & screen scaffolding ─────────────────────── */
+/* ── Frame + screen scaffolding ──────────────────────────────
+   Pure block layout. .frame is a centered max-width column.
+   .screen and .scroll are normal divs — content flows in
+   document order, the body scrolls naturally. No flex height
+   chain to break. */
 .sv2 .frame {
-  position: relative;
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  /* FIXED viewport height — not min-height. This is what anchors
-     the bottom nav to the visible viewport bottom. With min-height,
-     iOS Safari grows the frame whenever inner content overflows
-     and the nav scrolls off-screen. flex:1 inside .sv2 (which is
-     itself 100% of the host #__next 100% chain) makes the frame
-     exactly viewport-tall, so .scroll handles its own overflow. */
-  flex: 1;
-  min-height: 0;
   background: var(--surface);
-  overflow: hidden;
-  display: flex; flex-direction: column;
-}
-.sv2 .screenwrap {
   position: relative;
-  flex: 1;
-  display: flex; flex-direction: column;
-  min-height: 0;
 }
-.sv2 .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sv2 .screenwrap { position: relative; }
+.sv2 .screen { }
 .sv2 .scroll {
-  flex: 1; min-height: 0; overflow-y: auto;
-  scrollbar-width: none; -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  /* leave room for the fixed bottom nav so the last scroll line
-     isn't hidden under it */
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  /* Was previously a flex:1 internal scroll container. Now block
+     layout — body scrolls naturally, no inner scroll. Padding
+     bottom only on the inside content; the `.sv2` already has
+     padding-bottom for the fixed nav. */
 }
 .sv2 .scroll::-webkit-scrollbar { display: none; }
 

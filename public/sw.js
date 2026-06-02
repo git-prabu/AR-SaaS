@@ -188,7 +188,17 @@
 // broken layout because the SW served the previous network-first
 // HTML / CSS bundle before the new ones reached. Bumping forces a
 // clean activate() purge.
-const CACHE_VERSION  = 'ar-v29';
+// ar-v30 (Jun 3, evening) — STAFF/V2 LAYOUT REWORK. Throwing out
+// the percentage-height chain that was breaking on iOS Safari
+// (sv2-host body class added by useEffect AFTER initial paint, so
+// the .sv2 with height:100% collapsed to 0 on first render, the
+// .frame { flex: 1 } chained off that nothing, content displayed
+// stacked-incorrectly). New layout is plain block flow: .sv2 has
+// `min-height: 100dvh` (no chain), .frame is a centered max-width
+// column, body scrolls naturally, bottom nav stays position:fixed.
+// Bumping the cache version so iOS PWAs do not serve the previous
+// broken HTML+CSS bundle from cache after the new version deploys.
+const CACHE_VERSION  = 'ar-v30';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
