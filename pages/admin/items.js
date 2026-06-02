@@ -149,6 +149,16 @@ export default function AdminItems() {
   // Filter UI
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
+  // UI Phase 5 follow-up: the category-filter chips and the customer-
+  // menu-order strip each used to be permanently expanded, eating most
+  // of the mobile viewport before the owner ever saw a single dish row.
+  // Both are now collapsibles — closed by default on phones, OPEN by
+  // default on tablets / desktops where the screen has room. State
+  // initialised with a window check so the desktop default doesn't
+  // flicker during hydration.
+  const initialOpen = (typeof window !== 'undefined' && window.innerWidth >= 900);
+  const [showCatFilters, setShowCatFilters] = useState(initialOpen);
+  const [showCustomerOrder, setShowCustomerOrder] = useState(initialOpen);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'active' | 'hidden' | 'oos' | 'sold-out-today'
 
   // Drawer form state
@@ -1006,6 +1016,65 @@ export default function AdminItems() {
           .it-drag { cursor: grab; user-select: none; }
           .it-drag:active { cursor: grabbing; }
           .it-badge-tile:hover { border-color: rgba(196,168,109,0.45) !important; }
+
+          /* ── Mobile-only items-table cleanup ───────────────────────
+             Owner reported the wide table on phones had cramped columns,
+             badges overlapping with the category text, and the header
+             row's "Featured first · drag to reorder within" hint
+             pinned to the far right via marginLeft:auto (so it sat
+             off-screen until the user horizontally scrolled). All the
+             inline grid-template-columns rules use !important here
+             because the JSX writes the template inline. */
+          @media (max-width: 767px) {
+            /* Collapse the row to 4 visible columns on phones:
+                  checkbox · image · dish · price
+               Drag handle, category, prep, status and actions cells
+               are hidden — actions stay reachable by tapping the row
+               to open the edit drawer; category is already shown as
+               the group header above each batch of rows; prep/status
+               can be edited inside the drawer. Min-width drops so
+               the row fits inside a 360px viewport with no scroll. */
+            .it-row,
+            .it-table-head {
+              grid-template-columns: 24px 48px 1fr 76px !important;
+              min-width: 0 !important;
+              gap: 8px !important;
+              padding-left: 12px !important;
+              padding-right: 12px !important;
+            }
+            .it-row > :nth-child(2),  /* drag handle */
+            .it-row > :nth-child(5),  /* category */
+            .it-row > :nth-child(7),  /* prep */
+            .it-row > :nth-child(8),  /* status */
+            .it-row > :nth-child(9),  /* actions */
+            .it-table-head > :nth-child(2),
+            .it-table-head > :nth-child(5),
+            .it-table-head > :nth-child(7),
+            .it-table-head > :nth-child(8),
+            .it-table-head > :nth-child(9) {
+              display: none !important;
+            }
+            /* Dish name + badges: stack and ellipsis so a "Chef's
+               Special" + "POPULAR" + "Linked·1" combo no longer
+               wraps awkwardly into the next column. */
+            .it-row .it-dish { min-width: 0; }
+            .it-row .it-dish > div:first-child {
+              flex-wrap: nowrap !important;
+              overflow: hidden;
+            }
+            /* Category heading row inside the table — let the
+               "Featured first · drag to reorder within" hint wrap to
+               its own line instead of sitting off-screen at the far
+               right via marginLeft:auto. */
+            .it-cat-head {
+              flex-wrap: wrap !important;
+            }
+            .it-cat-head > :last-child {
+              flex-basis: 100% !important;
+              margin-left: 0 !important;
+              margin-top: 2px !important;
+            }
+          }
         `}</style>
 
         {/* Hidden file input — triggered by the Import CSV button. Lives at
@@ -1195,32 +1264,71 @@ export default function AdminItems() {
             </span>
           </div>
 
-          {/* Category pills */}
+          {/* Category pills — collapsible. When closed, only the
+              active-filter chip is shown so the owner sees their
+              current focus at a glance without the section eating
+              ~280px of viewport. Tap the header to expand and pick
+              a different category. */}
           {categories.length > 2 && (
-            <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-              {categories.map(cat => {
-                const active = catFilter === cat;
-                const count = cat === 'all' ? items.length : items.filter(i => i.category === cat).length;
-                return (
-                  <button key={cat} onClick={() => setCatFilter(cat)}
-                    style={{
-                      padding: '6px 12px', borderRadius: 7, border: A.border,
-                      background: active ? A.ink : A.shell,
-                      color: active ? A.cream : A.mutedText,
-                      fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer',
-                      fontFamily: A.font, transition: 'all 0.15s',
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                    }}>
-                    {cat === 'all' ? 'All categories' : cat}
-                    <span style={{
-                      padding: '1px 5px', borderRadius: 6,
-                      background: active ? 'rgba(237,237,237,0.18)' : A.subtleBg,
-                      color: active ? A.cream : A.faintText,
-                      fontSize: 10, fontWeight: 700, fontFamily: A.mono,
-                    }}>{count}</span>
-                  </button>
-                );
-              })}
+            <div style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowCatFilters(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%',
+                  padding: '8px 10px', borderRadius: 8,
+                  border: A.border, background: A.shell,
+                  fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                  color: A.mutedText, cursor: 'pointer', textAlign: 'left',
+                }}>
+                <span style={{
+                  display: 'inline-block', transition: 'transform 0.18s',
+                  transform: showCatFilters ? 'rotate(90deg)' : 'rotate(0)',
+                  color: A.warningDim, fontSize: 11,
+                }}>▶</span>
+                <span style={{ color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: 10.5, fontWeight: 700 }}>
+                  Filter by category
+                </span>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{
+                    padding: '2px 9px', borderRadius: 999,
+                    background: catFilter === 'all' ? A.subtleBg : A.ink,
+                    color: catFilter === 'all' ? A.mutedText : A.cream,
+                    fontSize: 11, fontWeight: 700, maxWidth: 160,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {catFilter === 'all' ? `All · ${items.length}` : catFilter}
+                  </span>
+                </span>
+              </button>
+              {showCatFilters && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                  {categories.map(cat => {
+                    const active = catFilter === cat;
+                    const count = cat === 'all' ? items.length : items.filter(i => i.category === cat).length;
+                    return (
+                      <button key={cat} onClick={() => setCatFilter(cat)}
+                        style={{
+                          padding: '6px 12px', borderRadius: 7, border: A.border,
+                          background: active ? A.ink : A.shell,
+                          color: active ? A.cream : A.mutedText,
+                          fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer',
+                          fontFamily: A.font, transition: 'all 0.15s',
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                        }}>
+                        {cat === 'all' ? 'All categories' : cat}
+                        <span style={{
+                          padding: '1px 5px', borderRadius: 6,
+                          background: active ? 'rgba(237,237,237,0.18)' : A.subtleBg,
+                          color: active ? A.cream : A.faintText,
+                          fontSize: 10, fontWeight: 700, fontFamily: A.mono,
+                        }}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -1230,21 +1338,56 @@ export default function AdminItems() {
               optimistically; the customer page reads that field to
               order its category sections. New categories (typed for
               the first time on a new item) auto-append at the end —
-              admin can drag them into position later. */}
+              admin can drag them into position later.
+
+              UI Phase 5 follow-up: now a collapsible accordion (closed
+              by default on phones — the section used to take >50% of
+              the visible viewport before the first dish row appeared)
+              and the cards inside now lay out in a UNIFORM grid (was
+              inline-flex with each card sized to its content, so long
+              names like "Chef's Special" pushed neighbour cards into
+              awkward widths). Long category names get clipped with
+              ellipsis so the layout stays even no matter how the
+              owner names their categories. */}
           {effectiveCategoryOrder.length > 1 && (
             <div style={{ marginTop: 16 }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 11, fontWeight: 600, color: A.faintText,
-                letterSpacing: '0.06em', textTransform: 'uppercase',
-                marginBottom: 8,
-              }}>
-                <span>Customer menu order</span>
-                <span style={{ color: A.mutedText, textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>
-                  · drag to reorder how categories appear on the menu
+              <button
+                type="button"
+                onClick={() => setShowCustomerOrder(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%',
+                  padding: '8px 10px', borderRadius: 8,
+                  border: A.border, background: A.shell,
+                  fontFamily: A.font, fontSize: 12, fontWeight: 600,
+                  color: A.mutedText, cursor: 'pointer', textAlign: 'left',
+                }}>
+                <span style={{
+                  display: 'inline-block', transition: 'transform 0.18s',
+                  transform: showCustomerOrder ? 'rotate(90deg)' : 'rotate(0)',
+                  color: A.warningDim, fontSize: 11,
+                }}>▶</span>
+                <span style={{ color: A.faintText, letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: 10.5, fontWeight: 700 }}>
+                  Customer menu order
                 </span>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: A.mutedText, fontWeight: 500 }}>
+                  {effectiveCategoryOrder.length} categor{effectiveCategoryOrder.length === 1 ? 'y' : 'ies'}
+                </span>
+              </button>
+              {showCustomerOrder && (
+                <>
+                  <div style={{
+                    fontSize: 11, color: A.mutedText,
+                    margin: '8px 12px 10px',
+                    fontWeight: 500, lineHeight: 1.4,
+                  }}>
+                    Drag to reorder how categories appear on the customer menu.
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: 10,
+                  }}>
                 {effectiveCategoryOrder.map((name) => {
                   const isDragging = catDragging === name;
                   const isOver = catDragOver.current === name;
@@ -1270,7 +1413,14 @@ export default function AdminItems() {
                         outline: isOver && !isDragging ? `2px solid ${A.warning}` : 'none',
                         outlineOffset: 2,
                         cursor: 'grab',
-                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                        // Grid layout from the parent makes the card fill its
+                        // cell — uniform widths replace the old natural-content
+                        // widths that varied wildly between "Pizza" and
+                        // "Chef's Special". `min-width: 0` is essential inside
+                        // a grid track so the inner ellipsis below can actually
+                        // shrink instead of stretching the cell.
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        minWidth: 0,
                         fontSize: 13, fontWeight: 600, color: A.ink,
                         fontFamily: A.font,
                         userSelect: 'none',
@@ -1341,8 +1491,14 @@ export default function AdminItems() {
                           }}
                         />
                       ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          {name}
+                        <span style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          flex: 1, minWidth: 0,
+                        }}>
+                          <span style={{
+                            overflow: 'hidden', textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap', flex: 1, minWidth: 0,
+                          }}>{name}</span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); startRename(name); }}
@@ -1351,7 +1507,7 @@ export default function AdminItems() {
                               width: 18, height: 18, borderRadius: '50%',
                               border: 'none', background: 'transparent',
                               color: A.faintText, cursor: 'pointer',
-                              fontSize: 11, lineHeight: 1, padding: 0,
+                              fontSize: 11, lineHeight: 1, padding: 0, flexShrink: 0,
                             }}
                           >✎</button>
                         </span>
@@ -1378,7 +1534,9 @@ export default function AdminItems() {
                     </div>
                   );
                 })}
-              </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1402,7 +1560,7 @@ export default function AdminItems() {
               boxShadow: A.shadowCard, overflow: 'hidden',
             }}>
               {/* Table header — leading 28px column for the bulk-select checkbox */}
-              <div style={{
+              <div className="it-table-head" style={{
                 display: 'grid',
                 gridTemplateColumns: '28px 36px 56px 1fr 110px 90px 90px 110px 100px',
                 minWidth: 720,
@@ -1447,7 +1605,7 @@ export default function AdminItems() {
                 const isCategoryStart = myCat !== prevCat;
                 const groupSize = displayed.filter(i => ((i.category || '').trim() || 'Other') === myCat).length;
                 const heading = isCategoryStart ? (
-                  <div key={`cat_head_${myCat}`} style={{
+                  <div key={`cat_head_${myCat}`} className="it-cat-head" style={{
                     display: 'flex', alignItems: 'baseline', gap: 10,
                     padding: '12px 18px',
                     background: 'rgba(196,168,109,0.06)',
@@ -1556,7 +1714,7 @@ export default function AdminItems() {
                     </div>
 
                     {/* Name + badges */}
-                    <div style={{ minWidth: 0 }}>
+                    <div className="it-dish" style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
                         <span style={{
                           fontWeight: 600, fontSize: 14, color: A.ink,
