@@ -51,6 +51,20 @@ export default function StaffV2() {
   useEffect(() => { setSession(readStaffSession()); setChecked(true); }, []);
   useEffect(() => { if (checked && !session) router.replace('/staff/login'); }, [checked, session, router]);
 
+  // Mark <html> and <body> with `sv2-host` for the lifetime of this
+  // page so the percentage-height chain reaches .frame and the bottom
+  // nav can anchor to the viewport bottom. Removed on unmount so
+  // navigating to any other page restores normal scrolling.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.classList.add('sv2-host');
+    document.body.classList.add('sv2-host');
+    return () => {
+      document.documentElement.classList.remove('sv2-host');
+      document.body.classList.remove('sv2-host');
+    };
+  }, []);
+
   // Live tick so kitchen ticket ages advance without needing fresh
   // order data — every 30s nudges a counter that's read inside
   // KitchenScreen's age math. Same idea as the prototype's 25s tick.
