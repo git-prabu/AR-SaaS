@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { I } from '../ui/icons';
 import { rupee, Thumb, VegMark, SpicePips, emojiFromCategory, spiceToInt } from '../ui/primitives';
+import { todayKey } from '../../../lib/db';
 
 export default function MenuScreen({
   table, menu, lines, selectedSeat, setSelectedSeat,
@@ -115,6 +116,12 @@ export default function MenuScreen({
 
       {/* Scrolling menu list */}
       <div className="scroll" ref={scrollRef} onScroll={onScroll}>
+        {cats.length === 0 ? (
+          <div className="empty">
+            <span className="e-emoji">🍽</span>
+            <p>No menu items yet. Ask your manager to add dishes from the Items page so they appear here.</p>
+          </div>
+        ) : (
         <div className="menulist">
           {cats.map(c => (
             <div key={c.id} ref={el => (catRefs.current[c.id] = el)}>
@@ -123,20 +130,36 @@ export default function MenuScreen({
                 const q = simpleQty(item.id);
                 const spice = spiceToInt(item.spiceLevel);
                 const itemForThumb = { ...item, spice };
+                // Same sold-out gate /admin/new-order uses — owner
+                // marked the dish "out for today" via availableUntil.
+                // Hides the add control and dims the row.
+                const soldOut = item.availableUntil === todayKey();
+                const openItem = () => { if (!soldOut) onOpenItem(item, null); };
                 return (
-                  <div key={item.id} className={'itemrow' + (seatItemQty(lines, item.id, selectedSeat) > 0 ? ' has-qty' : '')} style={{ marginBottom: 8 }}>
-                    <div onClick={() => onOpenItem(item, null)} style={{ cursor: 'pointer' }}>
+                  <div key={item.id}
+                    className={'itemrow' + (seatItemQty(lines, item.id, selectedSeat) > 0 ? ' has-qty' : '')}
+                    style={{ marginBottom: 8, opacity: soldOut ? 0.5 : 1 }}>
+                    <div onClick={openItem} style={{ cursor: soldOut ? 'not-allowed' : 'pointer' }}>
                       <Thumb item={itemForThumb} />
                     </div>
-                    <div className="item-main" onClick={() => onOpenItem(item, null)} style={{ cursor: 'pointer' }}>
+                    <div className="item-main" onClick={openItem} style={{ cursor: soldOut ? 'not-allowed' : 'pointer' }}>
                       <div className="item-name"><VegMark veg={item.isVeg !== false} />{item.name}</div>
                       {item.description && <div className="item-desc">{item.description}</div>}
                       <div className="item-foot">
                         <span className="item-price"><span className="cur">₹</span>{Math.round(item.price || 0)}</span>
                         <SpicePips level={spice} />
+                        {soldOut && (
+                          <span style={{
+                            fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
+                            letterSpacing: '.1em', textTransform: 'uppercase',
+                            color: 'var(--danger)',
+                            border: '1px solid var(--danger)', borderRadius: 4,
+                            padding: '1px 6px',
+                          }}>Sold out</span>
+                        )}
                       </div>
                     </div>
-                    {q > 0 ? (
+                    {soldOut ? null : q > 0 ? (
                       <div className="stepper">
                         <button onClick={(e) => { e.stopPropagation(); onRowStep(item, selectedSeat, -1); }}>{I.minus}</button>
                         <span className="qty">{q}</span>
@@ -154,6 +177,7 @@ export default function MenuScreen({
           ))}
           <div style={{ height: orderCount > 0 ? 80 : 20 }} />
         </div>
+        )}
       </div>
 
       {orderCount > 0 && (

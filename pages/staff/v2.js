@@ -51,6 +51,15 @@ export default function StaffV2() {
   useEffect(() => { setSession(readStaffSession()); setChecked(true); }, []);
   useEffect(() => { if (checked && !session) router.replace('/staff/login'); }, [checked, session, router]);
 
+  // Live tick so kitchen ticket ages advance without needing fresh
+  // order data — every 30s nudges a counter that's read inside
+  // KitchenScreen's age math. Same idea as the prototype's 25s tick.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setTick(t => t + 1), 30_000);
+    return () => clearInterval(iv);
+  }, []);
+
   // ── Data load (Phase C: live subscriptions) ──────────────────────
   const [restaurant, setRestaurant] = useState(null);
   const [menu, setMenu] = useState([]);
