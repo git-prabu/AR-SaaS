@@ -24,13 +24,14 @@ import toast from 'react-hot-toast';
 import { readStaffSession } from '../../lib/staffSession';
 import { staffDb } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
-import { getAllMenuItems, getRestaurantById, createOrder } from '../../lib/db';
+import { getAllMenuItems, getRestaurantById, createOrder, updateOrderStatusAs } from '../../lib/db';
 import { I } from '../../components/staff-v2/ui/icons';
 import FloorScreen from '../../components/staff-v2/screens/FloorScreen';
 import MenuScreen from '../../components/staff-v2/screens/MenuScreen';
 import ItemSheet from '../../components/staff-v2/screens/ItemSheet';
 import ReviewScreen from '../../components/staff-v2/screens/ReviewScreen';
 import ConfirmScreen from '../../components/staff-v2/screens/ConfirmScreen';
+import KitchenScreen from '../../components/staff-v2/screens/KitchenScreen';
 
 // uid generator for cart lines — local-only, never persisted.
 let _uid = 0;
@@ -324,27 +325,22 @@ export default function StaffV2() {
   if (!checked) return null;
   if (!session) return null;
 
+  // Kitchen bump — write order status changes via staffDb so the
+  // staff token rides along (matches the existing /admin/kitchen
+  // pattern with updateOrderStatusAs).
+  const handleBump = useCallback(async (orderId, nextStatus) => {
+    try {
+      await updateOrderStatusAs(staffDb, rid, orderId, nextStatus);
+    } catch (e) {
+      console.error('staff-v2 bump:', e);
+      toast.error('Could not update the order. Try again.');
+    }
+  }, [rid]);
+
   // ── Render ───────────────────────────────────────────────────────
   let body;
   if (tab === 'kitchen') {
-    // Phase D will replace this placeholder with the real ticket rail.
-    body = (
-      <div className="screen screen-enter">
-        <div className="apphead">
-          <div className="apphead-row">
-            <div style={{ flex: 1 }}>
-              <div className="eyebrow">Kitchen Display · live</div>
-              <h1 className="h-screen">Kitchen rail</h1>
-            </div>
-            <button className="iconbtn gold" aria-label="Kitchen">{I.chef}</button>
-          </div>
-        </div>
-        <div className="empty">
-          <span className="e-emoji">🍳</span>
-          <p>The kitchen rail lands in Phase D. Orders you send from /staff/v2 already write to Firestore — the existing /staff/kitchen page shows them today.</p>
-        </div>
-      </div>
-    );
+    body = <KitchenScreen orders={allOrdersList} onBump={handleBump} />;
   } else if (loading) {
     body = (
       <div className="screen screen-enter">
@@ -408,6 +404,16 @@ export default function StaffV2() {
 
   const showNav = (tab === 'kitchen') || (tab === 'floor' && screen === 'floor');
 
+  // Count of 'pending' orders to show as a badge on the Kitchen tab
+  // — same urgency signal the prototype shows. Limited to dine-in,
+  // non-cancelled orders.
+  const newTickets = allOrdersList.filter(o =>
+    o.status === 'pending'
+    && o.status !== 'cancelled'
+    && o.orderType !== 'takeaway'
+    && o.orderType !== 'takeout'
+  ).length;
+
   return (
     <>
       <Head>
@@ -423,6 +429,7 @@ export default function StaffV2() {
                   {I.grid}<span>Floor</span>
                 </button>
                 <button className={tab === 'kitchen' ? 'on' : ''} onClick={() => setTab('kitchen')}>
+                  {newTickets > 0 && <span className="navbadge">{newTickets}</span>}
                   {I.chef}<span>Kitchen</span>
                 </button>
               </div>
