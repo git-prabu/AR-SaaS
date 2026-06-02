@@ -1227,36 +1227,62 @@ export default function AdminPayments() {
         </div>
 
         {/* ═══ Undo banner (60-second window) ═══
-            Note: AdminLayout has a 240px sidebar. `position: fixed` + `left: 50%`
-            would center on the viewport (including sidebar), making the banner appear
-            visually off-center relative to the content area. Shift right by 120px
-            (half the sidebar width) so the banner centers on the visible content. */}
+            AdminLayout has a 240px sidebar on desktop, so the desktop
+            rule shifts the banner right by half that to centre it on
+            the visible content area. On mobile (< 768px) the sidebar
+            is a drawer, not a fixed gutter — the +120px offset pushed
+            the banner half off-screen to the right (owner reported the
+            text was clipped to "Paym... mark... Undo... within..."
+            from real-device testing). Mobile rule below centres on the
+            viewport, constrains max-width, and lets the body wrap. */}
         {undoBanner && (
-          <div className="no-print" style={{
-            position: 'fixed', bottom: 24,
-            left: 'calc(50% + 120px)', transform: 'translateX(-50%)',
-            zIndex: 100,
-            background: A.ink, color: A.cream,
-            borderRadius: 12, padding: '12px 18px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
-            display: 'flex', alignItems: 'center', gap: 14,
-            fontFamily: A.font, fontSize: 13, fontWeight: 500,
-            animation: 'slideUp 0.25s ease both',
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: A.success, flexShrink: 0 }} />
-            <span>Payment marked. Undo within 60 seconds if incorrect.</span>
-            <button onClick={undoPayment} style={{
-              padding: '6px 14px', borderRadius: 6, border: 'none',
-              background: A.warning, color: A.ink,
-              fontFamily: A.font, fontSize: 12, fontWeight: 700,
-              cursor: 'pointer', letterSpacing: '0.02em',
-            }}>Undo</button>
-            <button onClick={() => { if (undoBanner.timeoutId) clearTimeout(undoBanner.timeoutId); setUndoBanner(null); }} style={{
-              padding: '4px 8px', borderRadius: 6, border: 'none',
-              background: 'transparent', color: 'rgba(237,237,237,0.4)',
-              fontSize: 16, cursor: 'pointer', lineHeight: 1,
-            }}>×</button>
-          </div>
+          <>
+            <style>{`
+              .ar-undo-banner {
+                position: fixed; bottom: 24px;
+                left: calc(50% + 120px); transform: translateX(-50%);
+                z-index: 100;
+                background: ${A.ink}; color: ${A.cream};
+                border-radius: 12px; padding: 12px 18px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+                display: flex; align-items: center; gap: 14px;
+                font-family: ${A.font}; font-size: 13px; font-weight: 500;
+                animation: slideUp 0.25s ease both;
+                max-width: calc(100vw - 32px);
+              }
+              .ar-undo-banner .msg { flex: 1; min-width: 0; }
+              @media (max-width: 767px) {
+                .ar-undo-banner {
+                  left: 16px; right: 16px;
+                  transform: none;
+                  bottom: calc(24px + env(safe-area-inset-bottom));
+                  padding: 12px 14px; gap: 10px;
+                  flex-wrap: wrap;
+                }
+                .ar-undo-banner .msg {
+                  flex-basis: 100%;
+                  font-size: 12.5px; line-height: 1.4;
+                }
+              }
+            `}</style>
+            <div className="no-print ar-undo-banner">
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: A.success, flexShrink: 0 }} />
+              <span className="msg">Payment marked. Undo within 60 seconds if incorrect.</span>
+              <button onClick={undoPayment} style={{
+                padding: '6px 14px', borderRadius: 6, border: 'none',
+                background: A.warning, color: A.ink,
+                fontFamily: A.font, fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', letterSpacing: '0.02em',
+                flexShrink: 0,
+              }}>Undo</button>
+              <button onClick={() => { if (undoBanner.timeoutId) clearTimeout(undoBanner.timeoutId); setUndoBanner(null); }} style={{
+                padding: '4px 8px', borderRadius: 6, border: 'none',
+                background: 'transparent', color: 'rgba(237,237,237,0.4)',
+                fontSize: 16, cursor: 'pointer', lineHeight: 1,
+                flexShrink: 0,
+              }}>×</button>
+            </div>
+          </>
         )}
 
         {/* ═══ Phase E — Cash payment confirmation modal ═══
