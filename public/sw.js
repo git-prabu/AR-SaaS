@@ -183,7 +183,12 @@
 // — the next launch refetches /admin/login from network and gets the
 // new HTML with the auto-redirect + the prominent standalone-mode
 // "Continue to Staff Sign-in" banner. No code-strategy changes.
-const CACHE_VERSION  = 'ar-v28';
+// ar-v29 (Jun 3) — Force fresh CSS for /staff/v2 after the inline-
+// style apphead fix + fixed-position bottom nav. Owner was seeing a
+// broken layout because the SW served the previous network-first
+// HTML / CSS bundle before the new ones reached. Bumping forces a
+// clean activate() purge.
+const CACHE_VERSION  = 'ar-v29';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

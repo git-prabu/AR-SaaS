@@ -127,6 +127,9 @@ html.sv2-host body.sv2-host > #__next {
   flex: 1; min-height: 0; overflow-y: auto;
   scrollbar-width: none; -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  /* leave room for the fixed bottom nav so the last scroll line
+     isn't hidden under it */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 .sv2 .scroll::-webkit-scrollbar { display: none; }
 
@@ -240,8 +243,22 @@ html.sv2-host body.sv2-host > #__next {
 .sv2 .tabletok.shape-long .ttotal { font-size: 15px; margin: 0; }
 
 /* ── Bottom nav ───────────────────────────────────────────── */
+/* position:fixed anchors the nav to the viewport bottom regardless
+   of the frame's height calculation — so even if iOS Safari sizes
+   the wrapper weirdly the user always sees the Floor / Kitchen
+   tabs. The frame gets bottom padding (further below) to leave
+   room so content under the nav stays scrollable. */
 .sv2 .botnav {
-  flex-shrink: 0; display: flex; background: var(--card); border-top: 1px solid var(--line);
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  z-index: 50;
+  display: flex;
+  background: var(--card);
+  border-top: 1px solid var(--line);
   padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
 }
 .sv2 .botnav button {

@@ -61,16 +61,19 @@ export default function FloorScreen({
 
   return (
     <div className="screen screen-enter">
-      <div className="apphead">
-        <div className="apphead-row">
-          <div className="whoami" style={{ flex: 1 }}>
-            <div className="avatar">{(waiter || 'S')[0].toUpperCase()}</div>
-            <div>
-              <div className="eyebrow">{greeting()} · Floor</div>
-              <h1 className="h-screen">Tables</h1>
-            </div>
+      {/* apphead — inline styles override any CSS specificity quirks
+          the user's device might hit (real-device debugging revealed
+          the row was being broken open with text-block at top and
+          avatar/bell at bottom). Plain DOM-level styles guarantee
+          the row layout sticks. */}
+      <div style={{ padding: '14px 20px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' }}>
+          <div className="avatar" style={{ flexShrink: 0 }}>{(waiter || 'S')[0].toUpperCase()}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="eyebrow">{greeting()} · Floor</div>
+            <h1 className="h-screen">Tables</h1>
           </div>
-          <button className="iconbtn" aria-label="Notifications">{I.bell}</button>
+          <button className="iconbtn" aria-label="Notifications" style={{ flexShrink: 0 }}>{I.bell}</button>
         </div>
       </div>
 

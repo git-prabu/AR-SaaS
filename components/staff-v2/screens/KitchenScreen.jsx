@@ -77,13 +77,16 @@ export default function KitchenScreen({ orders, onBump }) {
 
   return (
     <div className="screen screen-enter">
-      <div className="apphead">
-        <div className="apphead-row">
-          <div style={{ flex: 1 }}>
+      {/* apphead — inline styles same as FloorScreen to guarantee the
+          row stays a row regardless of any CSS specificity surprise
+          the device might bring. */}
+      <div style={{ padding: '14px 20px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div className="eyebrow">Kitchen Display · live</div>
             <h1 className="h-screen">Kitchen rail</h1>
           </div>
-          <button className="iconbtn gold" aria-label="Kitchen">{I.chef}</button>
+          <button className="iconbtn gold" aria-label="Kitchen" style={{ flexShrink: 0 }}>{I.chef}</button>
         </div>
       </div>
 
