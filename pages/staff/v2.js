@@ -23,7 +23,8 @@ import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { readStaffSession } from '../../lib/staffSession';
 import { staffDb } from '../../lib/firebase';
-import { getAllMenuItems, getRestaurantById, getTables, createOrder } from '../../lib/db';
+import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
+import { getAllMenuItems, getRestaurantById, createOrder } from '../../lib/db';
 import { I } from '../../components/staff-v2/ui/icons';
 import FloorScreen from '../../components/staff-v2/screens/FloorScreen';
 import MenuScreen from '../../components/staff-v2/screens/MenuScreen';
@@ -49,14 +50,19 @@ export default function StaffV2() {
   useEffect(() => { setSession(readStaffSession()); setChecked(true); }, []);
   useEffect(() => { if (checked && !session) router.replace('/staff/login'); }, [checked, session, router]);
 
-  // ── Data load ────────────────────────────────────────────────────
+  // ── Data load (Phase C: live subscriptions) ──────────────────────
   const [restaurant, setRestaurant] = useState(null);
   const [menu, setMenu] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [tables, setTables] = useState([]);
+  const [sessions, setSessions] = useState({});      // tableSessions keyed by table.code
+  const [bills, setBills] = useState({});            // open tableBills keyed by billId
+  const [ordersById, setOrdersById] = useState({}); // recent orders keyed by orderId
   const [loading, setLoading] = useState(true);
 
   const rid = session?.restaurantId;
 
+  // One-shot loads (rarely change mid-shift): restaurant + menu.
   useEffect(() => {
     if (!rid) return;
     let cancelled = false;
@@ -64,12 +70,10 @@ export default function StaffV2() {
     Promise.all([
       getRestaurantById(rid, { db: staffDb }),
       getAllMenuItems(rid, { db: staffDb }),
-      getTables(rid, { db: staffDb }),
-    ]).then(([r, m, t]) => {
+    ]).then(([r, m]) => {
       if (cancelled) return;
       setRestaurant(r);
       setMenu((m || []).filter(i => i.isActive !== false));
-      setTables(t || []);
       setLoading(false);
     }).catch(err => {
       console.error('staff-v2 load:', err);
@@ -80,16 +84,97 @@ export default function StaffV2() {
     return () => { cancelled = true; };
   }, [rid]);
 
-  // Areas list — derived from tables. Real areas collection wired in
-  // Phase C; for now we just bucket by areaId.
-  const areas = useMemo(() => {
-    const seen = new Map();
+  // Live subscriptions — areas, tables, tableSessions, open bills,
+  // recent orders. Same shape /admin/tables.js uses so v2 sees the
+  // exact same floor state in real time. Stream caps at 300 orders
+  // (matches kitchen page) so a long-lived restaurant doesn't
+  // stream its whole history.
+  useEffect(() => {
+    if (!rid) return;
+    const ua = onSnapshot(
+      query(collection(staffDb, 'restaurants', rid, 'areas'), orderBy('sortOrder', 'asc')),
+      snap => setAreas(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      () => {}
+    );
+    const ut = onSnapshot(
+      query(collection(staffDb, 'restaurants', rid, 'tables'), orderBy('sortOrder', 'asc')),
+      snap => setTables(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      () => {}
+    );
+    const us = onSnapshot(
+      collection(staffDb, 'restaurants', rid, 'tableSessions'),
+      snap => {
+        const m = {};
+        snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; });
+        setSessions(m);
+      },
+      () => {}
+    );
+    const ub = onSnapshot(
+      query(collection(staffDb, 'restaurants', rid, 'tableBills'), where('status', '==', 'open')),
+      snap => {
+        const m = {};
+        snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; });
+        setBills(m);
+      },
+      () => {}
+    );
+    const uo = onSnapshot(
+      query(collection(staffDb, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'), limit(300)),
+      snap => {
+        const m = {};
+        snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; });
+        setOrdersById(m);
+      },
+      () => {}
+    );
+    return () => { ua(); ut(); us(); ub(); uo(); };
+  }, [rid]);
+
+  // ── Live per-table status + total ─────────────────────────────────
+  // Mirrors /admin/tables.js logic so the two views can't drift.
+  //   - status 'sent'   → orders are in the kitchen (running / KOT)
+  //   - status 'ready'  → bill printed OR all orders paid (awaiting clear)
+  //   - status 'seated' → host seated a party but no order placed yet
+  //   - status 'free'   → no live orders, no seated hold
+  const PAID_SET = new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']);
+  const allOrdersList = useMemo(() => Object.values(ordersById), [ordersById]);
+  const { statuses, totals } = useMemo(() => {
+    const st = {}, tot = {};
     for (const t of tables) {
-      const id = t.areaId || 'unassigned';
-      if (!seen.has(id)) seen.set(id, { id, name: id === 'unassigned' ? 'Floor' : id });
+      const sess = sessions[t.code];
+      const billId = sess?.currentBillId;
+      const bill = billId ? bills[billId] : null;
+      const code = String(t.code || '');
+
+      // Orders reach a table two ways: via the open tableBill OR
+      // directly by tableNumber === table.code (waiter/admin dine-in
+      // orders, which never attach to a bill).
+      const fromBill = bill ? (bill.orderIds || []).map(id => ordersById[id]).filter(Boolean) : [];
+      const fromTable = code ? allOrdersList.filter(o => {
+        if (String(o.tableNumber || '') !== code) return false;
+        if (o.orderType === 'takeaway' || o.orderType === 'takeout') return false;
+        if (o.status === 'cancelled') return false;
+        const done = o.status === 'served' && PAID_SET.has(o.paymentStatus);
+        return !done;
+      }) : [];
+      const dedup = {};
+      for (const o of [...fromBill, ...fromTable]) if (o && o.status !== 'cancelled') dedup[o.id] = o;
+      const live = Object.values(dedup);
+
+      if (live.length === 0) {
+        st[t.id] = sess?.seatedAt ? 'seated' : 'free';
+        tot[t.id] = 0;
+        continue;
+      }
+      tot[t.id] = live.reduce((s, o) => s + (Number(o.total) || 0), 0);
+      const allPaid = live.every(o => PAID_SET.has(o.paymentStatus));
+      if (allPaid)                     st[t.id] = 'ready';
+      else if (bill?.billPrintedAt)    st[t.id] = 'ready';
+      else                              st[t.id] = 'sent';
     }
-    return [...seen.values()];
-  }, [tables]);
+    return { statuses: st, totals: tot };
+  }, [tables, sessions, bills, ordersById, allOrdersList]);
 
   // ── App state ────────────────────────────────────────────────────
   const [tab, setTab] = useState('floor');                  // 'floor' | 'kitchen'
@@ -314,8 +399,8 @@ export default function StaffV2() {
         zone={zone}
         setZone={setZone}
         onPick={pickTable}
-        totals={{}}              // Phase C wires real per-table running totals
-        statuses={{}}            // Phase C wires real per-table live status
+        totals={totals}
+        statuses={statuses}
         waiter={session.name || 'Staff'}
       />
     );
