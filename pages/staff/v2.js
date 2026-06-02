@@ -331,12 +331,16 @@ export default function StaffV2() {
     setSubmitting(false);
   };
 
-  if (!checked) return null;
-  if (!session) return null;
-
   // Kitchen bump — write order status changes via staffDb so the
   // staff token rides along (matches the existing /admin/kitchen
   // pattern with updateOrderStatusAs).
+  //
+  // MUST be declared BEFORE any early-return below, otherwise React's
+  // rules-of-hooks invariant fires (hook count differs between the
+  // pre-auth render and post-auth render) and the ErrorBoundary
+  // catches it as "Something went wrong". Same reason all the
+  // useState / useEffect / useMemo / useCallback in this component
+  // are kept above the !checked / !session guards.
   const handleBump = useCallback(async (orderId, nextStatus) => {
     try {
       await updateOrderStatusAs(staffDb, rid, orderId, nextStatus);
@@ -345,6 +349,9 @@ export default function StaffV2() {
       toast.error('Could not update the order. Try again.');
     }
   }, [rid]);
+
+  if (!checked) return null;
+  if (!session) return null;
 
   // ── Render ───────────────────────────────────────────────────────
   let body;
