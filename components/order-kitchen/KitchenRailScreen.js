@@ -179,7 +179,7 @@ export default function KitchenRailScreen({
             }</p>
           </div>
         ) : (
-          <div style={{
+          <div className="ok-cards-grid" style={{
             display: 'flex', flexDirection: 'column', gap: 12,
             padding: '4px 16px 24px',
           }}>

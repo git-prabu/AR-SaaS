@@ -166,7 +166,7 @@ export default function OrdersListScreen({ orders, filter, onFilterChange }) {
             }</p>
           </div>
         ) : (
-          <div style={{
+          <div className="ok-stack-list" style={{
             display: 'flex', flexDirection: 'column', gap: 8,
             padding: '4px 16px 24px',
           }}>

@@ -207,7 +207,7 @@ export default function HistoryListScreen({
               : 'No history in this range yet. Try a wider period.'}</p>
           </div>
         ) : (
-          <div style={{
+          <div className="ok-stack-list" style={{
             display: 'flex', flexDirection: 'column', gap: 6,
             padding: '2px 16px 24px',
           }}>

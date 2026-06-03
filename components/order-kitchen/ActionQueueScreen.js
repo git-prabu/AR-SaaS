@@ -169,7 +169,7 @@ export default function ActionQueueScreen({
             <p>No actions pending. Calls, ready-to-serve items, and payment requests appear here in real time.</p>
           </div>
         ) : (
-          <div style={{
+          <div className="ok-stack-list" style={{
             display: 'flex', flexDirection: 'column', gap: 10,
             padding: '4px 16px 24px',
           }}>

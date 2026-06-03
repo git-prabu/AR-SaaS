@@ -1665,14 +1665,21 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
         ...items.filter(i => i.isFeatured),
         ...items.filter(i => !i.isFeatured),
       ];
-      // Use admin-uploaded category image first (commit C), then fall
-      // back to the first item's photo, then to '' so the tile
-      // renderer can substitute an emoji.
+      // Use admin-uploaded category image first (commit C), then
+      // fall back to the first item's photo, then to a placeholder
+      // (curated Unsplash food image keyed by item id, same pool
+      // individual menu cards already use). Previously the tile
+      // would substitute an emoji when both image sources were
+      // empty — that's what owner reported on a fresh restaurant
+      // where neither admin category images nor item photos had
+      // been uploaded yet. The placeholder fallback keeps the
+      // visual language consistent with the item cards below.
       const adminImage = restaurant?.categoryImages?.[name] || '';
       const heroItem = featuredFirst[0] || null;
+      const fallbackImage = heroItem ? (heroItem.imageURL || getPlaceholder(heroItem.id)) : '';
       sections.push({
         name,
-        image: adminImage || heroItem?.imageURL || '',
+        image: adminImage || fallbackImage,
         items: featuredFirst,
       });
     }
