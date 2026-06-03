@@ -203,7 +203,11 @@
 // in public/staff-v2/. The Next.js page at /staff/v2 is now a 308
 // redirect to /staff-v2/index.html. Bumping the cache so iOS PWA users
 // don't keep getting the old broken React HTML from cache.
-const CACHE_VERSION  = 'ar-v31';
+// ar-v32 (Jun 3, mid) — /staff/v2 now redirects to the unmodified
+// Claude Design standalone bundle. Owner confirmed the standalone
+// works perfectly; the previous patched index.html / data.js had
+// issues. Cache bump so PWAs pull the new redirect target.
+const CACHE_VERSION  = 'ar-v32';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

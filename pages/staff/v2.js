@@ -1,21 +1,23 @@
 // pages/staff/v2.js
 //
-// Thin redirect to the standalone static prototype at
-// /staff-v2/index.html (lives in public/staff-v2/). The previous
-// React-rendered version is gone — we ship the prototype's HTML
-// untouched so the design is byte-for-byte the Claude Design export
-// the owner mocked up. All Firestore wiring lives inside that
-// folder (see public/staff-v2/data.js).
+// Server-side 308 redirect to the standalone prototype bundle the
+// owner exported from Claude Design. Lives untouched at
+// public/staff-v2/standalone.html — same self-extracting bundler
+// the owner tested locally, so the visual + behaviour are exactly
+// what they signed off on.
 //
-// Server-side: a 308 redirect via getServerSideProps means the
-// browser navigates directly without rendering anything from React.
-// No _app.js wrapping, no globals.css, no hydration. Just the
-// static HTML.
+// Real-Firestore wiring is the next step (the patched index.html +
+// data.js are still in public/staff-v2/ as scratch — we can switch
+// over to them once the visual is confirmed identical).
+//
+// No React touches this response — `getServerSideProps` returns the
+// redirect at the HTTP layer so the standalone HTML runs in a clean
+// document without _app.js wrapping.
 
 export async function getServerSideProps() {
   return {
     redirect: {
-      destination: '/staff-v2/index.html',
+      destination: '/staff-v2/standalone.html',
       permanent: false,
     },
   };
