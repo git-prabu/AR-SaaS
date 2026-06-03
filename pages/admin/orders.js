@@ -1117,11 +1117,26 @@ export default function Orders() {
                                   return (
                                     <div key={item.id} className={'dish-card' + (qty > 0 ? ' has-qty' : '')}>
                                       <div className="dish-photo" onClick={() => setSheet({ item, editLine: null })}
-                                        style={{ background: `linear-gradient(150deg, ${item.tint}, ${item.tint}88)` }}>
-                                        <div className="dish-veg"><VegMark veg={item.veg} /></div>
-                                        <span className="dish-emoji">{item.emoji}</span>
+                                        style={{ background: `linear-gradient(150deg, ${item.tint}, ${item.tint}AA)` }}>
+                                        {item.imageURL ? (
+                                          /* eslint-disable-next-line @next/next/no-img-element */
+                                          <img
+                                            src={item.imageURL}
+                                            alt={item.name}
+                                            loading="lazy"
+                                            decoding="async"
+                                            style={{
+                                              position: 'absolute', inset: 0,
+                                              width: '100%', height: '100%',
+                                              objectFit: 'cover', zIndex: 1,
+                                            }}
+                                          />
+                                        ) : (
+                                          <span className="dish-emoji">{item.emoji}</span>
+                                        )}
+                                        <div className="dish-veg" style={{ zIndex: 3 }}><VegMark veg={item.veg} /></div>
                                         {qty > 0 && <span className="dish-qty-badge">{qty}</span>}
-                                        <span className="ph-tag">photo</span>
+                                        {!item.imageURL && <span className="ph-tag">photo</span>}
                                       </div>
                                       <div className="dish-body">
                                         <div className="dish-name">{item.name}</div>
