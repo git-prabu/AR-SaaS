@@ -27,6 +27,7 @@ import toast from 'react-hot-toast';
 import { collection, doc, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
 
 import { useAuth } from '../../hooks/useAuth';
+import useOkTheme from '../../hooks/useOkTheme';
 import { readStaffSession } from '../../lib/staffSession';
 import { db, staffDb } from '../../lib/firebase';
 import { getRestaurantById, createOrder, updateOrderStatusAs, updateOrderStatus } from '../../lib/db';
@@ -102,6 +103,7 @@ function spiceToInt(v) {
 export default function OrderKitchen({ mode = 'full' } = {}) {
   const router = useRouter();
   const { user, userData, loading: adminLoading } = useAuth();
+  const { isLight, toggle: toggleTheme } = useOkTheme();
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -544,6 +546,12 @@ export default function OrderKitchen({ mode = 'full' } = {}) {
         <div className="page-bg">
           <div className="frame">
             <div className="notch" />
+            <button
+              className="ok-theme-toggle"
+              onClick={toggleTheme}
+              title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
+              aria-label="Toggle theme"
+            >{isLight ? '🌙' : '☀️'}</button>
             <div className="screenwrap">
               {/* Notch clearance — the .notch is absolute-positioned at
                   top:8px of .frame (height 28px), and .screenwrap also

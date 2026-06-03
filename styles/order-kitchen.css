@@ -68,6 +68,81 @@
   min-height: 100vh;
 }
 
+/* ──────────────────────────────────────────────────────────
+   Phase F (2026-06-03) — Light theme.
+   ──────────────────────────────────────────────────────────
+   Activated by setting data-theme="light" on the .ok-root
+   element (the page top-level wrapper) or any ancestor. The
+   useTheme() hook in hooks/useTheme.js handles persistence
+   + applying the attribute on body, but a manual override
+   anywhere up the tree also works because the selector
+   matches the FIRST [data-theme] ancestor.
+
+   What's overridden:
+     - ink / surface / card go light (warm off-white palette
+       so it matches the gold accent rather than going pure
+       white which would feel sterile against the saffron).
+     - text colors flip dark.
+     - hairlines stay gold-tinted but at darker alpha so they
+       read on the light surface.
+     - status accents (gold/saffron/green) stay the same —
+       they're brand colors, not theme tokens.
+     - page-bg gradient flips to a warm warm-gold haze on
+       white so the floor map still has dimensional depth.
+
+   The page-bg background is set as a property (not just the
+   .ok-root background) because the FloorScreen + others
+   render onto the .frame, while .page-bg fills the rest of
+   the viewport on desktop. Both need to flip together.
+   ────────────────────────────────────────────────────────── */
+[data-theme="light"] .ok-root,
+.ok-root[data-theme="light"] {
+  --ink:       #FAF7F1;
+  --surface:   #FFFFFF;
+  --card:      #F6F2EA;
+  --card-2:    #EEE9DD;
+  --card-3:    #E4DDCB;
+  --line:      rgba(94,72,29,0.13);
+  --line-soft: rgba(0,0,0,0.05);
+  --tx:        #2A2520;
+  --tx-2:      rgba(42,37,32,0.65);
+  --tx-3:      rgba(42,37,32,0.42);
+  --st-free:   rgba(42,37,32,0.22);
+  background: #FAF7F1;
+}
+[data-theme="light"] .ok-root .page-bg,
+.ok-root[data-theme="light"] .page-bg {
+  background: radial-gradient(1100px 560px at 50% -8%, rgba(196,168,109,0.18), transparent 60%), #FAF7F1;
+}
+[data-theme="light"] .ok-root .frame,
+.ok-root[data-theme="light"] .frame {
+  box-shadow: 0 40px 90px rgba(94,72,29,0.18), 0 16px 36px rgba(94,72,29,0.10), inset 0 0 0 8px #E4DDCB;
+  border: 1px solid rgba(94,72,29,0.18);
+}
+[data-theme="light"] .ok-root .notch,
+.ok-root[data-theme="light"] .notch {
+  background: #E4DDCB;
+}
+
+/* Floating theme toggle — pinned to the top-right of the .frame.
+   z-index above the notch (60) so it never gets clipped. */
+.ok-root .ok-theme-toggle {
+  position: absolute;
+  top: 14px; right: 14px;
+  z-index: 70;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--tx);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform .14s, background .2s, border-color .2s;
+}
+.ok-root .ok-theme-toggle:hover { transform: scale(1.05); background: var(--card-2); }
+.ok-root .ok-theme-toggle:active { transform: scale(0.94); }
+
 .ok-root *, .ok-root { box-sizing: border-box; }
 .ok-root button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
 .ok-root input, .ok-root textarea { font-family: inherit; }
@@ -116,6 +191,102 @@
   .ok-root .frame { border-radius: 0; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
   .ok-root .notch { display: none; }
   .ok-root .screenwrap { height: 100vh; max-height: none; border-radius: 0; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Phase E (2026-06-03) — Responsive layout for tablet + PC.
+   ──────────────────────────────────────────────────────────
+   Owner's call: /admin/orders + /admin/kitchen-new must work
+   on PC and tablet, not just phone. Below is the staircase:
+
+     ≤ 480px       phone — full screen, no frame chrome
+     481-767px     phone-mockup at 412px (default, unchanged)
+     768-1023px    tablet — wider frame, 4-col floor grid
+     ≥ 1024px      PC — full screen, no frame, multi-column
+                   grids where it makes sense
+
+   The phone-mockup is intentionally preserved on the
+   in-between "small tablet portrait" range (481-767) because
+   it's a reasonable simulator size; the desktop break drops
+   it entirely so the dark UI fills a 1440-wide monitor like
+   the legacy /admin/waiter does today.
+   ────────────────────────────────────────────────────────── */
+
+/* Tablet portrait — wider frame, more table columns */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .ok-root .frame { width: 540px; }
+  .ok-root .screenwrap { height: calc(100vh - 56px); max-height: 1000px; }
+  .ok-root .floor { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Desktop — full viewport, no phone frame */
+@media (min-width: 1024px) {
+  .ok-root .page-bg {
+    padding: 0;
+    background: var(--surface);
+    align-items: stretch;
+    justify-content: stretch;
+  }
+  .ok-root .frame {
+    width: 100%; max-width: 100%;
+    height: 100vh;
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    overflow: hidden;
+  }
+  .ok-root .notch { display: none; }
+  .ok-root .screenwrap {
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  /* Floor: 6-column table grid */
+  .ok-root .floor {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 18px 18px;
+    padding: 8px 32px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Menu list — center column with comfortable max width.
+     Two-column item rows would change the .itemrow grid
+     internals; staying single-column keeps the design clean
+     and the item rows the same shape as on phone. */
+  .ok-root .menulist,
+  .ok-root .cattabs,
+  .ok-root .seatchips,
+  .ok-root .review-scroll,
+  .ok-root .ticketlist,
+  .ok-root .segwrap,
+  .ok-root .legend,
+  .ok-root .kfilter {
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Bottom nav — pin to the viewport bottom and center
+     content so it doesn't span the full 1440px width. */
+  .ok-root .botnav {
+    max-width: 720px;
+    margin: 0 auto;
+    border-radius: 14px 14px 0 0;
+  }
+
+  /* Scroll area uses the full available vertical space. */
+  .ok-root .scroll { padding-left: 0; padding-right: 0; }
+
+  /* The .send-footer in ReviewScreen — pin & center too. */
+  .ok-root .send-footer { max-width: 720px; left: 50%; transform: translateX(-50%); }
+}
+
+/* Very large desktop — keep things from getting too sparse. */
+@media (min-width: 1600px) {
+  .ok-root .floor { max-width: 1500px; }
 }
 
 /* ── Screen scaffolding ───────────────────────────────────── */

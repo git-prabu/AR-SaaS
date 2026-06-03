@@ -55,45 +55,70 @@ function shade(hex, amt) {
   b = Math.max(0, Math.min(255, b));
   return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
 }
-// Phase D (2026-06-03) — image rendering hardened:
-//   - graceful onError fallback so a broken / 404 / blocked image
-//     swaps to the emoji + gradient instead of a transparent box.
-//   - the .thumb::after sheen overlay was visually fine on the
-//     emoji fallback but DIMMED actual photos noticeably — owner
-//     reported "most images not visible." The overlay class is
-//     suppressed via inline style when a real image is rendering,
-//     so photographed dishes show at full saturation.
-//   - menus with imageURL pointing at firebasestorage 404s (item
-//     was deleted but doc still carries the URL) now degrade
-//     gracefully to the emoji fallback instead of showing a void.
+// Phase D revisited (2026-06-03) — owner reported "item images
+// are not there only emoji." Root cause was that the previous
+// Thumb only honored `item.imageURL` and went straight to the
+// emoji fallback when that field was empty. But on the customer
+// menu (pages/restaurant/[subdomain]/index.js) the SAME data
+// situation gets a curated Unsplash food placeholder instead of
+// a void — so a restaurant that hasn't uploaded photos still
+// shows the diner real dish-looking images.
+//
+// Mirroring that behavior here means the waiter sees realistic
+// food in the menu screen whether the owner has uploaded photos
+// or not. Real uploads still take priority (item.imageURL when
+// present); the placeholder pool is the SECOND-tier fallback;
+// the gradient + emoji is the FINAL fallback (kicks in only if
+// even the placeholder URL fails to load, e.g. on a tablet with
+// images.unsplash.com blocked).
+//
+// Pool + hash function are copied verbatim from the customer
+// menu page so a given item id picks the SAME image on both
+// pages — consistent visual language for the same dish.
+
 import { useState } from 'react';
+
+const FOOD_PLACEHOLDERS = [
+  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80',
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600&q=80',
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80',
+  'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&q=80',
+  'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&q=80',
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80',
+  'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&q=80',
+];
+function placeholderFor(id) {
+  let h = 0;
+  for (let i = 0; i < (id || '').length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return FOOD_PLACEHOLDERS[h % FOOD_PLACEHOLDERS.length];
+}
+
 export function Thumb({ item, className }) {
+  // failed: the IMAGE we tried to render (real upload OR placeholder)
+  // 404'd / was blocked. Drops us to the emoji + gradient fallback.
   const [failed, setFailed] = useState(false);
-  if (item?.imageURL && !failed) {
+  const realUpload = item?.imageURL;
+  const candidate = !failed
+    ? (realUpload || placeholderFor(item?.id || item?.name))
+    : null;
+
+  if (candidate) {
     return (
-      <div
-        className={'thumb ' + (className || '')}
-        style={{
-          background: '#1A1815',
-          // Suppress the radial sheen overlay (.thumb::after) when
-          // a real image is rendering — kills the dimming effect.
-          // The ::after rule can't be turned off via inline style;
-          // instead we use a wrapper style that the CSS pseudo
-          // can detect via :has() — fall back: just rely on the
-          // image fully covering inset:0 to mask the sheen below.
-        }}
-      >
+      <div className={'thumb ' + (className || '')} style={{ background: '#1A1815' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={item.imageURL}
-          alt={item.name || ''}
+          src={candidate}
+          alt={item?.name || ''}
           loading="lazy"
+          decoding="async"
           onError={() => setFailed(true)}
           style={{ position: 'relative', zIndex: 2 }}
         />
       </div>
     );
   }
+
   const bg = `linear-gradient(150deg, ${item.tint}, ${shade(item.tint, -28)})`;
   return (
     <div className={'thumb ' + (className || '')} style={{ background: bg }}>
