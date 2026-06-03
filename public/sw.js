@@ -226,9 +226,25 @@
 // ar-v35 (Jun 3) — Order & Kitchen apphead radically simplified.
 // All classNames removed from the apphead structure; only inline
 // styles control geometry. This rules out any CSS specificity issue.
-const CACHE_VERSION  = 'ar-v44';
+const CACHE_VERSION  = 'ar-v45';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
-const IMG_CACHE      = `${CACHE_VERSION}-img`;
+// ── IMG cache lives independently of CACHE_VERSION ────────────────
+// Owner reported (2026-06-03) "items i uploaded show placeholder
+// now". Root cause was here: IMG_CACHE used to be tied to
+// CACHE_VERSION (`${CACHE_VERSION}-img`) so the activate handler's
+// "purge any non-current-version cache" step wiped menu photos on
+// EVERY deploy. Customer page is network-first, cache fallback —
+// so a slow / temporarily-unreachable firebasestorage response on
+// the post-deploy re-fetch made the <img> trigger onerror and the
+// page dropped to the FOOD_PLACEHOLDERS fallback, until I either
+// gave up or the next user visit re-warmed the cache.
+//
+// Fix: independent name `ar-img-v1`. The activate handler's purge
+// filter now also excludes any cache starting with `ar-img-` so
+// future CACHE_VERSION bumps no longer touch the image cache.
+// Bump THIS image version only if the storage URL scheme ever
+// changes in a way that requires re-fetching.
+const IMG_CACHE      = 'ar-img-v1';
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
 
 self.addEventListener('install', () => {
@@ -238,10 +254,13 @@ self.addEventListener('install', () => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // Purge any caches not from this worker version.
+    // Purge any caches not from this worker version. EXCLUDE the
+    // image cache (ar-img-*) so menu photos survive deploys.
     const keys = await caches.keys();
     await Promise.all(
-      keys.filter(k => !k.startsWith(CACHE_VERSION)).map(k => caches.delete(k))
+      keys
+        .filter(k => !k.startsWith(CACHE_VERSION) && !k.startsWith('ar-img-'))
+        .map(k => caches.delete(k))
     );
     await self.clients.claim();
   })());

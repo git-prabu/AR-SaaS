@@ -194,177 +194,21 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   Phase E (2026-06-03) — Responsive layout for tablet + PC.
-   ──────────────────────────────────────────────────────────
-   Owner's call: /admin/orders + /admin/kitchen-new must work
-   on PC and tablet, not just phone. Below is the staircase:
+   Tablet + desktop layouts REMOVED on 2026-06-03 per owner's
+   call — both my v1 (Phase E) and v2 (the "rework") attempts
+   to design the PC/tablet layout from guesswork looked bad
+   on a real monitor. Owner is sending a Claude Design file
+   for the PC + tablet layouts and we'll implement that
+   spec exactly. Until then: the page renders as a 412 px
+   phone mockup centered on bigger viewports, which looks
+   unfinished but doesn't pretend to be something it isn't.
 
-     ≤ 480px       phone — full screen, no frame chrome
-     481-767px     phone-mockup at 412px (default, unchanged)
-     768-1023px    tablet — wider frame, 4-col floor grid
-     ≥ 1024px      PC — full screen, no frame, multi-column
-                   grids where it makes sense
-
-   The phone-mockup is intentionally preserved on the
-   in-between "small tablet portrait" range (481-767) because
-   it's a reasonable simulator size; the desktop break drops
-   it entirely so the dark UI fills a 1440-wide monitor like
-   the legacy /admin/waiter does today.
+   The .ok-stack-list and .ok-cards-grid classNames are
+   still applied to the relevant containers in
+   ActionQueueScreen / OrdersListScreen / HistoryListScreen /
+   KitchenRailScreen — those are stable hooks the new design
+   can target without any further component edits.
    ────────────────────────────────────────────────────────── */
-
-/* Tablet portrait — wider frame, more table columns */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .ok-root .frame { width: 540px; }
-  .ok-root .screenwrap { height: calc(100vh - 56px); max-height: 1000px; }
-  .ok-root .floor { grid-template-columns: repeat(4, 1fr); }
-}
-
-/* Desktop — full viewport, no phone frame.
-   ──────────────────────────────────────────────────────────
-   First-pass scaled phone columns; v2 redesigns the desktop
-   layout properly. Owner's note "the pc version is made very
-   poorly" — that's because cards were sized as `1fr` of the
-   container (3 tables across 1400px = 466px each, absurd).
-   v2 gives every card a TARGET WIDTH so the grid auto-fills
-   with the right number of columns regardless of item count.
-   Content is constrained to comfortable reading widths
-   instead of stretching across the full 1920px monitor.
-   ────────────────────────────────────────────────────────── */
-@media (min-width: 1024px) {
-  /* Frame becomes the full window, no phone mockup */
-  .ok-root .page-bg {
-    padding: 0;
-    background: var(--surface);
-    align-items: stretch;
-    justify-content: stretch;
-  }
-  .ok-root .frame {
-    width: 100%; max-width: 100%;
-    height: 100vh;
-    border-radius: 0;
-    border: 0;
-    box-shadow: none;
-    padding: 0;
-    overflow: hidden;
-  }
-  .ok-root .notch { display: none; }
-  .ok-root .screenwrap {
-    height: 100vh;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-
-  /* ── Apphead row: cap at 1100px, center, +breathing room ──
-     The inline-styled apphead in each Screen has width:100%;
-     adding max-width here doesn't fight the inline rule.
-     Targets ALL screens because they share the same outermost
-     padding/flex structure (a direct child of .screen). */
-  .ok-root .screen > div:first-of-type {
-    max-width: 1100px;
-    width: 100%;
-    margin: 0 auto;
-    padding-top: 24px !important;
-    padding-bottom: 18px !important;
-  }
-  .ok-root .screen > div:first-of-type h1 { font-size: 32px !important; }
-
-  /* ── .scroll : the area BELOW apphead/filters that scrolls.
-     Pad and center its inner contents on desktop. ── */
-  .ok-root .scroll { padding-left: 0; padding-right: 0; }
-
-  /* Generic STACK-LIST: vertical lists (action queue, orders
-     list, history) — cards naturally read as a single column;
-     just cap the width so the cards don't get gigantic. */
-  .ok-root .ok-stack-list {
-    max-width: 880px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-
-  /* Generic CARDS-GRID: visual grids (kitchen tickets, menu
-     items, anything denser). 2-3 cards across, each ~440px,
-     auto-fill so 1 ticket doesn't stretch across the whole
-     1920 wide. */
-  .ok-root .ok-cards-grid {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)) !important;
-    gap: 14px !important;
-    max-width: 1320px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    padding-left: 32px !important;
-    padding-right: 32px !important;
-  }
-
-  /* Floor table grid — target ~220px per card, auto-fill.
-     A restaurant with 3 tables → 3 cards 220px each, lots of
-     empty space (good — feels intentional, not stretched).
-     A restaurant with 30 tables → 4-6 across, comfortable.
-     Caps at 1300px so very wide monitors don't waste space. */
-  .ok-root .floor {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
-    gap: 18px;
-    padding: 16px 40px 40px;
-    max-width: 1300px;
-    margin: 0 auto;
-    justify-content: center;
-  }
-  .ok-root .tabletok { min-height: 130px; }
-  .ok-root .tabletok .tnum { font-size: 28px; }
-
-  /* Menu, category tabs, seat chips, segwrap, legend, kfilter
-     — single-row strips centered. */
-  .ok-root .menulist,
-  .ok-root .review-scroll {
-    max-width: 880px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 32px;
-    padding-right: 32px;
-  }
-  .ok-root .cattabs,
-  .ok-root .seatchips,
-  .ok-root .segwrap,
-  .ok-root .legend,
-  .ok-root .kfilter {
-    max-width: 1100px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* Bottom nav — wider on desktop with more breathing room.
-     720px → 820px, button text+icon scale up so it feels
-     intentional, not a leftover phone bar shrunk into the
-     bottom of a 27" monitor. */
-  .ok-root .botnav {
-    max-width: 820px;
-    margin: 0 auto;
-    border-radius: 18px 18px 0 0;
-    padding: 12px 12px calc(env(safe-area-inset-bottom, 0) + 12px);
-  }
-  .ok-root .botnav button { font-size: 13px; }
-  .ok-root .botnav button svg { width: 22px; height: 22px; }
-
-  /* ReviewScreen send footer — pin & center too */
-  .ok-root .send-footer {
-    max-width: 820px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  /* Empty states get a bit more presence on big screens. */
-  .ok-root .empty { padding: 100px 40px; max-width: 600px; margin: 0 auto; }
-  .ok-root .empty .e-emoji { font-size: 44px; }
-}
-
-/* Very large desktop — cap the floor so it doesn't grow sparse */
-@media (min-width: 1600px) {
-  .ok-root .floor { max-width: 1400px; }
-}
 
 /* ── Screen scaffolding ───────────────────────────────────── */
 .ok-root .screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
