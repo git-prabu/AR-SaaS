@@ -215,7 +215,15 @@
 // (the broken React port + the standalone-redirect that replaced
 // it) is deleted. SW bump so the new admin sidebar entry / staff
 // drawer entry / route are picked up fresh on next launch.
-const CACHE_VERSION  = 'ar-v33';
+// ar-v34 (Jun 3) — Order & Kitchen layout defense + data debug strip.
+// Owner sent screenshots showing the React port had the apphead-row
+// rendering vertically with avatar+bell at viewport middle (Tailwind
+// preflight likely affecting flex layout in ways the standalone HTML
+// doesn't have to deal with). FloorScreen now uses inline styles for
+// the apphead row / whoami / h1 / eyebrow so no other CSS can
+// override. Also adds a temporary debug strip showing the data
+// counts so we can diagnose why tables / zones aren't showing.
+const CACHE_VERSION  = 'ar-v34';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

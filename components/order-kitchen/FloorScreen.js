@@ -29,16 +29,40 @@ export default function FloorScreen({ tables, zones, zone, setZone, onPick, tota
 
   return (
     <div className="screen screen-enter">
-      <div className="apphead">
-        <div className="apphead-row">
-          <div className="whoami" style={{ flex: 1 }}>
-            <div className="avatar">{(waiter || 'S')[0].toUpperCase()}</div>
-            <div>
-              <div className="eyebrow">{greeting()} · Floor</div>
-              <h1 className="h-screen">Tables</h1>
+      {/* TEMP debug strip — visible at the very top, tells us what data
+          reached the FloorScreen. Owner: read these numbers off and tell
+          me — that's how we figure out whether subscriptions are firing.
+          Remove once visual is confirmed identical to the prototype. */}
+      <div style={{
+        fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+        fontSize: 9, color: 'rgba(239,235,228,0.5)', padding: '4px 12px',
+        background: 'rgba(255,255,255,0.04)',
+        borderBottom: '1px solid rgba(196,168,109,0.13)',
+        letterSpacing: '0.05em',
+      }}>
+        zones:{zones.length} tables:{tables.length} cur:{zone || '∅'} in-zone:{zones.length ? tables.filter(t => t.zone === zone).length : '?'}
+      </div>
+      {/* apphead — inline styles force the row layout in case any
+          Tailwind preflight / Next.js base style overrides the .ok-root
+          flex rules (which is what happened on the owner's first build). */}
+      <div className="apphead" style={{ flexShrink: 0 }}>
+        <div className="apphead-row" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <div className="whoami" style={{ flex: 1, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div className="avatar" style={{ flexShrink: 0 }}>{(waiter || 'S')[0].toUpperCase()}</div>
+            <div style={{ minWidth: 0 }}>
+              <div className="eyebrow" style={{
+                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
+                textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
+              }}>{greeting()} · Floor</div>
+              <h1 className="h-screen" style={{
+                fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
+                fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
+                margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
+              }}>Tables</h1>
             </div>
           </div>
-          <button className="iconbtn"><span style={{ position: 'relative' }}>{I.bell}</span></button>
+          <button className="iconbtn" style={{ flexShrink: 0 }}><span style={{ position: 'relative' }}>{I.bell}</span></button>
         </div>
       </div>
 
