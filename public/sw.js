@@ -223,7 +223,10 @@
 // the apphead row / whoami / h1 / eyebrow so no other CSS can
 // override. Also adds a temporary debug strip showing the data
 // counts so we can diagnose why tables / zones aren't showing.
-const CACHE_VERSION  = 'ar-v34';
+// ar-v35 (Jun 3) — Order & Kitchen apphead radically simplified.
+// All classNames removed from the apphead structure; only inline
+// styles control geometry. This rules out any CSS specificity issue.
+const CACHE_VERSION  = 'ar-v35';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos

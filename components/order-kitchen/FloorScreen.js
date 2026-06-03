@@ -42,28 +42,48 @@ export default function FloorScreen({ tables, zones, zone, setZone, onPick, tota
       }}>
         zones:{zones.length} tables:{tables.length} cur:{zone || '∅'} in-zone:{zones.length ? tables.filter(t => t.zone === zone).length : '?'}
       </div>
-      {/* apphead — inline styles force the row layout in case any
-          Tailwind preflight / Next.js base style overrides the .ok-root
-          flex rules (which is what happened on the owner's first build). */}
-      <div className="apphead" style={{ flexShrink: 0 }}>
-        <div className="apphead-row" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <div className="whoami" style={{ flex: 1, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            <div className="avatar" style={{ flexShrink: 0 }}>{(waiter || 'S')[0].toUpperCase()}</div>
-            <div style={{ minWidth: 0 }}>
-              <div className="eyebrow" style={{
-                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
-                textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
-              }}>{greeting()} · Floor</div>
-              <h1 className="h-screen" style={{
-                fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
-                fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
-                margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
-              }}>Tables</h1>
-            </div>
-          </div>
-          <button className="iconbtn" style={{ flexShrink: 0 }}><span style={{ position: 'relative' }}>{I.bell}</span></button>
+      {/* apphead — radically simplified to plain inline styles only.
+          Avatar and bell use NO classNames so .ok-root .avatar / .iconbtn
+          cannot affect them — only the explicit inline styles below
+          control geometry. Once visual is confirmed identical to the
+          prototype, the .ok-root classes can come back. */}
+      <div style={{
+        padding: '14px 20px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        width: '100%',
+      }}>
+        <div style={{
+          width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, #C4A86D, #C2562B)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
+          fontWeight: 700, fontSize: 16, color: '#1A1815',
+          boxShadow: '0 0 0 1px rgba(196,168,109,0.13), 0 6px 16px rgba(0,0,0,0.3)',
+        }}>{(waiter || 'S')[0].toUpperCase()}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
+            textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
+          }}>{greeting()} · Floor</div>
+          <h1 style={{
+            fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
+            margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
+          }}>Tables</h1>
         </div>
+        <button style={{
+          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#EFEBE4', cursor: 'pointer', padding: 0,
+        }}>
+          <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.bell}</span>
+        </button>
       </div>
 
       {/* zone segmented control */}
