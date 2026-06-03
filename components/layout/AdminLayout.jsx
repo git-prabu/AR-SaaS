@@ -65,11 +65,19 @@ export const navSections = [
   {
     label: 'OPERATIONS', items: [
       { href: '/admin/tables',         label: 'Tables',           icon: 'grid' },
-      { href: '/admin/order-kitchen',  label: 'Order & Kitchen',  icon: 'chef' },
-      { href: '/admin/new-order',      label: 'New Order',        icon: 'plus' },
+      // ── Order & Kitchen station (Phase A, 2026-06-03) ──
+      // Replaces the single "Order & Kitchen" entry. The unified perm
+      // was split into 'orders' (waiter station) and 'kitchenStation'
+      // (KDS) — see lib/permissions.js. The legacy /admin/orders
+      // ledger has been moved to /admin/orders-ledger; the new /admin/orders
+      // is the waiter station (will become the 4-tab flow in Phase B).
+      // The OLD /admin/kitchen and /admin/waiter entries below stay
+      // until those flows reach parity, then they get retired.
       { href: '/admin/orders',         label: 'Orders',           icon: 'clipboard' },
-      { href: '/admin/kitchen',        label: 'Kitchen',          icon: 'chef' },
-      { href: '/admin/waiter',         label: 'Waiter',           icon: 'bell' },
+      { href: '/admin/kitchen-new',    label: 'Kitchen Station',  icon: 'chef' },
+      { href: '/admin/new-order',      label: 'New Order',        icon: 'plus' },
+      { href: '/admin/kitchen',        label: 'Kitchen (legacy)', icon: 'chef' },
+      { href: '/admin/waiter',         label: 'Waiter (legacy)',  icon: 'bell' },
       { href: '/admin/payments',       label: 'Payments',         icon: 'card' },
       // Day Close belongs here — it's the end-of-shift operational step,
       // not a dashboard view. Was previously under OVERVIEW.

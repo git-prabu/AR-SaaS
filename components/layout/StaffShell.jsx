@@ -137,12 +137,18 @@ export default function StaffShell({ active, children }) {
   // Only renders on mobile (CSS-gated) AND only when the staffer has
   // at least one matching perm — otherwise the bar would be a single
   // "More" button which is just a worse hamburger.
+  // ── Order & Kitchen station split (Phase A, 2026-06-03) ──
+  // The 'orderKitchen' entry was replaced by two: 'orders' (waiter station,
+  // now the highest-priority entry — most waiters use this all shift) and
+  // 'kitchenStation' (new KDS). 'orders' previously meant the legacy
+  // ledger; expandLegacyPerms() in lib/permissions.js grandfathers staff
+  // who still have 'orderKitchen' in their session so this nav row matches.
   const BOTTOM_NAV_PRIORITY = [
-    { perm: 'orderKitchen', label: 'Order',   href: '/staff/order-kitchen', icon: 'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z M6 17h12' },
-    { perm: 'tables',       label: 'Tables',  href: '/staff/tables',        icon: 'M3 4h6v6H3zM11 4h6v6h-6zM3 12h6v6H3zM11 12h6v6h-6z' },
-    { perm: 'newOrder',     label: 'New',     href: '/staff/new-order',     icon: 'M10 4v12M4 10h12' },
-    { perm: 'orders',       label: 'Orders',  href: '/staff/orders',        icon: 'M4 5h12M4 10h12M4 15h12' },
-    { perm: 'payments',     label: 'Pay',     href: '/staff/payments',      icon: 'M3 6h14v8H3zM3 9h14' },
+    { perm: 'orders',         label: 'Orders',  href: '/staff/orders',        icon: 'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z M6 17h12' },
+    { perm: 'kitchenStation', label: 'Kitchen', href: '/staff/kitchen-new',   icon: 'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z M6 17h12' },
+    { perm: 'tables',         label: 'Tables',  href: '/staff/tables',        icon: 'M3 4h6v6H3zM11 4h6v6h-6zM3 12h6v6H3zM11 12h6v6h-6z' },
+    { perm: 'newOrder',       label: 'New',     href: '/staff/new-order',     icon: 'M10 4v12M4 10h12' },
+    { perm: 'payments',       label: 'Pay',     href: '/staff/payments',      icon: 'M3 6h14v8H3zM3 9h14' },
   ];
   const bottomTabs = BOTTOM_NAV_PRIORITY
     .filter(t => enabled.has(t.perm) && perms.includes(t.perm) && planAllows(t.perm));

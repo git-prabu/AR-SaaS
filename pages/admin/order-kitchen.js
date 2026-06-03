@@ -85,7 +85,18 @@ function spiceToInt(v) {
   return 0;
 }
 
-export default function OrderKitchen() {
+// `mode` controls which side of the station is rendered:
+//   - 'full'    (default): owner's combined view. Bottom nav lets them
+//                          toggle Floor ↔ Kitchen inside the page. This
+//                          is what /admin/order-kitchen URL serves
+//                          (legacy backward compat).
+//   - 'floor'   waiter station. Initial tab forced to Floor. No internal
+//                          bottom-nav switcher — the WaiterShell bottom
+//                          nav (Phase B) replaces it. Served at /admin/orders.
+//   - 'kitchen' kitchen station. Initial tab forced to Kitchen. No internal
+//                          bottom-nav switcher — Phase C wires per-item bump.
+//                          Served at /admin/kitchen-new.
+export default function OrderKitchen({ mode = 'full' } = {}) {
   const router = useRouter();
   const { user, userData, loading: adminLoading } = useAuth();
   const [staffSession, setStaffSession] = useState(null);
@@ -317,7 +328,9 @@ export default function OrderKitchen() {
 
   // ─── App state ──────────────────────────────────────────────────
   const [screen, setScreen] = useState('floor');
-  const [tab, setTab] = useState('floor');
+  // Initial tab respects `mode`: kitchen-only pages land on Kitchen,
+  // everyone else (waiter / combined / no-prop fallback) starts on Floor.
+  const [tab, setTab] = useState(mode === 'kitchen' ? 'kitchen' : 'floor');
   const [zone, setZone] = useState(null);
   const [activeTable, setActiveTable] = useState(null);
   const [selectedSeat, setSelectedSeat] = useState(0);
@@ -513,7 +526,12 @@ export default function OrderKitchen() {
     );
   }
 
-  const showNav = (tab === 'kitchen') || (tab === 'floor' && screen === 'floor');
+  // Internal Floor↔Kitchen toggle is owner-only (mode='full'). The
+  // dedicated /admin/orders and /admin/kitchen-new pages each own one
+  // half of the station; cross-page navigation goes through the sidebar
+  // (admin) or StaffShell bottom nav (staff). Phase B will replace
+  // this whole conditional with the 4-tab waiter bottom nav.
+  const showNav = mode === 'full' && ((tab === 'kitchen') || (tab === 'floor' && screen === 'floor'));
   const newTickets = tickets.filter(t => t.status === 'new').length;
 
   return (
