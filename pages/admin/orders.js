@@ -80,7 +80,7 @@ import ReviewScreen, { ConfirmScreen } from '../../components/order-kitchen/Revi
 import ActionQueueScreen, { CashModal } from '../../components/order-kitchen/ActionQueueScreen';
 import OrdersListScreen from '../../components/order-kitchen/OrdersListScreen';
 import HistoryListScreen from '../../components/order-kitchen/HistoryListScreen';
-import { I } from '../../components/order-kitchen/Icons';
+import { I, VegMark, SpicePips, Thumb } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
 let _uid = 0;
@@ -927,23 +927,28 @@ export default function Orders() {
               </div>
             </aside>
             <main className="workspace">
-              <div className="ws-head">
-                <div className="ws-title">
-                  <div className="ws-eyebrow">{(() => {
-                    const h = clockNow.getHours();
-                    const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-                    return `${g} · ${waiter}`;
-                  })()}</div>
-                  <h1 className="ws-h1">{
-                    tab === 'floor' ? 'Floor plan'
-                    : tab === 'queue' ? 'Action queue'
-                    : tab === 'orders' ? 'Orders'
-                    : tab === 'history' ? 'History'
-                    : 'Orders'
-                  }</h1>
+              {/* ws-head only shows on first-level views (floor map +
+                  queue/orders/history tabs). Sub-flows (menu/review/
+                  confirm) have their own toolbar/back button. */}
+              {!(tab === 'floor' && (screen === 'menu' || screen === 'review' || screen === 'confirm')) && (
+                <div className="ws-head">
+                  <div className="ws-title">
+                    <div className="ws-eyebrow">{(() => {
+                      const h = clockNow.getHours();
+                      const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+                      return `${g} · ${waiter}`;
+                    })()}</div>
+                    <h1 className="ws-h1">{
+                      tab === 'floor' ? 'Floor plan'
+                      : tab === 'queue' ? 'Action queue'
+                      : tab === 'orders' ? 'Orders'
+                      : tab === 'history' ? 'History'
+                      : 'Orders'
+                    }</h1>
+                  </div>
+                  <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
                 </div>
-                <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
-              </div>
+              )}
 
               {tab === 'floor' && dataReady && screen === 'floor' && (
                 <div className="floor-layout">
@@ -1057,13 +1062,196 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* Other tabs / sub-screens: render the existing mobile
-                  components inside the workspace. They'll look phone-ish
-                  in a wide column but they're functional; the desktop
-                  versions of these views are the next iteration. */}
-              {tab === 'floor' && screen !== 'floor' && body}
+              {/* ─── Desktop Menu + Cart (order-layout) ─── */}
+              {tab === 'floor' && (screen === 'menu' || screen === 'review') && activeTable && (() => {
+                const seats = [0, ...Array.from({ length: activeTable.seats }, (_, i) => i + 1)];
+                const seatTotalQty = (s) => lines.filter(l => l.seat === s).reduce((sum, l) => sum + l.qty, 0);
+                const seatItemQty = (id, s) => lines.filter(l => l.itemId === id && l.seat === s).reduce((sum, l) => sum + l.qty, 0);
+                const count = lines.reduce((s, l) => s + l.qty, 0);
+                const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
+                const tax = Math.round(subtotal * 0.05);
+                const total = subtotal + tax;
+                const seatsPresent = [...new Set(lines.map(l => l.seat))].sort((a, b) => a - b);
+                return (
+                  <div className="order-layout" style={{
+                    flex: 1, minHeight: 0,
+                    display: 'grid', gridTemplateColumns: '1fr 392px',
+                  }}>
+                    <div className="menu-pane" style={{
+                      minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                    }}>
+                      <div className="menu-toolbar">
+                        <button className="backbtn" onClick={() => setScreen('floor')}>{I.back}</button>
+                        <div className="table-pill">
+                          <span className="tp-num">{String(activeTable.id).replace(/^T/, '').slice(0, 3)}</span>
+                          <span className="tp-meta">{activeTable.zone}<small>{activeTable.seats} SEATS · OPEN NOW</small></span>
+                        </div>
+                      </div>
+                      <div className="cattabs">
+                        {categories.map(c => (
+                          <button
+                            key={c.id}
+                            className="cattab"
+                            onClick={() => {
+                              const el = document.getElementById(`cat-${c.id}`);
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }}
+                          >
+                            <span className="cemoji">{c.emoji}</span>{c.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="menu-scroll">
+                        {categories.map(c => {
+                          const items = menu.filter(m => m.cat === c.id);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={c.id} id={`cat-${c.id}`} className="cat-section">
+                              <h3 className="cat-section-label"><span className="cemoji">{c.emoji}</span>{c.label}</h3>
+                              <div className="dish-grid">
+                                {items.map(item => {
+                                  const qty = seatItemQty(item.id, selectedSeat);
+                                  return (
+                                    <div key={item.id} className={'dish-card' + (qty > 0 ? ' has-qty' : '')}>
+                                      <div className="dish-photo" onClick={() => setSheet({ item, editLine: null })}
+                                        style={{ background: `linear-gradient(150deg, ${item.tint}, ${item.tint}88)` }}>
+                                        <div className="dish-veg"><VegMark veg={item.veg} /></div>
+                                        <span className="dish-emoji">{item.emoji}</span>
+                                        {qty > 0 && <span className="dish-qty-badge">{qty}</span>}
+                                        <span className="ph-tag">photo</span>
+                                      </div>
+                                      <div className="dish-body">
+                                        <div className="dish-name">{item.name}</div>
+                                        <div className="dish-desc">{item.desc || ' '}</div>
+                                        <div className="dish-foot">
+                                          <div className="dish-price"><span className="cur">₹</span>{item.price}</div>
+                                          {item.spice > 0 && <span className="dish-spice"><SpicePips level={item.spice} /></span>}
+                                          {qty > 0 ? (
+                                            <div className="dish-stepper">
+                                              <button onClick={() => rowStep(item, selectedSeat, -1)}>{I.minus}</button>
+                                              <span className="qty">{qty}</span>
+                                              <button onClick={() => rowStep(item, selectedSeat, 1)}>{I.plus}</button>
+                                            </div>
+                                          ) : (
+                                            <button className="dish-add" onClick={() => quickAdd(item, selectedSeat)}>{I.plus}</button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <aside className="cart-pane">
+                      <div className="cart-head">
+                        <div className="cart-head-top">
+                          <h2>Current order</h2>
+                          <span className="cart-count">{count} {count === 1 ? 'item' : 'items'}</span>
+                        </div>
+                      </div>
+                      <div className="seatbar">
+                        {seats.map(s => (
+                          <button
+                            key={s}
+                            className={'seatchip' + (s === selectedSeat ? ' on' : '')}
+                            onClick={() => setSelectedSeat(s)}
+                          >
+                            {s === 0 ? '🍽 Table' : `Seat ${s}`}
+                            {seatTotalQty(s) > 0 && <span className="scount">{seatTotalQty(s)}</span>}
+                          </button>
+                        ))}
+                      </div>
+                      {lines.length === 0 ? (
+                        <div className="cart-empty">
+                          <span className="ce-emoji">🍽</span>
+                          <p>Add items from the menu to start the order.</p>
+                        </div>
+                      ) : (
+                        <div className="cart-scroll">
+                          {seatsPresent.map(seat => {
+                            const segLines = lines.filter(l => l.seat === seat);
+                            const segSum = segLines.reduce((s, l) => s + l.qty * l.price, 0);
+                            return (
+                              <div className="seat-group" key={seat}>
+                                <div className="seat-group-head">
+                                  <span className="seat-badge">{seat === 0 ? '🍽' : seat}</span>
+                                  <span className="sg-label">{seat === 0 ? 'Whole table' : `Seat ${seat}`}</span>
+                                  <span className="sg-sum">₹{segSum.toLocaleString('en-IN')}</span>
+                                </div>
+                                {segLines.map(l => (
+                                  <div className="lineitem" key={l.uid}>
+                                    <span className="li-qty">{l.qty}×</span>
+                                    <div className="li-body">
+                                      <div className="li-name"><VegMark veg={l.veg} />{l.name}{l.spice > 0 && <SpicePips level={l.spice} />}</div>
+                                      {(l.notes && l.notes.length > 0) && (
+                                        <div className="li-mods">
+                                          {l.notes.map((n, i) => <span className="li-modtag" key={i}>{n}</span>)}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="li-side">
+                                      <span className="li-price">₹{(l.qty * l.price).toLocaleString('en-IN')}</span>
+                                      <div className="li-actions">
+                                        <button className="li-act" onClick={() => setSheet({ item: menu.find(m => m.id === l.itemId), editLine: l })}>{I.edit}</button>
+                                        <button className="li-act del" onClick={() => removeLine(l.uid)}>{I.trash}</button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="cart-foot">
+                        {lines.length > 0 && (
+                          <>
+                            <div className="totals">
+                              <div className="trow"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
+                              <div className="trow"><span>GST (5%)</span><span>₹{tax.toLocaleString('en-IN')}</span></div>
+                              <div className="trow grand"><span>Total</span><span><span className="cur">₹</span>{total.toLocaleString('en-IN')}</span></div>
+                            </div>
+                            <button className="send-btn" onClick={() => sendOrder(total)} disabled={submitting}>
+                              {I.send} Send to kitchen
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </aside>
+                  </div>
+                );
+              })()}
+
+              {/* ─── Desktop Confirm (success modal) ─── */}
+              {tab === 'floor' && screen === 'confirm' && lastTicket && (
+                <div className="modal-backdrop" style={{ position: 'absolute' }}>
+                  <div className="success-card">
+                    <div className="ring"><span className="check">{I.check}</span></div>
+                    <h2>Order sent</h2>
+                    <p className="s-sub">Ticket {lastTicket.id} is on the kitchen rail for {lastTicket.table}.</p>
+                    <div className="success-meta">
+                      <div className="sm-card"><div className="sm-k">TICKET</div><div className="sm-v">{lastTicket.id}</div></div>
+                      <div className="sm-card"><div className="sm-k">TABLE</div><div className="sm-v">{lastTicket.table}</div></div>
+                      <div className="sm-card"><div className="sm-k">SENT</div><div className="sm-v">{lastTicket.placedAt}</div></div>
+                    </div>
+                    <div className="success-actions">
+                      <button className="s-primary" onClick={() => { setScreen('floor'); setActiveTable(null); setLastTicket(null); }}>Back to floor</button>
+                      <button className="s-secondary" onClick={() => router.push('/admin/kitchen-new')}>View kitchen rail {I.chevR}</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Other tabs (queue/orders/history) — render existing
+                    components inside workspace; ws-head hides for these
+                    since each component has its own apphead. Phase 4
+                    desktop redesign for these tabs. ─── */}
               {tab !== 'floor' && body}
-              {!dataReady && tab === 'floor' && (
+              {!dataReady && tab === 'floor' && screen === 'floor' && (
                 <div style={{ padding: 40, textAlign: 'center', color: 'var(--tx-3)' }}>Loading the floor…</div>
               )}
 
