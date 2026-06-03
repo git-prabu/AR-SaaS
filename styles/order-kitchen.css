@@ -1116,5 +1116,11 @@
 .ok-root .bump.clear { background: var(--card-3); color: var(--tx-2); }
 .ok-root .bump.clear:hover { color: var(--tx); }
 
+/* Tablet portrait (within the desktop range): cart-pane narrows
+   from 392px to 340px so the menu grid still has comfortable
+   card widths at viewports between 920 and 1180. */
+@media (max-width: 1180px) {
+  .ok-root .order-layout { grid-template-columns: 1fr 340px; }
+}
 
 } /* end @media (min-width: 920px) */
