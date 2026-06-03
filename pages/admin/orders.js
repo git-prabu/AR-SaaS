@@ -55,6 +55,8 @@ import FloorScreen from '../../components/order-kitchen/FloorScreen';
 import MenuScreen, { ItemSheet } from '../../components/order-kitchen/MenuScreen';
 import ReviewScreen, { ConfirmScreen } from '../../components/order-kitchen/ReviewScreen';
 import ActionQueueScreen, { CashModal } from '../../components/order-kitchen/ActionQueueScreen';
+import OrdersListScreen from '../../components/order-kitchen/OrdersListScreen';
+import HistoryListScreen from '../../components/order-kitchen/HistoryListScreen';
 import { I } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
@@ -415,6 +417,12 @@ export default function Orders() {
   const [lastTicket, setLastTicket] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Phase B.3 / B.4 — Orders tab filter + History tab period/search.
+  // Defaults match /admin/waiter (active orders, today's history).
+  const [ordersFilter, setOrdersFilter] = useState('active');
+  const [historyPeriod, setHistoryPeriod] = useState('today');
+  const [historySearch, setHistorySearch] = useState('');
+
   // Phase B.2 — Action Queue state.
   // resolvingId disables the action button on the card whose write is
   // in-flight so double-taps can't fire the same write twice.
@@ -738,61 +746,22 @@ export default function Orders() {
     );
   } else if (tab === 'orders') {
     body = (
-      <div className="screen screen-enter">
-        <div style={{
-          padding: '14px 20px', flexShrink: 0,
-          display: 'flex', flexDirection: 'row', alignItems: 'center',
-          gap: 12, width: '100%',
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
-              textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
-            }}>Today</div>
-            <h1 style={{
-              fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
-              fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
-              margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
-            }}>Orders</h1>
-          </div>
-        </div>
-        <div className="scroll">
-          <div className="empty">
-            <span className="e-emoji">📒</span>
-            <p>Today&apos;s orders ledger lands here in Phase B.3 — Active / Served filter chips, the same data /admin/orders-ledger shows now but in this dark UI.</p>
-          </div>
-        </div>
-      </div>
+      <OrdersListScreen
+        orders={allOrdersList}
+        filter={ordersFilter}
+        onFilterChange={setOrdersFilter}
+      />
     );
   } else if (tab === 'history') {
     body = (
-      <div className="screen screen-enter">
-        <div style={{
-          padding: '14px 20px', flexShrink: 0,
-          display: 'flex', flexDirection: 'row', alignItems: 'center',
-          gap: 12, width: '100%',
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
-              textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
-            }}>Past shifts</div>
-            <h1 style={{
-              fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
-              fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
-              margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
-            }}>History</h1>
-          </div>
-        </div>
-        <div className="scroll">
-          <div className="empty">
-            <span className="e-emoji">🗓️</span>
-            <p>History lands in Phase B.4 — date-range picker, resolved calls and served orders together, so the waiter can audit a past shift.</p>
-          </div>
-        </div>
-      </div>
+      <HistoryListScreen
+        allCalls={allCalls}
+        allOrders={allOrdersList}
+        period={historyPeriod}
+        onPeriodChange={setHistoryPeriod}
+        search={historySearch}
+        onSearchChange={setHistorySearch}
+      />
     );
   } else if (!dataReady) {
     body = (

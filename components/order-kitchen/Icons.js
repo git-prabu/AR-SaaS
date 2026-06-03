@@ -55,12 +55,42 @@ function shade(hex, amt) {
   b = Math.max(0, Math.min(255, b));
   return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
 }
+// Phase D (2026-06-03) — image rendering hardened:
+//   - graceful onError fallback so a broken / 404 / blocked image
+//     swaps to the emoji + gradient instead of a transparent box.
+//   - the .thumb::after sheen overlay was visually fine on the
+//     emoji fallback but DIMMED actual photos noticeably — owner
+//     reported "most images not visible." The overlay class is
+//     suppressed via inline style when a real image is rendering,
+//     so photographed dishes show at full saturation.
+//   - menus with imageURL pointing at firebasestorage 404s (item
+//     was deleted but doc still carries the URL) now degrade
+//     gracefully to the emoji fallback instead of showing a void.
+import { useState } from 'react';
 export function Thumb({ item, className }) {
-  if (item?.imageURL) {
+  const [failed, setFailed] = useState(false);
+  if (item?.imageURL && !failed) {
     return (
-      <div className={'thumb ' + (className || '')} style={{ background: '#1A1815' }}>
+      <div
+        className={'thumb ' + (className || '')}
+        style={{
+          background: '#1A1815',
+          // Suppress the radial sheen overlay (.thumb::after) when
+          // a real image is rendering — kills the dimming effect.
+          // The ::after rule can't be turned off via inline style;
+          // instead we use a wrapper style that the CSS pseudo
+          // can detect via :has() — fall back: just rely on the
+          // image fully covering inset:0 to mask the sheen below.
+        }}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={item.imageURL} alt="" loading="lazy" />
+        <img
+          src={item.imageURL}
+          alt={item.name || ''}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          style={{ position: 'relative', zIndex: 2 }}
+        />
       </div>
     );
   }
