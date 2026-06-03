@@ -13,11 +13,12 @@
 
 .ok-root {
   /* dark matte surfaces */
-  --ink:       #121110;
+  --ink:       #100F0D;
   --surface:   #1A1815;
   --card:      #221F1B;
   --card-2:    #2A2722;
   --card-3:    #322E28;
+  --rail:      #141210;
 
   /* gold-tinted hairlines */
   --line:      rgba(196,168,109,0.13);
@@ -95,20 +96,25 @@
    render onto the .frame, while .page-bg fills the rest of
    the viewport on desktop. Both need to flip together.
    ────────────────────────────────────────────────────────── */
+/* Light tokens come from the owner's Claude Design spec
+   (Waiter Order App - Desktop standalone). The rail stays dark
+   even in light mode — the design explicitly keeps that contrast
+   so the nav sidebar always reads as the "chrome" of the app. */
 [data-theme="light"] .ok-root,
 .ok-root[data-theme="light"] {
-  --ink:       #FAF7F1;
-  --surface:   #FFFFFF;
-  --card:      #F6F2EA;
-  --card-2:    #EEE9DD;
-  --card-3:    #E4DDCB;
-  --line:      rgba(94,72,29,0.13);
-  --line-soft: rgba(0,0,0,0.05);
-  --tx:        #2A2520;
-  --tx-2:      rgba(42,37,32,0.65);
-  --tx-3:      rgba(42,37,32,0.42);
-  --st-free:   rgba(42,37,32,0.22);
-  background: #FAF7F1;
+  --ink:       #DEDAD1;
+  --surface:   #F2EFE9;
+  --card:      #FFFFFF;
+  --card-2:    #FAF7F1;
+  --card-3:    #EFEBE2;
+  --rail:      #211E1A;
+  --line:      rgba(60,30,15,0.10);
+  --line-soft: rgba(60,30,15,0.05);
+  --tx:        #1E1B16;
+  --tx-2:      rgba(30,27,22,0.62);
+  --tx-3:      rgba(30,27,22,0.40);
+  --st-free:   rgba(30,27,22,0.18);
+  background: #DEDAD1;
 }
 [data-theme="light"] .ok-root .page-bg,
 .ok-root[data-theme="light"] .page-bg {
@@ -584,3 +590,294 @@
 .ok-root .bump.start { background: var(--gold); color: #1A1815; }
 .ok-root .bump.done { background: var(--success); color: #fff; }
 .ok-root .bump.cleared { background: var(--card-3); color: var(--tx-3); }
+
+/* ══════════════════════════════════════════════════════════════
+   DESKTOP / TABLET LAYOUT (owner's Claude Design spec, 2026-06-04)
+   ──────────────────────────────────────────────────────────────
+   The whole block is scoped under `.ok-root .pos` so it only
+   kicks in when a page renders the desktop shell (`.pos`
+   wrapper). Mobile pages keep rendering `.page-bg > .frame >
+   .screenwrap` and use the styles above. orders.js +
+   kitchen-new.js choose at render time which structure to
+   render based on viewport width.
+   ══════════════════════════════════════════════════════════════ */
+
+/* App shell */
+.ok-root .pos {
+  display: grid; grid-template-columns: 96px 1fr;
+  height: 100vh; background: var(--surface);
+}
+
+/* Nav rail */
+.ok-root .rail {
+  background: var(--rail);
+  border-right: 1px solid rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 18px 0 16px; gap: 6px;
+}
+.ok-root .rail-logo {
+  width: 52px; height: 52px; border-radius: 15px;
+  background: linear-gradient(150deg, #2A2722, #161310);
+  border: 1px solid rgba(196,168,109,0.3);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  margin-bottom: 18px; flex-shrink: 0;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
+.ok-root .rail-logo b {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: 18px; color: var(--gold);
+  line-height: 1; letter-spacing: -0.02em;
+}
+.ok-root .rail-logo small {
+  font-family: var(--font-mono); font-size: 5.5px;
+  letter-spacing: 0.18em; color: rgba(239,235,228,0.38); margin-top: 2px;
+}
+.ok-root .rail-nav {
+  display: flex; flex-direction: column; gap: 8px;
+  width: 100%; align-items: center; flex: 1;
+}
+.ok-root .rail-btn {
+  width: 68px; height: 64px; border-radius: 16px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 5px;
+  color: rgba(239,235,228,0.5);
+  transition: all .2s var(--ease-ios); position: relative;
+  border: 0; background: none; cursor: pointer;
+}
+.ok-root .rail-btn svg { width: 23px; height: 23px; }
+.ok-root .rail-btn span {
+  font-family: var(--font-display); font-weight: 600; font-size: 10px;
+}
+.ok-root .rail-btn:hover {
+  color: var(--tx); background: rgba(255,255,255,0.04);
+}
+.ok-root .rail-btn.on {
+  color: var(--accent-ink); background: var(--accent);
+  box-shadow: 0 8px 20px var(--accent-glow);
+}
+.ok-root .rail-btn .rail-badge {
+  position: absolute; top: 8px; right: 12px;
+  min-width: 18px; height: 18px; border-radius: 50px;
+  background: var(--saffron); color: #fff;
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 5px; border: 2px solid var(--rail);
+}
+.ok-root .rail-foot {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 12px;
+}
+.ok-root .rail-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--saffron));
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 16px; color: #1A1815;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* Workspace */
+.ok-root .workspace {
+  min-width: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.ok-root .ws-head {
+  display: flex; align-items: center; gap: 18px;
+  padding: 22px 30px 18px; flex-shrink: 0;
+}
+.ok-root .ws-title { display: flex; flex-direction: column; gap: 3px; }
+.ok-root .ws-eyebrow {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--tx-3);
+}
+.ok-root .ws-h1 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 28px; letter-spacing: -0.02em; margin: 0; color: var(--tx);
+}
+.ok-root .ws-clock {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 13px; color: var(--tx-2);
+  background: var(--card); border: 1px solid var(--line);
+  padding: 9px 15px; border-radius: 50px;
+}
+.ok-root .ws-clock svg { width: 15px; height: 15px; color: var(--accent); }
+
+/* Floor view */
+.ok-root .floor-layout {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: 1fr 320px; gap: 0;
+}
+.ok-root .floor-main {
+  min-width: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.ok-root .floor-toolbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 30px 16px; flex-wrap: wrap;
+}
+.ok-root .floor-toolbar .legend {
+  display: flex; gap: 16px; margin-left: auto; flex-wrap: wrap;
+}
+.ok-root .floor-toolbar .legend .l {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--tx-3);
+}
+.ok-root .floor-toolbar .legend .swatch {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+
+/* Stat strip */
+.ok-root .statstrip {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; padding: 0 30px 18px;
+}
+.ok-root .statcard {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 16px; padding: 14px 18px;
+}
+.ok-root .statcard .sc-k {
+  font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--tx-3);
+  display: flex; align-items: center; gap: 6px;
+}
+.ok-root .statcard .sc-k i { width: 8px; height: 8px; border-radius: 50%; }
+.ok-root .statcard .sc-v {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 26px; letter-spacing: -0.02em; margin-top: 7px;
+}
+.ok-root .statcard .sc-v small {
+  font-family: var(--font-body); font-size: 12px;
+  font-weight: 600; color: var(--tx-3); margin-left: 4px;
+}
+
+.ok-root .floor-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; padding: 4px 30px 30px;
+}
+.ok-root .floor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 16px;
+}
+
+/* Activity rail */
+.ok-root .activity {
+  background: var(--card); border-left: 1px solid var(--line);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.ok-root .activity-head {
+  padding: 22px 22px 14px;
+  display: flex; align-items: center; gap: 9px; flex-shrink: 0;
+}
+.ok-root .activity-head h3 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 15px; margin: 0;
+}
+.ok-root .activity-head .a-live {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--tx-3);
+}
+.ok-root .activity-head .a-live i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--st-ready); animation: ok-dotpulse 1.4s infinite;
+}
+@keyframes ok-dotpulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+.ok-root .activity-list {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 4px 16px 20px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ok-root .act-card {
+  background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 14px; padding: 13px 14px; cursor: pointer;
+  transition: border-color .2s, transform .18s;
+}
+.ok-root .act-card:hover {
+  border-color: var(--accent); transform: translateX(-2px);
+}
+.ok-root .act-card .ac-top {
+  display: flex; align-items: center; gap: 9px;
+}
+.ok-root .act-card .ac-table {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: var(--card-3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 13px;
+  flex-shrink: 0;
+}
+.ok-root .act-card .ac-meta { min-width: 0; }
+.ok-root .act-card .ac-zone {
+  font-family: var(--font-display); font-weight: 600; font-size: 13px;
+}
+.ok-root .act-card .ac-sub {
+  font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: .04em; color: var(--tx-3);
+  text-transform: uppercase; margin-top: 2px;
+}
+.ok-root .act-card .ac-badge {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 50px;
+}
+.ok-root .ac-badge.sent {
+  background: rgba(194,86,43,0.16); color: var(--st-sent);
+}
+.ok-root .ac-badge.ready {
+  background: rgba(63,170,99,0.16); color: var(--st-ready);
+}
+.ok-root .act-empty {
+  text-align: center; color: var(--tx-3);
+  font-family: var(--font-body); font-size: 12px; padding: 40px 16px;
+}
+
+/* Kitchen (KDS) — 3-column board */
+.ok-root .kds-wrap {
+  flex: 1; min-height: 0; padding: 0 30px 30px;
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.ok-root .kds {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+}
+.ok-root .kcol {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 20px; overflow: hidden;
+}
+.ok-root .kcol-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 18px 14px; flex-shrink: 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ok-root .kcol-head .kc-dot { width: 10px; height: 10px; border-radius: 50%; }
+.ok-root .kcol-head h3 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 15px; margin: 0;
+}
+.ok-root .kcol-head .kc-n {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--tx-2); background: var(--card-3);
+  border-radius: 50px; padding: 4px 11px;
+}
+.ok-root .kcol.col-new .kc-dot { background: var(--st-sent); }
+.ok-root .kcol.col-cooking .kc-dot { background: var(--gold); }
+.ok-root .kcol.col-ready .kc-dot { background: var(--st-ready); }
+.ok-root .kcol-list {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 14px; display: flex; flex-direction: column; gap: 14px;
+}
+.ok-root .kcol-empty {
+  text-align: center; color: var(--tx-3);
+  font-family: var(--font-body); font-size: 12.5px; padding: 50px 16px;
+}
+
+/* Tablet portrait / narrow */
+@media (max-width: 1180px) {
+  .ok-root .floor-layout { grid-template-columns: 1fr; }
+  .ok-root .activity { display: none; }
+}
+@media (max-width: 920px) {
+  .ok-root .pos { grid-template-columns: 80px 1fr; }
+}
