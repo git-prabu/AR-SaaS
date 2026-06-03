@@ -1,7 +1,14 @@
-/* Kitchen ticket rail — what kitchen staff sees; bump tickets through states */
+// components/order-kitchen/KitchenScreen.js
+//
+// Direct 1:1 port of the Claude Design prototype's kitchen.jsx.
+// Tickets passed as props (live data from Firestore upstream).
+// onBump callback writes the order's status via the page.
 
-function KitchenScreen({ tickets, onBump, tick }) {
-  const [filter, setFilter] = React.useState('all');
+import React, { useState } from 'react';
+import { I, SpicePips } from './Icons';
+
+export default function KitchenScreen({ tickets, onBump }) {
+  const [filter, setFilter] = useState('all');
   const order = { new: 0, cooking: 1, ready: 2 };
   const counts = {
     all: tickets.length,
@@ -29,7 +36,7 @@ function KitchenScreen({ tickets, onBump, tick }) {
             <div className="eyebrow">Kitchen Display · live</div>
             <h1 className="h-screen">Kitchen rail</h1>
           </div>
-          <button className="iconbtn gold">{window.I.chef}</button>
+          <button className="iconbtn gold">{I.chef}</button>
         </div>
       </div>
 
@@ -46,7 +53,7 @@ function KitchenScreen({ tickets, onBump, tick }) {
           <div className="empty"><span className="e-emoji">🍳</span><p>No tickets here. New orders land on the rail instantly.</p></div>
         ) : (
           <div className="ticketlist">
-            {shown.map(t => <Ticket key={t.id} t={t} onBump={onBump} tick={tick} />)}
+            {shown.map(t => <Ticket key={t.id} t={t} onBump={onBump} />)}
           </div>
         )}
       </div>
@@ -54,19 +61,19 @@ function KitchenScreen({ tickets, onBump, tick }) {
   );
 }
 
-function Ticket({ t, onBump, tick }) {
+function Ticket({ t, onBump }) {
   const age = t.ageMin;
   const late = age >= 18 && t.status !== 'ready';
   const statusLabel = { new: 'New', cooking: 'Cooking', ready: 'Ready' }[t.status];
   return (
-    <div className={"ticket status-" + t.status}>
+    <div className={'ticket status-' + t.status}>
       <div className="ticket-head">
-        <div className="th-table"><b>{t.table.replace('T', '')}</b><small>Table</small></div>
+        <div className="th-table"><b>{t.table.replace(/^T/, '')}</b><small>Table</small></div>
         <div className="th-meta">
-          <div className="th-id">{t.id}<span className={"kstatus " + t.status}>{statusLabel}</span></div>
+          <div className="th-id">{t.id}<span className={'kstatus ' + t.status}>{statusLabel}</span></div>
           <div className="th-sub">{t.zone} · {t.waiter} · {t.placedAt}</div>
         </div>
-        <span className={"kage" + (late ? " late" : "")}>{window.I.clock}&nbsp;{age}m</span>
+        <span className={'kage' + (late ? ' late' : '')}>{I.clock}&nbsp;{age}m</span>
       </div>
 
       <div className="ticket-items">
@@ -76,9 +83,9 @@ function Ticket({ t, onBump, tick }) {
             <div style={{ flex: 1 }}>
               <span className="ki-name">{it.name}</span>
               <div className="ki-meta">
-                <span className="ki-seat">{it.seat === 0 ? 'Table' : 'Seat ' + it.seat}</span>
-                {it.spice > 0 && <window.SpicePips level={it.spice} />}
-                {it.notes.map((n, j) => <span className="li-modtag" key={j}>{n}</span>)}
+                <span className="ki-seat">{(it.seat || 0) === 0 ? 'Table' : 'Seat ' + it.seat}</span>
+                {it.spice > 0 && <SpicePips level={it.spice} />}
+                {(it.notes || []).map((n, j) => <span className="li-modtag" key={j}>{n}</span>)}
               </div>
             </div>
           </div>
@@ -86,12 +93,10 @@ function Ticket({ t, onBump, tick }) {
       </div>
 
       <div className="ticket-foot">
-        {t.status === 'new' && <button className="bump start" onClick={() => onBump(t.id, 'cooking')}>{window.I.flame} Start cooking</button>}
-        {t.status === 'cooking' && <button className="bump done" onClick={() => onBump(t.id, 'ready')}>{window.I.check} Mark ready</button>}
-        {t.status === 'ready' && <button className="bump cleared" onClick={() => onBump(t.id, 'cleared')}>{window.I.check} Picked up · clear</button>}
+        {t.status === 'new' && <button className="bump start" onClick={() => onBump(t, 'cooking')}>{I.flame} Start cooking</button>}
+        {t.status === 'cooking' && <button className="bump done" onClick={() => onBump(t, 'ready')}>{I.check} Mark ready</button>}
+        {t.status === 'ready' && <button className="bump cleared" onClick={() => onBump(t, 'cleared')}>{I.check} Picked up · clear</button>}
       </div>
     </div>
   );
 }
-
-Object.assign(window, { KitchenScreen });

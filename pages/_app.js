@@ -1,5 +1,10 @@
 // pages/_app.js
 import '../styles/globals.css';
+// Order & Kitchen page styles — every rule scoped under `.ok-root`
+// so they cannot leak onto any other admin/staff page. Imported here
+// because Next.js Pages Router only allows global CSS imports from
+// _app.js. Same pattern used for other page-scoped style files.
+import '../styles/order-kitchen.css';
 import React, { useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';

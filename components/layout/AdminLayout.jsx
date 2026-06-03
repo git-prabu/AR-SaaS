@@ -64,15 +64,16 @@ export const navSections = [
   },
   {
     label: 'OPERATIONS', items: [
-      { href: '/admin/tables',    label: 'Tables',    icon: 'grid' },
-      { href: '/admin/new-order', label: 'New Order', icon: 'plus' },
-      { href: '/admin/orders',    label: 'Orders',    icon: 'clipboard' },
-      { href: '/admin/kitchen',   label: 'Kitchen',   icon: 'chef' },
-      { href: '/admin/waiter',    label: 'Waiter',    icon: 'bell' },
-      { href: '/admin/payments',  label: 'Payments',  icon: 'card' },
+      { href: '/admin/tables',         label: 'Tables',           icon: 'grid' },
+      { href: '/admin/order-kitchen',  label: 'Order & Kitchen',  icon: 'chef' },
+      { href: '/admin/new-order',      label: 'New Order',        icon: 'plus' },
+      { href: '/admin/orders',         label: 'Orders',           icon: 'clipboard' },
+      { href: '/admin/kitchen',        label: 'Kitchen',          icon: 'chef' },
+      { href: '/admin/waiter',         label: 'Waiter',           icon: 'bell' },
+      { href: '/admin/payments',       label: 'Payments',         icon: 'card' },
       // Day Close belongs here — it's the end-of-shift operational step,
       // not a dashboard view. Was previously under OVERVIEW.
-      { href: '/admin/day-close', label: 'Day Close', icon: 'crown' },
+      { href: '/admin/day-close',      label: 'Day Close',        icon: 'crown' },
     ]
   },
   {

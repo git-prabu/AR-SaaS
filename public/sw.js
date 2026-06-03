@@ -207,7 +207,15 @@
 // Claude Design standalone bundle. Owner confirmed the standalone
 // works perfectly; the previous patched index.html / data.js had
 // issues. Cache bump so PWAs pull the new redirect target.
-const CACHE_VERSION  = 'ar-v32';
+// ar-v33 (Jun 3, late) — Order & Kitchen ships. New production
+// route at /admin/order-kitchen (also /staff/order-kitchen via the
+// existing afterFiles rewrite). 1:1 React port of the Claude Design
+// prototype with proper auth, live Firestore subscriptions, and the
+// existing createOrder / updateOrderStatusAs functions. /staff/v2
+// (the broken React port + the standalone-redirect that replaced
+// it) is deleted. SW bump so the new admin sidebar entry / staff
+// drawer entry / route are picked up fresh on next launch.
+const CACHE_VERSION  = 'ar-v33';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
