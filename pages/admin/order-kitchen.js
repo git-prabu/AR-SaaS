@@ -150,7 +150,19 @@ export default function OrderKitchen() {
 
   const zones = useMemo(() => {
     const names = areas.map(a => a.name || 'Area');
-    if (rawTables.some(t => !t.areaId)) names.push('Floor');
+    // Include 'Floor' as a zone if ANY table can't be resolved to a
+    // known area — either no areaId at all, OR areaId points to a
+    // deleted/renamed area that no longer exists in `areas`. Without
+    // this, orphaned tables get zone:'Floor' from the table mapping
+    // below but 'Floor' isn't in zones — so they vanish from every
+    // tab. Owner's first deploy hit exactly this case: 5 tables, 2
+    // areas in tabs, but tables didn't render because their areaId
+    // referenced areas that aren't in the current areas list.
+    const hasUnresolved = rawTables.some(t => {
+      if (!t.areaId) return true;
+      return !areas.find(a => a.id === t.areaId);
+    });
+    if (hasUnresolved) names.push('Floor');
     return Array.from(new Set(names.length ? names : ['Floor']));
   }, [areas, rawTables]);
 
