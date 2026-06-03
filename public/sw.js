@@ -226,26 +226,46 @@
 // ar-v35 (Jun 3) — Order & Kitchen apphead radically simplified.
 // All classNames removed from the apphead structure; only inline
 // styles control geometry. This rules out any CSS specificity issue.
-const CACHE_VERSION  = 'ar-v45';
+const CACHE_VERSION  = 'ar-v46';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
-// ── IMG cache lives independently of CACHE_VERSION ────────────────
-// Owner reported (2026-06-03) "items i uploaded show placeholder
-// now". Root cause was here: IMG_CACHE used to be tied to
-// CACHE_VERSION (`${CACHE_VERSION}-img`) so the activate handler's
-// "purge any non-current-version cache" step wiped menu photos on
-// EVERY deploy. Customer page is network-first, cache fallback —
-// so a slow / temporarily-unreachable firebasestorage response on
-// the post-deploy re-fetch made the <img> trigger onerror and the
-// page dropped to the FOOD_PLACEHOLDERS fallback, until I either
-// gave up or the next user visit re-warmed the cache.
+
+// ── Menu photo caching DISABLED in the SW (2026-06-04) ─────────────
+// Owner reported uploaded item images showing the broken-image alt
+// state on BOTH the customer menu AND /admin/items (same URLs, same
+// failure on both pages). Forensic timeline:
 //
-// Fix: independent name `ar-img-v1`. The activate handler's purge
-// filter now also excludes any cache starting with `ar-img-` so
-// future CACHE_VERSION bumps no longer touch the image cache.
-// Bump THIS image version only if the storage URL scheme ever
-// changes in a way that requires re-fetching.
-const IMG_CACHE      = 'ar-img-v1';
-const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
+//   1. Across the Order & Kitchen rebuild, I bumped CACHE_VERSION
+//      from v34 to v44 — 10 deploys.
+//   2. IMG_CACHE used to be `${CACHE_VERSION}-img`, so the activate
+//      handler's "purge any cache not from this version" step wiped
+//      menu photos on EVERY deploy.
+//   3. v45 attempted a fix by renaming to a version-independent
+//      `ar-img-v1`. Owner verified after that deploy: still broken.
+//
+// What v45 didn't solve: the v44-and-earlier IMG caches might have
+// already absorbed broken responses (from intermittent post-deploy
+// Firebase Storage re-fetches under stress). Even after v45's
+// activate purged those old caches, the new ar-img-v1 cache was
+// fresh — but if the FIRST post-purge fetch was the one that
+// failed, that's what cacheFirstCapped returned to the <img> tag,
+// which set imgErr and stuck on placeholder for the session.
+//
+// SIMPLEST + most diagnostic fix: take the SW OUT of the menu-photo
+// path entirely. Browser native HTTP cache takes over — it respects
+// Cache-Control headers Firebase Storage already sets (public,
+// max-age=3600) so returning visitors still get instant images.
+// First visit refetches; subsequent loads cache-hit in the browser.
+//
+// Trade-off: no offline menu access for cached returning customers
+// in a basement-bar dead zone. Owner can re-enable SW image
+// caching later with a smarter strategy (cache only on `fresh.ok
+// && status === 200`, retry-on-network-error, etc.). Today's
+// priority is "uploaded photo shows in <img>" — which the browser
+// does perfectly without SW interference.
+//
+// All historical ar-img-* and ${prev-version}-img caches are
+// purged in `activate` so no stale data survives.
+const IMG_CACHE_CAP  = 0;  // retained for old code paths; no longer caches anything
 
 self.addEventListener('install', () => {
   // Take control on next reload — don't wait for tabs to close.
@@ -254,13 +274,13 @@ self.addEventListener('install', () => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    // Purge any caches not from this worker version. EXCLUDE the
-    // image cache (ar-img-*) so menu photos survive deploys.
+    // Purge EVERY non-current-version cache — including any old image
+    // caches (ar-img-*, ar-v34-img through ar-v45-img). The next
+    // page load goes direct to network for menu photos via the
+    // fetch-handler change below.
     const keys = await caches.keys();
     await Promise.all(
-      keys
-        .filter(k => !k.startsWith(CACHE_VERSION) && !k.startsWith('ar-img-'))
-        .map(k => caches.delete(k))
+      keys.filter(k => !k.startsWith(CACHE_VERSION)).map(k => caches.delete(k))
     );
     await self.clients.claim();
   })());
@@ -274,20 +294,17 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   // ─── Cross-origin: Firebase Storage menu photos ──────────────────────
-  // Cached aggressively because URLs include a stable token + path so
-  // they don't change once an image is uploaded. Returning customer hits
-  // these from disk, no network at all.
+  // SW DOES NOT TOUCH these requests (2026-06-04). Owner reported
+  // photos showing as broken / placeholders even on /admin/items —
+  // every previous attempt to manage a SW-side image cache wound up
+  // serving stale or bad responses after a deploy. The browser
+  // honors Firebase Storage's own Cache-Control headers (public,
+  // max-age=3600) so returning visitors still get instant loads
+  // from native HTTP cache — without any SW middleman.
   //
-  // CORS exception: when admin code does `fetch(url, { mode: 'cors' })`
-  // to read image bytes back into a Blob (e.g. the bulk-optimize tool),
-  // the cache may hold an opaque response from a prior <img> tag fetch.
-  // Returning an opaque response to a cors request throws "an 'opaque'
-  // response was used for a request whose type is not no-cors". So we
-  // bypass the SW for cors requests — they go straight to network and
-  // never touch the cache. The <img>-tag path keeps using the cache.
+  // No `return event.respondWith(...)` — let the request fall
+  // through to the browser's normal fetch path.
   if (url.hostname === 'firebasestorage.googleapis.com') {
-    if (request.mode === 'cors') return;
-    event.respondWith(cacheFirstCapped(IMG_CACHE, request, IMG_CACHE_CAP));
     return;
   }
 
