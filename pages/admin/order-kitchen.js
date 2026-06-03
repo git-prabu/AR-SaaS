@@ -14,8 +14,11 @@
 //     firestore.rules govern access.
 //
 // The /staff/order-kitchen URL serves this same page via the
-// next.config.js afterFiles rewrite, so staff with the new
-// `orderKitchen` permission see it through their drawer.
+// next.config.js afterFiles rewrite. After the Phase A split
+// (2026-06-03) this URL is the LEGACY combined view kept for
+// in-the-wild bookmarks; new sidebar entries point at
+// /admin/orders (waiter station, mode='floor') and
+// /admin/kitchen-new (KDS, mode='kitchen') instead.
 
 import Head from 'next/head';
 import { useCallback, useEffect, useMemo, useState } from 'react';
