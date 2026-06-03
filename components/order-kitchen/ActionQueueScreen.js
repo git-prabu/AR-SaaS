@@ -69,6 +69,7 @@ export default function ActionQueueScreen({
   soundEnabled, onToggleSound,
   voiceEnabled, onToggleVoice,
   flashingIds,
+  desktop = false,  // skip apphead — ws-head supplies the title on desktop
 }) {
   const counts = {
     calls:    items.filter(i => i.type === 'call').length,
@@ -80,7 +81,10 @@ export default function ActionQueueScreen({
 
   return (
     <div className="screen screen-enter">
-      {/* apphead — pure inline styles. Eyebrow + h1 left, sound + voice toggles right. */}
+      {/* apphead — pure inline styles. Eyebrow + h1 left, sound + voice toggles right.
+          Skipped on desktop: ws-head provides the title and the sound/voice
+          toggles live in the rail. */}
+      {!desktop && (
       <div style={{
         padding: '14px 20px', flexShrink: 0,
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -123,6 +127,7 @@ export default function ActionQueueScreen({
           }}
         >{voiceEnabled ? '🎙️' : '🎙️'}</button>
       </div>
+      )}
 
       {/* stat strip — shows counts of each type + oldest age. Hidden when empty. */}
       {items.length > 0 && (

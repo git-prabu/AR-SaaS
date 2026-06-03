@@ -74,7 +74,7 @@ function orderLabel(o) {
   return '#' + (o.id || '').slice(-4).toUpperCase();
 }
 
-export default function OrdersListScreen({ orders, filter, onFilterChange }) {
+export default function OrdersListScreen({ orders, filter, onFilterChange, desktop = false }) {
   const startOfTodaySec = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() / 1000; })();
   const today = orders.filter(o =>
     (o.createdAt?.seconds || 0) >= startOfTodaySec
@@ -103,6 +103,8 @@ export default function OrdersListScreen({ orders, filter, onFilterChange }) {
 
   return (
     <div className="screen screen-enter">
+      {/* apphead skipped on desktop — ws-head provides the title */}
+      {!desktop && (
       <div style={{
         padding: '14px 20px', flexShrink: 0,
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -121,6 +123,7 @@ export default function OrdersListScreen({ orders, filter, onFilterChange }) {
           }}>Orders</h1>
         </div>
       </div>
+      )}
 
       <div style={{
         padding: '6px 16px 12px', flexShrink: 0,

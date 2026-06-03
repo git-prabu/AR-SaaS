@@ -67,6 +67,7 @@ export default function HistoryListScreen({
   allCalls, allOrders,
   period, onPeriodChange,
   search, onSearchChange,
+  desktop = false,
 }) {
   const rangeStart = period === 'today' ? startOfToday()
                    : period === 'week'  ? startOfWeek()
@@ -122,6 +123,8 @@ export default function HistoryListScreen({
 
   return (
     <div className="screen screen-enter">
+      {/* apphead skipped on desktop — ws-head provides the title */}
+      {!desktop && (
       <div style={{
         padding: '14px 20px', flexShrink: 0,
         display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -140,6 +143,7 @@ export default function HistoryListScreen({
           }}>History</h1>
         </div>
       </div>
+      )}
 
       {/* period chips */}
       <div style={{

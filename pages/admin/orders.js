@@ -767,6 +767,7 @@ export default function Orders() {
         voiceEnabled={voiceEnabled}
         onToggleVoice={toggleVoice}
         flashingIds={flashingIds}
+        desktop={isDesktop}
       />
     );
   } else if (tab === 'orders') {
@@ -775,6 +776,7 @@ export default function Orders() {
         orders={allOrdersList}
         filter={ordersFilter}
         onFilterChange={setOrdersFilter}
+        desktop={isDesktop}
       />
     );
   } else if (tab === 'history') {
@@ -786,6 +788,7 @@ export default function Orders() {
         onPeriodChange={setHistoryPeriod}
         search={historySearch}
         onSearchChange={setHistorySearch}
+        desktop={isDesktop}
       />
     );
   } else if (!dataReady) {
