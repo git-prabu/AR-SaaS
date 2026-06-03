@@ -30,6 +30,28 @@
 import Head from 'next/head';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
+
+// ─── Viewport detection for desktop vs mobile shell ──────────────
+// 920px breakpoint matches styles/order-kitchen.css desktop layout
+// (owner's Claude Design spec). Below → existing phone-frame UI;
+// at-or-above → new .pos shell with .rail + .workspace.
+function useIsDesktop(breakpoint = 920) {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= breakpoint);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [breakpoint]);
+  return isDesktop;
+}
+
+function fmtClock(d) {
+  const h = d.getHours() % 12 || 12;
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = d.getHours() < 12 ? 'AM' : 'PM';
+  return `${h}:${m} ${ampm}`;
+}
 import toast from 'react-hot-toast';
 import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
 
@@ -138,6 +160,7 @@ export default function Orders() {
   const router = useRouter();
   const { user, userData, loading: adminLoading } = useAuth();
   const { isLight, toggle: toggleTheme } = useOkTheme();
+  const isDesktop = useIsDesktop(920);
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -817,10 +840,252 @@ export default function Orders() {
   //     drill-down sub-flow yet).
   const showNav = tab !== 'floor' || screen === 'floor';
 
+  // ─── Desktop-only derivations (stat strip + service queue) ────
+  // Computed regardless of isDesktop so the values are stable across
+  // viewport changes (resize from mobile to desktop doesn't trigger
+  // a state-shape change). Cheap loops over `tables`.
+  const stats = useMemo(() => {
+    let seated = 0, cooking = 0, ready = 0, revenue = 0;
+    tables.forEach(t => {
+      if (t.status === 'seated') seated++;
+      else if (t.status === 'sent') cooking++;
+      else if (t.status === 'ready') ready++;
+      revenue += (totals[t.id] || 0);
+    });
+    return { seated, cooking, ready, revenue };
+  }, [tables, totals]);
+
+  // Service queue cards — tables that are currently mid-service
+  // (sent or ready). Each card has table/zone + a status pill.
+  const serviceQueue = useMemo(() => {
+    return tables
+      .filter(t => t.status === 'sent' || t.status === 'ready')
+      .sort((a, b) => (a.openedAt || '').localeCompare(b.openedAt || ''));
+  }, [tables]);
+
+  // Live clock that ticks every second on desktop only.
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!isDesktop) return;
+    const iv = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(iv);
+  }, [isDesktop]);
+
   return (
     <>
       <Head><title>Orders — HaloHelm</title></Head>
       <div className="ok-root">
+        {isDesktop ? (
+          <div className="pos">
+            <aside className="rail">
+              <div className="rail-logo">
+                <b>{(restaurant?.name || waiter || 'HH')[0].toUpperCase()}</b>
+                <small>HALOHELM</small>
+              </div>
+              <div className="rail-nav">
+                <button
+                  className={`rail-btn ${tab === 'floor' ? 'on' : ''}`}
+                  onClick={() => { setTab('floor'); setScreen('floor'); }}
+                  title="Floor"
+                >{I.grid}<span>Floor</span></button>
+                <button
+                  className={`rail-btn ${tab === 'queue' ? 'on' : ''}`}
+                  onClick={() => setTab('queue')}
+                  title="Action queue"
+                >
+                  {(unseenIds.size > 0 || (tab !== 'queue' && queueCount > 0)) && (
+                    <span className="rail-badge">{unseenIds.size > 0 ? unseenIds.size : queueCount}</span>
+                  )}
+                  {I.bell}<span>Queue</span>
+                </button>
+                <button
+                  className={`rail-btn ${tab === 'orders' ? 'on' : ''}`}
+                  onClick={() => setTab('orders')}
+                  title="Orders"
+                >{I.receipt}<span>Orders</span></button>
+                <button
+                  className={`rail-btn ${tab === 'history' ? 'on' : ''}`}
+                  onClick={() => setTab('history')}
+                  title="History"
+                >{I.clock}<span>History</span></button>
+                <button
+                  className="rail-btn"
+                  onClick={() => router.push('/admin/kitchen-new')}
+                  title="Kitchen station"
+                >{I.chef}<span>Kitchen</span></button>
+              </div>
+              <div className="rail-foot">
+                <button
+                  className="rail-btn"
+                  onClick={toggleTheme}
+                  title={isLight ? 'Switch to dark' : 'Switch to light'}
+                  style={{ height: 44 }}
+                >
+                  <span style={{ fontSize: 18 }}>{isLight ? '🌙' : '☀️'}</span>
+                </button>
+                <div className="rail-avatar">{(waiter || 'S')[0].toUpperCase()}</div>
+              </div>
+            </aside>
+            <main className="workspace">
+              <div className="ws-head">
+                <div className="ws-title">
+                  <div className="ws-eyebrow">{(() => {
+                    const h = clockNow.getHours();
+                    const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+                    return `${g} · ${waiter}`;
+                  })()}</div>
+                  <h1 className="ws-h1">{
+                    tab === 'floor' ? 'Floor plan'
+                    : tab === 'queue' ? 'Action queue'
+                    : tab === 'orders' ? 'Orders'
+                    : tab === 'history' ? 'History'
+                    : 'Orders'
+                  }</h1>
+                </div>
+                <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
+              </div>
+
+              {tab === 'floor' && dataReady && screen === 'floor' && (
+                <div className="floor-layout">
+                  <div className="floor-main">
+                    <div className="floor-toolbar">
+                      {zones.length > 1 && (
+                        <div className="seg">
+                          <div
+                            className="seg-pill"
+                            style={{
+                              transform: `translateX(${Math.max(0, zones.indexOf(zone || zones[0])) * 100}%)`,
+                              width: `calc(${100 / zones.length}% - ${8 - 8 / zones.length}px)`,
+                            }}
+                          />
+                          {zones.map(z => (
+                            <button
+                              key={z}
+                              className={z === (zone || zones[0]) ? 'on' : ''}
+                              onClick={() => setZone(z)}
+                            >{z}</button>
+                          ))}
+                        </div>
+                      )}
+                      <div className="legend">
+                        <span className="l"><span className="swatch" style={{ background: 'var(--st-free)' }} />Free</span>
+                        <span className="l"><span className="swatch" style={{ background: 'var(--st-seated)' }} />Seated</span>
+                        <span className="l"><span className="swatch" style={{ background: 'var(--st-sent)' }} />Cooking</span>
+                        <span className="l"><span className="swatch" style={{ background: 'var(--st-ready)' }} />Ready to pay</span>
+                      </div>
+                    </div>
+                    <div className="statstrip">
+                      <div className="statcard">
+                        <div className="sc-k"><i style={{ background: 'var(--st-seated)' }} />SEATED</div>
+                        <div className="sc-v">{stats.seated}</div>
+                      </div>
+                      <div className="statcard">
+                        <div className="sc-k"><i style={{ background: 'var(--st-sent)' }} />COOKING</div>
+                        <div className="sc-v">{stats.cooking}</div>
+                      </div>
+                      <div className="statcard">
+                        <div className="sc-k"><i style={{ background: 'var(--st-ready)' }} />READY TO PAY</div>
+                        <div className="sc-v">{stats.ready}</div>
+                      </div>
+                      <div className="statcard">
+                        <div className="sc-k"><i style={{ background: 'var(--gold)' }} />OPEN REVENUE</div>
+                        <div className="sc-v">₹{Math.round(stats.revenue).toLocaleString('en-IN')}</div>
+                      </div>
+                    </div>
+                    <div className="floor-scroll">
+                      <div className="floor-grid">
+                        {tables.filter(t => t.zone === (zone || zones[0])).map(t => {
+                          const shape = t.shape || 'square';
+                          const isLong = shape === 'long';
+                          const cls = `tabletok shape-${shape} status-${t.status}`;
+                          const total = totals[t.id] || 0;
+                          return (
+                            <button key={t.id} className={cls} onClick={() => pickTable(t)}>
+                              <span className="tdot" />
+                              {isLong ? (
+                                <>
+                                  <div className="tlong-l">
+                                    <span className="tnum">{t.id}</span>
+                                    <span className="tseat">{t.occupied}/{t.seats}</span>
+                                  </div>
+                                  <div className="tlong-r">
+                                    {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
+                                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '.1em', color: 'var(--tx-3)', textTransform: 'uppercase', marginTop: '3px' }}>
+                                      {t.status === 'free' ? 'Free' : t.status === 'seated' ? 'Seated' : t.status === 'sent' ? 'Cooking' : 'Ready'}
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="tnum">{t.id}</span>
+                                  <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
+                                  {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
+                                </>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <aside className="activity">
+                    <div className="activity-head">
+                      <h3>Service queue</h3>
+                      <span className="a-live"><i />LIVE</span>
+                    </div>
+                    <div className="activity-list">
+                      {serviceQueue.length === 0 ? (
+                        <div className="act-empty">Quiet for now.<br />Active tables will land here.</div>
+                      ) : (
+                        serviceQueue.map(t => (
+                          <button key={t.id} className="act-card" onClick={() => pickTable(t)}>
+                            <div className="ac-top">
+                              <div className="ac-table">{String(t.id).replace(/^T/, '').slice(0, 3)}</div>
+                              <div className="ac-meta">
+                                <div className="ac-zone">{t.zone}</div>
+                                <div className="ac-sub">{t.occupied}/{t.seats} · ₹{(totals[t.id] || 0).toLocaleString('en-IN')}</div>
+                              </div>
+                              <span className={`ac-badge ${t.status === 'sent' ? 'sent' : 'ready'}`}>
+                                {t.status === 'sent' ? 'COOKING' : 'READY'}
+                              </span>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </aside>
+                </div>
+              )}
+
+              {/* Other tabs / sub-screens: render the existing mobile
+                  components inside the workspace. They'll look phone-ish
+                  in a wide column but they're functional; the desktop
+                  versions of these views are the next iteration. */}
+              {tab === 'floor' && screen !== 'floor' && body}
+              {tab !== 'floor' && body}
+              {!dataReady && tab === 'floor' && (
+                <div style={{ padding: 40, textAlign: 'center', color: 'var(--tx-3)' }}>Loading the floor…</div>
+              )}
+
+              {sheet && (
+                <ItemSheet
+                  item={sheet.item} table={activeTable} selectedSeat={selectedSeat} editLine={sheet.editLine}
+                  onClose={() => setSheet(null)} onCommit={commitSheet}
+                />
+              )}
+              {cashModal && (
+                <CashModal
+                  item={cashModal.item}
+                  cashReceived={cashModal.cashReceived}
+                  onChange={(v) => setCashModal(c => c ? { ...c, cashReceived: v } : c)}
+                  onConfirm={confirmCashPayment}
+                  onCancel={() => setCashModal(null)}
+                  isResolving={resolvingId === cashModal.item.id}
+                />
+              )}
+            </main>
+          </div>
+        ) : (
         <div className="page-bg">
           <div className="frame">
             <div className="notch" />
@@ -877,6 +1142,7 @@ export default function Orders() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </>
   );
