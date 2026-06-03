@@ -326,8 +326,20 @@ export default function OrderKitchen() {
   const [lastTicket, setLastTicket] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Keep `zone` in sync with the available zones list. Both
+  // conditions matter:
+  //   (a) initial-mount: zone starts null, set to zones[0] once
+  //       zones populates.
+  //   (b) STALE: if the current `zone` value isn't in `zones`
+  //       anymore (e.g. first render had zones=['Floor'] from
+  //       the fallback because areas hadn't loaded yet, then
+  //       areas arrived with ['Rooftop','Ground'] — `zone` is
+  //       stuck on 'Floor', no table matches, floor renders
+  //       empty until the user clicks a tab. This was the
+  //       "starting empty" bug owner kept reporting).
   useEffect(() => {
-    if (zone == null && zones.length > 0) setZone(zones[0]);
+    if (zones.length === 0) return;
+    if (zone == null || !zones.includes(zone)) setZone(zones[0]);
   }, [zones, zone]);
 
   const lines = activeTable ? (drafts[activeTable.id] || []) : [];
@@ -512,6 +524,13 @@ export default function OrderKitchen() {
           <div className="frame">
             <div className="notch" />
             <div className="screenwrap">
+              {/* Notch clearance — the .notch is absolute-positioned at
+                  top:8px of .frame (height 28px), and .screenwrap also
+                  starts at frame-top. Without this spacer, the apphead's
+                  eyebrow row collides with the notch in the center 124px
+                  and gets clipped ("GOOD AFTERNOON" → "GOOD AFT..."). 30px
+                  matches notch height + a small buffer. */}
+              <div style={{ height: 30, flexShrink: 0 }} />
               {body}
               {showNav && (
                 <div className="botnav">
