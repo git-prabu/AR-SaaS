@@ -29,24 +29,10 @@ export default function FloorScreen({ tables, zones, zone, setZone, onPick, tota
 
   return (
     <div className="screen screen-enter">
-      {/* TEMP debug strip — visible at the very top, tells us what data
-          reached the FloorScreen. Owner: read these numbers off and tell
-          me — that's how we figure out whether subscriptions are firing.
-          Remove once visual is confirmed identical to the prototype. */}
-      <div style={{
-        fontFamily: 'JetBrains Mono, ui-monospace, monospace',
-        fontSize: 9, color: 'rgba(239,235,228,0.5)', padding: '4px 12px',
-        background: 'rgba(255,255,255,0.04)',
-        borderBottom: '1px solid rgba(196,168,109,0.13)',
-        letterSpacing: '0.05em',
-      }}>
-        zones:{zones.length} tables:{tables.length} cur:{zone || '∅'} in-zone:{zones.length ? tables.filter(t => t.zone === zone).length : '?'}
-      </div>
-      {/* apphead — radically simplified to plain inline styles only.
-          Avatar and bell use NO classNames so .ok-root .avatar / .iconbtn
-          cannot affect them — only the explicit inline styles below
-          control geometry. Once visual is confirmed identical to the
-          prototype, the .ok-root classes can come back. */}
+      {/* apphead — pure inline styles (proven approach, mirrored in
+          KitchenScreen / ReviewScreen / MenuScreen). The .apphead-row
+          className had a production layout bug that stranded children
+          at viewport middle; bypassing it with inline styles works. */}
       <div style={{
         padding: '14px 20px',
         flexShrink: 0,

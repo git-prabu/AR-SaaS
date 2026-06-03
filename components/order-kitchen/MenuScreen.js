@@ -60,16 +60,55 @@ export default function MenuScreen({
 
   return (
     <div className="screen screen-enter">
-      <div className="menuhead">
-        <div className="menuhead-top">
-          <button className="iconbtn" onClick={onBack}>{I.back}</button>
-          <div className="table-pill">
-            <span className="tp-num">{table.id}</span>
-            <span className="tp-meta">{table.zone}<small>{table.seats} seats · open {table.openedAt || 'now'}</small></span>
-          </div>
-          <div style={{ flex: 1 }} />
-          <button className="iconbtn">{I.search}</button>
+      {/* menuhead — pure inline styles (mirrors apphead fix from
+          FloorScreen / KitchenScreen / ReviewScreen). */}
+      <div style={{
+        padding: '10px 20px 10px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        width: '100%',
+      }}>
+        <button onClick={onBack} style={{
+          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#EFEBE4', cursor: 'pointer', padding: 0,
+        }}>
+          <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.back}</span>
+        </button>
+        <div style={{
+          display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10,
+          padding: '7px 12px', borderRadius: 16, flexShrink: 1, minWidth: 0,
+          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+        }}>
+          <span style={{
+            fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontWeight: 700, fontSize: 14, color: '#EFEBE4', flexShrink: 0,
+          }}>{table.id}</span>
+          <span style={{
+            display: 'flex', flexDirection: 'column', minWidth: 0,
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: 10, color: 'rgba(239,235,228,0.74)',
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+          }}>
+            {table.zone}
+            <small style={{ fontSize: 9, color: 'rgba(239,235,228,0.38)', textTransform: 'none', letterSpacing: 0 }}>
+              {table.seats} seats · open {table.openedAt || 'now'}
+            </small>
+          </span>
         </div>
+        <div style={{ flex: 1 }} />
+        <button style={{
+          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#EFEBE4', cursor: 'pointer', padding: 0,
+        }}>
+          <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.search}</span>
+        </button>
       </div>
 
       {/* per-seat selector */}

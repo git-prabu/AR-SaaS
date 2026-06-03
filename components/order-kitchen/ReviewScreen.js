@@ -18,16 +18,45 @@ export default function ReviewScreen({ table, lines, onBack, onEdit, onRemove, o
 
   return (
     <div className="screen screen-back">
-      <div className="apphead">
-        <div className="apphead-row">
-          <button className="iconbtn" onClick={onBack}>{I.back}</button>
-          <div style={{ flex: 1 }}>
-            <div className="eyebrow">{table.id} · {table.zone}</div>
-            <h1 className="h-screen" style={{ fontSize: 23 }}>Review order</h1>
-          </div>
-          <div className="table-pill" style={{ padding: '7px 14px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-2)' }}>{count} items</span>
-          </div>
+      {/* apphead — pure inline styles (FloorScreen / KitchenScreen had
+          the same .apphead-row visual bug; this is the proven fix). */}
+      <div style={{
+        padding: '14px 20px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        width: '100%',
+      }}>
+        <button onClick={onBack} style={{
+          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#EFEBE4', cursor: 'pointer', padding: 0,
+        }}>
+          <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.back}</span>
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
+            textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
+          }}>{table.id} · {table.zone}</div>
+          <h1 style={{
+            fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontWeight: 700, fontSize: 23, letterSpacing: '-0.02em',
+            margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
+          }}>Review order</h1>
+        </div>
+        <div style={{
+          padding: '7px 14px', borderRadius: 999, flexShrink: 0,
+          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+        }}>
+          <span style={{
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: 11, color: 'rgba(239,235,228,0.74)',
+          }}>{count} items</span>
         </div>
       </div>
 

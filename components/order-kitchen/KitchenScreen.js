@@ -30,14 +30,41 @@ export default function KitchenScreen({ tickets, onBump }) {
 
   return (
     <div className="screen screen-enter">
-      <div className="apphead">
-        <div className="apphead-row">
-          <div style={{ flex: 1 }}>
-            <div className="eyebrow">Kitchen Display · live</div>
-            <h1 className="h-screen">Kitchen rail</h1>
-          </div>
-          <button className="iconbtn gold">{I.chef}</button>
+      {/* apphead — pure inline styles. The .apphead-row className was
+          flex-row in CSS but rendered children at vertical middle of
+          the viewport in production (FloorScreen had the same issue
+          and was fixed the same way in 1647373). Until the root CSS
+          cause is found, inline styles bypass it entirely. */}
+      <div style={{
+        padding: '14px 20px',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        width: '100%',
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
+            textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
+          }}>Kitchen Display · live</div>
+          <h1 style={{
+            fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
+            margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
+          }}>Kitchen rail</h1>
         </div>
+        <button style={{
+          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+          background: 'linear-gradient(135deg, #C4A86D, #C2562B)',
+          border: '1px solid rgba(196,168,109,0.3)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: '#1A1815', cursor: 'pointer', padding: 0,
+        }}>
+          <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.chef}</span>
+        </button>
       </div>
 
       <div className="kfilter">

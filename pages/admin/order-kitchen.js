@@ -119,6 +119,17 @@ export default function OrderKitchen() {
   const [ordersById, setOrdersById] = useState({});
   const [rawMenu, setRawMenu] = useState([]);
 
+  // Track first-fire of each subscription. Without these, the page
+  // gates the floor on `restaurant !== null` only, so the moment
+  // restaurant loads (~one-shot fetch, often the fastest) the floor
+  // renders with empty `areas` / `rawTables`. tables.useMemo runs
+  // over 0 rows, the filter returns 0, the floor shows blank.
+  // Owner's image-1 captured exactly this window: a click on a zone
+  // tab arrived AFTER the snapshots fired, so the second render had
+  // populated tables and the same zone filter suddenly worked.
+  const [areasReady, setAreasReady] = useState(false);
+  const [tablesReady, setTablesReady] = useState(false);
+
   useEffect(() => {
     if (!rid) return;
     getRestaurantById(rid, { db: scopedDb }).then(setRestaurant).catch(() => {});
@@ -127,9 +138,9 @@ export default function OrderKitchen() {
   useEffect(() => {
     if (!rid) return;
     const ua = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'areas'), orderBy('sortOrder', 'asc')),
-      snap => setAreas(snap.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+      snap => { setAreas(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setAreasReady(true); }, () => setAreasReady(true));
     const ut = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'tables'), orderBy('sortOrder', 'asc')),
-      snap => setRawTables(snap.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+      snap => { setRawTables(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setTablesReady(true); }, () => setTablesReady(true));
     const us = onSnapshot(collection(scopedDb, 'restaurants', rid, 'tableSessions'),
       snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; }); setSessions(m); }, () => {});
     const ub = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'tableBills'), where('status', '==', 'open')),
@@ -437,8 +448,10 @@ export default function OrderKitchen() {
   if (!authChecked || adminLoading) return null;
   if (!isAdmin && !staffSession) return null;
 
-  // Loading skeleton while first Firestore batch arrives.
-  const dataReady = rawTables.length >= 0 && rawMenu.length >= 0 && restaurant !== null;
+  // Loading skeleton while first Firestore batch arrives. Must wait
+  // for areas AND tables to fire — see the comment on areasReady/
+  // tablesReady states above. `>= 0` is always true and was the bug.
+  const dataReady = restaurant !== null && areasReady && tablesReady;
 
   // ─── Body ───────────────────────────────────────────────────────
   let body;
