@@ -1,9 +1,5 @@
 // pages/_app.js
 import '../styles/globals.css';
-// staff-v2 dark theme tokens — fully scoped under .sv2 root class so
-// they cannot leak onto any other page. Imported here because Next.js
-// only allows global CSS imports from _app.
-import '../styles/staff-v2.css';
 import React, { useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';

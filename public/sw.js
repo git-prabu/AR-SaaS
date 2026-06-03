@@ -198,7 +198,12 @@
 // column, body scrolls naturally, bottom nav stays position:fixed.
 // Bumping the cache version so iOS PWAs do not serve the previous
 // broken HTML+CSS bundle from cache after the new version deploys.
-const CACHE_VERSION  = 'ar-v30';
+// ar-v31 (Jun 3, late) — staff-v2 restart. The previous React-rendered
+// /staff/v2 page is replaced with a static HTML prototype shipped as-is
+// in public/staff-v2/. The Next.js page at /staff/v2 is now a 308
+// redirect to /staff-v2/index.html. Bumping the cache so iOS PWA users
+// don't keep getting the old broken React HTML from cache.
+const CACHE_VERSION  = 'ar-v31';
 const RUNTIME_CACHE  = `${CACHE_VERSION}-runtime`;
 const IMG_CACHE      = `${CACHE_VERSION}-img`;
 const IMG_CACHE_CAP  = 150;   // soft entry cap for menu photos
