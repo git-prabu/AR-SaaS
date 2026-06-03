@@ -128,6 +128,37 @@ export default function ActionQueueScreen({
         >{voiceEnabled ? '🎙️' : '🎙️'}</button>
       </div>
       )}
+      {/* Desktop-only: sound + voice toggles in a compact toolbar
+          since the apphead is hidden. Floats top-right of the queue
+          content; stays inside .screen so it scrolls with the list. */}
+      {desktop && (
+        <div style={{
+          padding: '10px 24px 0', display: 'flex', justifyContent: 'flex-end', gap: 8,
+        }}>
+          <button
+            onClick={onToggleSound}
+            title={soundEnabled ? 'Sound on (tap to mute)' : 'Sound muted (tap to enable)'}
+            style={{
+              width: 36, height: 36, borderRadius: 11,
+              background: COLORS.card, border: `1px solid ${COLORS.border}`,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: soundEnabled ? COLORS.text : COLORS.textFaint,
+              cursor: 'pointer', padding: 0, fontSize: 15,
+            }}
+          >{soundEnabled ? '🔊' : '🔇'}</button>
+          <button
+            onClick={onToggleVoice}
+            title={voiceEnabled ? 'Voice on (tap to silence)' : 'Voice off (tap to enable)'}
+            style={{
+              width: 36, height: 36, borderRadius: 11,
+              background: COLORS.card, border: `1px solid ${COLORS.border}`,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: voiceEnabled ? COLORS.text : COLORS.textFaint,
+              cursor: 'pointer', padding: 0, fontSize: 15,
+            }}
+          >{voiceEnabled ? '🎙️' : '🎙️'}</button>
+        </div>
+      )}
 
       {/* stat strip — shows counts of each type + oldest age. Hidden when empty. */}
       {items.length > 0 && (

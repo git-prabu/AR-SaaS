@@ -1225,20 +1225,18 @@ export default function Orders() {
                           })}
                         </div>
                       )}
-                      <div className="cart-foot">
-                        {lines.length > 0 && (
-                          <>
-                            <div className="totals">
-                              <div className="trow"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
-                              <div className="trow"><span>GST (5%)</span><span>₹{tax.toLocaleString('en-IN')}</span></div>
-                              <div className="trow grand"><span>Total</span><span><span className="cur">₹</span>{total.toLocaleString('en-IN')}</span></div>
-                            </div>
-                            <button className="send-btn" onClick={() => sendOrder(total)} disabled={submitting}>
-                              {I.send} Send to kitchen
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {lines.length > 0 && (
+                        <div className="cart-foot">
+                          <div className="totals">
+                            <div className="trow"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
+                            <div className="trow"><span>GST (5%)</span><span>₹{tax.toLocaleString('en-IN')}</span></div>
+                            <div className="trow grand"><span>Total</span><span><span className="cur">₹</span>{total.toLocaleString('en-IN')}</span></div>
+                          </div>
+                          <button className="send-btn" onClick={() => sendOrder(total)} disabled={submitting}>
+                            {I.send} Send to kitchen
+                          </button>
+                        </div>
+                      )}
                     </aside>
                   </div>
                 );
