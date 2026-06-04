@@ -359,31 +359,16 @@ export default function KitchenNew() {
                       { id: 'cooking', label: 'Cooking', orders: cols.cooking },
                       { id: 'ready', label: 'Ready', orders: cols.ready },
                     ].map(col => (
-                      <div key={col.id} className={`kcol col-${col.id}`}>
-                        <div className="kcol-head">
-                          <span className="kc-dot" />
-                          <h3>{col.label}</h3>
-                          <span className="kc-n">{col.orders.length}</span>
-                        </div>
-                        <div className="kcol-list">
-                          {col.orders.length === 0 ? (
-                            <div className="kcol-empty">No tickets in this column.</div>
-                          ) : (
-                            col.orders.map(o => (
-                              <DesktopTicket
-                                key={o.id}
-                                order={o}
-                                duplicateDishes={duplicateDishes}
-                                allDay={allDay}
-                                onStart={() => onStartOrder(o)}
-                                onMarkItemReady={onMarkItemReady}
-                                onMarkItemServed={onMarkItemServed}
-                                updatingKey={updatingKey}
-                              />
-                            ))
-                          )}
-                        </div>
-                      </div>
+                      <KitchenColumn
+                        key={col.id}
+                        col={col}
+                        duplicateDishes={duplicateDishes}
+                        allDay={allDay}
+                        onStartOrder={onStartOrder}
+                        onMarkItemReady={onMarkItemReady}
+                        onMarkItemServed={onMarkItemServed}
+                        updatingKey={updatingKey}
+                      />
                     ))}
                   </div>
                 </div>
@@ -434,6 +419,90 @@ export default function KitchenNew() {
   );
 }
 
+// One column of the 3-column KDS board. Owns its own scroll
+// state so it can render a "↓ more below" indicator at the
+// bottom when there are tickets the user hasn't scrolled to.
+// Mirrors the legacy /admin/kitchen footer hint ("↓ 1 new
+// order below — scroll down to view") owner pointed at.
+function KitchenColumn({ col, duplicateDishes, allDay, onStartOrder, onMarkItemReady, onMarkItemServed, updatingKey }) {
+  const listRef = useRef(null);
+  const [hiddenBelow, setHiddenBelow] = useState(0);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const recalc = () => {
+      const gap = el.scrollHeight - el.clientHeight - el.scrollTop;
+      if (gap <= 8) { setHiddenBelow(0); return; }
+      // Count how many ticket children sit fully below the visible
+      // viewport. Cheaper than measuring every child: walk from the
+      // bottom upward and stop at the first one that's in view.
+      const tickets = el.querySelectorAll(':scope > .ticket');
+      const viewBottom = el.scrollTop + el.clientHeight;
+      let n = 0;
+      for (let i = tickets.length - 1; i >= 0; i--) {
+        const t = tickets[i];
+        if (t.offsetTop >= viewBottom - 8) n++;
+        else break;
+      }
+      setHiddenBelow(n);
+    };
+    recalc();
+    el.addEventListener('scroll', recalc);
+    // Recompute when content height shifts (item added, status
+    // change triggers DOM re-layout, etc.).
+    const ro = new ResizeObserver(recalc);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', recalc); ro.disconnect(); };
+  }, [col.orders.length]);
+
+  return (
+    <div className={`kcol col-${col.id}`} style={{ position: 'relative' }}>
+      <div className="kcol-head">
+        <span className="kc-dot" />
+        <h3>{col.label}</h3>
+        <span className="kc-n">{col.orders.length}</span>
+      </div>
+      <div className="kcol-list" ref={listRef}>
+        {col.orders.length === 0 ? (
+          <div className="kcol-empty">No tickets in this column.</div>
+        ) : (
+          col.orders.map(o => (
+            <DesktopTicket
+              key={o.id}
+              order={o}
+              duplicateDishes={duplicateDishes}
+              allDay={allDay}
+              onStart={() => onStartOrder(o)}
+              onMarkItemReady={onMarkItemReady}
+              onMarkItemServed={onMarkItemServed}
+              updatingKey={updatingKey}
+            />
+          ))
+        )}
+      </div>
+      {hiddenBelow > 0 && (
+        <button
+          onClick={() => {
+            const el = listRef.current;
+            if (el) el.scrollBy({ top: el.clientHeight - 60, behavior: 'smooth' });
+          }}
+          style={{
+            position: 'absolute', left: 14, right: 14, bottom: 14,
+            padding: '10px 16px', borderRadius: 12,
+            background: 'var(--gold)', color: '#1A1815', border: 'none',
+            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 12,
+            letterSpacing: '0.02em', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 8px 22px rgba(196,168,109,0.35)',
+            zIndex: 2,
+          }}
+        >↓ {hiddenBelow} more {hiddenBelow === 1 ? 'ticket' : 'tickets'} below — tap to scroll</button>
+      )}
+    </div>
+  );
+}
+
 // Inline desktop ticket — simpler than KitchenRailScreen's Ticket
 // component which is sized for a phone-frame column. Renders the
 // per-item bump pills, duplicate-dish badge, and a single bump
@@ -441,7 +510,17 @@ export default function KitchenNew() {
 function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemReady, onMarkItemServed, updatingKey }) {
   const itemsArr = Array.isArray(order.items) ? order.items : [];
   const isTakeaway = order.orderType === 'takeaway' || order.orderType === 'takeout';
-  const tableLabel = isTakeaway ? (order.customerName || 'PICKUP') : (order.tableNumber || '—');
+  const rawTableLabel = isTakeaway ? (order.customerName || 'PICKUP') : (order.tableNumber || '');
+  // For the 44×44 tile we need a SHORT label (1-3 chars). Anything
+  // longer ("Not specified", customer names with spaces, long table
+  // codes) gets a "—" placeholder in the tile and the full string
+  // moves to the meta line under the order id — that matches the
+  // legacy /admin/kitchen pattern where unknown / multi-word tables
+  // render as "Table Not specified" inline rather than overflowing
+  // the tile box.
+  const isShortLabel = rawTableLabel.length > 0 && rawTableLabel.length <= 3 && !rawTableLabel.includes(' ');
+  const tileLabel = isShortLabel ? rawTableLabel : (isTakeaway ? '↗' : '—');
+  const longLabel = isShortLabel ? null : (rawTableLabel || 'Not specified');
   const orderLabel = typeof order.orderNumber === 'number' && order.orderNumber > 0
     ? `#${String(order.orderNumber).padStart(4, '0')}`
     : '#' + (order.id || '').slice(-4).toUpperCase();
@@ -472,11 +551,19 @@ function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemRead
     <div className={'ticket' + (order.status === 'pending' ? ' is-new' : '')}>
       <div className="ticket-head">
         <div className="th-table">
-          <b>{tableLabel}</b>
+          <b>{tileLabel}</b>
           <small>{isTakeaway ? 'PICKUP' : 'TABLE'}</small>
         </div>
         <div className="th-meta">
-          <div className="th-id">{orderLabel}</div>
+          <div className="th-id">
+            {orderLabel}
+            {longLabel && (
+              <span style={{
+                marginLeft: 8, fontFamily: 'var(--font-body)',
+                fontWeight: 500, fontSize: 13, color: 'var(--tx-2)',
+              }}>· {isTakeaway ? `Takeaway · ${longLabel}` : `Table ${longLabel}`}</span>
+            )}
+          </div>
           <div className="th-sub">{placedAt} · {order.placedBy || 'staff'}</div>
         </div>
         <div className="th-age">
