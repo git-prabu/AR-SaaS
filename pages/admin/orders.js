@@ -80,6 +80,7 @@ import ReviewScreen, { ConfirmScreen } from '../../components/order-kitchen/Revi
 import ActionQueueScreen, { CashModal } from '../../components/order-kitchen/ActionQueueScreen';
 import OrdersListScreen from '../../components/order-kitchen/OrdersListScreen';
 import HistoryListScreen from '../../components/order-kitchen/HistoryListScreen';
+import PushToggle from '../../components/order-kitchen/PushToggle';
 import { I, VegMark, SpicePips, Thumb } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
@@ -173,6 +174,13 @@ export default function Orders() {
   const isAdmin = !!userData?.restaurantId;
   const scopedDb = isAdmin ? db : staffDb;
   const waiter = (isAdmin ? (userData?.restaurantName || 'Admin') : (staffSession?.name || 'Staff'));
+
+  // Push subscriber identity (FCM). See pages/admin/kitchen-new.js for
+  // the matching block. Cloud Function fans out events whose required
+  // perm matches this subscriber's perms (or always for admin).
+  const pushSubscriber = isAdmin && user
+    ? { kind: 'admin', id: user.uid, perms: [] }
+    : (staffSession ? { kind: 'staff', id: staffSession.staffId, perms: staffSession.perms || [] } : null);
 
   // Auth gate — bounce out if neither signed in. Same logic as the
   // /admin/order-kitchen flow.
@@ -884,6 +892,7 @@ export default function Orders() {
         onPick={pickTable} totals={totals} tweakShape="auto"
         waiter={waiter}
         isLight={isLight} onToggleTheme={toggleTheme}
+        pushRestaurantId={rid} pushSubscriber={pushSubscriber}
       />
     );
   }
@@ -971,6 +980,14 @@ export default function Orders() {
                       : 'Orders'
                     }</h1>
                   </div>
+                  {/* Push toggle — lock-screen notifications via FCM
+                      so the waiter hears the call/ready/payment chime
+                      even when the phone is locked. */}
+                  {rid && pushSubscriber && (
+                    <div style={{ marginLeft: 'auto', marginRight: 14 }}>
+                      <PushToggle restaurantId={rid} subscriber={pushSubscriber} />
+                    </div>
+                  )}
                   <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
                 </div>
               )}

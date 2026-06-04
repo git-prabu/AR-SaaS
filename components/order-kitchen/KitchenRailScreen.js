@@ -20,6 +20,7 @@
 // it's a glanceable summary.
 
 import React, { useEffect, useRef, useState } from 'react';
+import PushToggle from './PushToggle';
 
 // Theme-responsive tokens go through CSS vars (defined in
 // styles/order-kitchen.css) so that the light mode override
@@ -81,6 +82,8 @@ export default function KitchenRailScreen({
   voiceEnabled,      // optional — TTS toggle
   onToggleSound,     // optional callback
   onToggleVoice,     // optional callback
+  pushRestaurantId,  // optional — wires the inline push toggle
+  pushSubscriber,    // optional — { kind, id, perms }
 }) {
   const counts = {
     all:     orders.length,
@@ -168,6 +171,12 @@ export default function KitchenRailScreen({
             margin: '2px 0 0', color: COLORS.text, lineHeight: 1.1,
           }}>Kitchen rail</h1>
         </div>
+        {/* Push toggle — sits before sound/voice/theme. Enables
+            lock-screen notifications via FCM web push so the chef
+            hears the chime even when the phone is locked. */}
+        {pushRestaurantId && pushSubscriber && (
+          <PushToggle restaurantId={pushRestaurantId} subscriber={pushSubscriber} />
+        )}
         {/* Sound + voice toggles (when wired). Sit before the
             theme toggle so on narrow phones the theme toggle stays
             visually anchored to the right edge. */}

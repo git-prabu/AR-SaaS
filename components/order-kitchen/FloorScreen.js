@@ -7,6 +7,7 @@
 
 import React, { useRef } from 'react';
 import { I, rupee } from './Icons';
+import PushToggle from './PushToggle';
 
 function statusWord(s) {
   return { free: 'Free', seated: 'Seated', sent: 'Cooking', ready: 'Ready' }[s] || s;
@@ -17,7 +18,11 @@ function greeting() {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-export default function FloorScreen({ tables, zones, zone, setZone, onPick, totals, tweakShape = 'auto', waiter, isLight, onToggleTheme }) {
+export default function FloorScreen({
+  tables, zones, zone, setZone, onPick, totals, tweakShape = 'auto', waiter,
+  isLight, onToggleTheme,
+  pushRestaurantId, pushSubscriber,
+}) {
   const segRef = useRef(null);
   const zoneTables = tables.filter(t => t.zone === zone);
 
@@ -68,6 +73,9 @@ export default function FloorScreen({ tables, zones, zone, setZone, onPick, tota
             apphead avatar/title gives it a real home. The bell did
             nothing (no onClick); the theme toggle is the only useful
             top-right control today. */}
+        {pushRestaurantId && pushSubscriber && (
+          <PushToggle restaurantId={pushRestaurantId} subscriber={pushSubscriber} />
+        )}
         <button
           onClick={onToggleTheme}
           title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}

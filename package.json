@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "node scripts/generate-fcm-sw.js",
+    "predev":   "node scripts/generate-fcm-sw.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -776,6 +776,42 @@ service cloud.firestore {
         allow write: if isRestaurantAdmin(restaurantId) || isSuperAdmin();
       }
 
+      // ── Push subscribers (FCM web push tokens) ─────────────────
+      // Each device that opts in to push notifications writes a doc here.
+      // Doc ID = FCM registration token, so subscribing the same browser
+      // twice is an idempotent upsert + a stale token has a stable address
+      // when the Cloud Function needs to delete it.
+      //
+      // Cloud Functions read this from the Admin SDK side (bypassing rules)
+      // to fan out push messages, so we don't need broad read access — we
+      // only need writes to be safe.
+      //
+      // Write rule: a subscriber can only create/update/delete a doc whose
+      //   subscriberKind matches who they are (staff or admin) AND
+      //   subscriberId matches their own id. That stops a staff member
+      //   from impersonating another staff or the owner.
+      // Read rule: same — only your own doc, so the UI can show subscription
+      //   state without leaking who else is subscribed.
+      match /pushSubscribers/{tokenId} {
+        // Staff: can manage their own subscription doc.
+        allow read, write: if isStaff(restaurantId)
+          && request.resource.data.subscriberKind == 'staff'
+          && request.resource.data.subscriberId == request.auth.token.staffId;
+        // Admin (owner): can manage their own subscription doc.
+        allow read, write: if isRestaurantAdmin(restaurantId)
+          && request.resource.data.subscriberKind == 'admin'
+          && request.resource.data.subscriberId == request.auth.uid;
+        // Delete-only path — needed because the request.resource.data
+        // checks above don't fire on delete (no incoming data). Match on
+        // the EXISTING doc instead.
+        allow delete: if isStaff(restaurantId)
+          && resource.data.subscriberKind == 'staff'
+          && resource.data.subscriberId == request.auth.token.staffId;
+        allow delete: if isRestaurantAdmin(restaurantId)
+          && resource.data.subscriberKind == 'admin'
+          && resource.data.subscriberId == request.auth.uid;
+      }
+
       // ── Staff Roles / RBAC (Phase 8, 22 May 2026) ──────────────
       // Owner-defined access roles: { name, permissions: [keys] }. Pure
       // config managed by the owner from /admin/roles. Admin + superadmin

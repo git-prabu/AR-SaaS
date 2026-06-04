@@ -52,6 +52,7 @@ import {
 } from '../../lib/sounds';
 
 import KitchenRailScreen from '../../components/order-kitchen/KitchenRailScreen';
+import PushToggle from '../../components/order-kitchen/PushToggle';
 import { I } from '../../components/order-kitchen/Icons';
 
 // Same key /admin/kitchen + /admin/orders use, so toggling sound on
@@ -92,6 +93,14 @@ export default function KitchenNew() {
   const rid = userData?.restaurantId || staffSession?.restaurantId;
   const isAdmin = !!userData?.restaurantId;
   const scopedDb = isAdmin ? db : staffDb;
+
+  // Subscriber identity for FCM web push. Owner gets kind='admin' +
+  // user.uid; staff gets kind='staff' + staffId + their permission
+  // snapshot. Cloud Function fans out based on perms (and always
+  // includes admins regardless of perms).
+  const pushSubscriber = isAdmin && user
+    ? { kind: 'admin', id: user.uid, perms: [] }
+    : (staffSession ? { kind: 'staff', id: staffSession.staffId, perms: staffSession.perms || [] } : null);
 
   // Auth gate — match /admin/orders / /admin/order-kitchen.
   useEffect(() => {
@@ -337,14 +346,19 @@ export default function KitchenNew() {
                   <div className="ws-eyebrow">Kitchen Display · live</div>
                   <h1 className="ws-h1">Kitchen rail</h1>
                 </div>
-                {/* Sound + voice toggles. These let the chef silence
-                    the new-order chime (e.g. during a non-rush hour
-                    or testing) and turn on TTS readouts of incoming
-                    tickets. They share LS with /admin/kitchen so
-                    toggling on one surface persists everywhere. */}
+                {/* Sound + voice + push toggles. Sound/voice gate the
+                    IN-APP audio (Web Audio API) when the tab is open.
+                    Push enrolls this device with FCM so the OS plays a
+                    chime even when the phone is locked / the browser
+                    is closed. They're independent — keeping sound off
+                    + push on is a valid "I want chimes only when I'm
+                    not looking" config. */}
                 <div style={{
                   display: 'inline-flex', gap: 8, marginLeft: 'auto', marginRight: 14,
                 }}>
+                  {rid && pushSubscriber && (
+                    <PushToggle restaurantId={rid} subscriber={pushSubscriber} />
+                  )}
                   <button
                     onClick={toggleSound}
                     title={soundEnabled ? 'Mute new-order chime' : 'Unmute new-order chime'}
@@ -510,6 +524,8 @@ export default function KitchenNew() {
                   voiceEnabled={voiceEnabled}
                   onToggleSound={toggleSound}
                   onToggleVoice={toggleVoice}
+                  pushRestaurantId={rid}
+                  pushSubscriber={pushSubscriber}
                   updatingKey={updatingKey}
                 />
               ) : (
