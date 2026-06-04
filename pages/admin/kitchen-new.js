@@ -33,7 +33,7 @@
 // dark UI takes the whole viewport.
 
 import Head from 'next/head';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
