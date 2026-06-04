@@ -447,6 +447,10 @@ export default function Orders() {
   const [ordersFilter, setOrdersFilter] = useState('active');
   const [historyPeriod, setHistoryPeriod] = useState('today');
   const [historySearch, setHistorySearch] = useState('');
+  // Desktop menu search query — owner reported "search is not
+  // working" on the desktop dish grid. The mobile MenuScreen has
+  // its own internal search state.
+  const [menuSearchQ, setMenuSearchQ] = useState('');
 
   // Phase B.2 — Action Queue state.
   // resolvingId disables the action button on the card whose write is
@@ -649,7 +653,14 @@ export default function Orders() {
         placedFromOrderKitchen: true,
       }, { db: scopedDb });
 
+      // The ticket id is set to a slug of the Firestore doc id as a
+      // STARTING placeholder. The confirm screen render below
+      // upgrades it to "#0042" once the orders subscription syncs
+      // and the new order doc (with its server-assigned orderNumber)
+      // reaches ordersById. Storing the orderId lets the render
+      // look it back up.
       const tk = {
+        _orderId: orderId,
         id: '#' + (typeof orderId === 'string' ? orderId.slice(-4).toUpperCase() : orderId),
         table: activeTable.id, zone: activeTable.zone, waiter, placedAt: nowLabel(),
         items: lines.map(l => ({ name: l.name, qty: l.qty, seat: l.seat, spice: l.spice, notes: [...l.notes] })),
@@ -851,9 +862,17 @@ export default function Orders() {
       />
     );
   } else if (screen === 'confirm' && lastTicket) {
+    // Upgrade the random-looking slug id to the real "#0042" once
+    // the orders subscription has synced the new doc. Falls back to
+    // the slug while the round-trip is in flight (typically <1s on
+    // Firestore).
+    const realOrder = ordersById[lastTicket._orderId];
+    const ticketWithRealId = realOrder?.orderNumber
+      ? { ...lastTicket, id: `#${String(realOrder.orderNumber).padStart(4, '0')}` }
+      : lastTicket;
     body = (
       <ConfirmScreen
-        ticket={lastTicket}
+        ticket={ticketWithRealId}
         onNewOrder={() => { setScreen('floor'); setActiveTable(null); setLastTicket(null); }}
         onViewKitchen={() => router.push('/admin/kitchen-new')}
       />
@@ -864,6 +883,7 @@ export default function Orders() {
         tables={tables} zones={zones} zone={zone || zones[0]} setZone={setZone}
         onPick={pickTable} totals={totals} tweakShape="auto"
         waiter={waiter}
+        isLight={isLight} onToggleTheme={toggleTheme}
       />
     );
   }
@@ -1091,6 +1111,26 @@ export default function Orders() {
                           <span className="tp-num">{String(activeTable.id).replace(/^T/, '').slice(0, 3)}</span>
                           <span className="tp-meta">{activeTable.zone}<small>{activeTable.seats} SEATS · OPEN NOW</small></span>
                         </div>
+                        {/* Desktop dish search. When non-empty,
+                            category sections with zero matches are
+                            hidden and the cat tabs above lose
+                            scroll-anchor meaning, but they still
+                            jump to whichever section is rendered. */}
+                        <input
+                          type="search"
+                          value={menuSearchQ}
+                          onChange={(e) => setMenuSearchQ(e.target.value)}
+                          placeholder="Search dishes…"
+                          style={{
+                            flex: 1, minWidth: 0, marginLeft: 12,
+                            padding: '8px 12px', borderRadius: 10,
+                            background: 'var(--card)',
+                            border: '1px solid var(--line)',
+                            color: 'var(--tx)', fontSize: 13,
+                            outline: 'none',
+                            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                          }}
+                        />
                       </div>
                       <div className="cattabs">
                         {categories.map(c => (
@@ -1107,9 +1147,25 @@ export default function Orders() {
                         ))}
                       </div>
                       <div className="menu-scroll">
-                        {categories.map(c => {
-                          const items = menu.filter(m => m.cat === c.id);
-                          if (items.length === 0) return null;
+                        {(() => {
+                          const q = menuSearchQ.trim().toLowerCase();
+                          const itemMatches = (it) => !q
+                            || (it.name || '').toLowerCase().includes(q)
+                            || (it.desc || '').toLowerCase().includes(q);
+                          const sections = categories.map(c => ({
+                            cat: c,
+                            items: menu.filter(m => m.cat === c.id && itemMatches(m)),
+                          })).filter(s => s.items.length > 0);
+                          if (q && sections.length === 0) {
+                            return (
+                              <div style={{
+                                padding: '60px 20px', textAlign: 'center',
+                                color: 'var(--tx-3)',
+                                fontSize: 14,
+                              }}>No dishes match "{menuSearchQ}".</div>
+                            );
+                          }
+                          return sections.map(({ cat: c, items }) => {
                           return (
                             <div key={c.id} id={`cat-${c.id}`} className="cat-section">
                               <h3 className="cat-section-label"><span className="cemoji">{c.emoji}</span>{c.label}</h3>
@@ -1163,7 +1219,8 @@ export default function Orders() {
                               </div>
                             </div>
                           );
-                        })}
+                          });
+                        })()}
                       </div>
                     </div>
                     <aside className="cart-pane">
@@ -1245,14 +1302,19 @@ export default function Orders() {
               })()}
 
               {/* ─── Desktop Confirm (success modal) ─── */}
-              {tab === 'floor' && screen === 'confirm' && lastTicket && (
+              {tab === 'floor' && screen === 'confirm' && lastTicket && (() => {
+                const realOrder = ordersById[lastTicket._orderId];
+                const ticketId = realOrder?.orderNumber
+                  ? `#${String(realOrder.orderNumber).padStart(4, '0')}`
+                  : lastTicket.id;
+                return (
                 <div className="modal-backdrop" style={{ position: 'absolute' }}>
                   <div className="success-card">
                     <div className="ring"><span className="check">{I.check}</span></div>
                     <h2>Order sent</h2>
-                    <p className="s-sub">Ticket {lastTicket.id} is on the kitchen rail for {lastTicket.table}.</p>
+                    <p className="s-sub">Ticket {ticketId} is on the kitchen rail for {lastTicket.table}.</p>
                     <div className="success-meta">
-                      <div className="sm-card"><div className="sm-k">TICKET</div><div className="sm-v">{lastTicket.id}</div></div>
+                      <div className="sm-card"><div className="sm-k">TICKET</div><div className="sm-v">{ticketId}</div></div>
                       <div className="sm-card"><div className="sm-k">TABLE</div><div className="sm-v">{lastTicket.table}</div></div>
                       <div className="sm-card"><div className="sm-k">SENT</div><div className="sm-v">{lastTicket.placedAt}</div></div>
                     </div>
@@ -1262,7 +1324,8 @@ export default function Orders() {
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* ─── Other tabs (queue/orders/history) — render existing
                     components inside workspace; ws-head hides for these
@@ -1295,12 +1358,14 @@ export default function Orders() {
         <div className="page-bg">
           <div className="frame">
             <div className="notch" />
-            <button
-              className="ok-theme-toggle"
-              onClick={toggleTheme}
-              title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
-              aria-label="Toggle theme"
-            >{isLight ? '🌙' : '☀️'}</button>
+            {/* The floating theme toggle (top-right of frame) was
+                awkwardly stacked above the FloorScreen apphead bell.
+                Removed — the toggle now lives inline in FloorScreen's
+                apphead via the isLight/onToggleTheme props passed
+                above. Other screens (queue/orders/history) inherit
+                the same theme via the body attribute set by useOkTheme;
+                their own appheads can grow a toggle later if needed,
+                but Floor is the only screen owner regularly uses. */}
             <div className="screenwrap">
               {/* Notch clearance — see comment in order-kitchen.js */}
               <div style={{ height: 30, flexShrink: 0 }} />

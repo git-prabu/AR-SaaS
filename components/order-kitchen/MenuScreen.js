@@ -25,6 +25,21 @@ export default function MenuScreen({
   const scrollRef = useRef(null);
   const catRefs = useRef({});
 
+  // Search bar: the icon in the menuhead was previously a no-op
+  // button (owner reported "search is not working"). We toggle a
+  // slide-in input that filters the dish list across all
+  // categories. When a query is active, we skip the
+  // category-anchored layout and render a single flat list.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
+  const q = searchQ.trim().toLowerCase();
+  const matches = (item) => {
+    if (!q) return true;
+    const name = (item.name || '').toLowerCase();
+    const desc = (item.desc || '').toLowerCase();
+    return name.includes(q) || desc.includes(q);
+  };
+
   const orderCount = lines.reduce((s, l) => s + l.qty, 0);
   const orderTotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
 
@@ -73,43 +88,76 @@ export default function MenuScreen({
       }}>
         <button onClick={onBack} style={{
           width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          background: 'var(--card)', border: '1px solid var(--line)',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: '#EFEBE4', cursor: 'pointer', padding: 0,
+          color: 'var(--tx)', cursor: 'pointer', padding: 0,
         }}>
           <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.back}</span>
         </button>
         <div style={{
           display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10,
           padding: '7px 12px', borderRadius: 16, flexShrink: 1, minWidth: 0,
-          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          background: 'var(--card)', border: '1px solid var(--line)',
         }}>
           <span style={{
             fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
-            fontWeight: 700, fontSize: 14, color: '#EFEBE4', flexShrink: 0,
+            fontWeight: 700, fontSize: 14, color: 'var(--tx)', flexShrink: 0,
           }}>{table.id}</span>
           <span style={{
             display: 'flex', flexDirection: 'column', minWidth: 0,
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-            fontSize: 10, color: 'rgba(239,235,228,0.74)',
+            fontSize: 10, color: 'var(--tx-2)',
             textTransform: 'uppercase', letterSpacing: '0.06em',
           }}>
             {table.zone}
-            <small style={{ fontSize: 9, color: 'rgba(239,235,228,0.38)', textTransform: 'none', letterSpacing: 0 }}>
+            <small style={{ fontSize: 9, color: 'var(--tx-3)', textTransform: 'none', letterSpacing: 0 }}>
               {table.seats} seats · open {table.openedAt || 'now'}
             </small>
           </span>
         </div>
         <div style={{ flex: 1 }} />
-        <button style={{
-          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: '#EFEBE4', cursor: 'pointer', padding: 0,
-        }}>
+        <button
+          onClick={() => {
+            setSearchOpen(v => !v);
+            if (searchOpen) setSearchQ('');
+          }}
+          aria-label={searchOpen ? 'Close search' : 'Open search'}
+          style={{
+            width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+            background: searchOpen ? 'rgba(196,168,109,0.14)' : 'var(--card)',
+            border: `1px solid ${searchOpen ? '#C4A86D' : 'var(--line)'}`,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            color: searchOpen ? '#D6BC85' : 'var(--tx)', cursor: 'pointer', padding: 0,
+          }}>
           <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.search}</span>
         </button>
       </div>
+
+      {/* Search input — slides in below the menuhead when toggled.
+          When this has a query, the category list below switches
+          to a flat filtered view. */}
+      {searchOpen && (
+        <div style={{ padding: '0 20px 8px', flexShrink: 0 }}>
+          <input
+            type="search"
+            autoFocus
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="Search dishes…"
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: 12,
+              color: 'var(--tx)',
+              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+              fontSize: 13,
+              outline: 'none',
+            }}
+          />
+        </div>
+      )}
 
       {/* per-seat selector */}
       <div className="seatchips">
@@ -132,11 +180,24 @@ export default function MenuScreen({
 
       <div className="scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="menulist">
-          {cats.map(c => (
-            <div key={c.id} ref={el => (catRefs.current[c.id] = el)}>
-              <div className="catlabel"><span>{c.emoji}</span>{c.label}</div>
-              {menu.filter(m => m.cat === c.id).map(item => {
-                const q = simpleQty(item.id);
+          {q ? (
+            // ── filtered flat list (no category headers) ──
+            (() => {
+              const hits = menu.filter(matches);
+              if (hits.length === 0) {
+                return (
+                  <div style={{
+                    padding: '40px 16px', textAlign: 'center',
+                    color: 'var(--tx-2)',
+                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                    fontSize: 13,
+                  }}>
+                    No dishes match "{searchQ}".
+                  </div>
+                );
+              }
+              return hits.map(item => {
+                const sq = simpleQty(item.id);
                 return (
                   <div key={item.id} className={'itemrow' + (seatItemQty(lines, item.id, selectedSeat) > 0 ? ' has-qty' : '')} style={{ marginBottom: 8 }}>
                     <div onClick={() => onOpenItem(item, null)} style={{ cursor: 'pointer' }}>
@@ -150,10 +211,10 @@ export default function MenuScreen({
                         <SpicePips level={item.spice} />
                       </div>
                     </div>
-                    {q > 0 ? (
+                    {sq > 0 ? (
                       <div className="stepper">
                         <button onClick={() => onRowStep(item, selectedSeat, -1)}>{I.minus}</button>
-                        <span className="qty">{q}</span>
+                        <span className="qty">{sq}</span>
                         <button onClick={() => onRowStep(item, selectedSeat, +1)}>{I.plus}</button>
                       </div>
                     ) : (
@@ -161,9 +222,42 @@ export default function MenuScreen({
                     )}
                   </div>
                 );
-              })}
-            </div>
-          ))}
+              });
+            })()
+          ) : (
+            cats.map(c => (
+              <div key={c.id} ref={el => (catRefs.current[c.id] = el)}>
+                <div className="catlabel"><span>{c.emoji}</span>{c.label}</div>
+                {menu.filter(m => m.cat === c.id).map(item => {
+                  const sq = simpleQty(item.id);
+                  return (
+                    <div key={item.id} className={'itemrow' + (seatItemQty(lines, item.id, selectedSeat) > 0 ? ' has-qty' : '')} style={{ marginBottom: 8 }}>
+                      <div onClick={() => onOpenItem(item, null)} style={{ cursor: 'pointer' }}>
+                        <Thumb item={item} />
+                      </div>
+                      <div className="item-main" onClick={() => onOpenItem(item, null)} style={{ cursor: 'pointer' }}>
+                        <div className="item-name"><VegMark veg={item.veg} />{item.name}</div>
+                        <div className="item-desc">{item.desc}</div>
+                        <div className="item-foot">
+                          <span className="item-price"><span className="cur">₹</span>{item.price}</span>
+                          <SpicePips level={item.spice} />
+                        </div>
+                      </div>
+                      {sq > 0 ? (
+                        <div className="stepper">
+                          <button onClick={() => onRowStep(item, selectedSeat, -1)}>{I.minus}</button>
+                          <span className="qty">{sq}</span>
+                          <button onClick={() => onRowStep(item, selectedSeat, +1)}>{I.plus}</button>
+                        </div>
+                      ) : (
+                        <button className="add-btn" onClick={() => onQuickAdd(item, selectedSeat)}>{I.plus}</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
           <div style={{ height: orderCount > 0 ? 80 : 20 }} />
         </div>
       </div>

@@ -14,19 +14,21 @@
 
 import React from 'react';
 
+// Theme-responsive tokens go through CSS vars so light mode flips
+// them at paint time without recomputing inline styles in JS.
 const COLORS = {
-  text:       '#EFEBE4',
-  textMuted:  'rgba(239,235,228,0.55)',
-  textFaint:  'rgba(239,235,228,0.38)',
-  card:       '#221F1B',
-  border:     'rgba(196,168,109,0.13)',
+  text:       'var(--tx)',
+  textMuted:  'var(--tx-2)',
+  textFaint:  'var(--tx-3)',
+  card:       'var(--card)',
+  border:     'var(--line)',
   gold:       '#C4A86D',
   goldBg:     'rgba(196,168,109,0.14)',
   goldText:   '#D6BC85',
   green:      '#4A8866',
   greenBg:    'rgba(74,136,102,0.14)',
   greenText:  '#7BA890',
-  mutedBg:    'rgba(255,255,255,0.04)',
+  mutedBg:    'var(--line-soft)',
 };
 
 const CALL_REASON_META = {

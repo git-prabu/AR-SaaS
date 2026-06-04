@@ -48,12 +48,12 @@ export default function KitchenScreen({ tickets, onBump }) {
           <div style={{
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
-            textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
+            textTransform: 'uppercase', color: 'var(--tx-3)',
           }}>Kitchen Display · live</div>
           <h1 style={{
             fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
             fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
-            margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
+            margin: '2px 0 0', color: 'var(--tx)', lineHeight: 1.1,
           }}>Kitchen rail</h1>
         </div>
         <button style={{

@@ -46,9 +46,17 @@ import {
   markOrderItemReadyAs, markOrderItemServedAs,
   updateOrderStatus, updateOrderStatusAs,
 } from '../../lib/db';
+import {
+  announceOrder, unlockSound,
+  isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
+} from '../../lib/sounds';
 
 import KitchenRailScreen from '../../components/order-kitchen/KitchenRailScreen';
 import { I } from '../../components/order-kitchen/Icons';
+
+// Same key /admin/kitchen + /admin/orders use, so toggling sound on
+// one surface flips it everywhere.
+const LS_SOUND_KEY = 'ar_kitchen_sound_enabled';
 
 function useIsDesktop(breakpoint = 920) {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -123,6 +131,39 @@ export default function KitchenNew() {
   // disabling the rest of the rail.
   const [updatingKey, setUpdatingKey] = useState(null);
 
+  // ─── Sound + voice toggles ─────────────────────────────────────
+  // Default sound ON, voice OFF (mirrors /admin/kitchen + /admin/orders).
+  // The localStorage flag is shared with the other surfaces so
+  // toggling on /admin/kitchen also flips this page's state on
+  // next mount. AutoUnlock in lib/sounds is the safety net for
+  // browsers that don't fire a sound toggle before the first new
+  // order arrives.
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabledState] = useState(false);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(LS_SOUND_KEY);
+      if (stored !== null) setSoundEnabled(stored === 'true');
+    } catch {}
+    try { setVoiceEnabledState(isVoiceEnabled()); } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(LS_SOUND_KEY, String(soundEnabled)); } catch {}
+  }, [soundEnabled]);
+  useEffect(() => { setVoiceEnabledLS(voiceEnabled); }, [voiceEnabled]);
+
+  const toggleSound = () => {
+    setSoundEnabled(v => !v);
+    try { unlockSound(); } catch {}
+  };
+  const toggleVoice = () => setVoiceEnabledState(v => !v);
+
+  // Refs for the new-arrival detector. Effect itself sits below
+  // activeOrders (the useMemo it depends on) to avoid TDZ during
+  // render-phase dependency evaluation.
+  const prevPendingIdsRef = useRef(new Set());
+  const initialOrdersLoadedRef = useRef(false);
+
   // ─── Derived data ───────────────────────────────────────────────
   // Active orders (anything not served + not cancelled). Takeaway
   // orders DO show on the kitchen — they're still tickets the kitchen
@@ -137,6 +178,34 @@ export default function KitchenNew() {
       // that's been in the rail for 30+ min under a fresh one.
       .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
   }, [ordersById]);
+
+  // ─── New-arrival detector (mirrors /admin/kitchen pattern) ─────
+  // Watch the pending-orders id set. First snapshot bypasses the
+  // chime (initial settling shouldn't sound like 5 new orders just
+  // landed). After that, any newly-added pending id triggers an
+  // announce. announceOrder honours soundEnabled internally and the
+  // voice path is gated by isVoiceEnabled() inside lib/sounds.
+  useEffect(() => {
+    const pending = activeOrders.filter(o => o.status === 'pending');
+    const currentIds = new Set(pending.map(o => o.id));
+    if (!initialOrdersLoadedRef.current) {
+      prevPendingIdsRef.current = currentIds;
+      initialOrdersLoadedRef.current = true;
+      return;
+    }
+    const prevIds = prevPendingIdsRef.current;
+    const newOrders = pending.filter(o => !prevIds.has(o.id));
+    if (newOrders.length > 0) {
+      // activeOrders is oldest-first → newest among newOrders is last
+      const o = newOrders[newOrders.length - 1];
+      const isTakeaway = o.orderType === 'takeaway' || o.orderType === 'takeout';
+      const rawTable = isTakeaway ? (o.customerName || 'Takeaway') : (o.tableNumber || '');
+      const tableLabel = String(rawTable || '').trim() || 'unknown';
+      const itemCount = (o.items || []).reduce((s, it) => s + (Number(it.qty) || 1), 0);
+      announceOrder(tableLabel, itemCount, { sound: soundEnabled });
+    }
+    prevPendingIdsRef.current = currentIds;
+  }, [activeOrders, soundEnabled]);
 
   // Duplicate-dish aggregation: name → { totalQty, ticketCount }.
   // A dish only qualifies if it appears in 2+ DISTINCT tickets — a
@@ -268,6 +337,39 @@ export default function KitchenNew() {
                   <div className="ws-eyebrow">Kitchen Display · live</div>
                   <h1 className="ws-h1">Kitchen rail</h1>
                 </div>
+                {/* Sound + voice toggles. These let the chef silence
+                    the new-order chime (e.g. during a non-rush hour
+                    or testing) and turn on TTS readouts of incoming
+                    tickets. They share LS with /admin/kitchen so
+                    toggling on one surface persists everywhere. */}
+                <div style={{
+                  display: 'inline-flex', gap: 8, marginLeft: 'auto', marginRight: 14,
+                }}>
+                  <button
+                    onClick={toggleSound}
+                    title={soundEnabled ? 'Mute new-order chime' : 'Unmute new-order chime'}
+                    aria-label="Toggle sound"
+                    style={{
+                      width: 38, height: 38, borderRadius: 10,
+                      background: soundEnabled ? 'rgba(196,168,109,0.14)' : 'var(--card)',
+                      border: `1px solid ${soundEnabled ? '#C4A86D' : 'var(--line)'}`,
+                      color: soundEnabled ? '#D6BC85' : 'var(--tx-2)',
+                      fontSize: 16, cursor: 'pointer', padding: 0,
+                    }}
+                  >{soundEnabled ? '🔔' : '🔕'}</button>
+                  <button
+                    onClick={toggleVoice}
+                    title={voiceEnabled ? 'Disable voice readout' : 'Enable voice readout'}
+                    aria-label="Toggle voice"
+                    style={{
+                      width: 38, height: 38, borderRadius: 10,
+                      background: voiceEnabled ? 'rgba(196,168,109,0.14)' : 'var(--card)',
+                      border: `1px solid ${voiceEnabled ? '#C4A86D' : 'var(--line)'}`,
+                      color: voiceEnabled ? '#D6BC85' : 'var(--tx-2)',
+                      fontSize: 16, cursor: 'pointer', padding: 0,
+                    }}
+                  >{voiceEnabled ? '🎙️' : '🔇'}</button>
+                </div>
                 <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
               </div>
               {/* Stats strip + ALL-DAY chips (legacy /admin/kitchen
@@ -306,26 +408,26 @@ export default function KitchenNew() {
                             display: 'inline-flex', alignItems: 'center', gap: 8,
                             fontFamily: 'var(--font-mono)', fontSize: 10,
                             letterSpacing: '.14em', textTransform: 'uppercase',
-                            color: 'rgba(239,235,228,0.55)',
+                            color: 'var(--tx-2)',
                           }}>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--st-ready)' }} />
                             LIVE KITCHEN
                           </span>
                           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(239,235,228,0.55)' }}>ACTIVE</span>
-                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'rgba(239,235,228,1)' }}>{activeOrders.length}</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-2)' }}>ACTIVE</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--tx)' }}>{activeOrders.length}</span>
                           </span>
                           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(239,235,228,0.55)' }}>OLDEST</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-2)' }}>OLDEST</span>
                             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: oldestColor, fontVariantNumeric: 'tabular-nums' }}>
                               {activeOrders.length === 0 ? '—' : oldestStr}
                             </span>
                           </span>
                           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(239,235,228,0.55)' }}>SERVED TODAY</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-2)' }}>SERVED TODAY</span>
                             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--st-ready)' }}>{servedToday}</span>
                           </span>
-                          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(239,235,228,0.55)' }}>
+                          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-2)' }}>
                             {clockNow.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                           </span>
                         </div>
@@ -386,12 +488,9 @@ export default function KitchenNew() {
         <div className="page-bg">
           <div className="frame">
             <div className="notch" />
-            <button
-              className="ok-theme-toggle"
-              onClick={toggleTheme}
-              title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
-              aria-label="Toggle theme"
-            >{isLight ? '🌙' : '☀️'}</button>
+            {/* Floating theme toggle removed — KitchenRailScreen now
+                renders the toggle inline in its apphead via the
+                isLight / onToggleTheme props below. */}
             <div className="screenwrap">
               {/* Notch clearance — see comment in order-kitchen.js */}
               <div style={{ height: 30, flexShrink: 0 }} />
@@ -405,6 +504,12 @@ export default function KitchenNew() {
                   onStartOrder={onStartOrder}
                   onMarkItemReady={onMarkItemReady}
                   onMarkItemServed={onMarkItemServed}
+                  isLight={isLight}
+                  onToggleTheme={toggleTheme}
+                  soundEnabled={soundEnabled}
+                  voiceEnabled={voiceEnabled}
+                  onToggleSound={toggleSound}
+                  onToggleVoice={toggleVoice}
                   updatingKey={updatingKey}
                 />
               ) : (

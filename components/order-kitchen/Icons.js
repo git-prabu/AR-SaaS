@@ -105,7 +105,7 @@ export function Thumb({ item, className }) {
 
   if (candidate) {
     return (
-      <div className={'thumb ' + (className || '')} style={{ background: '#1A1815' }}>
+      <div className={'thumb ' + (className || '')} style={{ background: 'var(--surface)' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={candidate}

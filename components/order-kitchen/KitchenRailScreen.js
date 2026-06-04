@@ -19,15 +19,21 @@
 // just below the apphead. Tap-able in a future phase; today
 // it's a glanceable summary.
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
+// Theme-responsive tokens go through CSS vars (defined in
+// styles/order-kitchen.css) so that the light mode override
+// — body[data-theme="light"] .ok-root — flips them at paint
+// time without us having to recompute inline styles in JS.
+// Brand colours (gold / amber / green / danger) stay literal
+// because they don't change between themes by design.
 const COLORS = {
-  text:       '#EFEBE4',
-  textMuted:  'rgba(239,235,228,0.55)',
-  textFaint:  'rgba(239,235,228,0.38)',
-  card:       '#221F1B',
-  cardDarker: '#2A2722',
-  border:     'rgba(196,168,109,0.13)',
+  text:       'var(--tx)',
+  textMuted:  'var(--tx-2)',
+  textFaint:  'var(--tx-3)',
+  card:       'var(--card)',
+  cardDarker: 'var(--card-2)',
+  border:     'var(--line)',
   gold:       '#C4A86D',
   goldBg:     'rgba(196,168,109,0.14)',
   goldText:   '#D6BC85',
@@ -69,6 +75,12 @@ export default function KitchenRailScreen({
   onMarkItemReady,   // (order, itemIdx) => stamp readyAt
   onMarkItemServed,  // (order, itemIdx) => stamp servedAt
   updatingKey,       // string identifying the in-flight write
+  isLight,           // theme state for the inline toggle button
+  onToggleTheme,     // theme switch callback
+  soundEnabled,      // optional — chime toggle
+  voiceEnabled,      // optional — TTS toggle
+  onToggleSound,     // optional callback
+  onToggleVoice,     // optional callback
 }) {
   const counts = {
     all:     orders.length,
@@ -92,6 +104,50 @@ export default function KitchenRailScreen({
     { id: 'ready',   label: 'Ready' },
   ];
 
+  // ── scroll-more indicator ─────────────────────────────────────
+  // Owner reported on mobile that when there are more tickets than
+  // fit on screen, there's no hint to scroll. Desktop KitchenColumn
+  // has a "↓ N more below" floating CTA — mirror it here.
+  //
+  // We track scroll position on the .scroll wrapper and show a
+  // floating gold badge ("↓ N more") when there's content below
+  // the visible viewport. Tapping it scrolls smoothly to the
+  // bottom (showing user that more exists, not strict next-ticket
+  // alignment — same behavior as desktop).
+  const scrollRef = useRef(null);
+  const [moreBelow, setMoreBelow] = useState(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const recompute = () => {
+      const remaining = el.scrollHeight - el.clientHeight - el.scrollTop;
+      // Count remaining tickets approximately: each ticket is
+      // roughly 220px tall (header + item rows). We round but
+      // treat <60px as "you're basically at the bottom".
+      if (remaining < 60) {
+        setMoreBelow(0);
+      } else {
+        setMoreBelow(Math.max(1, Math.round(remaining / 220)));
+      }
+    };
+    recompute();
+    el.addEventListener('scroll', recompute, { passive: true });
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    // Recompute when the visible list length changes (e.g. filter
+    // toggled or new ticket arrived). Using visible.length in the
+    // dep array does the work.
+    return () => {
+      el.removeEventListener('scroll', recompute);
+      ro.disconnect();
+    };
+  }, [visible.length]);
+  const scrollDown = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ top: el.clientHeight * 0.8, behavior: 'smooth' });
+  };
+
   return (
     <div className="screen screen-enter">
       {/* apphead */}
@@ -112,12 +168,60 @@ export default function KitchenRailScreen({
             margin: '2px 0 0', color: COLORS.text, lineHeight: 1.1,
           }}>Kitchen rail</h1>
         </div>
-        <div style={{
-          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-          background: 'linear-gradient(135deg, #C4A86D, #C2562B)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: '#1A1815', fontSize: 20,
-        }}>👨‍🍳</div>
+        {/* Sound + voice toggles (when wired). Sit before the
+            theme toggle so on narrow phones the theme toggle stays
+            visually anchored to the right edge. */}
+        {onToggleSound && (
+          <button
+            onClick={onToggleSound}
+            title={soundEnabled ? 'Mute chime' : 'Unmute chime'}
+            aria-label="Toggle sound"
+            style={{
+              width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+              background: soundEnabled ? 'rgba(196,168,109,0.14)' : COLORS.card,
+              border: `1px solid ${soundEnabled ? COLORS.gold : COLORS.border}`,
+              color: soundEnabled ? COLORS.goldText : COLORS.textMuted,
+              cursor: 'pointer', padding: 0, fontSize: 15,
+            }}
+          >{soundEnabled ? '🔔' : '🔕'}</button>
+        )}
+        {onToggleVoice && (
+          <button
+            onClick={onToggleVoice}
+            title={voiceEnabled ? 'Disable voice' : 'Enable voice'}
+            aria-label="Toggle voice"
+            style={{
+              width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+              background: voiceEnabled ? 'rgba(196,168,109,0.14)' : COLORS.card,
+              border: `1px solid ${voiceEnabled ? COLORS.gold : COLORS.border}`,
+              color: voiceEnabled ? COLORS.goldText : COLORS.textMuted,
+              cursor: 'pointer', padding: 0, fontSize: 15,
+            }}
+          >{voiceEnabled ? '🎙️' : '🔇'}</button>
+        )}
+        {/* Theme toggle (replaces the decorative chef tile — it
+            didn't do anything; the toggle is the only useful
+            top-right control on mobile). */}
+        {onToggleTheme ? (
+          <button
+            onClick={onToggleTheme}
+            title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
+            aria-label="Toggle theme"
+            style={{
+              width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+              background: COLORS.card, border: `1px solid ${COLORS.border}`,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: COLORS.text, cursor: 'pointer', padding: 0, fontSize: 18,
+            }}
+          >{isLight ? '🌙' : '☀️'}</button>
+        ) : (
+          <div style={{
+            width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+            background: 'linear-gradient(135deg, #C4A86D, #C2562B)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            color: '#1A1815', fontSize: 20,
+          }}>👨‍🍳</div>
+        )}
       </div>
 
       {/* all-day counter — top duplicate dishes across the rail */}
@@ -173,7 +277,8 @@ export default function KitchenRailScreen({
         })}
       </div>
 
-      <div className="scroll">
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex' }}>
+        <div className="scroll" ref={scrollRef} style={{ flex: 1 }}>
         {visible.length === 0 ? (
           <div className="empty">
             <span className="e-emoji">🍳</span>
@@ -202,6 +307,30 @@ export default function KitchenRailScreen({
               />
             ))}
           </div>
+        )}
+        </div>
+        {/* Floating "more below" CTA. Same gold accent as the
+            desktop KitchenColumn version, positioned bottom-center
+            of the scroll viewport. Click scrolls one screenful. */}
+        {moreBelow > 0 && (
+          <button
+            onClick={scrollDown}
+            aria-label={`Scroll to see ${moreBelow} more ticket${moreBelow === 1 ? '' : 's'}`}
+            style={{
+              position: 'absolute',
+              left: '50%', transform: 'translateX(-50%)',
+              bottom: 14,
+              padding: '7px 14px', borderRadius: 999,
+              background: COLORS.gold, color: '#1A1815',
+              border: 'none',
+              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+              textTransform: 'uppercase', cursor: 'pointer',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
+              zIndex: 5,
+              whiteSpace: 'nowrap',
+            }}
+          >↓ {moreBelow} more</button>
         )}
       </div>
     </div>

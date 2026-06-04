@@ -39,13 +39,15 @@ function formatElapsed(seconds) {
   return s === 0 ? `${m}m` : `${m}m ${s}s`;
 }
 
+// Theme-responsive tokens go through CSS vars so light mode flips
+// them at paint time without recomputing inline styles in JS.
 const COLORS = {
-  text:        '#EFEBE4',
-  textMuted:   'rgba(239,235,228,0.55)',
-  textFaint:   'rgba(239,235,228,0.38)',
-  card:        '#221F1B',
-  cardDarker:  '#2A2722',
-  border:      'rgba(196,168,109,0.13)',
+  text:        'var(--tx)',
+  textMuted:   'var(--tx-2)',
+  textFaint:   'var(--tx-3)',
+  card:        'var(--card)',
+  cardDarker:  'var(--card-2)',
+  border:      'var(--line)',
   // type accents — match the gold / green / payment-method palette
   // from the prototype + the existing /admin/waiter
   goldAccent:   '#C4A86D',
@@ -413,7 +415,7 @@ export function CashModal({ item, cashReceived, onChange, onConfirm, onCancel, i
       >
         <div style={{
           width: 36, height: 4, borderRadius: 2,
-          background: 'rgba(239,235,228,0.18)',
+          background: 'var(--line)',
           alignSelf: 'center', marginBottom: 4,
         }} />
         <div>

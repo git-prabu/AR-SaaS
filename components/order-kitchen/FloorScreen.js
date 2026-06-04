@@ -17,7 +17,7 @@ function greeting() {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-export default function FloorScreen({ tables, zones, zone, setZone, onPick, totals, tweakShape = 'auto', waiter }) {
+export default function FloorScreen({ tables, zones, zone, setZone, onPick, totals, tweakShape = 'auto', waiter, isLight, onToggleTheme }) {
   const segRef = useRef(null);
   const zoneTables = tables.filter(t => t.zone === zone);
 
@@ -54,22 +54,31 @@ export default function FloorScreen({ tables, zones, zone, setZone, onPick, tota
           <div style={{
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
-            textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
+            textTransform: 'uppercase', color: 'var(--tx-3)',
           }}>{greeting()} · Floor</div>
           <h1 style={{
             fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
             fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em',
-            margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
+            margin: '2px 0 0', color: 'var(--tx)', lineHeight: 1.1,
           }}>Tables</h1>
         </div>
-        <button style={{
-          width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: '#EFEBE4', cursor: 'pointer', padding: 0,
-        }}>
-          <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.bell}</span>
-        </button>
+        {/* Theme toggle replaces the decorative bell. Owner reported
+            the absolute-positioned floating toggle was awkwardly
+            stacked above the bell — moving it inline next to the
+            apphead avatar/title gives it a real home. The bell did
+            nothing (no onClick); the theme toggle is the only useful
+            top-right control today. */}
+        <button
+          onClick={onToggleTheme}
+          title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
+          aria-label="Toggle theme"
+          style={{
+            width: 40, height: 40, borderRadius: 13, flexShrink: 0,
+            background: 'var(--card)', border: '1px solid var(--line)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--tx)', cursor: 'pointer', padding: 0, fontSize: 18,
+          }}
+        >{isLight ? '🌙' : '☀️'}</button>
       </div>
 
       {/* zone segmented control */}

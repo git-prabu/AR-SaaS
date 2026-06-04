@@ -31,9 +31,9 @@ export default function ReviewScreen({ table, lines, onBack, onEdit, onRemove, o
       }}>
         <button onClick={onBack} style={{
           width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          background: 'var(--card)', border: '1px solid var(--line)',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          color: '#EFEBE4', cursor: 'pointer', padding: 0,
+          color: 'var(--tx)', cursor: 'pointer', padding: 0,
         }}>
           <span style={{ width: 18, height: 18, display: 'inline-flex' }}>{I.back}</span>
         </button>
@@ -41,21 +41,21 @@ export default function ReviewScreen({ table, lines, onBack, onEdit, onRemove, o
           <div style={{
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             fontSize: 10, fontWeight: 600, letterSpacing: '0.18em',
-            textTransform: 'uppercase', color: 'rgba(239,235,228,0.38)',
+            textTransform: 'uppercase', color: 'var(--tx-3)',
           }}>{table.id} · {table.zone}</div>
           <h1 style={{
             fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
             fontWeight: 700, fontSize: 23, letterSpacing: '-0.02em',
-            margin: '2px 0 0', color: '#EFEBE4', lineHeight: 1.1,
+            margin: '2px 0 0', color: 'var(--tx)', lineHeight: 1.1,
           }}>Review order</h1>
         </div>
         <div style={{
           padding: '7px 14px', borderRadius: 999, flexShrink: 0,
-          background: '#221F1B', border: '1px solid rgba(196,168,109,0.13)',
+          background: 'var(--card)', border: '1px solid var(--line)',
         }}>
           <span style={{
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-            fontSize: 11, color: 'rgba(239,235,228,0.74)',
+            fontSize: 11, color: 'var(--tx-2)',
           }}>{count} items</span>
         </div>
       </div>
