@@ -130,7 +130,12 @@ export default function KitchenNew() {
   const activeOrders = useMemo(() => {
     return Object.values(ordersById)
       .filter(o => ['pending', 'preparing', 'ready'].includes(o.status))
-      .map(o => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }));
+      .map(o => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }))
+      // Oldest-first so the most-urgent tickets sit at the top of
+      // each kanban column. The kitchen's mental model is "what's
+      // been waiting longest" — newest at top would bury an order
+      // that's been in the rail for 30+ min under a fresh one.
+      .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
   }, [ordersById]);
 
   // Duplicate-dish aggregation: name → { totalQty, ticketCount }.
