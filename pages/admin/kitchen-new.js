@@ -361,8 +361,8 @@ export default function KitchenNew() {
                   )}
                   <button
                     onClick={toggleSound}
-                    title={soundEnabled ? 'Mute new-order chime' : 'Unmute new-order chime'}
-                    aria-label="Toggle sound"
+                    title={soundEnabled ? 'Mute in-app chime' : 'Unmute in-app chime'}
+                    aria-label="Toggle in-app sound"
                     style={{
                       width: 38, height: 38, borderRadius: 10,
                       background: soundEnabled ? 'rgba(196,168,109,0.14)' : 'var(--card)',
@@ -370,7 +370,7 @@ export default function KitchenNew() {
                       color: soundEnabled ? '#D6BC85' : 'var(--tx-2)',
                       fontSize: 16, cursor: 'pointer', padding: 0,
                     }}
-                  >{soundEnabled ? '🔔' : '🔕'}</button>
+                  >{soundEnabled ? '🔊' : '🔇'}</button>
                   <button
                     onClick={toggleVoice}
                     title={voiceEnabled ? 'Disable voice readout' : 'Enable voice readout'}

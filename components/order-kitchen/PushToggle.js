@@ -74,20 +74,22 @@ export default function PushToggle({
     }
   }, [working, perm, restaurantId, subscriber, supported, supportReason]);
 
-  // Render label + icon for the current state.
+  // Render label + icon for the current state. Distinct from the
+  // in-app sound toggle (🔊/🔇) so users don't confuse "OS lock-screen
+  // chime" with "in-tab Web Audio chime". 📲 conveys "push to device".
   let icon, title;
   if (!supported) {
     icon = '🚫';
     title = reasonLabel(supportReason);
   } else if (perm === 'granted') {
-    icon = '🔔';
-    title = 'Tap to turn off lock-screen notifications';
+    icon = '📲';
+    title = 'Lock-screen push on — tap to turn off';
   } else if (perm === 'denied') {
-    icon = '🔕';
-    title = 'Notifications blocked. Re-enable in browser settings.';
+    icon = '📵';
+    title = 'Push blocked. Re-enable in browser settings.';
   } else {
-    icon = '🔕';
-    title = 'Tap to enable notifications even when the app is closed';
+    icon = '📵';
+    title = 'Tap to enable push (chime even when app is closed)';
   }
 
   if (variant === 'pill') {

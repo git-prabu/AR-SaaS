@@ -56,8 +56,16 @@ const sw = `// public/firebase-messaging-sw.js
 //
 // This service worker is what Google's FCM infrastructure looks for at
 // /firebase-messaging-sw.js — its name + path are part of the FCM
-// contract. It handles 'push' events when the page is closed and the
-// 'notificationclick' event so tapping the chime opens the right page.
+// contract. We just need it REGISTERED (so FCM can use it to deliver
+// pushes) — we do NOT render notifications here.
+//
+// Why no onBackgroundMessage handler:
+//   Earlier we both A) auto-displayed via webpush.notification AND
+//   B) re-displayed via onBackgroundMessage → users saw two banners
+//   per event on iOS PWA. The Cloud Function now sends ONLY
+//   webpush.notification + webpush.fcm_options.link, FCM auto-displays
+//   it, and tapping uses fcm_options.link for routing. Single banner,
+//   single source of truth.
 //
 // Coexists with the main /sw.js (the PWA shell SW). Both register on
 // the same origin under different scopes — modern browsers handle that
@@ -68,50 +76,10 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 
 firebase.initializeApp(${JSON.stringify(cfg, null, 2)});
 
-const messaging = firebase.messaging();
-
-// Background push — when the page is closed, this fires and we render
-// the notification ourselves. We send DATA-ONLY messages from the
-// Cloud Function so we control the title/body/icon/click target here
-// (FCM's auto-render is harder to style consistently across browsers).
-messaging.onBackgroundMessage((payload) => {
-  const data = payload.data || {};
-  const title = data.title || 'HaloHelm';
-  const body  = data.body  || '';
-  const tag   = data.tag   || data.kind || 'halohelm';
-  const url   = data.url   || '/admin/kitchen-new';
-
-  self.registration.showNotification(title, {
-    body,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
-    tag,
-    renotify: true,
-    requireInteraction: false,
-    data: { url },
-  });
-});
-
-// Click the notification → focus the right admin page if it's already
-// open, else open a new tab. clientsClaim() isn't called here because
-// our scope (/firebase-cloud-messaging-push-scope) doesn't manage page
-// fetches; we just need it active for push events.
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/admin/kitchen-new';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
-      const target = url.startsWith('http') ? url : (self.location.origin + url);
-      for (const w of wins) {
-        if (w.url.startsWith(self.location.origin) && 'focus' in w) {
-          w.navigate(target);
-          return w.focus();
-        }
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(target);
-    })
-  );
-});
+// Initialise messaging so FCM can use this SW to deliver pushes. We
+// do NOT register an onBackgroundMessage handler — FCM auto-displays
+// the notification block from the Cloud Function payload.
+firebase.messaging();
 `;
 
 const outPath = path.join(__dirname, '..', 'public', 'firebase-messaging-sw.js');

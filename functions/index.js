@@ -139,32 +139,20 @@ async function sendToSubscribers(restaurantId, subscribers, payload) {
 }
 
 /**
- * Build a notification payload that triggers a sound on Android Chrome
- * + WebPushFCM. iOS gets it via Safari PWA push when installed.
+ * Build a notification payload. FCM auto-displays the
+ * webpush.notification block, and webpush.fcm_options.link is what
+ * opens when the user taps the banner.
  *
- * The "data" payload is what our SW reads to render the in-page
- * notification (we use SW notifications instead of bare FCM
- * notifications for finer styling control + to share the click handler).
+ * NOTE (2026-06-04): owner reported double notifications on iOS PWA.
+ * Root cause was sending BOTH a notification block (FCM auto-displays)
+ * AND a data block (firebase-messaging-sw.js onBackgroundMessage
+ * displays a second one). Now we use ONLY the notification path — the
+ * SW's onBackgroundMessage was removed to match.
  */
 function buildPayload({ title, body, tag, url, kind }) {
   return {
-    // Use data-only so our SW always handles rendering — that lets us
-    // open the right page on click + control the icon/sound consistently
-    // across browsers. (If FCM auto-renders, the notification text
-    // duplicates and the click handler is harder to wire up.)
-    data: {
-      title,
-      body,
-      tag: tag || kind,
-      url: url || '/admin/kitchen-new',
-      kind,
-    },
     webpush: {
-      // High urgency keeps the notification from getting batched/delayed.
       headers: { Urgency: 'high', TTL: '120' },
-      // Some browsers ignore data-only notifications without an
-      // explicit notification field. Provide both so the OS-level
-      // delivery works even if the SW is slow to wake.
       notification: {
         title,
         body,
@@ -173,6 +161,11 @@ function buildPayload({ title, body, tag, url, kind }) {
         tag: tag || kind,
         renotify: true,
         requireInteraction: false,
+      },
+      // fcm_options.link tells the browser which URL to focus/open when
+      // the user taps the notification. Works without any SW code.
+      fcm_options: {
+        link: url || '/admin/kitchen-new',
       },
     },
   };

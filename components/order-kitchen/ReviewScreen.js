@@ -121,14 +121,31 @@ export default function ReviewScreen({ table, lines, onBack, onEdit, onRemove, o
       </div>
 
       {lines.length > 0 && (
+        // Owner reported: the whole 100%-wide orderbar being clickable
+        // was causing accidental sends when a waiter scrolled the cart
+        // and the scroll-end tap landed on the footer. Fix is to make
+        // ONLY the right-side amount pill submit — the left "Send to
+        // kitchen · 1 ITEMS · T6" is now a passive label, not a button.
         <div className="send-footer">
-          <button className="orderbar" onClick={() => onSend(total)} style={{ background: 'var(--accent)' }}>
+          <div className="orderbar" style={{ background: 'var(--accent)', cursor: 'default' }}>
             <div className="ob-l">
               <span className="ob-count">Send to kitchen</span>
               <span className="ob-sub">{count} items · {table.id}</span>
             </div>
-            <span className="ob-r">{I.send} {rupee(total)}</span>
-          </button>
+            <button
+              onClick={() => onSend(total)}
+              aria-label={`Send order to kitchen — ${rupee(total)}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '12px 22px', borderRadius: 999,
+                background: '#1A1815', color: 'var(--accent)',
+                border: 'none', cursor: 'pointer',
+                fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
+                letterSpacing: '-0.01em',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+            >{I.send} {rupee(total)}</button>
+          </div>
         </div>
       )}
     </div>

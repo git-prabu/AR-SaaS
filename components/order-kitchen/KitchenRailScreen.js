@@ -183,8 +183,8 @@ export default function KitchenRailScreen({
         {onToggleSound && (
           <button
             onClick={onToggleSound}
-            title={soundEnabled ? 'Mute chime' : 'Unmute chime'}
-            aria-label="Toggle sound"
+            title={soundEnabled ? 'Mute in-app chime' : 'Unmute in-app chime'}
+            aria-label="Toggle in-app sound"
             style={{
               width: 36, height: 36, borderRadius: 11, flexShrink: 0,
               background: soundEnabled ? 'rgba(196,168,109,0.14)' : COLORS.card,
@@ -192,7 +192,7 @@ export default function KitchenRailScreen({
               color: soundEnabled ? COLORS.goldText : COLORS.textMuted,
               cursor: 'pointer', padding: 0, fontSize: 15,
             }}
-          >{soundEnabled ? '🔔' : '🔕'}</button>
+          >{soundEnabled ? '🔊' : '🔇'}</button>
         )}
         {onToggleVoice && (
           <button
@@ -529,7 +529,8 @@ function KitchenTicket({
                       {item.modifiers.map((mod, mi) => (
                         <span key={mi} style={{
                           padding: '2px 7px', borderRadius: 4,
-                          background: 'rgba(255,255,255,0.04)', color: COLORS.textMuted,
+                          background: 'var(--card-2)', color: COLORS.textMuted,
+                          border: '1px solid var(--line)',
                           fontFamily: "'JetBrains Mono', ui-monospace, monospace",
                           fontSize: 10, fontWeight: 500,
                         }}>{mod}</span>
@@ -567,12 +568,23 @@ function KitchenTicket({
                         >Mark ready</button>
                       )}
                       {item.servedAt ? (
-                        <span style={{ ...PILL, background: 'rgba(255,255,255,0.06)', color: COLORS.textFaint }}>✓ Served</span>
+                        // ✓ Served pill: use card-2 + tx-3 so it reads
+                        // softly on BOTH dark cards (subtle dark wash,
+                        // faint cream text) and light cards (subtle
+                        // off-white wash, faint dark text). The old
+                        // rgba(255,255,255,0.06) bg was invisible on
+                        // light cards.
+                        <span style={{ ...PILL, background: 'var(--card-2)', color: 'var(--tx-3)', border: '1px solid var(--line)' }}>✓ Served</span>
                       ) : item.readyAt ? (
+                        // Mark served button: hardcoded dark bg + cream
+                        // text so it stays visible in both themes. The
+                        // old `background: COLORS.text` was using the
+                        // theme-flipping --tx var, which made the bg
+                        // dark in light mode → dark text on dark bg.
                         <button
                           onClick={() => onMarkItemServed(order, i)}
                           disabled={isUpdating}
-                          style={{ ...PILL, background: COLORS.text, color: '#1A1815', cursor: isUpdating ? 'wait' : 'pointer', opacity: isUpdating ? 0.55 : 1 }}
+                          style={{ ...PILL, background: '#1A1815', color: '#EFEBE4', cursor: isUpdating ? 'wait' : 'pointer', opacity: isUpdating ? 0.55 : 1 }}
                         >Mark served</button>
                       ) : null}
                     </div>

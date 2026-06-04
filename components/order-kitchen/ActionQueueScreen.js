@@ -323,7 +323,8 @@ function ActionCard({ item, onAction, isResolving, isFlashing }) {
               {item.raw.items.slice(0, 4).map((it, i) => (
                 <span key={i} style={{
                   padding: '2px 8px', borderRadius: 8,
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'var(--card-2)',
+                  border: '1px solid var(--line)',
                   color: COLORS.text,
                   fontSize: 11, fontWeight: 500,
                 }}>
@@ -336,7 +337,8 @@ function ActionCard({ item, onAction, isResolving, isFlashing }) {
               {item.raw.items.length > 4 && (
                 <span style={{
                   padding: '2px 8px', borderRadius: 8,
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'var(--card-2)',
+                  border: '1px solid var(--line)',
                   color: COLORS.textMuted, fontSize: 11, fontWeight: 500,
                 }}>+{item.raw.items.length - 4} more</span>
               )}
@@ -488,8 +490,9 @@ export function CashModal({ item, cashReceived, onChange, onConfirm, onCancel, i
             onClick={onCancel}
             disabled={isResolving}
             style={{
-              flex: 1, padding: '13px', borderRadius: 11, border: 'none',
-              background: 'rgba(255,255,255,0.06)', color: COLORS.text,
+              flex: 1, padding: '13px', borderRadius: 11,
+              background: 'var(--card-2)', color: COLORS.text,
+              border: '1px solid var(--line)',
               fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
               fontSize: 13, fontWeight: 600, cursor: 'pointer',
               opacity: isResolving ? 0.6 : 1,
