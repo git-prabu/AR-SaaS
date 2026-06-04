@@ -1086,6 +1086,13 @@
 .ok-root .kcol.col-cooking .kc-dot { background: var(--gold); }
 .ok-root .kcol.col-ready .kc-dot { background: var(--st-ready); }
 .ok-root .kcol-list { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+/* Owner-reported (image-1) clipping: tickets in a tall column were
+   getting flex-shrunk so the items overflowed past the ticket's
+   `overflow: hidden`, leaving the next item's text peeking through
+   the bottom of the previous card. `flex-shrink: 0` keeps every
+   ticket at its natural content height; the column scrolls when
+   tickets don't fit (already has overflow-y: auto). */
+.ok-root .kcol-list > .ticket { flex-shrink: 0; }
 .ok-root .kcol-empty { text-align: center; color: var(--tx-3); font-family: var(--font-body); font-size: 12.5px; padding: 50px 16px; }
 .ok-root .ticket { background: var(--card-2); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
 .ok-root .ticket.is-new { border-color: var(--st-sent); box-shadow: 0 0 0 1px rgba(194,86,43,0.3); }

@@ -280,9 +280,8 @@ export default function KitchenNew() {
                       if (sec > oldestSec) oldestSec = sec;
                     });
                     const oldestM = Math.floor(oldestSec / 60);
-                    const oldestStr = oldestM >= 60
-                      ? `${Math.floor(oldestM / 60)}h ${oldestM % 60}m`
-                      : `${oldestM}m ${String(oldestSec % 60).padStart(2, '0')}s`;
+                    // Same format as the per-ticket age: Xm Ys.
+                    const oldestStr = `${oldestM}m ${String(oldestSec % 60).padStart(2, '0')}s`;
                     const oldestColor = oldestM >= 18 ? 'var(--danger)'
                                      : oldestM >= 10 ? 'var(--gold)'
                                      : 'var(--tx)';
@@ -453,14 +452,12 @@ function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemRead
     ? Math.max(0, Math.floor((Date.now() - order.createdAt.toDate().getTime()) / 1000))
     : 0;
   const ageMin = Math.floor(ageSec / 60);
-  // Match legacy /admin/kitchen formatting:
-  //   < 60m   → "12m 42s"
-  //   >= 60m  → "12h 23m"
-  // Previously rendered as "723m" for 12-hour-old test orders, which
-  // is what owner reported looking absurd on the screen.
-  const ageStr = ageMin >= 60
-    ? `${Math.floor(ageMin / 60)}h ${ageMin % 60}m`
-    : `${ageMin}m ${String(ageSec % 60).padStart(2, '0')}s`;
+  // Match legacy /admin/kitchen formatting exactly — always
+  // "Xm Ys" with two-digit seconds (758m 1s, 28m 48s, 4m 12s).
+  // Owner explicitly pointed at the legacy "758m 1s" display as
+  // the target; converting to "12h 38m" loses the at-a-glance
+  // comparison kitchen staff make between tickets.
+  const ageStr = `${ageMin}m ${String(ageSec % 60).padStart(2, '0')}s`;
   // Urgency colors (legacy thresholds): gold @ 10m, red @ 18m, green-ish under 10m.
   const urgency = order.status === 'ready' ? 'ready'
                 : ageMin >= 18 ? 'late'
@@ -500,6 +497,13 @@ function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemRead
           const isDup = duplicateDishes.has(it.name);
           const dup = allDay.find(([n]) => n === it.name);
           const updatingThis = updatingKey === `${order.id}:item:${i}`;
+          // Per-item meta chips matching legacy /admin/kitchen +
+          // design spec: SEAT N or TABLE pill, spice pips, plus
+          // EXTRA SPICY / per-mod chips. Renders in a single meta
+          // row beneath the item name.
+          const seatN = Number(it.seat) || 0;
+          const spiceLevel = typeof it.spice === 'number' ? it.spice : 0;
+          const mods = Array.isArray(it.modifiers) ? it.modifiers : [];
           return (
             <div key={i} className="kitem">
               <span className="ki-qty">{it.qty || 1}×</span>
@@ -513,18 +517,46 @@ function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemRead
                     verticalAlign: 'middle',
                   }}>×{dup[1]} in {dup[2]}</span>
                 )}</span>
-                {it.note && <div className="ki-meta"><span className="ki-seat">Note: {it.note}</span></div>}
+                {/* Meta row: SEAT/TABLE + spice pips + modifiers */}
+                <div className="ki-meta" style={{ marginTop: 5 }}>
+                  <span className="ki-seat">{seatN > 0 ? `SEAT ${seatN}` : 'TABLE'}</span>
+                  {spiceLevel > 0 && (
+                    <span style={{ display: 'inline-flex', gap: 2.5, alignItems: 'center' }}>
+                      {[0,1,2,3].map(idx => (
+                        <span key={idx} style={{
+                          width: 5.5, height: 5.5, borderRadius: '50%',
+                          background: idx < spiceLevel ? 'var(--saffron)' : 'var(--line)',
+                        }} />
+                      ))}
+                    </span>
+                  )}
+                  {mods.map((m, mi) => (
+                    <span key={mi} className="ki-seat" style={{
+                      color: 'var(--saffron)', borderColor: 'var(--saffron)',
+                    }}>{String(m).toUpperCase()}</span>
+                  ))}
+                </div>
+                {it.note && (
+                  <div style={{
+                    marginTop: 6, padding: '6px 10px',
+                    background: 'rgba(196,168,109,0.10)', borderRadius: 6,
+                    fontFamily: 'var(--font-body)', fontSize: 11.5,
+                    color: 'var(--gold)', fontWeight: 500, lineHeight: 1.4,
+                  }}>
+                    <b style={{ fontWeight: 700 }}>Note:</b> {it.note}
+                  </div>
+                )}
                 {(order.status === 'preparing' || order.status === 'ready') && (
-                  <div className="ki-meta" style={{ marginTop: 4 }}>
+                  <div className="ki-meta" style={{ marginTop: 6 }}>
                     {it.readyAt ? (
                       <span className="ki-seat" style={{ color: 'var(--st-ready)', borderColor: 'var(--st-ready)' }}>✓ Ready</span>
                     ) : (
-                      <button onClick={() => onMarkItemReady(order, i)} disabled={updatingThis} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', padding: '3px 8px', borderRadius: 999, background: 'var(--gold)', color: '#1A1815', border: 'none', textTransform: 'uppercase', cursor: 'pointer', opacity: updatingThis ? 0.55 : 1 }}>Mark ready</button>
+                      <button onClick={() => onMarkItemReady(order, i)} disabled={updatingThis} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', padding: '4px 10px', borderRadius: 999, background: 'var(--gold)', color: '#1A1815', border: 'none', textTransform: 'uppercase', cursor: 'pointer', opacity: updatingThis ? 0.55 : 1 }}>Mark ready</button>
                     )}
                     {it.servedAt ? (
                       <span className="ki-seat" style={{ color: 'var(--tx-3)' }}>✓ Served</span>
                     ) : it.readyAt ? (
-                      <button onClick={() => onMarkItemServed(order, i)} disabled={updatingThis} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', padding: '3px 8px', borderRadius: 999, background: 'var(--tx)', color: 'var(--surface)', border: 'none', textTransform: 'uppercase', cursor: 'pointer', opacity: updatingThis ? 0.55 : 1 }}>Mark served</button>
+                      <button onClick={() => onMarkItemServed(order, i)} disabled={updatingThis} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', padding: '4px 10px', borderRadius: 999, background: 'var(--tx)', color: 'var(--surface)', border: 'none', textTransform: 'uppercase', cursor: 'pointer', opacity: updatingThis ? 0.55 : 1 }}>Mark served</button>
                     ) : null}
                   </div>
                 )}
