@@ -745,6 +745,39 @@ export default function Orders() {
   };
   const toggleVoice = () => setVoiceEnabledState(v => !v);
 
+  // ─── Desktop-only derivations (stat strip + service queue) ────
+  // MUST sit BEFORE the early-return render gate — otherwise the
+  // hooks run conditionally and React throws a rules-of-hooks
+  // error ("Rendered fewer hooks than expected"), which the
+  // ErrorBoundary catches as "Something went wrong".
+  // Owner caught this in the morning on both /admin/orders and
+  // /admin/kitchen-new — symptom was a white screen with the
+  // generic ErrorBoundary fallback. Moving the hooks above the
+  // gate fixes both pages.
+  const stats = useMemo(() => {
+    let seated = 0, cooking = 0, ready = 0, revenue = 0;
+    tables.forEach(t => {
+      if (t.status === 'seated') seated++;
+      else if (t.status === 'sent') cooking++;
+      else if (t.status === 'ready') ready++;
+      revenue += (totals[t.id] || 0);
+    });
+    return { seated, cooking, ready, revenue };
+  }, [tables, totals]);
+
+  const serviceQueue = useMemo(() => {
+    return tables
+      .filter(t => t.status === 'sent' || t.status === 'ready')
+      .sort((a, b) => (a.openedAt || '').localeCompare(b.openedAt || ''));
+  }, [tables]);
+
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!isDesktop) return;
+    const iv = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(iv);
+  }, [isDesktop]);
+
   // ─── Render gate ────────────────────────────────────────────────
   if (!authChecked || adminLoading) return null;
   if (!isAdmin && !staffSession) return null;
@@ -842,37 +875,6 @@ export default function Orders() {
   //   - any other tab → always show 4-tab nav (those tabs don't have a
   //     drill-down sub-flow yet).
   const showNav = tab !== 'floor' || screen === 'floor';
-
-  // ─── Desktop-only derivations (stat strip + service queue) ────
-  // Computed regardless of isDesktop so the values are stable across
-  // viewport changes (resize from mobile to desktop doesn't trigger
-  // a state-shape change). Cheap loops over `tables`.
-  const stats = useMemo(() => {
-    let seated = 0, cooking = 0, ready = 0, revenue = 0;
-    tables.forEach(t => {
-      if (t.status === 'seated') seated++;
-      else if (t.status === 'sent') cooking++;
-      else if (t.status === 'ready') ready++;
-      revenue += (totals[t.id] || 0);
-    });
-    return { seated, cooking, ready, revenue };
-  }, [tables, totals]);
-
-  // Service queue cards — tables that are currently mid-service
-  // (sent or ready). Each card has table/zone + a status pill.
-  const serviceQueue = useMemo(() => {
-    return tables
-      .filter(t => t.status === 'sent' || t.status === 'ready')
-      .sort((a, b) => (a.openedAt || '').localeCompare(b.openedAt || ''));
-  }, [tables]);
-
-  // Live clock that ticks every second on desktop only.
-  const [clockNow, setClockNow] = useState(() => new Date());
-  useEffect(() => {
-    if (!isDesktop) return;
-    const iv = setInterval(() => setClockNow(new Date()), 1000);
-    return () => clearInterval(iv);
-  }, [isDesktop]);
 
   return (
     <>

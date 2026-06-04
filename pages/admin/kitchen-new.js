@@ -200,24 +200,28 @@ export default function KitchenNew() {
     setUpdatingKey(null);
   };
 
-  // ─── Render gate ────────────────────────────────────────────────
-  if (!authChecked || adminLoading) return null;
-  if (!isAdmin && !staffSession) return null;
-
-  // Desktop derivations — bucket active orders by status for the
-  // 3-column KDS board the design spec calls for.
-  const cols = {
-    new: activeOrders.filter(o => o.status === 'pending'),
-    cooking: activeOrders.filter(o => o.status === 'preparing'),
-    ready: activeOrders.filter(o => o.status === 'ready'),
-  };
-
+  // ─── Desktop hooks MUST sit BEFORE the early-return render
+  // gate (rules of hooks: hooks must run in the same order every
+  // render). When auth resolves the conditional returns flip and
+  // a hook order change throws — ErrorBoundary catches as
+  // "Something went wrong". Moved above the gate.
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
     if (!isDesktop) return;
     const iv = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(iv);
   }, [isDesktop]);
+
+  // ─── Render gate ────────────────────────────────────────────────
+  if (!authChecked || adminLoading) return null;
+  if (!isAdmin && !staffSession) return null;
+
+  // Desktop derivations — plain const (not a hook), safe after the gate.
+  const cols = {
+    new: activeOrders.filter(o => o.status === 'pending'),
+    cooking: activeOrders.filter(o => o.status === 'preparing'),
+    ready: activeOrders.filter(o => o.status === 'ready'),
+  };
 
   return (
     <>
