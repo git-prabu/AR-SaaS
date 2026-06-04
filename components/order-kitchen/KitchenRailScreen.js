@@ -44,9 +44,15 @@ const COLORS = {
 const WAITING_LONG_SEC = 18 * 60;  // 18 min → red urgency (per /admin/waiter)
 const WAITING_WARN_SEC = 10 * 60;  // 10 min → gold urgency
 
-function fmtAge(ageMin) {
-  if (ageMin < 1) return 'just now';
-  return `${ageMin}m`;
+function fmtAge(ageSec) {
+  // Match legacy /admin/kitchen format: "Xm Ys" with two-digit
+  // seconds. Owner asked for this exact format on both mobile and
+  // desktop. The old "Xm" / "just now" version was harder to read
+  // at a glance when the rail had a mix of ages.
+  if (ageSec == null) return '—';
+  const m = Math.floor(ageSec / 60);
+  const s = ageSec % 60;
+  return `${m}m ${String(s).padStart(2, '0')}s`;
 }
 function orderLabel(o) {
   if (typeof o.orderNumber === 'number' && o.orderNumber > 0) return `#${String(o.orderNumber).padStart(4, '0')}`;
@@ -207,10 +213,12 @@ function KitchenTicket({
   onStartOrder, onMarkItemReady, onMarkItemServed,
   updatingKey,
 }) {
-  const ageMin = order.createdAt?.toDate
-    ? Math.max(0, Math.floor((Date.now() - order.createdAt.toDate().getTime()) / 60000))
-    : Math.max(0, Math.floor((Date.now() / 1000 - (order.createdAt?.seconds || 0)) / 60));
-  const ageSec = ageMin * 60;
+  // Seconds-precision age — same as the desktop ticket. fmtAge
+  // formats as "Xm Ys" with two-digit seconds.
+  const ageSec = order.createdAt?.toDate
+    ? Math.max(0, Math.floor((Date.now() - order.createdAt.toDate().getTime()) / 1000))
+    : Math.max(0, Math.floor((Date.now() / 1000) - (order.createdAt?.seconds || 0)));
+  const ageMin = Math.floor(ageSec / 60);
   const isOver = ageSec >= WAITING_LONG_SEC;
   const isWarn = ageSec >= WAITING_WARN_SEC;
   const status = order.status;
@@ -225,7 +233,13 @@ function KitchenTicket({
 
   const itemsArr = Array.isArray(order.items) ? order.items : [];
   const isTakeaway = order.orderType === 'takeaway' || order.orderType === 'takeout';
-  const tableLabel = isTakeaway ? (order.customerName || 'Pickup') : (order.tableNumber || '—');
+  // Same short-label / long-label split as DesktopTicket — the 42×42
+  // tile only fits 1-3 chars; multi-word strings like "Not specified"
+  // overflow it. Long labels show as a subtitle next to the order id.
+  const rawTableLabel = isTakeaway ? (order.customerName || '') : (order.tableNumber || '');
+  const isShortLabel = rawTableLabel.length > 0 && rawTableLabel.length <= 3 && !rawTableLabel.includes(' ');
+  const tileLabel = isShortLabel ? rawTableLabel : (isTakeaway ? '↗' : '—');
+  const longLabel = isShortLabel ? null : (rawTableLabel || 'Not specified');
   const placedAt = order.createdAt?.toDate
     ? (() => {
         const d = order.createdAt.toDate();
@@ -266,7 +280,7 @@ function KitchenTicket({
           <span style={{
             fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
             fontWeight: 700, fontSize: 16, color: COLORS.text, lineHeight: 1,
-          }}>{tableLabel}</span>
+          }}>{tileLabel}</span>
           <span style={{
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             fontSize: 8, color: COLORS.textFaint, marginTop: 2,
@@ -292,6 +306,12 @@ function KitchenTicket({
                        : status === 'preparing' ? COLORS.amberText
                        : COLORS.greenText,
             }}>{statusLabel}</span>
+            {longLabel && (
+              <span style={{
+                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                fontSize: 11, fontWeight: 600, color: COLORS.textMuted,
+              }}>· {isTakeaway ? `Takeaway · ${longLabel}` : `Table ${longLabel}`}</span>
+            )}
           </div>
           <div style={{
             fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -303,7 +323,7 @@ function KitchenTicket({
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
             fontSize: 14, fontWeight: 700, color: timerColor,
             fontVariantNumeric: 'tabular-nums',
-          }}>{fmtAge(ageMin)}</div>
+          }}>{fmtAge(ageSec)}</div>
           {isOver && (
             <div style={{
               fontFamily: "'JetBrains Mono', ui-monospace, monospace",
@@ -379,55 +399,47 @@ function KitchenTicket({
                     </div>
                   )}
 
-                  {/* Per-item ready / served pills */}
-                  {canBumpItems && (
+                  {/* Per-item ready / served pills — all four states
+                      (Mark ready button, ✓ Ready pill, Mark served
+                      button, ✓ Served pill) share IDENTICAL geometry
+                      so they line up no matter which mix of states
+                      the row sits in. Owner reported the ✓ READY
+                      pill rendering much larger than MARK SERVED
+                      because they used different padding + fontSize.
+                      Single style constant fixes that. */}
+                  {canBumpItems && (() => {
+                    const PILL = {
+                      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                      padding: '5px 12px', borderRadius: 999,
+                      textTransform: 'uppercase',
+                      border: 'none', display: 'inline-flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      lineHeight: 1.2,
+                    };
+                    return (
                     <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {item.readyAt ? (
-                        <span style={{
-                          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                          fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
-                          padding: '3px 8px', borderRadius: 999,
-                          background: COLORS.greenBg, color: COLORS.greenText,
-                          textTransform: 'uppercase',
-                        }}>✓ Ready</span>
+                        <span style={{ ...PILL, background: COLORS.greenBg, color: COLORS.greenText }}>✓ Ready</span>
                       ) : (
                         <button
                           onClick={() => onMarkItemReady(order, i)}
                           disabled={isUpdating}
-                          style={{
-                            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                            fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-                            padding: '4px 10px', borderRadius: 999,
-                            background: COLORS.gold, color: '#1A1815', border: 'none',
-                            textTransform: 'uppercase', cursor: isUpdating ? 'wait' : 'pointer',
-                            opacity: isUpdating ? 0.55 : 1,
-                          }}
+                          style={{ ...PILL, background: COLORS.gold, color: '#1A1815', cursor: isUpdating ? 'wait' : 'pointer', opacity: isUpdating ? 0.55 : 1 }}
                         >Mark ready</button>
                       )}
                       {item.servedAt ? (
-                        <span style={{
-                          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                          fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
-                          padding: '3px 8px', borderRadius: 999,
-                          background: 'rgba(255,255,255,0.06)', color: COLORS.textFaint,
-                          textTransform: 'uppercase',
-                        }}>✓ Served</span>
+                        <span style={{ ...PILL, background: 'rgba(255,255,255,0.06)', color: COLORS.textFaint }}>✓ Served</span>
                       ) : item.readyAt ? (
                         <button
                           onClick={() => onMarkItemServed(order, i)}
                           disabled={isUpdating}
-                          style={{
-                            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                            fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-                            padding: '4px 10px', borderRadius: 999,
-                            background: COLORS.text, color: '#1A1815', border: 'none',
-                            textTransform: 'uppercase', cursor: isUpdating ? 'wait' : 'pointer',
-                            opacity: isUpdating ? 0.55 : 1,
-                          }}
+                          style={{ ...PILL, background: COLORS.text, color: '#1A1815', cursor: isUpdating ? 'wait' : 'pointer', opacity: isUpdating ? 0.55 : 1 }}
                         >Mark served</button>
                       ) : null}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>
