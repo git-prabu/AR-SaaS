@@ -265,6 +265,93 @@ export default function KitchenNew() {
                 </div>
                 <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
               </div>
+              {/* Stats strip + ALL-DAY chips (legacy /admin/kitchen
+                  parity, owner asked for this pattern). Active = all
+                  non-served orders; oldest = max age in seconds across
+                  active; served-today = orders served today. */}
+              {ordersReady && (
+                <div style={{ padding: '0 30px 16px', flexShrink: 0 }}>
+                  {(() => {
+                    let oldestSec = 0;
+                    activeOrders.forEach(o => {
+                      const sec = o.createdAt?.toDate
+                        ? Math.floor((Date.now() - o.createdAt.toDate().getTime()) / 1000)
+                        : 0;
+                      if (sec > oldestSec) oldestSec = sec;
+                    });
+                    const oldestM = Math.floor(oldestSec / 60);
+                    const oldestStr = oldestM >= 60
+                      ? `${Math.floor(oldestM / 60)}h ${oldestM % 60}m`
+                      : `${oldestM}m ${String(oldestSec % 60).padStart(2, '0')}s`;
+                    const oldestColor = oldestM >= 18 ? 'var(--danger)'
+                                     : oldestM >= 10 ? 'var(--gold)'
+                                     : 'var(--tx)';
+                    const todayStart = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() / 1000; })();
+                    const servedToday = Object.values(ordersById).filter(o =>
+                      o.status === 'served' && (o.updatedAt?.seconds || 0) >= todayStart
+                    ).length;
+                    return (
+                      <>
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 24,
+                          padding: '14px 22px',
+                          background: 'var(--rail)', color: 'var(--tx)',
+                          borderRadius: 16, marginBottom: 14, flexWrap: 'wrap',
+                        }}>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 8,
+                            fontFamily: 'var(--font-mono)', fontSize: 10,
+                            letterSpacing: '.14em', textTransform: 'uppercase',
+                            color: 'rgba(239,235,228,0.55)',
+                          }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--st-ready)' }} />
+                            LIVE KITCHEN
+                          </span>
+                          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(239,235,228,0.55)' }}>ACTIVE</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'rgba(239,235,228,1)' }}>{activeOrders.length}</span>
+                          </span>
+                          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(239,235,228,0.55)' }}>OLDEST</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: oldestColor, fontVariantNumeric: 'tabular-nums' }}>
+                              {activeOrders.length === 0 ? '—' : oldestStr}
+                            </span>
+                          </span>
+                          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'rgba(239,235,228,0.55)' }}>SERVED TODAY</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--st-ready)' }}>{servedToday}</span>
+                          </span>
+                          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(239,235,228,0.55)' }}>
+                            {clockNow.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                        {allDay.length > 0 && (
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span style={{
+                              fontFamily: 'var(--font-mono)', fontSize: 9,
+                              letterSpacing: '.14em', textTransform: 'uppercase',
+                              color: 'var(--tx-3)', marginRight: 4,
+                            }}>ALL-DAY</span>
+                            {allDay.map(([name, qty, tickets]) => (
+                              <span key={name} title={`${qty} × ${name} across ${tickets} active orders — fire together`} style={{
+                                padding: '4px 10px', borderRadius: 999,
+                                background: 'var(--card)', border: '1px solid var(--line)',
+                                color: 'var(--tx)',
+                                fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}>
+                                <b style={{ color: 'var(--gold)', marginRight: 5 }}>{qty}×</b>
+                                {name.length > 22 ? name.slice(0, 20) + '…' : name}
+                                <span style={{ color: 'var(--tx-3)', marginLeft: 6 }}>in {tickets}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
               {ordersReady ? (
                 <div className="kds-wrap">
                   <div className="kds">
@@ -362,10 +449,27 @@ function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemRead
   const placedAt = order.createdAt?.toDate
     ? (() => { const d = order.createdAt.toDate(); const h = d.getHours() % 12 || 12; return `${h}:${String(d.getMinutes()).padStart(2, '0')}`; })()
     : '—';
-  const ageMin = order.createdAt?.toDate
-    ? Math.max(0, Math.floor((Date.now() - order.createdAt.toDate().getTime()) / 60000))
+  const ageSec = order.createdAt?.toDate
+    ? Math.max(0, Math.floor((Date.now() - order.createdAt.toDate().getTime()) / 1000))
     : 0;
-  const isLate = ageMin >= 18 && order.status !== 'ready';
+  const ageMin = Math.floor(ageSec / 60);
+  // Match legacy /admin/kitchen formatting:
+  //   < 60m   → "12m 42s"
+  //   >= 60m  → "12h 23m"
+  // Previously rendered as "723m" for 12-hour-old test orders, which
+  // is what owner reported looking absurd on the screen.
+  const ageStr = ageMin >= 60
+    ? `${Math.floor(ageMin / 60)}h ${ageMin % 60}m`
+    : `${ageMin}m ${String(ageSec % 60).padStart(2, '0')}s`;
+  // Urgency colors (legacy thresholds): gold @ 10m, red @ 18m, green-ish under 10m.
+  const urgency = order.status === 'ready' ? 'ready'
+                : ageMin >= 18 ? 'late'
+                : ageMin >= 10 ? 'warn'
+                : 'fresh';
+  const ageColor = urgency === 'late' ? 'var(--danger)'
+                 : urgency === 'warn' ? 'var(--gold)'
+                 : urgency === 'ready' ? 'var(--st-ready)'
+                 : 'var(--tx-2)';
 
   return (
     <div className={'ticket' + (order.status === 'pending' ? ' is-new' : '')}>
@@ -379,9 +483,16 @@ function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemRead
           <div className="th-sub">{placedAt} · {order.placedBy || 'staff'}</div>
         </div>
         <div className="th-age">
-          <span className={'kage' + (isLate ? ' late' : '')}>
-            {ageMin}m
+          <span className="kage" style={{ color: ageColor, fontVariantNumeric: 'tabular-nums' }}>
+            {ageStr}
           </span>
+          {urgency === 'late' && (
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 700,
+              letterSpacing: '0.10em', textTransform: 'uppercase',
+              color: 'var(--danger)', marginTop: 2,
+            }}>LATE</span>
+          )}
         </div>
       </div>
       <div className="ticket-items">

@@ -924,7 +924,16 @@
 .ok-root .cat-section { margin-bottom: 26px; }
 .ok-root .cat-section-label { font-family: var(--font-display); font-weight: 700; font-size: 16px; margin: 0 0 14px; display: flex; align-items: center; gap: 9px; }
 .ok-root .cat-section-label .cemoji { font-size: 19px; }
-.ok-root .dish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(208px, 1fr)); gap: 16px; }
+/* Owner reported (2026-06-04, image 3) a single dish card stretching
+   the full menu-pane width. Root cause: `minmax(208px, 1fr)` with
+   ONE item lets the 1fr max grow that single track to absorb all
+   the leftover space because empty tracks are sized at minmax min
+   (208px), so their 1fr share doesn't actually grow. Fixed-width
+   tracks at 250px stop the stretch and give consistent card widths
+   no matter how many items the category contains. justify-content:
+   start keeps the row flushed left (empty space lives on the right
+   of the row instead of squeezing cards into one big card). */
+.ok-root .dish-grid { display: grid; grid-template-columns: repeat(auto-fill, 250px); gap: 16px; justify-content: start; }
 .ok-root .dish-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; transition: transform .2s var(--ease-elastic), border-color .2s, box-shadow .2s; }
 .ok-root .dish-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 14px 30px rgba(0,0,0,0.3); }
 .ok-root .dish-card.has-qty { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
