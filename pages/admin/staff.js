@@ -86,9 +86,18 @@ function RoleIcon({ role, size = 44 }) {
   );
 }
 
-// ═══ Random 4-digit PIN generator ═══
+// ═══ Random 6-digit PIN generator ═══
+// (2026-06-11 audit #14: 4 → 6 digits, matching the server rule in
+// /api/staff/create. crypto.getRandomValues because this PIN is a real
+// credential, not a UI placeholder.)
 function randomPin() {
-  return String(Math.floor(1000 + Math.random() * 9000));
+  try {
+    const buf = new Uint32Array(1);
+    window.crypto.getRandomValues(buf);
+    return String(buf[0] % 1000000).padStart(6, '0');
+  } catch {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  }
 }
 
 // ═══ Time helpers ═══
@@ -366,8 +375,8 @@ export default function StaffManagement() {
   // ═══ Save (create or rename/role-change) ═══
   const handleSave = async () => {
     if (!form.name.trim() || !form.username.trim()) return;
-    if (modal === 'add' && (!form.pin || form.pin.length < 4)) {
-      setSaveError('PIN must be 4-6 digits');
+    if (modal === 'add' && (!form.pin || form.pin.length !== 6)) {
+      setSaveError('PIN must be 6 digits');
       return;
     }
 
@@ -995,7 +1004,7 @@ export default function StaffManagement() {
                 </div>
                 <input value={form.pin}
                   onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                  placeholder="4-6 digits" inputMode="numeric"
+                  placeholder="6 digits" inputMode="numeric"
                   style={{
                     ...inputStyle, fontSize: 20, letterSpacing: '0.3em',
                     fontFamily: "'JetBrains Mono', monospace",

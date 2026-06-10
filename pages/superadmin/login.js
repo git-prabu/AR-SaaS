@@ -2,9 +2,37 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import {
+  getMultiFactorResolver,
+  TotpMultiFactorGenerator,
+  multiFactor,
+} from 'firebase/auth';
+import QRCode from 'qrcode';
+import { superAdminAuth } from '../../lib/firebaseAuth';
 import { useSuperAdminAuth } from '../../hooks/useAuth';
 import { getUserData } from '../../lib/saDb';
 import toast from 'react-hot-toast';
+
+// ── TOTP 2FA (2026-06-11 audit #10) ──────────────────────────────────
+// The superadmin account controls every restaurant, so password-only
+// login was the platform's single point of total takeover. Flow:
+//
+//   1. CHALLENGE — if the Firebase user has a TOTP factor enrolled,
+//      signInWithEmailAndPassword throws auth/multi-factor-auth-required
+//      and we ask for the 6-digit authenticator code. This is enforced
+//      by Firebase itself once enrolled — no env flag can bypass it.
+//   2. ENROLLMENT — gated on NEXT_PUBLIC_SA_MFA_ENFORCE === 'true'.
+//      When on and the signed-in superadmin has no TOTP factor yet, we
+//      block the redirect and walk them through enrollment (QR code +
+//      first code). Env-gated so deploying this code changes nothing
+//      until Prabu (a) enables TOTP MFA in Firebase Console and
+//      (b) sets the flag — see SETUP_MFA.md.
+//
+// Recovery if the authenticator is lost: Firebase Console →
+// Authentication → Users → the superadmin user → remove the MFA
+// factor, then re-enroll at next login. (Console access = Google
+// account, which has its own recovery.)
+const MFA_ENFORCE = process.env.NEXT_PUBLIC_SA_MFA_ENFORCE === 'true';
 
 // ═══ Aspire palette — same tokens as admin/login + admin pages ═══
 const A = {
@@ -35,21 +63,109 @@ export default function SuperAdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // stage: 'password' → 'totp-challenge' (enrolled users) or
+  //        'totp-enroll' (enforcement on, not yet enrolled)
+  const [stage, setStage] = useState('password');
+  const [code, setCode] = useState('');
+  const [mfaResolver, setMfaResolver] = useState(null);
+  const [totpSecret, setTotpSecret] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
   const { signIn, signOut } = useSuperAdminAuth();
   const router = useRouter();
+
+  // Post-password gate shared by the initial sign-in and the TOTP
+  // challenge path: verify the superadmin role, then either enrol
+  // (enforcement on + no factor yet) or proceed to the dashboard.
+  const afterSignIn = async (user) => {
+    const userData = await getUserData(user.uid);
+    if (!userData || userData.role !== 'superadmin') {
+      await signOut(); toast.error('Access denied.'); setLoading(false);
+      setStage('password');
+      return;
+    }
+    const enrolled = multiFactor(user).enrolledFactors || [];
+    if (MFA_ENFORCE && enrolled.length === 0) {
+      // Block the dashboard until an authenticator is enrolled.
+      try {
+        const session = await multiFactor(user).getSession();
+        const secret = await TotpMultiFactorGenerator.generateSecret(session);
+        setTotpSecret(secret);
+        const otpauth = secret.generateQrCodeUrl(email || user.email || 'superadmin', 'HaloHelm');
+        try { setQrDataUrl(await QRCode.toDataURL(otpauth, { margin: 1, width: 220 })); } catch {}
+        setStage('totp-enroll');
+        setLoading(false);
+      } catch (err) {
+        if (err?.code === 'auth/operation-not-allowed') {
+          // TOTP provider not yet enabled in Firebase Console — don't
+          // lock the owner out of his own console over a half-done
+          // setup. Let him in, loudly.
+          toast.error('2FA enforcement is on but TOTP isn\'t enabled in Firebase Console yet — see SETUP_MFA.md. Letting you in WITHOUT 2FA.', { duration: 8000 });
+          router.push('/superadmin');
+        } else {
+          console.error('TOTP enrollment setup failed:', err);
+          toast.error('Could not start 2FA setup: ' + (err?.message || err?.code || 'unknown'));
+          setLoading(false);
+        }
+      }
+      return;
+    }
+    toast.success('Welcome, Admin!'); router.push('/superadmin');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const cred = await signIn(email, password);
-      const userData = await getUserData(cred.user.uid);
-      if (!userData || userData.role !== 'superadmin') {
-        await signOut(); toast.error('Access denied.'); setLoading(false); return;
-      }
-      toast.success('Welcome, Admin!'); router.push('/superadmin');
+      await afterSignIn(cred.user);
     } catch (err) {
+      if (err?.code === 'auth/multi-factor-auth-required') {
+        // Account has a TOTP factor — Firebase demands the code.
+        setMfaResolver(getMultiFactorResolver(superAdminAuth, err));
+        setStage('totp-challenge');
+        setLoading(false);
+        return;
+      }
       toast.error(err.code === 'auth/invalid-credential' ? 'Invalid email or password.' : 'Login failed.'); setLoading(false);
+    }
+  };
+
+  // Stage 2a — enrolled user typed their authenticator code.
+  const handleChallenge = async (e) => {
+    e.preventDefault();
+    if (!mfaResolver || code.trim().length !== 6) return;
+    setLoading(true);
+    try {
+      const hint = mfaResolver.hints.find(h => h.factorId === TotpMultiFactorGenerator.FACTOR_ID) || mfaResolver.hints[0];
+      const assertion = TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code.trim());
+      const cred = await mfaResolver.resolveSignIn(assertion);
+      setCode('');
+      await afterSignIn(cred.user);
+    } catch (err) {
+      toast.error(err?.code === 'auth/invalid-verification-code'
+        ? 'Wrong code. Check your authenticator app and try again.'
+        : 'Verification failed: ' + (err?.message || err?.code || 'unknown'));
+      setLoading(false);
+    }
+  };
+
+  // Stage 2b — first-time enrollment: verify the first code from the
+  // authenticator app, then attach the factor to the account.
+  const handleEnroll = async (e) => {
+    e.preventDefault();
+    if (!totpSecret || code.trim().length !== 6) return;
+    setLoading(true);
+    try {
+      const assertion = TotpMultiFactorGenerator.assertionForEnrollment(totpSecret, code.trim());
+      await multiFactor(superAdminAuth.currentUser).enroll(assertion, 'Authenticator app');
+      toast.success('2FA enabled. From now on, login needs your authenticator code.');
+      setCode(''); setTotpSecret(null); setQrDataUrl(null);
+      router.push('/superadmin');
+    } catch (err) {
+      toast.error(err?.code === 'auth/invalid-verification-code'
+        ? 'Wrong code. Scan the QR again or re-type the code from your app.'
+        : 'Enrollment failed: ' + (err?.message || err?.code || 'unknown'));
+      setLoading(false);
     }
   };
 
@@ -142,29 +258,109 @@ export default function SuperAdminLogin() {
 
             {/* ── Right form panel ── */}
             <div style={{ padding: '40px 44px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ marginBottom: 28 }}>
-                <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, color: A.warningDim, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Sign in
-                </div>
-                <h1 style={{ fontFamily: A.font, fontWeight: 600, fontSize: 26, color: A.ink, letterSpacing: '-0.4px', margin: 0, lineHeight: 1.2 }}>Super Admin</h1>
-                <p style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, marginTop: 8, marginBottom: 0 }}>
-                  Platform-level access for plan and restaurant management.
-                </p>
-              </div>
+              {stage === 'password' && (
+                <>
+                  <div style={{ marginBottom: 28 }}>
+                    <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, color: A.warningDim, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      Sign in
+                    </div>
+                    <h1 style={{ fontFamily: A.font, fontWeight: 600, fontSize: 26, color: A.ink, letterSpacing: '-0.4px', margin: 0, lineHeight: 1.2 }}>Super Admin</h1>
+                    <p style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, marginTop: 8, marginBottom: 0 }}>
+                      Platform-level access for plan and restaurant management.
+                    </p>
+                  </div>
 
-              <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Email</label>
-                  <input className="sa-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@HaloHelm.com" required />
-                </div>
-                <div style={{ marginBottom: 22 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Password</label>
-                  <input className="sa-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
-                </div>
-                <button type="submit" className="sa-btn" disabled={loading}>
-                  {loading ? 'Verifying…' : 'Access Dashboard →'}
-                </button>
-              </form>
+                  <form onSubmit={handleSubmit}>
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Email</label>
+                      <input className="sa-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@HaloHelm.com" required />
+                    </div>
+                    <div style={{ marginBottom: 22 }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Password</label>
+                      <input className="sa-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                    </div>
+                    <button type="submit" className="sa-btn" disabled={loading}>
+                      {loading ? 'Verifying…' : 'Access Dashboard →'}
+                    </button>
+                  </form>
+                </>
+              )}
+
+              {stage === 'totp-challenge' && (
+                <>
+                  <div style={{ marginBottom: 28 }}>
+                    <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, color: A.warningDim, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      Two-factor authentication
+                    </div>
+                    <h1 style={{ fontFamily: A.font, fontWeight: 600, fontSize: 26, color: A.ink, letterSpacing: '-0.4px', margin: 0, lineHeight: 1.2 }}>Enter your code</h1>
+                    <p style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, marginTop: 8, marginBottom: 0 }}>
+                      Open your authenticator app and type the 6-digit code for HaloHelm.
+                    </p>
+                  </div>
+                  <form onSubmit={handleChallenge}>
+                    <div style={{ marginBottom: 22 }}>
+                      <input
+                        className="sa-input" inputMode="numeric" autoFocus
+                        value={code}
+                        onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="123456"
+                        style={{ fontSize: 24, letterSpacing: '0.4em', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace" }}
+                      />
+                    </div>
+                    <button type="submit" className="sa-btn" disabled={loading || code.length !== 6}>
+                      {loading ? 'Verifying…' : 'Verify →'}
+                    </button>
+                  </form>
+                  <button
+                    onClick={() => { setStage('password'); setCode(''); setMfaResolver(null); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', marginTop: 16, fontSize: 12, color: A.faintText, fontFamily: A.font }}
+                  >← Use a different account</button>
+                </>
+              )}
+
+              {stage === 'totp-enroll' && (
+                <>
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontFamily: A.font, fontSize: 11, fontWeight: 600, color: A.warningDim, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      One-time setup
+                    </div>
+                    <h1 style={{ fontFamily: A.font, fontWeight: 600, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', margin: 0, lineHeight: 1.2 }}>Protect this account</h1>
+                    <p style={{ fontSize: 13, color: A.mutedText, lineHeight: 1.6, marginTop: 8, marginBottom: 0 }}>
+                      Scan this QR with Google Authenticator (or any authenticator app),
+                      then enter the 6-digit code it shows.
+                    </p>
+                  </div>
+                  {qrDataUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={qrDataUrl} alt="Scan with your authenticator app"
+                      style={{ width: 180, height: 180, alignSelf: 'center', borderRadius: 10, border: A.borderStrong, marginBottom: 12 }} />
+                  ) : null}
+                  {totpSecret?.secretKey && (
+                    <div style={{
+                      fontSize: 11, color: A.mutedText, textAlign: 'center', marginBottom: 16,
+                      fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all', lineHeight: 1.5,
+                    }}>
+                      Can't scan? Enter manually: <b>{totpSecret.secretKey}</b>
+                      <br />
+                      <span style={{ color: A.danger }}>Write this key down somewhere safe — it's your backup if you lose the phone.</span>
+                    </div>
+                  )}
+                  <form onSubmit={handleEnroll}>
+                    <div style={{ marginBottom: 18 }}>
+                      <input
+                        className="sa-input" inputMode="numeric" autoFocus
+                        value={code}
+                        onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="123456"
+                        style={{ fontSize: 24, letterSpacing: '0.4em', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace" }}
+                      />
+                    </div>
+                    <button type="submit" className="sa-btn" disabled={loading || code.length !== 6}>
+                      {loading ? 'Enabling…' : 'Enable 2FA →'}
+                    </button>
+                  </form>
+                </>
+              )}
 
               <div style={{ textAlign: 'center', marginTop: 22 }}>
                 <Link href="/" style={{ fontSize: 12, color: A.faintText, textDecoration: 'none', transition: 'color 0.15s', fontFamily: A.font }}

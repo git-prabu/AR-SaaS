@@ -48,12 +48,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Username must be 3-32 characters' });
   }
 
-  // PIN can be auto-generated if not supplied; otherwise validate
+  // PIN can be auto-generated if not supplied; otherwise validate.
+  // (2026-06-11 audit #14: minimum raised 4 → 6 for NEW pins. Existing
+  // staff with 4-digit PINs keep logging in fine — login validates
+  // against the stored hash, not this rule.)
   let plainPin;
   if (pin) {
     const digitsOnly = String(pin).replace(/\D/g, '');
-    if (digitsOnly.length < 4 || digitsOnly.length > 6) {
-      return res.status(400).json({ error: 'PIN must be 4-6 digits' });
+    if (digitsOnly.length !== 6) {
+      return res.status(400).json({ error: 'PIN must be 6 digits' });
     }
     plainPin = digitsOnly;
   } else {

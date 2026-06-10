@@ -8,10 +8,14 @@ export const config = {
 export function middleware(req) {
   const url       = req.nextUrl.clone();
   const hostname  = req.headers.get('host') || '';
-  const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'HaloHelm.com';
+  // Lowercase BOTH sides of the comparison (2026-06-11 audit #11):
+  // Host headers arrive lowercase, so the old mixed-case fallback
+  // 'HaloHelm.com' could never match `cleanHost.endsWith(...)` and
+  // subdomain routing silently no-opped whenever the env var was unset.
+  const baseDomain = (process.env.NEXT_PUBLIC_BASE_DOMAIN || 'halohelm.com').toLowerCase();
 
-  // Strip port for local dev
-  const cleanHost = hostname.replace(':3000', '').replace(':3001', '');
+  // Strip port for local dev + normalise case
+  const cleanHost = hostname.toLowerCase().replace(':3000', '').replace(':3001', '');
 
   // Detect subdomain
   // e.g. "spot.HaloHelm.com" → subdomain = "spot"
