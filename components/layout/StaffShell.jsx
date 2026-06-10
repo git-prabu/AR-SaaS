@@ -18,7 +18,7 @@ import { staffDb } from '../../lib/firebase';
 import { navSections, NavIcon } from './AdminLayout';
 import MobilePullToRefresh from '../MobilePullToRefresh';
 import PwaInstallPrompt from '../PwaInstallPrompt';
-import { PERMISSION_ROUTES, STAFF_ENABLED } from '../../lib/permissions';
+import { PERMISSION_ROUTES, STAFF_ENABLED, UNIVERSAL_STAFF_PERMS } from '../../lib/permissions';
 import { readStaffSession } from '../../lib/staffSession';
 import { getSubscriptionStatus } from '../../lib/subscription';
 import { canUseFeature } from '../../lib/plans';
@@ -88,7 +88,11 @@ export default function StaffShell({ active, children }) {
     label: s.label,
     items: s.items.filter(it => {
       const pk = ROUTE_PERM[it.href];
-      return pk && enabled.has(pk) && perms.includes(pk) && planAllows(pk);
+      if (!pk || !enabled.has(pk)) return false;
+      // Universal perms (e.g. 'help') show for every staff session —
+      // no role grant, no plan gate (audit #16).
+      if (UNIVERSAL_STAFF_PERMS.includes(pk)) return true;
+      return perms.includes(pk) && planAllows(pk);
     }),
   })).filter(s => s.items.length > 0);
 

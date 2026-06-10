@@ -21,6 +21,7 @@ import { db, staffDb, storage, staffStorage } from '../lib/firebase';
 import { readStaffSession } from '../lib/staffSession';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { canUseFeature } from '../lib/plans';
+import { UNIVERSAL_STAFF_PERMS } from '../lib/permissions';
 
 export function useFeatureAccess(permKey) {
   const router = useRouter();
@@ -38,7 +39,10 @@ export function useFeatureAccess(permKey) {
   const isAdmin = !!adminRid;
   const staffPerms = Array.isArray(staffSession?.perms) ? staffSession.perms : [];
   const isStaff = !isAdmin && !!staffSession?.restaurantId;
-  const hasPerm = isStaff && staffPerms.includes(permKey);
+  // Universal perms (e.g. 'help') belong to every signed-in staff
+  // member — not role-granted, not plan-gated (audit #16).
+  const isUniversal = UNIVERSAL_STAFF_PERMS.includes(permKey);
+  const hasPerm = isStaff && (isUniversal || staffPerms.includes(permKey));
   const canView = isAdmin || hasPerm;
   const rid = adminRid || staffSession?.restaurantId || null;
   const scopedDb = isAdmin ? db : staffDb;
@@ -56,9 +60,10 @@ export function useFeatureAccess(permKey) {
     if (authLoading || isAdmin || !sessionChecked) return;
     if (!staffSession) { router.replace('/admin/login'); return; }
     // Logged-in staff who lack THIS feature go to their staff home hub
-    // (which shows what they CAN access) — not a login loop.
-    if (!staffPerms.includes(permKey)) { router.replace('/staff/home'); return; }
-  }, [authLoading, isAdmin, sessionChecked, staffSession, permKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    // (which shows what they CAN access) — not a login loop. Universal
+    // perms are held by every staff session, so no redirect for those.
+    if (!isUniversal && !staffPerms.includes(permKey)) { router.replace('/staff/home'); return; }
+  }, [authLoading, isAdmin, sessionChecked, staffSession, permKey, isUniversal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Phase D — plan gating. Subscribe to the restaurant doc so the page
   // knows the current plan tier and can render an "Upgrade required"
@@ -76,7 +81,9 @@ export function useFeatureAccess(permKey) {
   // null while we're still loading the restaurant doc — pages should
   // treat null as "don't know yet" (fail-OPEN) so the page renders
   // normally for the first ~300 ms instead of flashing an upgrade screen.
-  const planAllowsFeature = restaurant ? canUseFeature(restaurant, permKey) : null;
+  // Universal perms are never plan-gated (canUseFeature would return
+  // false for them since no plan lists them).
+  const planAllowsFeature = isUniversal ? true : (restaurant ? canUseFeature(restaurant, permKey) : null);
 
   return { ready, isAdmin, isStaff, canView, rid, scopedDb, scopedStorage, staffPerms, staffSession, userData, user, restaurant, planAllowsFeature };
 }

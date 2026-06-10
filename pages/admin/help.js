@@ -11,7 +11,8 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useState } from 'react';
-import AdminLayout from '../../components/layout/AdminLayout';
+import FeatureShell from '../../components/layout/FeatureShell';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 
 const A = {
   font:       "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -84,6 +85,20 @@ const FAQ_GROUPS = [
       {
         q: 'How does the kitchen know when a new order arrives?',
         a: <>The Kitchen page plays a chime sound when a new order lands (the speaker icon on top-right toggles sound on/off). On a tablet mounted in the kitchen, leave the page open — orders push in real-time via Firebase. No refresh needed.</>,
+      },
+      {
+        q: 'How do notifications work? (sounds, voice, lock-screen alerts)',
+        a: <>
+          There are <b>three separate alert channels</b>, each with its own toggle in the top-right of the Kitchen Station / Orders pages:
+          <br /><br />
+          <b>🔊 In-app chime</b> — beeps when something new arrives. Only works while the page is <i>open on screen</i>. First tap anywhere on the page activates audio (browsers require one touch before they allow sound).
+          <br /><br />
+          <b>🎙️ Voice readout</b> — speaks the event aloud ("New order, table 5, 3 items"). Also only while the page is open and in the foreground. On iPhone, the side <b>Silent switch must be OFF</b> or the phone stays mute.
+          <br /><br />
+          <b>📲 Lock-screen push</b> — the important one: rings <i>even when the phone is locked or the app is closed</i>. Tap the 📵 icon once on each device and Allow notifications. <b>iPhone extra step:</b> push only works if the app was installed via Safari → Share → <b>Add to Home Screen</b>, and opened from that home-screen icon. Android phones and computers work directly in Chrome.
+          <br /><br />
+          Staff with Kitchen access get new-order alerts; staff with Orders access get ready/call/payment alerts; the owner gets everything.
+        </>,
       },
       {
         q: 'How do I take an order in person (e.g., phone-in or counter)?',
@@ -246,8 +261,13 @@ export default function AdminHelp() {
   // Only one item open at a time (accordion). null = all collapsed.
   const [openKey, setOpenKey] = useState(null);
 
+  // 'help' is a UNIVERSAL_STAFF_PERM (audit #16) — every signed-in
+  // staff member can read this page in their StaffShell; the owner
+  // renders inside AdminLayout exactly as before.
+  const { ready, isAdmin } = useFeatureAccess('help');
+
   return (
-    <AdminLayout>
+    <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/help" permKey="help" planAllowsFeature={true}>
       <Head><title>Help & FAQ — HaloHelm</title></Head>
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font, padding: '24px 28px' }}>
         <div style={{ maxWidth: 800 }}>
@@ -404,9 +424,9 @@ export default function AdminHelp() {
           </div>
         </div>
       </div>
-    </AdminLayout>
+    </FeatureShell>
   );
 }
 
-// Skip the default per-page layout — AdminLayout is used explicitly above.
+// Skip the default per-page layout — FeatureShell is used explicitly above.
 AdminHelp.getLayout = (page) => page;
