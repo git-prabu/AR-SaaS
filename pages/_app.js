@@ -26,6 +26,7 @@ import OfflineIndicator from '../components/OfflineIndicator';
 // refactor (getLayout on each admin page); that's a separate, larger
 // change. Correctness of login > an 80KB bundle micro-win.
 import AuthProviders from '../components/AuthProviders';
+import * as Sentry from '@sentry/nextjs';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -37,6 +38,11 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, info) {
     console.error('ErrorBoundary caught:', error, info);
+    // Report the white-screen to Sentry with the component stack.
+    // No-op when Sentry isn't initialised (no DSN configured).
+    try {
+      Sentry.captureException(error, { contexts: { react: { componentStack: info?.componentStack } } });
+    } catch {}
   }
   render() {
     if (this.state.hasError) {

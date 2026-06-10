@@ -61,6 +61,17 @@ export default async function handler(req, res) {
   const rlim = await checkRateLimit(`petpooja_cb_${restID}_${orderID}`, 5, 60);
   if (!rlim.ok) {
     res.setHeader('Retry-After', String(rlim.waitSec));
+    // Audit #17: a rate-limited callback is either a Petpooja retry
+    // storm or someone probing the unsigned endpoint — both worth a
+    // warning trail in Sentry (no-op without DSN).
+    try {
+      const Sentry = await import('@sentry/nextjs');
+      Sentry.captureMessage('petpooja callback rate-limited', {
+        level: 'warning',
+        tags: { area: 'petpooja-callback' },
+        extra: { restID: String(restID), orderID: String(orderID) },
+      });
+    } catch {}
     return res.status(429).json({ http_code: 429, status: 'error', message: 'Too many callbacks for this order. Retry in a moment.' });
   }
 

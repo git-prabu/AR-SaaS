@@ -133,6 +133,14 @@ export default async function handler(req, res) {
     return res.status(200).send('OK');
   } catch (err) {
     console.error('[webhook] processing failed:', err);
+    // A verified payment event we failed to process = money moved but
+    // the order didn't flip to paid. The gateway will retry (5xx), but
+    // if the failure is persistent the owner must know. No-op without
+    // a Sentry DSN configured.
+    try {
+      const Sentry = await import('@sentry/nextjs');
+      Sentry.captureException(err, { tags: { area: 'payment-webhook' }, extra: { restaurantId } });
+    } catch {}
     // 5xx so the gateway retries.
     return res.status(500).send('Processing failed');
   }

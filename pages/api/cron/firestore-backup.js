@@ -139,6 +139,12 @@ export default async function handler(req, res) {
       durationMs: elapsedMs,
       error: err?.message,
     });
+    // A dead backup is the most dangerous silent failure in the app —
+    // report it. No-op when Sentry isn't configured.
+    try {
+      const Sentry = await import('@sentry/nextjs');
+      Sentry.captureException(err, { tags: { cron: 'firestore-backup' }, extra: { elapsedMs } });
+    } catch {}
     return res.status(500).json({ ok: false, error: err.message });
   }
 }

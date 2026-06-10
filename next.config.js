@@ -112,4 +112,20 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// ── Sentry (2026-06-11, audit Phase B) ──────────────────────────────
+// withSentryConfig instruments API routes + pages at build time and
+// (only when SENTRY_AUTH_TOKEN is set) uploads source maps so stack
+// traces are readable. With no auth token it skips upload silently —
+// builds stay green before Sentry is configured. Runtime reporting is
+// separately gated on NEXT_PUBLIC_SENTRY_DSN (see lib/sentry.shared.js):
+// no DSN → SDK never initialises → zero behaviour change.
+const { withSentryConfig } = require('@sentry/nextjs');
+
+module.exports = withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,            // no build-log spam
+  widenClientFileUpload: false,
+  disableLogger: true,     // strip Sentry debug logger from bundles
+});
