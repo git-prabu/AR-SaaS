@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import Script from 'next/script';
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -267,8 +268,13 @@ export default function AdminSubscription() {
     <AdminLayout>
       <Head>
         <title>Subscription — HaloHelm</title>
-        <script src="https://checkout.razorpay.com/v1/checkout.js" />
       </Head>
+      {/* Razorpay checkout SDK. next/script (afterInteractive) instead
+          of a sync <script> in <Head> — scripts inside next/head are
+          unreliable (may silently not load) and block parsing when they
+          do. The upgrade button already guards `window.Razorpay` with a
+          "Please refresh" toast, so the async load is safe. */}
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       <div style={{ background: A.cream, minHeight: '100vh', fontFamily: A.font }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }

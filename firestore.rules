@@ -793,17 +793,27 @@ service cloud.firestore {
       // Read rule: same — only your own doc, so the UI can show subscription
       //   state without leaking who else is subscribed.
       match /pushSubscribers/{tokenId} {
-        // Staff: can manage their own subscription doc.
-        allow read, write: if isStaff(restaurantId)
+        // READ: own doc only — matched against the EXISTING doc
+        // (resource.data). The original rule mistakenly used
+        // request.resource.data here, which is undefined on reads, so
+        // reads always failed. Nothing reads these docs today (the
+        // PushToggle UI derives state from Notification.permission),
+        // but the rule should still be correct.
+        allow read: if isStaff(restaurantId)
+          && resource.data.subscriberKind == 'staff'
+          && resource.data.subscriberId == request.auth.token.staffId;
+        allow read: if isRestaurantAdmin(restaurantId)
+          && resource.data.subscriberKind == 'admin'
+          && resource.data.subscriberId == request.auth.uid;
+        // CREATE/UPDATE: incoming doc must identify the caller —
+        // matched against request.resource.data (the new content).
+        allow create, update: if isStaff(restaurantId)
           && request.resource.data.subscriberKind == 'staff'
           && request.resource.data.subscriberId == request.auth.token.staffId;
-        // Admin (owner): can manage their own subscription doc.
-        allow read, write: if isRestaurantAdmin(restaurantId)
+        allow create, update: if isRestaurantAdmin(restaurantId)
           && request.resource.data.subscriberKind == 'admin'
           && request.resource.data.subscriberId == request.auth.uid;
-        // Delete-only path — needed because the request.resource.data
-        // checks above don't fire on delete (no incoming data). Match on
-        // the EXISTING doc instead.
+        // DELETE: no incoming data — match on the EXISTING doc.
         allow delete: if isStaff(restaurantId)
           && resource.data.subscriberKind == 'staff'
           && resource.data.subscriberId == request.auth.token.staffId;

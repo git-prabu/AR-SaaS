@@ -415,6 +415,9 @@ export default function AdminLogin() {
                 impossible-to-miss button. Plain <a> with a real href
                 so it works even if React/Next routing is broken. */}
             {showStandaloneBanner && (
+              /* eslint-disable-next-line @next/next/no-html-link-for-pages --
+                 intentional plain <a>: full navigation must work even when
+                 Next client routing is broken inside a stale-SW PWA. */
               <a
                 href="/staff/login"
                 onClick={() => {
@@ -462,6 +465,8 @@ export default function AdminLogin() {
                   works. Also stamps the staff-intent flag on click so
                   next launch of the PWA auto-redirects without any
                   user effort. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages --
+                  intentional plain <a>; see comment above. */}
               <a href="/staff/login"
                 onClick={() => {
                   try { localStorage.setItem('ar_last_login_intent', 'staff'); } catch {}
