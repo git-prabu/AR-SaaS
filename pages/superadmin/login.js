@@ -6,6 +6,8 @@ import {
   getMultiFactorResolver,
   TotpMultiFactorGenerator,
   multiFactor,
+  sendEmailVerification,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import QRCode from 'qrcode';
 import { superAdminAuth } from '../../lib/firebaseAuth';
@@ -101,6 +103,20 @@ export default function SuperAdminLogin() {
           // setup. Let him in, loudly.
           toast.error('2FA enforcement is on but TOTP isn\'t enabled in Firebase Console yet — see SETUP_MFA.md. Letting you in WITHOUT 2FA.', { duration: 8000 });
           router.push('/superadmin');
+        } else if (err?.code === 'auth/unverified-email') {
+          // Firebase requires a VERIFIED email before second factors can
+          // be enrolled (the verified inbox is the MFA recovery anchor).
+          // Send the verification link and explain the loop. We sign out
+          // so the half-authenticated session doesn't linger.
+          try { await sendEmailVerification(user); } catch {}
+          toast.error(
+            `Your email (${user.email}) must be verified before 2FA can be set up. ` +
+            'We just sent a verification link — click it, then sign in again.',
+            { duration: 10000 }
+          );
+          await signOut();
+          setLoading(false);
+          setStage('password');
         } else {
           console.error('TOTP enrollment setup failed:', err);
           toast.error('Could not start 2FA setup: ' + (err?.message || err?.code || 'unknown'));
@@ -110,6 +126,22 @@ export default function SuperAdminLogin() {
       return;
     }
     toast.success('Welcome, Admin!'); router.push('/superadmin');
+  };
+
+  // Recovery path (12 Jun 2026): the superadmin login had NO forgot-
+  // password flow — a lost password was a dead end. Standard Firebase
+  // reset email; same response either way so account existence can't
+  // be probed from this form.
+  const handleForgotPassword = async () => {
+    const target = email.trim();
+    if (!target) { toast.error('Type your email above first, then tap Forgot password.'); return; }
+    try {
+      await sendPasswordResetEmail(superAdminAuth, target);
+    } catch (err) {
+      // Swallow user-not-found etc. — identical messaging by design.
+      console.warn('reset email:', err?.code);
+    }
+    toast.success(`If an account exists for ${target}, a password-reset link is on its way.`, { duration: 7000 });
   };
 
   const handleSubmit = async (e) => {
@@ -275,9 +307,15 @@ export default function SuperAdminLogin() {
                       <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Email</label>
                       <input className="sa-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@HaloHelm.com" required />
                     </div>
-                    <div style={{ marginBottom: 22 }}>
+                    <div style={{ marginBottom: 10 }}>
                       <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: A.faintText, marginBottom: 7, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Password</label>
                       <input className="sa-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                    </div>
+                    <div style={{ textAlign: 'right', marginBottom: 16 }}>
+                      <button type="button" onClick={handleForgotPassword} style={{
+                        background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                        fontSize: 12, fontWeight: 600, color: A.warningDim, fontFamily: A.font,
+                      }}>Forgot password?</button>
                     </div>
                     <button type="submit" className="sa-btn" disabled={loading}>
                       {loading ? 'Verifying…' : 'Access Dashboard →'}
