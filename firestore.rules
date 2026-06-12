@@ -633,6 +633,33 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin();
       }
 
+      // ── Staff activity trail (12 Jun 2026) ─────────────────────
+      // Append-only accountability log: who placed/cancelled/settled/
+      // bumped/printed what, plus logins. Written fire-and-forget by
+      // lib/db.js logStaffActivity (client) and /api/staff/login
+      // (Admin SDK, bypasses rules).
+      //
+      // CREATE: the actor may only write entries about THEMSELVES —
+      //   staff must stamp their own staffId from their token; the
+      //   owner writes actorKind 'admin'. Nobody can forge entries
+      //   for someone else.
+      // READ: owner + superadmin + staff holding the 'staff'
+      //   (team-management) permission — the same trust tier that can
+      //   see the roster.
+      // UPDATE/DELETE: nobody (append-only) — superadmin excepted for
+      //   data hygiene.
+      match /staffActivity/{entryId} {
+        allow create: if isRestaurantAdmin(restaurantId) &&
+          request.resource.data.actorKind == 'admin';
+        allow create: if isActiveStaff(restaurantId) &&
+          request.resource.data.actorKind == 'staff' &&
+          request.resource.data.staffId == request.auth.token.staffId;
+        allow read: if isRestaurantAdmin(restaurantId)
+          || isSuperAdmin()
+          || staffCan(restaurantId, 'staff');
+        allow update, delete: if isSuperAdmin();
+      }
+
       // ── Billing counters (Bill v2, 12 Jun 2026) ────────────────
       // Single doc `counters/billing` holding the restaurant's running
       // invoice number series: { nextBill: <int>, updatedAt }.

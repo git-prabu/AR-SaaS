@@ -210,6 +210,23 @@ export default async function handler(req, res) {
     })
     .catch(() => { /* best-effort */ });
 
+  // Staff activity trail (12 Jun 2026) — login event for the per-staff
+  // timeline on /admin/staff. Server-side write (Admin SDK) because the
+  // client session doesn't exist yet at this point.
+  adminDb
+    .collection('restaurants').doc(restaurantId)
+    .collection('staffActivity')
+    .add({
+      at: admin.firestore.FieldValue.serverTimestamp(),
+      actorKind: 'staff',
+      staffId: staffDoc.id,
+      actorName: staff.name || staff.username || 'Staff',
+      action: 'login',
+      refType: null, refId: null, tableNumber: null, amount: null,
+      detail: effectiveRole,
+    })
+    .catch(() => { /* best-effort */ });
+
   return res.status(200).json({
     success: true,
     token: customToken,

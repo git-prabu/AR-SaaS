@@ -69,6 +69,7 @@ import {
   markOrderPaid, markOrderPaidAs,
   markOrderItemServedAs,
   markBillPrinted, ensureBillNumber,
+  logStaffActivity,
 } from '../../lib/db';
 import { printBill } from '../../lib/printKot';
 import {
@@ -687,6 +688,15 @@ export default function Orders() {
         if (staffSession) await markOrderPaidAs(staffDb, rid, o.id, paidStatus, ex);
         else              await markOrderPaid(rid, o.id, paidStatus, ex);
       }
+      // One rich accountability entry for the whole settle (the per-order
+      // payment_marked entries above carry the detail; this carries the
+      // money + table — what the owner actually scans for).
+      logStaffActivity(scopedDb, rid, {
+        action: 'table_settled', refType: 'order',
+        refId: toSettle[0]?.id || null,
+        tableNumber: table._code || table.id,
+        amount: total, detail: methodLabel,
+      });
       toast.success(`Table ${table.id} settled — ₹${Math.round(total).toLocaleString('en-IN')} (${methodLabel})`);
       setSettleSheet(null);
     } catch (e) {
