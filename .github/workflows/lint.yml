@@ -72,7 +72,37 @@ jobs:
           # so static build doesn't need real credentials.
           FIREBASE_ADMIN_PROJECT_ID: dummy
           FIREBASE_ADMIN_CLIENT_EMAIL: dummy@dummy.iam.gserviceaccount.com
-          # Multi-line private keys need escaped newlines in env values.
-          # This is a syntactically-valid dummy key (won't authenticate
-          # anywhere — just lets firebase-admin's parse step succeed).
-          FIREBASE_ADMIN_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----\n"
+          # Throwaway RSA key (generated 2026-06-12, never used anywhere
+          # real). firebase-admin PARSES the key at module load — the old
+          # 'MIIE' stub failed DER parsing and killed every CI build at
+          # "collecting page data". A structurally valid key parses fine;
+          # it still authenticates nothing (not registered with Google).
+          FIREBASE_ADMIN_PRIVATE_KEY: |
+            -----BEGIN PRIVATE KEY-----
+            MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7F+9LAFw3h6dR
+            DpowT9FD55NxHUlL/2SzwjljJTdGpQAkfBSSk6qjFhL+wXOmVm07XYbsAblQ90de
+            VOKYJz38Xy/C8WMC4xGmUSCQhkYGElwHm0iIf7vmLAUprqBIB7ACp+8F+8gOhJvK
+            4ZdGvIyNXNxWiNVsqcIkklSV/eJDkPXbrHq9k1LeSyFn2pzlGwOz0HJrEpiNw5oO
+            GLkHJTxLZob61MHysOUu+UKepnonMqpnlIk0oswgmiavMLoUbiuXwmYATRuF8hQb
+            JjbIwxQRxC0OJU3Qr88meQBIXLb1umUkv93f9StQn+IRaV9mGAnMVx0hyo+njbaD
+            3lqxCqTDAgMBAAECggEAHC9p5EGkotTz1tk9T0PnAbTUWHkR/rn14MLExHPp1OGs
+            mNJ8guxuC22a5PgdxRRGFmhrmAhWc6UdAlAFZuiahPeOCW81/Exa71RPdJZV3DpN
+            1POGxNGBbBZ7nKDrEo7d7DiCYMNiixVdJv4/PO/QuMchhoPMqzcTwVCuH36E5Kqi
+            VO9ds1+uy60D6m2M9zxr3aB5dk7tDc+nWrTpBoUyU1eIPZPg6WcUgOp0yYsciw7q
+            i8IIMXAfsUsg6qSxOXJLXu51hjHmz4SAZ3mcWpaX6xPV1SLxITegkX2Xl2A3UCg6
+            Iofix4rkVHU8U/fhlIOKZSDh59dmuPTe42Ca+odTUQKBgQD8KIqg+PXBSc12NvFS
+            7ZvNeot+2IwUyaPeYh/9RRfZ2/eEf8eBi6B8hY1oY5Rig9JZvfWj/Av7tFhwS1TG
+            YAW5VCRzP8N2a6RZyIpSWKNkqMqBl/NoffsKhJMvPF1I3HO+If+qAiAuTDKMyuDn
+            NEy1pLpJ0muLhwgBfunFKZfRiQKBgQC98aEy63KZdAhFfB6+tL6vIXu83f7ef+K3
+            l23CYn8+e7pRt7/JvikseuEWJ0NoWglH2uW1p47tombWeHUKwJTQ7RhmiRBY9qSK
+            iRypZE0m7T89jFGFy57qTfyAqrdNhZg36PNaYujhIlxa3vdNlRmwf2BHlY3HKHD3
+            uqEVH6vs6wKBgQCzBBk/JOBcJAgw19rF1BibbVehax0wGOM0mxc42JeRPH/h2lGK
+            H9WE8c+tf5y1v/5TZfABRow/Ww66UlDSMRN/OkRSab9b0BmzABNrWLBPYyG5lWXi
+            FiZmli5kB4f2lUO6hSqbyLyOAdyVZeb7XX7kKhlzFWbyfJ/rZ+2Q4vF8eQKBgD3c
+            VAOhatFPWOJIajrx4qhm30XDhx4vyEbCqpyEN6zB3wx+K5gotoAmBOiSIQH7UMp2
+            IBnpWENMgPGYiYXW8qCYlznNqeVPbocv4IXKhNYIrm/9Iw/QIRFuFK5S6x/0Qn7y
+            /06QqAeqiSmPNDuwM42n7lNiAaq7IQ+NWKjoh7XBAoGASGEsimsOGAtZkY0I1PMf
+            rRH7QGrSRsaSVZkZOV/ob5Dhq5E2dlSmMlR7X0J4rubrXb+vLUdrXz5xdDROvRNq
+            Vlk11pcbiBgD4oQuYO9tPq295qB8UJNJ/rsydhsdkCrBJdx+mSjCsX0KICr2bwEd
+            SFvmQQFGRehbtRtDNggCvKk=
+            -----END PRIVATE KEY-----
