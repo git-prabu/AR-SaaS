@@ -353,6 +353,10 @@ export default function KitchenNew() {
                     is closed. They're independent — keeping sound off
                     + push on is a valid "I want chimes only when I'm
                     not looking" config. */}
+                {/* marginLeft:auto here + .ws-clock's own margin-left:auto
+                    used to SPLIT the free space and strand these toggles in
+                    the middle of the header (owner screenshot, 12 Jun). One
+                    auto margin only — the clock below gets marginLeft:0. */}
                 <div style={{
                   display: 'inline-flex', gap: 8, marginLeft: 'auto', marginRight: 14,
                 }}>
@@ -384,7 +388,7 @@ export default function KitchenNew() {
                     }}
                   >{voiceEnabled ? '🎙️' : '🔇'}</button>
                 </div>
-                <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
+                <div className="ws-clock" style={{ marginLeft: 0 }}>{I.clock}{fmtClock(clockNow)}</div>
               </div>
               {/* Stats strip + ALL-DAY chips (legacy /admin/kitchen
                   parity, owner asked for this pattern). Active = all
@@ -403,9 +407,16 @@ export default function KitchenNew() {
                     const oldestM = Math.floor(oldestSec / 60);
                     // Same format as the per-ticket age: Xm Ys.
                     const oldestStr = `${oldestM}m ${String(oldestSec % 60).padStart(2, '0')}s`;
+                    // The strip sits on var(--rail), which stays DARK even in
+                    // light mode (design: the chrome stays dark). So all text
+                    // on it must be literal cream — theme vars like var(--tx)
+                    // flip dark in light mode and vanish against the rail.
+                    // Owner caught exactly that on 12 Jun (invisible labels).
+                    const STRIP_TX   = '#EFEBE4';
+                    const STRIP_TX_2 = 'rgba(239,235,228,0.55)';
                     const oldestColor = oldestM >= 18 ? 'var(--danger)'
                                      : oldestM >= 10 ? 'var(--gold)'
-                                     : 'var(--tx)';
+                                     : STRIP_TX;
                     const todayStart = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() / 1000; })();
                     const servedToday = Object.values(ordersById).filter(o =>
                       o.status === 'served' && (o.updatedAt?.seconds || 0) >= todayStart
@@ -415,33 +426,33 @@ export default function KitchenNew() {
                         <div style={{
                           display: 'flex', alignItems: 'center', gap: 24,
                           padding: '14px 22px',
-                          background: 'var(--rail)', color: 'var(--tx)',
+                          background: 'var(--rail)', color: STRIP_TX,
                           borderRadius: 16, marginBottom: 14, flexWrap: 'wrap',
                         }}>
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 8,
                             fontFamily: 'var(--font-mono)', fontSize: 10,
                             letterSpacing: '.14em', textTransform: 'uppercase',
-                            color: 'var(--tx-2)',
+                            color: STRIP_TX_2,
                           }}>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--st-ready)' }} />
                             LIVE KITCHEN
                           </span>
                           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-2)' }}>ACTIVE</span>
-                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--tx)' }}>{activeOrders.length}</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: STRIP_TX_2 }}>ACTIVE</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: STRIP_TX }}>{activeOrders.length}</span>
                           </span>
                           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-2)' }}>OLDEST</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: STRIP_TX_2 }}>OLDEST</span>
                             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: oldestColor, fontVariantNumeric: 'tabular-nums' }}>
                               {activeOrders.length === 0 ? '—' : oldestStr}
                             </span>
                           </span>
                           <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-2)' }}>SERVED TODAY</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: STRIP_TX_2 }}>SERVED TODAY</span>
                             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--st-ready)' }}>{servedToday}</span>
                           </span>
-                          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-2)' }}>
+                          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, color: STRIP_TX_2 }}>
                             {clockNow.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                           </span>
                         </div>

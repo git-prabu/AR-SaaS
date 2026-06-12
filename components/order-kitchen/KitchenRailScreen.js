@@ -277,7 +277,9 @@ export default function KitchenRailScreen({
               {f.label}
               <span style={{
                 padding: '1px 6px', borderRadius: 999,
-                background: on ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.06)',
+                // off-state badge uses var(--line-soft), not a white wash —
+                // rgba(255,255,255,0.06) was invisible on light cards.
+                background: on ? 'rgba(0,0,0,0.18)' : 'var(--line-soft)',
                 fontFamily: "'JetBrains Mono', ui-monospace, monospace",
                 fontSize: 10, fontWeight: 700,
               }}>{counts[f.id]}</span>
@@ -406,7 +408,7 @@ function KitchenTicket({
       <div style={{
         padding: '12px 14px 10px',
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-        borderBottom: `1px solid rgba(255,255,255,0.04)`,
+        borderBottom: `1px solid var(--line-soft)`,
       }}>
         <div style={{
           width: 42, height: 42, borderRadius: 11,
@@ -486,7 +488,7 @@ function KitchenTicket({
           return (
             <div key={i} style={{
               padding: '8px 10px',
-              borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+              borderTop: i > 0 ? '1px solid var(--line-soft)' : 'none',
               borderRadius: isDup ? 8 : 0,
               background: isDup ? 'rgba(196,168,109,0.06)' : 'transparent',
             }}>
@@ -599,7 +601,7 @@ function KitchenTicket({
 
       {/* footer — order-level Start cooking button (only on pending) */}
       {status === 'pending' && (
-        <div style={{ padding: '10px 14px', borderTop: `1px solid rgba(255,255,255,0.04)` }}>
+        <div style={{ padding: '10px 14px', borderTop: `1px solid var(--line-soft)` }}>
           <button
             onClick={() => onStartOrder(order)}
             disabled={updatingKey === `${order.id}:start`}

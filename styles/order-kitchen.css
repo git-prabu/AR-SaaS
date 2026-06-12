@@ -650,7 +650,9 @@
   font-family: var(--font-display); font-weight: 600; font-size: 10px;
 }
 .ok-root .rail-btn:hover {
-  color: var(--tx); background: rgba(255,255,255,0.04);
+  /* Literal cream, NOT var(--tx): the rail stays dark in light mode,
+     so the flipping token would turn hover text dark-on-dark. */
+  color: #EFEBE4; background: rgba(255,255,255,0.04);
 }
 .ok-root .rail-btn.on {
   color: var(--accent-ink); background: var(--accent);

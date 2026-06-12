@@ -151,7 +151,9 @@ export default function OrdersListScreen({ orders, filter, onFilterChange, deskt
               {c.label}
               <span style={{
                 padding: '1px 6px', borderRadius: 999,
-                background: on ? 'rgba(0,0,0,0.32)' : 'rgba(255,255,255,0.06)',
+                // off-state badge uses var(--line-soft), not a white wash —
+                // rgba(255,255,255,0.06) was invisible on light cards.
+                background: on ? 'rgba(0,0,0,0.18)' : 'var(--line-soft)',
                 fontFamily: "'JetBrains Mono', ui-monospace, monospace",
                 fontSize: 10, fontWeight: 700,
               }}>{c.count}</span>

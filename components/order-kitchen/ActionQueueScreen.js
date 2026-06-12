@@ -451,7 +451,10 @@ export function CashModal({ item, cashReceived, onChange, onConfirm, onCancel, i
               padding: '12px 14px',
               fontFamily: "'JetBrains Mono', ui-monospace, monospace",
               fontSize: 18, fontWeight: 700,
-              background: 'rgba(0,0,0,0.32)',
+              // var(--card-2), not a fixed dark wash — the old
+              // rgba(0,0,0,0.32) bg + theme-flipping text turned the
+              // cash input dark-on-dark in light mode.
+              background: 'var(--card-2)',
               color: COLORS.text,
               border: `1px solid ${tooLittle ? COLORS.danger : COLORS.border}`,
               borderRadius: 10,

@@ -81,6 +81,7 @@ import ActionQueueScreen, { CashModal } from '../../components/order-kitchen/Act
 import OrdersListScreen from '../../components/order-kitchen/OrdersListScreen';
 import HistoryListScreen from '../../components/order-kitchen/HistoryListScreen';
 import PushToggle from '../../components/order-kitchen/PushToggle';
+import SettleSheet from '../../components/order-kitchen/SettleSheet';
 import { I, VegMark, SpicePips, Thumb } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
@@ -618,10 +619,71 @@ export default function Orders() {
     setSheet(null);
   };
 
-  const pickTable = (table) => {
+  // Open the menu for a table (the original pickTable behaviour).
+  const openMenuFor = (table) => {
     setActiveTable(table);
     setSelectedSeat(0);
     setScreen('menu');
+  };
+
+  // Live UNPAID orders for a table — mirrors the dedup the `tables`
+  // memo uses (bill.orderIds ∪ tableNumber match), then filters to
+  // not-yet-paid. Used by the settle flow; kept as a plain function
+  // (not a memo) because it only runs on a tap.
+  const liveUnpaidForTable = (table) => {
+    const code = String(table._code || '');
+    const sess = sessions[code];
+    const billId = sess?.currentBillId;
+    const bill = billId ? bills[billId] : null;
+    const fromBill = bill ? (bill.orderIds || []).map(id => ordersById[id]).filter(Boolean) : [];
+    const fromTable = code ? allOrdersList.filter(o => {
+      if (String(o.tableNumber || '') !== code) return false;
+      if (o.orderType === 'takeaway' || o.orderType === 'takeout') return false;
+      if (o.status === 'cancelled') return false;
+      return !(o.status === 'served' && PAID.has(o.paymentStatus));
+    }) : [];
+    const dedup = {};
+    for (const o of [...fromBill, ...fromTable]) if (o && o.status !== 'cancelled') dedup[o.id] = o;
+    return Object.values(dedup).filter(o => !PAID.has(o.paymentStatus));
+  };
+
+  // Settle-from-Orders (owner request, 12 Jun 2026): tapping a table
+  // that has an unpaid balance now offers Add items / Settle bill
+  // instead of jumping straight into the menu. Free/seated tables and
+  // fully-paid tables keep the old direct-to-menu behaviour.
+  const [settleSheet, setSettleSheet] = useState(null); // { table, orders, total }
+
+  const pickTable = (table) => {
+    const unpaid = liveUnpaidForTable(table);
+    if (unpaid.length > 0) {
+      const total = unpaid.reduce((s, o) => s + (Number(o.total) || 0), 0);
+      setSettleSheet({ table, orders: unpaid, total });
+      return;
+    }
+    openMenuFor(table);
+  };
+
+  // Mark every unpaid order on the table paid_<method>. SEQUENTIAL on
+  // purpose: lib/db's _autoCloseBillIfAllPaid runs after each mark and
+  // checks the bill's sibling orders — parallel writes could each see
+  // another still-unpaid sibling and NOBODY would close the bill. One
+  // at a time, the final mark sees all-paid and closes the bill +
+  // frees the table session.
+  const settleTable = async (paidStatus, methodLabel) => {
+    if (!settleSheet) return;
+    const { table, orders: toSettle, total } = settleSheet;
+    try {
+      for (const o of toSettle) {
+        if (staffSession) await markOrderPaidAs(staffDb, rid, o.id, paidStatus);
+        else              await markOrderPaid(rid, o.id, paidStatus);
+      }
+      toast.success(`Table ${table.id} settled — ₹${Math.round(total).toLocaleString('en-IN')} (${methodLabel})`);
+      setSettleSheet(null);
+    } catch (e) {
+      console.error('settle failed:', e);
+      toast.error('Could not settle the table. Try again.');
+      throw e; // SettleSheet resets its busy state on rejection
+    }
   };
 
   // ─── Send to kitchen ────────────────────────────────────────────
@@ -982,13 +1044,17 @@ export default function Orders() {
                   </div>
                   {/* Push toggle — lock-screen notifications via FCM
                       so the waiter hears the call/ready/payment chime
-                      even when the phone is locked. */}
+                      even when the phone is locked. marginLeft:auto here
+                      + .ws-clock's own auto margin used to SPLIT the free
+                      space and strand the toggle mid-header (owner
+                      screenshot, 12 Jun) — so the clock gets marginLeft:0
+                      and this wrapper carries the only auto margin. */}
                   {rid && pushSubscriber && (
                     <div style={{ marginLeft: 'auto', marginRight: 14 }}>
                       <PushToggle restaurantId={rid} subscriber={pushSubscriber} />
                     </div>
                   )}
-                  <div className="ws-clock">{I.clock}{fmtClock(clockNow)}</div>
+                  <div className="ws-clock" style={rid && pushSubscriber ? { marginLeft: 0 } : undefined}>{I.clock}{fmtClock(clockNow)}</div>
                 </div>
               )}
 
@@ -1369,6 +1435,16 @@ export default function Orders() {
                   isResolving={resolvingId === cashModal.item.id}
                 />
               )}
+              {settleSheet && (
+                <SettleSheet
+                  table={settleSheet.table}
+                  orders={settleSheet.orders}
+                  total={settleSheet.total}
+                  onAddItems={() => openMenuFor(settleSheet.table)}
+                  onSettle={settleTable}
+                  onClose={() => setSettleSheet(null)}
+                />
+              )}
             </main>
           </div>
         ) : (
@@ -1425,6 +1501,16 @@ export default function Orders() {
                   onConfirm={confirmCashPayment}
                   onCancel={() => setCashModal(null)}
                   isResolving={resolvingId === cashModal.item.id}
+                />
+              )}
+              {settleSheet && (
+                <SettleSheet
+                  table={settleSheet.table}
+                  orders={settleSheet.orders}
+                  total={settleSheet.total}
+                  onAddItems={() => openMenuFor(settleSheet.table)}
+                  onSettle={settleTable}
+                  onClose={() => setSettleSheet(null)}
                 />
               )}
             </div>
