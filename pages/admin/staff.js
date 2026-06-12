@@ -4,8 +4,8 @@ import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
+import { useRouter } from 'next/router';
 import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas, getStaffRoles, setStaffRole } from '../../lib/db';
-import StaffActivityDrawer from '../../components/StaffActivityDrawer';
 import { ADMIN_TIER_PERMS } from '../../lib/permissions';
 import toast from 'react-hot-toast';
 import { auth, staffAuth } from '../../lib/firebaseAuth';
@@ -197,9 +197,9 @@ export default function StaffManagement() {
 
   // Modal state — add/edit form
   const [modal, setModal] = useState(null); // null | 'add' | staffObj
-  // Per-staff accountability drawer (12 Jun 2026) — which member's
-  // activity timeline is open. null = closed.
-  const [activityFor, setActivityFor] = useState(null);
+  // Per-staff activity dashboard (13 Jun 2026) — the Activity button
+  // navigates to /admin/staff-activity/[staffId].
+  const router = useRouter();
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -884,7 +884,7 @@ export default function StaffManagement() {
 
                     {/* Actions */}
                     <div className="staff-card-actions" style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <button onClick={() => setActivityFor(s)} disabled={busy} className="staff-icon-btn" style={{
+                      <button onClick={() => router.push(`/admin/staff-activity/${s.id}`)} disabled={busy} className="staff-icon-btn" style={{
                         padding: '7px 12px', borderRadius: 8, border: `1px solid rgba(196,168,109,0.45)`,
                         background: 'rgba(196,168,109,0.10)', color: A.warningDim,
                         fontSize: 12, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
@@ -914,16 +914,6 @@ export default function StaffManagement() {
           )}
         </div>
       </div>
-
-      {/* ═══ Staff activity drawer (accountability timeline) ═══ */}
-      {activityFor && (
-        <StaffActivityDrawer
-          rid={rid}
-          scopedDb={scopedDb}
-          staff={activityFor}
-          onClose={() => setActivityFor(null)}
-        />
-      )}
 
       {/* ═══ Add / Edit Modal ═══ */}
       {modal && (
