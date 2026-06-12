@@ -22,7 +22,7 @@ import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/f
 import {
   createArea, updateArea, deleteArea,
   createTable, updateTable, deleteTable,
-  markKotPrinted, markBillPrinted, getRestaurantById,
+  markKotPrinted, markBillPrinted, ensureBillNumber, getRestaurantById,
   getOrCreateCaptainBill, attachOrderToBill, markOrderPaidAs,
   linkOrderToBill, freeTableSession, updateOrderStatus,
 } from '../../lib/db';
@@ -240,10 +240,20 @@ export default function AdminTables() {
 
   // Print the customer bill (prices + tax) + stamp billPrintedAt so the
   // table flips to green "Printed".
-  const handlePrintBill = (table, state) => {
+  //
+  // Bill v2 (12 Jun 2026): assigns the running Bill No. at first print.
+  // ensureBillNumber is passed as a PROMISE (not awaited) so printBill's
+  // window.open stays inside the tap's gesture context — see printKot.
+  const handlePrintBill = async (table, state) => {
     const orders = state?.orders || [];
     if (orders.length === 0) { toast.error('Nothing to bill on this table'); return; }
-    const ok = printBill(orders, { restaurant, tableLabel: table.code || table.label });
+    const billNumber = ensureBillNumber(rid, state?.billId, { db: scopedDb });
+    const ok = await printBill(orders, {
+      restaurant,
+      tableLabel: table.code || table.label,
+      cashier: staffSession?.name || 'Owner',
+      billNumber,
+    });
     if (!ok) { toast.error('Allow pop-ups to print the bill'); return; }
     if (state.billId) markBillPrinted(rid, state.billId, { db: scopedDb }).catch(() => {});
   };

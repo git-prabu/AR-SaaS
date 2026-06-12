@@ -68,7 +68,7 @@ import {
   updateOrderStatus, updateOrderStatusAs,
   markOrderPaid, markOrderPaidAs,
   markOrderItemServedAs,
-  markBillPrinted,
+  markBillPrinted, ensureBillNumber,
 } from '../../lib/db';
 import { printBill } from '../../lib/printKot';
 import {
@@ -697,15 +697,30 @@ export default function Orders() {
   };
 
   // Print the outstanding bill from the waiter's own device. Reuses
-  // lib/printKot's printBill (80mm thermal HTML + popup chrome that
-  // survives chrome-less iOS PWA windows) — same path Tables uses.
-  // Best-effort billPrintedAt stamp flips the floor token to "ready".
-  const printSettleBill = () => {
+  // lib/printKot's printBill (thermal HTML + popup chrome that survives
+  // chrome-less iOS PWA windows) — same path Tables uses.
+  //
+  // Bill v2: assigns the formal running Bill No. at first print
+  // (ensureBillNumber — reprints reuse the same number), passes the
+  // cashier name, and stamps billPrintedAt so the floor token flips
+  // to "ready". printBill is async (it may render a UPI pay-QR per
+  // the restaurant's Bill Settings) but opens its window synchronously
+  // inside this tap, so popup blockers stay happy.
+  const printSettleBill = async () => {
     if (!settleSheet) return;
     const { table, orders: toPrint } = settleSheet;
-    const ok = printBill(toPrint, { restaurant, tableLabel: table._code || table.id });
-    if (!ok) { toast.error('Allow pop-ups to print the bill'); return; }
     const billId = sessions[String(table._code || '')]?.currentBillId;
+    // NOT awaited here — printBill must call window.open inside this
+    // tap's gesture context, so the number rides along as a promise
+    // and printBill resolves it after the window is already open.
+    const billNumber = ensureBillNumber(rid, billId, { db: scopedDb });
+    const ok = await printBill(toPrint, {
+      restaurant,
+      tableLabel: table._code || table.id,
+      cashier: staffSession?.name || 'Owner',
+      billNumber,
+    });
+    if (!ok) { toast.error('Allow pop-ups to print the bill'); return; }
     if (billId) markBillPrinted(rid, billId, { db: scopedDb }).catch(() => {});
   };
 

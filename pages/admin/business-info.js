@@ -5,6 +5,8 @@ import { useAuth } from '../../hooks/useAuth';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { getRestaurantById, updateRestaurant, bumpStorageUsed } from '../../lib/db';
 import { uploadImage, fileSizeMB, deleteFile, buildImagePath, extractStoragePath } from '../../lib/storage';
+import { buildBillHtml, DEFAULT_BILL_SETTINGS } from '../../lib/printKot';
+import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
 
 // ═══ Aspire palette (same tokens as the rest of the admin chrome) ═══
@@ -155,6 +157,15 @@ export default function AdminSettings() {
   // updating it after save triggers a re-render and isDirty recomputes.
   const [initialForm, setInitialForm] = useState(null);
 
+  // ─── Bill Settings (Bill v2, 12 Jun 2026) ─────────────────────────
+  // Presentation map consumed by lib/printKot buildBillHtml. Kept
+  // OUTSIDE `form` because form's dirty-compare stringifies values
+  // (a map would compare as '[object Object]'); billSettings gets its
+  // own JSON-compare baseline and rides the same Save bar.
+  const [billSettings, setBillSettings] = useState({ ...DEFAULT_BILL_SETTINGS });
+  const [initialBillSettings, setInitialBillSettings] = useState(null);
+  const setBS = (key) => (val) => setBillSettings(s => ({ ...s, [key]: val }));
+
   // ─── Logo state ────────────────────────────────────────────────────
   // Logo lives outside `form` because it doesn't participate in the
   // dirty-tracking / "Save changes" flow — each upload / remove writes
@@ -193,6 +204,11 @@ export default function AdminSettings() {
       // Logo is outside the dirty-tracking form — separate state.
       setLogoUrl(r.logoUrl || '');
       setLogoSize(Number(r.logoSize) || 0);
+      // Bill settings: stored map merged over defaults so restaurants
+      // created before Bill v2 get the full standard look untouched.
+      const bs = { ...DEFAULT_BILL_SETTINGS, ...(r.billSettings || {}) };
+      setBillSettings(bs);
+      setInitialBillSettings(bs);
       setLoading(false);
     }).catch(err => {
       console.error('settings load error:', err);
@@ -208,12 +224,16 @@ export default function AdminSettings() {
   // falsely flag the form as dirty.
   const isDirty = useMemo(() => {
     if (!initialForm) return false;
-    return Object.keys(form).some(k => {
+    const formDirty = Object.keys(form).some(k => {
       const a = (form[k] ?? '').toString().trim();
       const b = (initialForm[k] ?? '').toString().trim();
       return a !== b;
     });
-  }, [form, initialForm]);
+    const bsDirty = initialBillSettings
+      ? JSON.stringify(billSettings) !== JSON.stringify(initialBillSettings)
+      : false;
+    return formDirty || bsDirty;
+  }, [form, initialForm, billSettings, initialBillSettings]);
 
   // ─── Validation hints (soft — never block save) ─────────────────────
   const hints = useMemo(() => ({
@@ -252,6 +272,7 @@ export default function AdminSettings() {
         billFooter: form.billFooter.trim(),
         hsnCode: form.hsnCode.trim(),
         notificationsEmail: form.notificationsEmail.trim(),
+        billSettings,
       });
       toast.success('Settings saved!');
       // Build the same normalized snapshot we just persisted, then update
@@ -278,6 +299,7 @@ export default function AdminSettings() {
       };
       setForm(saved);
       setInitialForm(saved);
+      setInitialBillSettings(billSettings);
     } catch (e) { toast.error('Failed to save: ' + e.message); }
     finally { setSaving(false); }
   };
@@ -285,6 +307,7 @@ export default function AdminSettings() {
   // ─── Discard handler — revert to the last loaded/saved state ────────
   const handleDiscard = () => {
     if (initialForm) setForm(initialForm);
+    if (initialBillSettings) setBillSettings(initialBillSettings);
   };
 
   const handleCopySubdomain = () => {
@@ -381,47 +404,77 @@ export default function AdminSettings() {
     gstActive: form.gstNumber.trim().length > 0,
   }), [form.gstPercent, form.serviceChargePercent, form.gstNumber]);
 
-  // ─── Live bill preview values — mirror what the customer bill renderer uses ─
-  // These re-render every time the form changes, no save needed.
-  const billPreview = useMemo(() => {
-    const now = new Date();
-    return {
-      name: form.restaurantName || 'Your Restaurant',
-      address: form.address,
-      phone: form.phone,
-      gstin: form.gstNumber,
-      fssai: form.fssaiNo,
-      hsn: form.hsnCode,
-      footer: form.billFooter || 'Thank you! Visit again',
-      upiId: form.upiId,
-      // Sample bill data — fixed values just for preview
-      table: '5',
-      orderNumber: 142,
-      date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-      items: [
-        { name: 'Butter Chicken', qty: 2, total: 560 },
-        { name: 'Garlic Naan', qty: 4, total: 200 },
-      ],
-      // Calculated breakdown
-      get subtotal() { return this.items.reduce((s, i) => s + i.total, 0); },
-      get sc() {
-        const pct = parseFloat(form.serviceChargePercent) || 0;
-        return parseFloat((this.subtotal * pct / 100).toFixed(2));
-      },
-      get cgst() {
-        const pct = parseFloat(form.gstPercent) || 0;
-        return parseFloat(((this.subtotal + this.sc) * pct / 200).toFixed(2));
-      },
-      get sgst() { return this.cgst; },
-      get preRound() { return this.subtotal + this.sc + this.cgst + this.sgst; },
-      get total() { return Math.round(this.preRound); },
-      get roundOff() { return parseFloat((this.total - this.preRound).toFixed(2)); },
-    };
-  }, [form.restaurantName, form.address, form.phone, form.gstNumber, form.fssaiNo, form.hsnCode, form.billFooter, form.upiId, form.gstPercent, form.serviceChargePercent]);
+  // ─── Live bill preview (Bill v2) ───────────────────────────────────
+  // Renders the REAL bill builder (lib/printKot buildBillHtml) into an
+  // iframe with sample orders — so what the owner sees here is byte-
+  // identical to what the thermal printer gets. Re-renders live as the
+  // form OR the bill-settings toggles change; no save needed.
+  //
+  // Sample data is a homage to the reference bill the owner collected
+  // (The Koi): two kitchen rounds (tokens 83 + 92), five items, ₹1405
+  // subtotal. Tax/service amounts recompute from the live form values
+  // using the SAME maths the order flow uses (tax on subtotal — the
+  // old hand-rolled preview wrongly taxed subtotal+service).
+  const previewQrRef = useRef(null); // dataURL cache for the sample UPI QR
+  const [previewQr, setPreviewQr] = useState(null);
+  useEffect(() => {
+    if (!billSettings.showUpiQr || !form.upiId.trim()) { setPreviewQr(null); return; }
+    if (previewQrRef.current) { setPreviewQr(previewQrRef.current); return; }
+    let alive = true;
+    QRCode.toDataURL('upi://pay?pa=preview@upi&pn=Preview&am=100&cu=INR', { margin: 1, width: 200 })
+      .then(url => { previewQrRef.current = url; if (alive) setPreviewQr(url); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [billSettings.showUpiQr, form.upiId]);
 
-  const gstPctNum = parseFloat(form.gstPercent) || 0;
-  const scPctNum = parseFloat(form.serviceChargePercent) || 0;
+  const previewSrcDoc = useMemo(() => {
+    const gstPct = parseFloat(form.gstPercent) || 0;
+    const scPct = parseFloat(form.serviceChargePercent) || 0;
+    const mk = (orderNumber, items) => {
+      const subtotal = items.reduce((s, it) => s + it.price * it.qty, 0);
+      const serviceCharge = +(subtotal * scPct / 100).toFixed(2);
+      const cgst = +((subtotal * (gstPct / 2)) / 100).toFixed(2);
+      const sgst = cgst;
+      const preRound = subtotal + serviceCharge + cgst + sgst;
+      const total = Math.round(preRound);
+      return {
+        orderNumber, items, subtotal, serviceCharge, cgst, sgst,
+        roundOff: +(total - preRound).toFixed(2), total,
+        // QR previews on unpaid bills; "Paid via" previews on paid ones.
+        paymentStatus: billSettings.showUpiQr ? 'unpaid' : 'paid_cash',
+        orderType: 'dinein',
+      };
+    };
+    const o1 = mk(83, [
+      { name: 'Veg Ramyeon', qty: 1, price: 275 },
+      { name: 'Chicken Katsu Ramyeon', qty: 1, price: 375 },
+      { name: 'Tofu Katsu Ramyeon', qty: 1, price: 375 },
+    ]);
+    const o2 = mk(92, [
+      { name: 'Korean Tofu Bao', qty: 1, price: 200 },
+      { name: 'Iced Milo', qty: 1, price: 180 },
+    ]);
+    const previewRestaurant = {
+      name: form.restaurantName || 'Your Restaurant',
+      address: form.address, phone: form.phone,
+      gstNumber: form.gstNumber, fssaiNo: form.fssaiNo,
+      hsnCode: form.hsnCode, gstPercent: gstPct,
+      billFooter: form.billFooter, upiId: form.upiId,
+      logoUrl,
+      billSettings,
+    };
+    const html = buildBillHtml([o1, o2], {
+      restaurant: previewRestaurant,
+      tableLabel: '5',
+      cashier: 'Ganga',
+      billNumber: 142,
+      customerName: '',
+      upiQrDataUrl: previewQr,
+    });
+    // Hide the on-screen Print/Close chrome inside the preview iframe +
+    // drop the tap-target bottom padding meant for real print windows.
+    return html.replace('</head>', '<style>.print-chrome{display:none!important}body{padding-bottom:10px!important}</style></head>');
+  }, [form, billSettings, logoUrl, previewQr]);
 
   // ═════════════════════════════════════════════════════════════════════
   // RENDER
@@ -740,11 +793,117 @@ export default function AdminSettings() {
                   </div>
                 </div>
 
-                {/* SECTION 4: Bill Customization (NEW) */}
+                {/* SECTION 4: Bill Settings (Bill v2, 12 Jun 2026) —
+                    structured customization: fixed professional skeleton,
+                    owner controls which optional pieces print. The live
+                    preview on the right renders the REAL print builder. */}
                 <div style={sectionCardStyle}>
-                  <SectionHeader label="BILL CUSTOMIZATION" />
+                  <SectionHeader label="BILL SETTINGS" />
                   <div style={sectionDescStyle}>
-                    Customize what appears at the bottom of customer bills. HSN/SAC code is required for GST compliance.
+                    Control what prints on customer bills. The layout follows the
+                    standard Indian thermal-bill format — toggle the optional parts
+                    and watch the live preview update.
+                  </div>
+
+                  {/* Tax mode — legal, not cosmetic. Regular = tax invoice with
+                      GSTIN + CGST/SGST. Composition = "Bill of Supply" + the
+                      mandatory wording, NO tax lines. Unregistered = neither. */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Tax mode</label>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {[
+                        { id: 'regular',      label: 'Regular GST',  hint: 'GSTIN + CGST/SGST lines' },
+                        { id: 'composition',  label: 'Composition',  hint: '"Bill of Supply" — no tax lines' },
+                        { id: 'unregistered', label: 'Unregistered', hint: 'No GSTIN, no tax lines' },
+                      ].map(m => {
+                        const on = billSettings.taxMode === m.id;
+                        return (
+                          <button key={m.id} type="button" onClick={() => setBS('taxMode')(m.id)} style={{
+                            flex: '1 1 140px', padding: '10px 12px', borderRadius: 9, textAlign: 'left',
+                            border: on ? `1.5px solid ${A.warning}` : A.border,
+                            background: on ? 'rgba(196,168,109,0.10)' : A.shell,
+                            cursor: 'pointer', fontFamily: A.font,
+                          }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: A.ink }}>{m.label}</div>
+                            <div style={{ fontSize: 10.5, color: A.faintText, marginTop: 2 }}>{m.hint}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {billSettings.taxMode === 'composition' && (
+                      <div style={{ fontSize: 11, color: A.faintText, marginTop: 6, lineHeight: 1.5 }}>
+                        Prints the legally required line: <em>“Composition taxable person, not eligible to collect tax on supplies.”</em> Set your GST % to 0 in the section above so order totals don't add tax.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Legal entity line — "(A Unit of …)" under the name */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Legal entity line <span style={{ color: A.faintText, fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>· optional</span></label>
+                    <input className="ar-input" value={billSettings.legalName}
+                      onChange={e => setBS('legalName')(e.target.value.slice(0, 80))}
+                      style={inputStyle} placeholder="e.g. A Unit of Golden Trio Hospitality Services" />
+                  </div>
+
+                  {/* Show/hide toggles */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Printed sections</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 14px' }}>
+                      {[
+                        ['showLogo',         'Logo',                 'Your uploaded logo, in print-grey'],
+                        ['showPhone',        'Phone number',         ''],
+                        ['showCustomerName', '"Name:" line',         'Blank line for the customer name'],
+                        ['showCashier',      'Cashier name',         'Who billed it'],
+                        ['showTokens',       'Token numbers',        'Kitchen order no.s — "83, 92"'],
+                        ['showHsnLine',      'HSN/SAC line',         'GST compliance (Regular mode)'],
+                        ['showPaidVia',      '"Paid via …" line',    'Cash / UPI / Card once paid'],
+                        ['showUpiQr',        'UPI QR on unpaid bills', 'Customer scans the printed bill to pay'],
+                        ['showFssai',        'FSSAI licence',        ''],
+                      ].map(([key, label, hint]) => (
+                        <label key={key} style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 8,
+                          padding: '7px 6px', borderRadius: 7, cursor: 'pointer',
+                        }}>
+                          <input type="checkbox" checked={!!billSettings[key]}
+                            onChange={e => setBS(key)(e.target.checked)}
+                            style={{ accentColor: A.warning, width: 15, height: 15, marginTop: 1, cursor: 'pointer' }} />
+                          <span>
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: A.ink, display: 'block' }}>{label}</span>
+                            {hint && <span style={{ fontSize: 10.5, color: A.faintText }}>{hint}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Paper + size */}
+                  <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                    <div>
+                      <label style={labelStyle}>Paper width</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[80, 58].map(w => (
+                          <button key={w} type="button" onClick={() => setBS('paperWidth')(w)} style={{
+                            flex: 1, padding: '9px 0', borderRadius: 8,
+                            border: billSettings.paperWidth === w ? `1.5px solid ${A.warning}` : A.border,
+                            background: billSettings.paperWidth === w ? 'rgba(196,168,109,0.10)' : A.shell,
+                            fontSize: 13, fontWeight: 700, color: A.ink, cursor: 'pointer', fontFamily: A.font,
+                          }}>{w}mm</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Print size</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[[1, 'Normal'], [1.15, 'Large']].map(([v, lab]) => (
+                          <button key={lab} type="button" onClick={() => setBS('fontScale')(v)} style={{
+                            flex: 1, padding: '9px 0', borderRadius: 8,
+                            border: billSettings.fontScale === v ? `1.5px solid ${A.warning}` : A.border,
+                            background: billSettings.fontScale === v ? 'rgba(196,168,109,0.10)' : A.shell,
+                            fontSize: 13, fontWeight: 700, color: A.ink, cursor: 'pointer', fontFamily: A.font,
+                          }}>{lab}</button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="ar-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
@@ -860,103 +1019,26 @@ export default function AdminSettings() {
                     <span style={{ fontSize: 10, color: A.faintText, fontWeight: 500 }}>Live</span>
                   </div>
 
-                  {/* Receipt — monospace, mirrors the real customer bill exactly */}
+                  {/* Receipt — the REAL bill builder rendered in an iframe,
+                      byte-identical to what the thermal printer prints. */}
                   <div style={{
-                    background: '#FFFEF8',
-                    borderRadius: 10, border: '1px dashed rgba(0,0,0,0.15)',
-                    padding: '18px 18px',
-                    fontSize: 11, color: '#1A1A1A',
-                    fontFamily: "'Courier New', 'JetBrains Mono', monospace",
-                    lineHeight: 1.7,
+                    background: '#F2F2EE', borderRadius: 10,
+                    border: '1px dashed rgba(0,0,0,0.15)',
+                    padding: '14px 0', display: 'flex', justifyContent: 'center',
                   }}>
-                    {/* Header */}
-                    <div style={{ fontWeight: 700, fontSize: 13, textAlign: 'center' }}>{billPreview.name}</div>
-                    {billPreview.address && (
-                      <div style={{ textAlign: 'center', fontSize: 10, color: '#555' }}>{billPreview.address}</div>
-                    )}
-                    {billPreview.phone && (
-                      <div style={{ textAlign: 'center', fontSize: 10, color: '#555' }}>Phone: {billPreview.phone}</div>
-                    )}
-                    {billPreview.gstin && (
-                      <div style={{ textAlign: 'center', fontSize: 10, color: '#555' }}>GSTIN: {billPreview.gstin}</div>
-                    )}
-
-                    <div style={billDividerStyle} />
-
-                    {/* Order metadata */}
-                    <div style={{ textAlign: 'center', fontSize: 10, color: '#555' }}>Table: {billPreview.table}</div>
-                    <div style={{ textAlign: 'center', fontSize: 10, color: '#555' }}>{billPreview.date} {billPreview.time}</div>
-                    <div style={{ textAlign: 'center', fontSize: 10, color: '#555', marginTop: 2 }}>Order #{billPreview.orderNumber}</div>
-
-                    <div style={billDividerStyle} />
-
-                    {/* Items */}
-                    {billPreview.items.map((it, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{it.name} x{it.qty}</span>
-                        <span>Rs.{it.total.toFixed(0)}</span>
-                      </div>
-                    ))}
-
-                    <div style={billDividerStyle} />
-
-                    {/* HSN/SAC */}
-                    {billPreview.hsn && (
-                      <div style={{ textAlign: 'center', fontSize: 9, color: '#777', marginBottom: 4 }}>
-                        HSN/SAC: {billPreview.hsn}
-                      </div>
-                    )}
-
-                    {/* Totals breakdown */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#333' }}>
-                      <span>Subtotal</span><span>Rs.{billPreview.subtotal.toFixed(2)}</span>
-                    </div>
-                    {scPctNum > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#333' }}>
-                        <span>Service Charge ({scPctNum}%)</span><span>Rs.{billPreview.sc.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {gstPctNum > 0 && (
-                      <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#333' }}>
-                          <span>C.G.S.T {(gstPctNum / 2).toFixed(1)}%</span><span>Rs.{billPreview.cgst.toFixed(2)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#333' }}>
-                          <span>S.G.S.T {(gstPctNum / 2).toFixed(1)}%</span><span>Rs.{billPreview.sgst.toFixed(2)}</span>
-                        </div>
-                      </>
-                    )}
-                    {billPreview.roundOff !== 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#333' }}>
-                        <span>Round off</span><span>{billPreview.roundOff > 0 ? '+' : ''}Rs.{billPreview.roundOff.toFixed(2)}</span>
-                      </div>
-                    )}
-
-                    <div style={billDividerStyle} />
-
-                    {/* Grand total */}
-                    <div style={{
-                      display: 'flex', justifyContent: 'space-between',
-                      fontWeight: 700, fontSize: 13, paddingTop: 4,
-                    }}>
-                      <span>GRAND TOTAL</span><span>Rs.{billPreview.total}</span>
-                    </div>
-
-                    <div style={billDividerStyle} />
-
-                    {/* Payment + footer */}
-                    <div style={{ textAlign: 'center', fontSize: 10, marginTop: 4 }}>Payment: Cash</div>
-                    {billPreview.fssai && (
-                      <div style={{ textAlign: 'center', fontSize: 10, marginTop: 6, color: '#555' }}>
-                        FSSAI Lic. No. {billPreview.fssai}
-                      </div>
-                    )}
-                    <div style={{ textAlign: 'center', fontSize: 10, marginTop: 8 }}>{billPreview.footer}</div>
-                    <div style={{ textAlign: 'center', fontSize: 9, marginTop: 4, color: '#777' }}>Powered by HaloHelm</div>
+                    <iframe
+                      title="Bill preview"
+                      srcDoc={previewSrcDoc}
+                      style={{
+                        width: billSettings.paperWidth === 58 ? 232 : 318,
+                        height: 560, border: 'none', background: '#fff',
+                        boxShadow: '0 2px 14px rgba(0,0,0,0.12)',
+                      }}
+                    />
                   </div>
 
                   <div style={{ fontSize: 11, color: A.faintText, marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
-                    Sample bill (Table 5 · Order #142). Updates as you type. Save to apply.
+                    Sample bill (Table 5 · Bill No. 142 · Tokens 83, 92). Updates as you type. Save to apply.
                   </div>
                 </div>
               </div>

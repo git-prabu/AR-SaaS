@@ -143,6 +143,11 @@ service cloud.firestore {
           // delta on storageUsedMB. Same security stance as itemsUsed:
           // owner-only, capped by maxStorageMB enforced elsewhere.
           'tableCount', 'logoUrl', 'logoSize', 'isAcceptingOrders',
+          // Bill print configuration (admin/business-info.js → Bill
+          // Settings, 12 Jun 2026). Map of presentation toggles + tax
+          // mode consumed by lib/printKot buildBillHtml. Pure display
+          // config — no pricing/plan impact.
+          'billSettings',
           // Audit stamp from lib/db.js withActor() — rides on every write
           'lastModifiedBy', 'lastModifiedAt'
         ]);
@@ -626,6 +631,28 @@ service cloud.firestore {
         allow write: if isActiveStaff(restaurantId);
         // Super admin: full access
         allow read, write: if isSuperAdmin();
+      }
+
+      // ── Billing counters (Bill v2, 12 Jun 2026) ────────────────
+      // Single doc `counters/billing` holding the restaurant's running
+      // invoice number series: { nextBill: <int>, updatedAt }.
+      // Incremented inside lib/db.js ensureBillNumber()'s transaction
+      // when a bill is PRINTED for the first time (Bill No. is the
+      // invoice series — separate from the per-day token/orderNumber).
+      // Admin + ACTIVE staff print bills; monotonic guard mirrors the
+      // orderCounters rule so the series can never be rewound.
+      match /counters/{counterId} {
+        allow read: if isRestaurantAdmin(restaurantId) || isStaff(restaurantId) || isSuperAdmin();
+        allow create: if (isRestaurantAdmin(restaurantId) || isActiveStaff(restaurantId) || isSuperAdmin()) &&
+          counterId == 'billing' &&
+          request.resource.data.keys().hasOnly(['nextBill', 'updatedAt']) &&
+          request.resource.data.nextBill is int &&
+          request.resource.data.nextBill > 0;
+        allow update: if (isRestaurantAdmin(restaurantId) || isActiveStaff(restaurantId) || isSuperAdmin()) &&
+          counterId == 'billing' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nextBill', 'updatedAt']) &&
+          request.resource.data.nextBill is int &&
+          request.resource.data.nextBill > resource.data.nextBill;
       }
 
       // ── Areas (floor-plan sections — Phase 0, 20 May 2026) ────
