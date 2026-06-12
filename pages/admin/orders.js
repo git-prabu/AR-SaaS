@@ -68,7 +68,9 @@ import {
   updateOrderStatus, updateOrderStatusAs,
   markOrderPaid, markOrderPaidAs,
   markOrderItemServedAs,
+  markBillPrinted,
 } from '../../lib/db';
+import { printBill } from '../../lib/printKot';
 import {
   announceCall, announceReady, announcePayment,
   unlockSound, isVoiceEnabled, setVoiceEnabled as setVoiceEnabledLS,
@@ -669,13 +671,21 @@ export default function Orders() {
   // another still-unpaid sibling and NOBODY would close the bill. One
   // at a time, the final mark sees all-paid and closes the bill +
   // frees the table session.
-  const settleTable = async (paidStatus, methodLabel) => {
+  //
+  // v2: `extras` carries the cash calculator's { cashReceived,
+  // changeGiven }. Stamped on the FIRST order only — the amounts are
+  // bill-level (one handover of cash for the whole table); duplicating
+  // them on every sibling order would double-count cash in day-close
+  // reconciliation.
+  const settleTable = async (paidStatus, methodLabel, extras = {}) => {
     if (!settleSheet) return;
     const { table, orders: toSettle, total } = settleSheet;
     try {
-      for (const o of toSettle) {
-        if (staffSession) await markOrderPaidAs(staffDb, rid, o.id, paidStatus);
-        else              await markOrderPaid(rid, o.id, paidStatus);
+      for (let i = 0; i < toSettle.length; i++) {
+        const o = toSettle[i];
+        const ex = i === 0 ? extras : {};
+        if (staffSession) await markOrderPaidAs(staffDb, rid, o.id, paidStatus, ex);
+        else              await markOrderPaid(rid, o.id, paidStatus, ex);
       }
       toast.success(`Table ${table.id} settled — ₹${Math.round(total).toLocaleString('en-IN')} (${methodLabel})`);
       setSettleSheet(null);
@@ -684,6 +694,19 @@ export default function Orders() {
       toast.error('Could not settle the table. Try again.');
       throw e; // SettleSheet resets its busy state on rejection
     }
+  };
+
+  // Print the outstanding bill from the waiter's own device. Reuses
+  // lib/printKot's printBill (80mm thermal HTML + popup chrome that
+  // survives chrome-less iOS PWA windows) — same path Tables uses.
+  // Best-effort billPrintedAt stamp flips the floor token to "ready".
+  const printSettleBill = () => {
+    if (!settleSheet) return;
+    const { table, orders: toPrint } = settleSheet;
+    const ok = printBill(toPrint, { restaurant, tableLabel: table._code || table.id });
+    if (!ok) { toast.error('Allow pop-ups to print the bill'); return; }
+    const billId = sessions[String(table._code || '')]?.currentBillId;
+    if (billId) markBillPrinted(rid, billId, { db: scopedDb }).catch(() => {});
   };
 
   // ─── Send to kitchen ────────────────────────────────────────────
@@ -1440,8 +1463,10 @@ export default function Orders() {
                   table={settleSheet.table}
                   orders={settleSheet.orders}
                   total={settleSheet.total}
+                  restaurant={restaurant}
                   onAddItems={() => openMenuFor(settleSheet.table)}
                   onSettle={settleTable}
+                  onPrintBill={printSettleBill}
                   onClose={() => setSettleSheet(null)}
                 />
               )}
@@ -1508,8 +1533,10 @@ export default function Orders() {
                   table={settleSheet.table}
                   orders={settleSheet.orders}
                   total={settleSheet.total}
+                  restaurant={restaurant}
                   onAddItems={() => openMenuFor(settleSheet.table)}
                   onSettle={settleTable}
+                  onPrintBill={printSettleBill}
                   onClose={() => setSettleSheet(null)}
                 />
               )}
