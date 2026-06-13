@@ -646,8 +646,8 @@ export default function StaffManagement() {
           @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
           @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
           @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-          .staff-card { transition: box-shadow 0.12s ease, transform 0.12s ease; }
-          .staff-card:hover { box-shadow: 0 4px 18px rgba(38,52,49,0.06); transform: translateY(-1px); }
+          .staff-card { transition: box-shadow 0.16s ease, transform 0.16s ease; }
+          .staff-card:hover { box-shadow: 0 12px 32px rgba(0,0,0,0.32), 0 0 0 1px rgba(196,168,109,0.55); transform: translateY(-3px); }
           .staff-icon-btn:hover { background: ${A.subtleBg}; }
           .staff-filter-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
           .staff-add-btn:hover { filter: brightness(1.08); }
@@ -924,56 +924,80 @@ export default function StaffManagement() {
                 const isInactive = s.isActive === false;
                 const busy = actionId === s.id;
                 return (
-                  // Whole card is clickable → opens the activity overlay.
-                  // The controls region below stops propagation so role
-                  // changes / area chips / action buttons don't also fire it.
+                  // Photo-forward profile card (image-2/3 reference): a
+                  // photo hero with name over a gradient scrim, then a dark
+                  // controls footer. The hero is the click target → activity
+                  // overlay; the footer stops propagation so its controls
+                  // don't also fire it.
                   <div key={s.id} className="staff-card"
-                    role="button" tabIndex={0}
-                    onClick={() => setActivityFor(s)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActivityFor(s); } }}
-                    title="Click to view activity"
                     style={{
-                      background: A.shell, border: A.border, borderRadius: 14,
-                      padding: '18px', cursor: 'pointer',
+                      borderRadius: 16, overflow: 'hidden',
                       display: 'flex', flexDirection: 'column',
-                      boxShadow: A.cardShadow,
-                      opacity: isInactive ? 0.72 : 1,
-                      transition: 'box-shadow 0.15s, transform 0.15s',
+                      background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
+                      border: A.forestBorder,
+                      opacity: isInactive ? 0.7 : 1,
                     }}>
-                    {/* Header — avatar + name + role + username (the click target) */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
-                      <Avatar photoUrl={s.photoUrl} role={s.roleId ? 'custom' : s.role} size={52} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 3 }}>
-                          <span style={{
-                            fontWeight: 700, fontSize: 16, color: A.ink, letterSpacing: '-0.2px',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%',
-                          }}>{s.name}</span>
-                          {isInactive && (
-                            <span style={{
-                              padding: '2px 7px', borderRadius: 4,
-                              background: A.subtleBg, color: A.faintText,
-                              fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                            }}>Inactive</span>
-                          )}
+                    {/* ── Photo hero (click target) ── */}
+                    <div
+                      role="button" tabIndex={0}
+                      onClick={() => setActivityFor(s)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActivityFor(s); } }}
+                      title="Click to view activity"
+                      style={{
+                        position: 'relative', height: 172, flexShrink: 0, cursor: 'pointer',
+                        background: s.photoUrl ? '#0c0c0c' : `linear-gradient(150deg, ${A.forestDarker}, #000)`,
+                      }}>
+                      {s.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={s.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        // Monogram fallback — gold initial on matte black
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontFamily: A.font, fontWeight: 800, fontSize: 60, color: 'rgba(196,168,109,0.5)', letterSpacing: '-1px' }}>
+                            {(s.name || '?')[0].toUpperCase()}
+                          </span>
                         </div>
+                      )}
+                      {/* scrim for name legibility */}
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.35) 46%, rgba(0,0,0,0) 74%)' }} />
+                      {/* role chip (top-left) */}
+                      <span style={{
+                        position: 'absolute', top: 11, left: 11,
+                        padding: '3px 9px', borderRadius: 6,
+                        background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+                        color: A.warning, fontSize: 9.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+                        border: '1px solid rgba(196,168,109,0.3)',
+                      }}>{roleName}</span>
+                      {isInactive && (
                         <span style={{
-                          display: 'inline-block', padding: '2px 8px', borderRadius: 4,
-                          background: A.subtleBg, color: A.mutedText,
-                          fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                          marginBottom: 6,
-                        }}>{roleName}</span>
-                        <div style={{ fontSize: 12, color: A.mutedText }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: A.ink, fontWeight: 600 }}>@{s.username}</span>
+                          position: 'absolute', top: 39, left: 11,
+                          padding: '3px 9px', borderRadius: 6,
+                          background: 'rgba(217,83,79,0.9)', color: '#fff',
+                          fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase',
+                        }}>Inactive</span>
+                      )}
+                      {/* Activity hint (top-right) */}
+                      <span style={{
+                        position: 'absolute', top: 11, right: 11,
+                        padding: '3px 9px', borderRadius: 6,
+                        background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+                        color: A.forestText, fontSize: 10.5, fontWeight: 700,
+                      }}>Activity →</span>
+                      {/* name + username over the scrim */}
+                      <div style={{ position: 'absolute', left: 14, right: 14, bottom: 11 }}>
+                        <div style={{
+                          fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: '-0.3px',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          textShadow: '0 1px 5px rgba(0,0,0,0.6)',
+                        }}>{s.name}</div>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 1 }}>
+                          @{s.username}
                         </div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: A.warningDim, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        Activity →
-                      </span>
                     </div>
 
-                    {/* Controls — clicks here must NOT open the activity overlay */}
-                    <div onClick={e => e.stopPropagation()} style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {/* ── Controls footer (dark) — clicks here don't open activity ── */}
+                    <div onClick={e => e.stopPropagation()} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {/* Phase 0 step 5 — area access control (built-in Waiter
                           role only). Owner-only — a staff manager onboards staff
                           but doesn't reassign floor sections. */}
@@ -982,7 +1006,7 @@ export default function StaffManagement() {
                         const allAreas = assigned.length === 0;
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase', marginRight: 2 }}>Areas:</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: A.forestTextFaint, letterSpacing: '0.04em', textTransform: 'uppercase', marginRight: 2 }}>Areas:</span>
                             {areas.map(a => {
                               const on = allAreas || assigned.includes(a.id);
                               return (
@@ -991,14 +1015,14 @@ export default function StaffManagement() {
                                   style={{
                                     padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontFamily: A.font,
                                     fontSize: 11, fontWeight: 600,
-                                    border: `1px solid ${on && !allAreas ? A.warningDim : 'rgba(0,0,0,0.12)'}`,
-                                    background: on && !allAreas ? 'rgba(196,168,109,0.16)' : 'transparent',
-                                    color: on && !allAreas ? A.warningDim : A.mutedText,
+                                    border: `1px solid ${on && !allAreas ? A.warning : 'rgba(255,255,255,0.18)'}`,
+                                    background: on && !allAreas ? 'rgba(196,168,109,0.2)' : 'transparent',
+                                    color: on && !allAreas ? A.warning : A.forestTextMuted,
                                     opacity: allAreas ? 0.5 : 1,
                                   }}>{a.name}</button>
                               );
                             })}
-                            <span style={{ fontSize: 11, color: A.faintText, marginLeft: 2 }}>
+                            <span style={{ fontSize: 11, color: A.forestTextFaint, marginLeft: 2 }}>
                               {allAreas ? '(all areas)' : `(${assigned.length} selected)`}
                             </span>
                           </div>
@@ -1011,10 +1035,10 @@ export default function StaffManagement() {
                           managers see the role on the badge above, read-only. */}
                       {isAdmin && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Role:</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: A.forestTextFaint, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Role:</span>
                         <select value={s.roleId || s.role} disabled={roleSavingId === s.id}
                           onChange={e => assignRole(s, e.target.value)}
-                          style={{ flex: 1, minWidth: 120, padding: '5px 10px', borderRadius: 8, border: A.border, background: A.shell, fontFamily: A.font, fontSize: 12, color: A.ink, cursor: 'pointer' }}>
+                          style={{ flex: 1, minWidth: 120, padding: '6px 10px', borderRadius: 8, border: A.forestBorder, background: 'rgba(255,255,255,0.06)', fontFamily: A.font, fontSize: 12, color: A.forestText, cursor: 'pointer' }}>
                           <optgroup label="Station">
                             <option value="kitchen">Kitchen</option>
                             <option value="waiter">Waiter</option>
@@ -1029,20 +1053,22 @@ export default function StaffManagement() {
                       )}
 
                       {/* Actions */}
-                      <div className="staff-card-actions" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 2 }}>
-                        <button onClick={() => handleToggleActive(s)} disabled={busy} className="staff-icon-btn" style={{
-                          flex: 1, padding: '8px 10px', borderRadius: 8, border: A.border, background: A.shell,
-                          color: isInactive ? A.success : A.ink, fontSize: 12, fontWeight: 600,
+                      <div className="staff-card-actions" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button onClick={() => handleToggleActive(s)} disabled={busy} style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 8, border: A.forestBorder,
+                          background: 'rgba(255,255,255,0.06)',
+                          color: isInactive ? '#7BC99A' : A.forestText, fontSize: 12, fontWeight: 600,
                           cursor: busy ? 'not-allowed' : 'pointer', fontFamily: A.font, opacity: busy ? 0.6 : 1,
                         }}>{isInactive ? 'Enable' : 'Disable'}</button>
-                        <button onClick={() => openEdit(s)} disabled={busy} className="staff-icon-btn" style={{
-                          flex: 1, padding: '8px 10px', borderRadius: 8, border: A.border, background: A.shell,
-                          color: A.ink, fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
+                        <button onClick={() => openEdit(s)} disabled={busy} style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 8, border: A.forestBorder,
+                          background: 'rgba(255,255,255,0.06)',
+                          color: A.forestText, fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
                           fontFamily: A.font, opacity: busy ? 0.6 : 1,
                         }}>Edit</button>
                         <button onClick={() => handleDelete(s)} disabled={busy} style={{
-                          flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none',
-                          background: 'rgba(217,83,79,0.08)', color: A.danger,
+                          flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(217,83,79,0.35)',
+                          background: 'rgba(217,83,79,0.18)', color: '#F0A8A4',
                           fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
                           fontFamily: A.font, opacity: busy ? 0.6 : 1,
                         }}>Delete</button>
