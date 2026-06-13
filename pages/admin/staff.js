@@ -6,6 +6,7 @@ import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useRouter } from 'next/router';
 import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas, getStaffRoles, setStaffRole } from '../../lib/db';
+import StaffActivityPanel from '../../components/StaffActivityPanel';
 import { ADMIN_TIER_PERMS } from '../../lib/permissions';
 import toast from 'react-hot-toast';
 import { auth, staffAuth } from '../../lib/firebaseAuth';
@@ -197,9 +198,19 @@ export default function StaffManagement() {
 
   // Modal state — add/edit form
   const [modal, setModal] = useState(null); // null | 'add' | staffObj
-  // Per-staff activity dashboard (13 Jun 2026) — the Activity button
-  // navigates to /admin/staff-activity/[staffId].
+  // Per-staff activity (13 Jun 2026) — clicking a profile card opens
+  // the activity panel in an overlay (image-5 "gap above to close").
+  // Holds the staff object whose activity is shown, or null.
+  const [activityFor, setActivityFor] = useState(null);
   const router = useRouter();
+
+  // Esc closes the activity overlay.
+  useEffect(() => {
+    if (!activityFor) return;
+    const onKey = (e) => { if (e.key === 'Escape') setActivityFor(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activityFor]);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -784,7 +795,11 @@ export default function StaffManagement() {
               onCta={staff.length === 0 ? openAdd : null}
             />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="staff-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: 14,
+            }}>
               {filtered.map(s => {
                 // Unified role model: show the staffer's ONE role name — the
                 // custom role's name if assigned, else the built-in station.
@@ -794,39 +809,56 @@ export default function StaffManagement() {
                 const isInactive = s.isActive === false;
                 const busy = actionId === s.id;
                 return (
-                  <div key={s.id} className="staff-card" style={{
-                    background: A.shell, border: A.border, borderRadius: 12,
-                    padding: '16px 18px',
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    boxShadow: A.cardShadow,
-                    opacity: isInactive ? 0.65 : 1,
-                  }}>
-                    {/* Role avatar — matte-black square with gold icon glyph */}
-                    <RoleIcon role={s.roleId ? 'custom' : s.role} />
-
-                    {/* Name + role + username */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                        <span style={{ fontWeight: 700, fontSize: 15, color: A.ink, letterSpacing: '-0.2px' }}>
-                          {s.name}
-                        </span>
+                  // Whole card is clickable → opens the activity overlay.
+                  // The controls region below stops propagation so role
+                  // changes / area chips / action buttons don't also fire it.
+                  <div key={s.id} className="staff-card"
+                    role="button" tabIndex={0}
+                    onClick={() => setActivityFor(s)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActivityFor(s); } }}
+                    title="Click to view activity"
+                    style={{
+                      background: A.shell, border: A.border, borderRadius: 14,
+                      padding: '18px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column',
+                      boxShadow: A.cardShadow,
+                      opacity: isInactive ? 0.72 : 1,
+                      transition: 'box-shadow 0.15s, transform 0.15s',
+                    }}>
+                    {/* Header — avatar + name + role + username (the click target) */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
+                      <RoleIcon role={s.roleId ? 'custom' : s.role} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 3 }}>
+                          <span style={{
+                            fontWeight: 700, fontSize: 16, color: A.ink, letterSpacing: '-0.2px',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%',
+                          }}>{s.name}</span>
+                          {isInactive && (
+                            <span style={{
+                              padding: '2px 7px', borderRadius: 4,
+                              background: A.subtleBg, color: A.faintText,
+                              fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                            }}>Inactive</span>
+                          )}
+                        </div>
                         <span style={{
-                          padding: '2px 8px', borderRadius: 4,
+                          display: 'inline-block', padding: '2px 8px', borderRadius: 4,
                           background: A.subtleBg, color: A.mutedText,
                           fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                          marginBottom: 6,
                         }}>{roleName}</span>
-                        {isInactive && (
-                          <span style={{
-                            padding: '2px 8px', borderRadius: 4,
-                            background: A.subtleBg, color: A.faintText,
-                            fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                          }}>Inactive</span>
-                        )}
+                        <div style={{ fontSize: 12, color: A.mutedText }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", color: A.ink, fontWeight: 600 }}>@{s.username}</span>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: A.mutedText, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        <span>Username: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: A.ink, fontWeight: 600 }}>{s.username}</span></span>
-                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: A.warningDim, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        Activity →
+                      </span>
+                    </div>
 
+                    {/* Controls — clicks here must NOT open the activity overlay */}
+                    <div onClick={e => e.stopPropagation()} style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {/* Phase 0 step 5 — area access control (built-in Waiter
                           role only). Owner-only — a staff manager onboards staff
                           but doesn't reassign floor sections. */}
@@ -834,7 +866,7 @@ export default function StaffManagement() {
                         const assigned = Array.isArray(s.assignedAreas) ? s.assignedAreas : [];
                         const allAreas = assigned.length === 0;
                         return (
-                          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase', marginRight: 2 }}>Areas:</span>
                             {areas.map(a => {
                               const on = allAreas || assigned.includes(a.id);
@@ -863,11 +895,11 @@ export default function StaffManagement() {
                           at creation, from the non-admin roles you defined). Staff
                           managers see the role on the badge above, read-only. */}
                       {isAdmin && (
-                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: A.faintText, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Role:</span>
                         <select value={s.roleId || s.role} disabled={roleSavingId === s.id}
                           onChange={e => assignRole(s, e.target.value)}
-                          style={{ padding: '5px 10px', borderRadius: 8, border: A.border, background: A.shell, fontFamily: A.font, fontSize: 12, color: A.ink, cursor: 'pointer' }}>
+                          style={{ flex: 1, minWidth: 120, padding: '5px 10px', borderRadius: 8, border: A.border, background: A.shell, fontFamily: A.font, fontSize: 12, color: A.ink, cursor: 'pointer' }}>
                           <optgroup label="Station">
                             <option value="kitchen">Kitchen</option>
                             <option value="waiter">Waiter</option>
@@ -880,32 +912,26 @@ export default function StaffManagement() {
                         </select>
                       </div>
                       )}
-                    </div>
 
-                    {/* Actions */}
-                    <div className="staff-card-actions" style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <button onClick={() => router.push(`/admin/staff-activity/${s.id}`)} disabled={busy} className="staff-icon-btn" style={{
-                        padding: '7px 12px', borderRadius: 8, border: `1px solid rgba(196,168,109,0.45)`,
-                        background: 'rgba(196,168,109,0.10)', color: A.warningDim,
-                        fontSize: 12, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
-                        fontFamily: A.font, opacity: busy ? 0.6 : 1,
-                      }}>Activity</button>
-                      <button onClick={() => handleToggleActive(s)} disabled={busy} className="staff-icon-btn" style={{
-                        padding: '7px 12px', borderRadius: 8, border: A.border, background: A.shell,
-                        color: isInactive ? A.success : A.ink, fontSize: 12, fontWeight: 600,
-                        cursor: busy ? 'not-allowed' : 'pointer', fontFamily: A.font, opacity: busy ? 0.6 : 1,
-                      }}>{isInactive ? 'Enable' : 'Disable'}</button>
-                      <button onClick={() => openEdit(s)} disabled={busy} className="staff-icon-btn" style={{
-                        padding: '7px 12px', borderRadius: 8, border: A.border, background: A.shell,
-                        color: A.ink, fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
-                        fontFamily: A.font, opacity: busy ? 0.6 : 1,
-                      }}>Edit</button>
-                      <button onClick={() => handleDelete(s)} disabled={busy} style={{
-                        padding: '7px 12px', borderRadius: 8, border: 'none',
-                        background: 'rgba(217,83,79,0.08)', color: A.danger,
-                        fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
-                        fontFamily: A.font, opacity: busy ? 0.6 : 1,
-                      }}>Delete</button>
+                      {/* Actions */}
+                      <div className="staff-card-actions" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 2 }}>
+                        <button onClick={() => handleToggleActive(s)} disabled={busy} className="staff-icon-btn" style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 8, border: A.border, background: A.shell,
+                          color: isInactive ? A.success : A.ink, fontSize: 12, fontWeight: 600,
+                          cursor: busy ? 'not-allowed' : 'pointer', fontFamily: A.font, opacity: busy ? 0.6 : 1,
+                        }}>{isInactive ? 'Enable' : 'Disable'}</button>
+                        <button onClick={() => openEdit(s)} disabled={busy} className="staff-icon-btn" style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 8, border: A.border, background: A.shell,
+                          color: A.ink, fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
+                          fontFamily: A.font, opacity: busy ? 0.6 : 1,
+                        }}>Edit</button>
+                        <button onClick={() => handleDelete(s)} disabled={busy} style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none',
+                          background: 'rgba(217,83,79,0.08)', color: A.danger,
+                          fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer',
+                          fontFamily: A.font, opacity: busy ? 0.6 : 1,
+                        }}>Delete</button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -914,6 +940,57 @@ export default function StaffManagement() {
           )}
         </div>
       </div>
+
+      {/* ═══ Activity overlay (click a card) ═══
+          Image-5 behaviour: dimmed/blurred backdrop with a clickable
+          GAP above the panel — tap the gap (or the ✕, or Esc) to close.
+          The panel itself stops propagation. */}
+      {activityFor && (
+        <div
+          onClick={() => setActivityFor(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 95,
+            background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '52px 16px 16px', overflowY: 'auto',
+          }}>
+          {/* grab-hint pill sitting in the clickable gap */}
+          <div style={{
+            position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)',
+            width: 44, height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.5)',
+          }} />
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(1000px, 100%)', background: A.cream,
+              borderRadius: 18, boxShadow: '0 24px 70px rgba(0,0,0,0.45)',
+              padding: '16px 20px 24px', position: 'relative',
+              maxHeight: 'calc(100vh - 72px)', overflowY: 'auto',
+            }}>
+            {/* Header: name + open-full-page + close */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warningDim }}>Staff activity</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activityFor.name}</div>
+              </div>
+              <button
+                onClick={() => router.push(`/admin/staff-activity/${activityFor.id}`)}
+                title="Open as full page"
+                style={{
+                  padding: '7px 12px', borderRadius: 9, border: A.border, background: A.shell,
+                  color: A.mutedText, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+                }}>Open full page ↗</button>
+              <button
+                onClick={() => setActivityFor(null)} aria-label="Close"
+                style={{
+                  width: 34, height: 34, borderRadius: 9, border: A.border, background: A.shell,
+                  color: A.mutedText, fontSize: 16, cursor: 'pointer', flexShrink: 0,
+                }}>✕</button>
+            </div>
+            <StaffActivityPanel rid={rid} scopedDb={scopedDb} staffId={activityFor.id} member={activityFor} embedded />
+          </div>
+        </div>
+      )}
 
       {/* ═══ Add / Edit Modal ═══ */}
       {modal && (
@@ -928,6 +1005,36 @@ export default function StaffManagement() {
             boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
             fontFamily: A.font,
           }}>
+            {/* Profile-style identity header on edit — makes the modal
+                read as an employee profile rather than a bare form. */}
+            {modal !== 'add' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '16px 18px', borderRadius: 12, marginBottom: 16,
+                background: `linear-gradient(135deg, ${A.forest}, ${A.forestDarker})`,
+                border: A.forestBorder,
+              }}>
+                <div style={{
+                  width: 54, height: 54, borderRadius: '50%', flexShrink: 0,
+                  background: `linear-gradient(135deg, ${A.warning}, #C2562B)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 22, fontWeight: 800, color: '#1A1815',
+                }}>{(form.name || '?')[0].toUpperCase()}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: A.forestText, letterSpacing: '-0.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {form.name || 'Staff member'}
+                  </div>
+                  <div style={{ fontSize: 12, color: A.forestTextMuted, marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
+                    @{form.username}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.warning, marginTop: 4 }}>
+                    {form.roleId
+                      ? (rolesList.find(r => r.id === form.roleId)?.name || 'Custom role')
+                      : (ROLES[form.role]?.label || 'Staff')}
+                  </div>
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 16, fontWeight: 700, color: A.ink, marginBottom: 4, letterSpacing: '-0.2px' }}>
               {modal === 'add' ? 'Add Staff Member' : 'Edit Staff Member'}
             </div>
