@@ -974,10 +974,10 @@ export default function StaffManagement() {
                       }}>
                       {s.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={s.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: isInactive ? 0.42 : 1, filter: isInactive ? 'grayscale(0.6)' : 'none' }} />
+                        <img src={s.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: isInactive ? 0.38 : 1, filter: isInactive ? 'grayscale(0.75)' : 'none' }} />
                       ) : (
                         // Monogram fallback — gold initial on matte black
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isInactive ? 0.5 : 1 }}>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isInactive ? 0.35 : 1 }}>
                           <span style={{ fontFamily: A.font, fontWeight: 800, fontSize: 60, color: 'rgba(196,168,109,0.5)', letterSpacing: '-1px' }}>
                             {(s.name || '?')[0].toUpperCase()}
                           </span>
@@ -986,6 +986,11 @@ export default function StaffManagement() {
                       {/* gentle vignette — the frosted info bar below does the
                           heavy lifting for name legibility */}
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.08) 42%, rgba(0,0,0,0) 60%)' }} />
+                      {/* inactive veil — darkens the whole photo/monogram so an
+                          inactive staffer reads as clearly faded. Sits BELOW the
+                          chips, Activity hint, and footer (rendered after), so
+                          those controls stay crisp and usable. */}
+                      {isInactive && <div style={{ position: 'absolute', inset: 0, background: 'rgba(6,6,9,0.5)', pointerEvents: 'none' }} />}
                       {/* role chip (top-left) */}
                       <span style={{
                         position: 'absolute', top: 11, left: 11,
@@ -1023,9 +1028,9 @@ export default function StaffManagement() {
                           fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: '-0.3px',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           textShadow: '0 1px 6px rgba(0,0,0,0.7)',
-                          opacity: isInactive ? 0.7 : 1,
+                          opacity: isInactive ? 0.55 : 1,
                         }}>{s.name}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(255,255,255,0.74)', marginTop: 1, opacity: isInactive ? 0.8 : 1 }}>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(255,255,255,0.74)', marginTop: 1, opacity: isInactive ? 0.65 : 1 }}>
                           @{s.username}
                         </div>
                       </div>
