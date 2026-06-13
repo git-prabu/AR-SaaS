@@ -1028,8 +1028,10 @@ export default function StaffManagement() {
                     </div>
 
                     {/* ── Controls footer — continuous with the photo above (top
-                        colour matches the info-bar fade, so no seam) ── */}
-                    <div onClick={e => e.stopPropagation()} style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', gap: 10, background: 'linear-gradient(180deg, #1B1A18 0%, #141312 100%)' }}>
+                        colour matches the info-bar fade, so no seam). Generous
+                        top padding gives breathing room between the name and
+                        the Role row. ── */}
+                    <div onClick={e => e.stopPropagation()} style={{ padding: '26px 14px 14px', display: 'flex', flexDirection: 'column', gap: 10, background: 'linear-gradient(180deg, #1B1A18 0%, #141312 100%)' }}>
                       {/* Phase 0 step 5 — area access control (built-in Waiter
                           role only). Owner-only — a staff manager onboards staff
                           but doesn't reassign floor sections. */}
