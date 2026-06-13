@@ -945,15 +945,13 @@ export default function StaffManagement() {
                     style={{
                       borderRadius: 20, overflow: 'hidden',
                       display: 'flex', flexDirection: 'column',
-                      // Frosted glass (image-2 reference): translucent dark fill
-                      // + backdrop blur so the cream page frosts through the
-                      // footer + edges; a light top-edge highlight reads as the
-                      // glass rim.
-                      background: 'linear-gradient(160deg, rgba(38,36,33,0.62) 0%, rgba(15,14,13,0.78) 100%)',
-                      backdropFilter: 'blur(22px) saturate(135%)',
-                      WebkitBackdropFilter: 'blur(22px) saturate(135%)',
-                      border: '1px solid rgba(255,255,255,0.13)',
-                      boxShadow: '0 14px 34px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.07)',
+                      // One continuous dark surface (image-2 reference): the
+                      // photo melts into the footer with no seam. The "glass"
+                      // is the frosted name bar over the photo + the light rim
+                      // + soft float — NOT a lightened footer.
+                      background: '#1B1A18',
+                      border: '1px solid rgba(255,255,255,0.09)',
+                      boxShadow: '0 14px 34px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.06)',
                       opacity: isInactive ? 0.72 : 1,
                     }}>
                     {/* ── Photo hero (click target) ── */}
@@ -964,7 +962,7 @@ export default function StaffManagement() {
                       title="Click to view activity"
                       style={{
                         position: 'relative', height: 222, flexShrink: 0, cursor: 'pointer',
-                        background: s.photoUrl ? '#0c0c0c' : `linear-gradient(150deg, ${A.forestDarker}, #000)`,
+                        background: s.photoUrl ? '#1B1A18' : `linear-gradient(150deg, ${A.forestDarker}, #0d0d0c)`,
                       }}>
                       {s.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -1003,11 +1001,14 @@ export default function StaffManagement() {
                         background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
                         color: A.forestText, fontSize: 10.5, fontWeight: 700,
                       }}>Activity →</span>
-                      {/* name + username on a frosted glass info bar (image-2) */}
+                      {/* name + username on a frosted glass info bar (image-2).
+                          The gradient bottom is the EXACT card colour (#1B1A18),
+                          so it covers the photo's hard bottom edge and melts
+                          seamlessly into the footer below. */}
                       <div style={{
                         position: 'absolute', left: 0, right: 0, bottom: 0,
-                        padding: '24px 15px 13px',
-                        background: 'linear-gradient(to top, rgba(6,6,9,0.62) 0%, rgba(6,6,9,0.18) 64%, rgba(6,6,9,0) 100%)',
+                        padding: '34px 15px 13px',
+                        background: 'linear-gradient(to top, #1B1A18 0%, rgba(27,26,24,0.92) 16%, rgba(27,26,24,0.45) 52%, rgba(27,26,24,0) 100%)',
                         backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
                       }}>
                         <div style={{
@@ -1021,8 +1022,9 @@ export default function StaffManagement() {
                       </div>
                     </div>
 
-                    {/* ── Controls footer (dark) — clicks here don't open activity ── */}
-                    <div onClick={e => e.stopPropagation()} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                    {/* ── Controls footer — continuous with the photo above (top
+                        colour matches the info-bar fade, so no seam) ── */}
+                    <div onClick={e => e.stopPropagation()} style={{ padding: '12px 14px 14px', display: 'flex', flexDirection: 'column', gap: 10, background: 'linear-gradient(180deg, #1B1A18 0%, #141312 100%)' }}>
                       {/* Phase 0 step 5 — area access control (built-in Waiter
                           role only). Owner-only — a staff manager onboards staff
                           but doesn't reassign floor sections. */}
