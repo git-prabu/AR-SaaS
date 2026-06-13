@@ -1,11 +1,12 @@
 import Head from 'next/head';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import FeatureShell from '../../components/layout/FeatureShell';
 import EmptyState from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useRouter } from 'next/router';
 import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas, getStaffRoles, setStaffRole } from '../../lib/db';
+import { uploadImage, fileSizeMB, deleteFile, buildImagePath, extractStoragePath } from '../../lib/storage';
 import StaffActivityPanel from '../../components/StaffActivityPanel';
 import { ADMIN_TIER_PERMS } from '../../lib/permissions';
 import toast from 'react-hot-toast';
@@ -88,6 +89,25 @@ function RoleIcon({ role, size = 44 }) {
   );
 }
 
+// ═══ Avatar — employee photo if set, else the role-icon glyph ═══
+// Rounded square to match the existing RoleIcon language. `photoUrl`
+// wins; otherwise we fall back to the gold-on-black role glyph.
+function Avatar({ photoUrl, role, size = 44 }) {
+  if (photoUrl) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: 10, flexShrink: 0,
+        overflow: 'hidden', border: '1px solid rgba(0,0,0,0.08)',
+        background: '#EDEDED',
+      }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      </div>
+    );
+  }
+  return <RoleIcon role={role} size={size} />;
+}
+
 // ═══ Random 6-digit PIN generator ═══
 // (2026-06-11 audit #14: 4 → 6 digits, matching the server rule in
 // /api/staff/create. crypto.getRandomValues because this PIN is a real
@@ -117,7 +137,10 @@ function timeAgo(ts) {
 }
 
 // ═══ Empty form state ═══
-const emptyForm = { name: '', username: '', pin: '', role: 'kitchen', roleId: '' };
+// photoUrl/phone/email/notes are employee-profile fields (13 Jun 2026).
+// Photo upload + these extras are edit-only (a staffId must exist to
+// store the photo + persist via /api/staff/update 'profile').
+const emptyForm = { name: '', username: '', pin: '', role: 'kitchen', roleId: '', phone: '', email: '', notes: '', photoUrl: '' };
 
 // ═══ Helper: get admin ID token for API calls ═══
 // All mutation endpoints (/api/staff/create, /api/staff/update) require
@@ -179,7 +202,7 @@ export default function StaffManagement() {
   // onboards staff). Staff managers read the roster + roles via staffDb and
   // create/manage staff through /api/staff/* (guarded). Re-assigning roles to
   // existing staff + area editing stay owner-only (hidden below for staff).
-  const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('staff');
+  const { ready, isAdmin, rid, scopedDb, scopedStorage, canView, userData, staffSession } = useFeatureAccess('staff');
   const restaurantName = userData?.restaurantName || staffSession?.restaurantName || 'Your Restaurant';
 
   const [staff, setStaff] = useState([]);
@@ -219,6 +242,12 @@ export default function StaffManagement() {
 
   // QR modal
   const [qrOpen, setQrOpen] = useState(false);
+
+  // Employee photo upload (edit modal). Uploads to Storage via the
+  // scoped instance, stores the URL in form.photoUrl, persisted on Save.
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState(0);
+  const photoInputRef = useRef(null);
 
   // Phase 0 step 5 — areas for the per-waiter access-control chips.
   const [areas, setAreas] = useState([]);
@@ -377,7 +406,12 @@ export default function StaffManagement() {
     setModal('add');
   };
   const openEdit = (s) => {
-    setForm({ name: s.name || '', username: s.username || '', pin: '', role: s.role || 'kitchen', roleId: s.roleId || '' });
+    setForm({
+      name: s.name || '', username: s.username || '', pin: '',
+      role: s.role || 'kitchen', roleId: s.roleId || '',
+      phone: s.phone || '', email: s.email || '', notes: s.notes || '',
+      photoUrl: s.photoUrl || '',
+    });
     setSaveError('');
     setModal(s);
   };
@@ -385,6 +419,73 @@ export default function StaffManagement() {
     setModal(null);
     setSaveError('');
     setForm(emptyForm);
+    setPhotoBusy(false);
+    setPhotoProgress(0);
+  };
+
+  // ═══ Employee photo upload ═══
+  // Resizes browser-side (uploadImage) then stores under the
+  // restaurant's images path via the scoped Storage instance (works for
+  // owner AND staff-manager per storage.rules). On success the URL goes
+  // into form.photoUrl; the old photo (if any) is best-effort deleted.
+  // Persistence happens on Save (the 'profile' update action).
+  const handlePhotoPick = async (e) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = ''; // allow re-picking the same file
+    if (!file || !modal || modal === 'add') return;
+    if (!file.type.startsWith('image/')) { setSaveError('Please choose an image file.'); return; }
+    if (fileSizeMB(file) > 10) { setSaveError('Image is too large (max 10MB).'); return; }
+    setPhotoBusy(true);
+    setPhotoProgress(0);
+    setSaveError('');
+    try {
+      const path = buildImagePath(rid, `staff_${modal.id}_${file.name}`);
+      const url = await uploadImage(file, path, setPhotoProgress, undefined, scopedStorage);
+      const prev = form.photoUrl;
+      setForm(f => ({ ...f, photoUrl: url }));
+      // Best-effort cleanup of the previous photo so replaces don't pile up.
+      if (prev) {
+        const oldPath = extractStoragePath(prev);
+        if (oldPath) deleteFile(oldPath, scopedStorage).catch(() => {});
+      }
+    } catch (err) {
+      console.error('photo upload failed:', err);
+      setSaveError('Photo upload failed. Try again.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const handlePhotoRemove = () => {
+    const prev = form.photoUrl;
+    setForm(f => ({ ...f, photoUrl: '' }));
+    if (prev) {
+      const oldPath = extractStoragePath(prev);
+      if (oldPath) deleteFile(oldPath, scopedStorage).catch(() => {});
+    }
+  };
+
+  // ═══ Reset PIN ═══
+  // Surfaces the existing /api/staff/update rotatePin action and shows
+  // the new PIN once in the PIN-display modal. Revokes the staffer's
+  // sessions server-side so the old PIN stops working immediately.
+  const handleResetPin = (s) => {
+    setConfirmDialog({
+      title: `Reset PIN for ${s.name}?`,
+      body: `A new 6-digit PIN is generated and shown once. ${s.name}'s current PIN stops working immediately and they'll need the new one to sign in.`,
+      confirmLabel: 'Generate new PIN',
+      cancelLabel: 'Cancel',
+      onConfirm: async () => {
+        setActionId(s.id);
+        try {
+          const res = await apiCall('/api/staff/update', { action: 'rotatePin', staffId: s.id });
+          setPinDisplay({ name: s.name, username: s.username, pin: res.pin });
+        } catch (e) {
+          setBanner({ kind: 'error', text: e.message || 'Could not reset PIN' });
+        }
+        setActionId(null);
+      },
+    });
   };
 
   // ═══ Save (create or rename/role-change) ═══
@@ -447,10 +548,23 @@ export default function StaffManagement() {
           setSaving(false);
           return;
         }
+        // Name change syncs the Firebase Auth displayName (rename action);
+        // only call it when the name actually changed.
+        if (form.name.trim() !== (modal.name || '').trim()) {
+          await apiCall('/api/staff/update', {
+            action: 'rename',
+            staffId: modal.id,
+            name: form.name.trim(),
+          });
+        }
+        // Employee-profile fields — always persisted on Save.
         await apiCall('/api/staff/update', {
-          action: 'rename',
+          action: 'profile',
           staffId: modal.id,
-          name: form.name.trim(),
+          photoUrl: form.photoUrl || '',
+          phone: form.phone.trim(),
+          email: form.email.trim(),
+          notes: form.notes.trim(),
         });
         await reload();
         closeModal();
@@ -537,6 +651,7 @@ export default function StaffManagement() {
           .staff-icon-btn:hover { background: ${A.subtleBg}; }
           .staff-filter-pill:hover:not(.active) { background: ${A.subtleBg}; color: ${A.ink}; }
           .staff-add-btn:hover { filter: brightness(1.08); }
+          @media (max-width: 520px) { .staff-form-row-2 { grid-template-columns: 1fr !important; } }
         `}</style>
 
         {/* ═══ ASPIRE HEADER ═══ */}
@@ -827,7 +942,7 @@ export default function StaffManagement() {
                     }}>
                     {/* Header — avatar + name + role + username (the click target) */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
-                      <RoleIcon role={s.roleId ? 'custom' : s.role} />
+                      <Avatar photoUrl={s.photoUrl} role={s.roleId ? 'custom' : s.role} size={52} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 3 }}>
                           <span style={{
@@ -1001,12 +1116,13 @@ export default function StaffManagement() {
         }} onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
           <div style={{
             background: A.shell, borderRadius: 14, padding: '24px',
-            width: '100%', maxWidth: 440,
+            width: '100%', maxWidth: 460,
+            maxHeight: '92vh', overflowY: 'auto',
             boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
             fontFamily: A.font,
           }}>
-            {/* Profile-style identity header on edit — makes the modal
-                read as an employee profile rather than a bare form. */}
+            {/* Profile-style identity header on edit — photo uploader +
+                identity. Makes the modal read as an employee profile. */}
             {modal !== 'add' && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 14,
@@ -1014,12 +1130,28 @@ export default function StaffManagement() {
                 background: `linear-gradient(135deg, ${A.forest}, ${A.forestDarker})`,
                 border: A.forestBorder,
               }}>
-                <div style={{
-                  width: 54, height: 54, borderRadius: '50%', flexShrink: 0,
-                  background: `linear-gradient(135deg, ${A.warning}, #C2562B)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22, fontWeight: 800, color: '#1A1815',
-                }}>{(form.name || '?')[0].toUpperCase()}</div>
+                {/* Photo (or initial) — click to upload/change */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{
+                    width: 64, height: 64, borderRadius: '50%', overflow: 'hidden',
+                    background: form.photoUrl ? '#000' : `linear-gradient(135deg, ${A.warning}, #C2562B)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 24, fontWeight: 800, color: '#1A1815',
+                    border: '2px solid rgba(196,168,109,0.4)',
+                  }}>
+                    {form.photoUrl
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={form.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : (form.name || '?')[0].toUpperCase()}
+                  </div>
+                  {photoBusy && (
+                    <div style={{
+                      position: 'absolute', inset: 0, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 700, color: A.warning,
+                    }}>{photoProgress}%</div>
+                  )}
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 17, fontWeight: 700, color: A.forestText, letterSpacing: '-0.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {form.name || 'Staff member'}
@@ -1027,10 +1159,21 @@ export default function StaffManagement() {
                   <div style={{ fontSize: 12, color: A.forestTextMuted, marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
                     @{form.username}
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: A.warning, marginTop: 4 }}>
-                    {form.roleId
-                      ? (rolesList.find(r => r.id === form.roleId)?.name || 'Custom role')
-                      : (ROLES[form.role]?.label || 'Staff')}
+                  {/* Photo controls */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoPick} style={{ display: 'none' }} />
+                    <button type="button" disabled={photoBusy} onClick={() => photoInputRef.current?.click()} style={{
+                      padding: '5px 12px', borderRadius: 7, border: A.forestBorder,
+                      background: 'rgba(255,255,255,0.06)', color: A.forestText,
+                      fontSize: 11.5, fontWeight: 700, cursor: photoBusy ? 'wait' : 'pointer', fontFamily: A.font,
+                    }}>{photoBusy ? 'Uploading…' : (form.photoUrl ? 'Change photo' : 'Upload photo')}</button>
+                    {form.photoUrl && !photoBusy && (
+                      <button type="button" onClick={handlePhotoRemove} style={{
+                        padding: '5px 12px', borderRadius: 7, border: A.forestBorder,
+                        background: 'transparent', color: A.forestTextMuted,
+                        fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: A.font,
+                      }}>Remove</button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1108,6 +1251,51 @@ export default function StaffManagement() {
                   : 'Username cannot be changed. Delete and re-create to assign a new one.'}
               </div>
             </FormField>
+
+            {/* Employee-profile fields — edit only (need an existing
+                staffId to persist via the 'profile' update action). */}
+            {modal !== 'add' && (
+              <>
+                <div className="staff-form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <FormField label="Phone">
+                    <input value={form.phone}
+                      onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/[^\d+\-\s]/g, '').slice(0, 20) }))}
+                      placeholder="e.g. 98765 43210" inputMode="tel"
+                      style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace" }} />
+                  </FormField>
+                  <FormField label="Email">
+                    <input value={form.email} type="email"
+                      onChange={e => setForm(f => ({ ...f, email: e.target.value.slice(0, 120) }))}
+                      placeholder="optional"
+                      style={inputStyle} />
+                  </FormField>
+                </div>
+                <FormField label="Notes">
+                  <textarea value={form.notes}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value.slice(0, 500) }))}
+                    placeholder="e.g. weekends only · speaks Tamil + Hindi · joined Jan 2026"
+                    rows={2}
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: 56, lineHeight: 1.5 }} />
+                </FormField>
+
+                {/* Reset PIN — surfaces the rotatePin action; shows the new
+                    PIN once. Replaces the old "delete & recreate to reset". */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                  padding: '12px 14px', borderRadius: 10, marginBottom: 14,
+                  background: A.subtleBg, border: A.border,
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: A.ink }}>PIN</div>
+                    <div style={{ fontSize: 11, color: A.faintText, marginTop: 1 }}>Hidden for security. Reset to generate a new one.</div>
+                  </div>
+                  <button type="button" onClick={() => handleResetPin(modal)} style={{
+                    padding: '8px 14px', borderRadius: 8, border: A.border, background: A.shell,
+                    color: A.warningDim, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: A.font, flexShrink: 0,
+                  }}>Reset PIN</button>
+                </div>
+              </>
+            )}
 
             {/* PIN (only on add — not on edit, since rotate is a separate action) */}
             {modal === 'add' && (

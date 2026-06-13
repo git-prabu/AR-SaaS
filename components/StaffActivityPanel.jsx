@@ -222,12 +222,17 @@ export default function StaffActivityPanel({ rid, scopedDb, staffId, member: mem
           display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap',
         }}>
           <div style={{
-            width: 72, height: 72, borderRadius: '50%', flexShrink: 0,
-            background: `linear-gradient(135deg, ${A.warning}, #C2562B)`,
+            width: 72, height: 72, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+            background: member.photoUrl ? '#000' : `linear-gradient(135deg, ${A.warning}, #C2562B)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 28, fontWeight: 800, color: '#1A1815',
             boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-          }}>{(member.name || '?')[0].toUpperCase()}</div>
+          }}>
+            {member.photoUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={member.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : (member.name || '?')[0].toUpperCase()}
+          </div>
           <div style={{ flex: 1, minWidth: 180 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: A.warning }}>
               {greeting} · staff activity

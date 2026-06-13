@@ -6,6 +6,8 @@
 //   'rotatePin' — generates a new random PIN, returns it ONCE
 //   'toggleActive' — flips isActive
 //   'rename' — updates name (requires req.body.name)
+//   'profile' — updates the employee-profile fields (photoUrl, phone,
+//               email, notes) — added 13 Jun 2026 for the profile editor
 //   'delete' — removes the staff member entirely
 import { adminDb, adminAuth } from '../../../lib/firebaseAdmin';
 import admin from 'firebase-admin';
@@ -108,6 +110,25 @@ export default async function handler(req, res) {
         try {
           await adminAuth.updateUser(staffUid(rid, staffId), { displayName: name.trim() });
         } catch {}
+        return res.status(200).json({ success: true });
+      }
+
+      case 'profile': {
+        // Employee-profile fields edited from the staff profile modal.
+        // Allowlisted + length-capped; only fields explicitly present in
+        // the request are touched (undefined = leave as-is). An empty
+        // photoUrl clears the photo.
+        const { photoUrl, phone, email, notes } = req.body || {};
+        const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+        if (photoUrl !== undefined) {
+          updates.photoUrl = photoUrl
+            ? String(photoUrl).slice(0, 1000)
+            : admin.firestore.FieldValue.delete();
+        }
+        if (phone !== undefined) updates.phone = String(phone || '').slice(0, 20);
+        if (email !== undefined) updates.email = String(email || '').slice(0, 120);
+        if (notes !== undefined) updates.notes = String(notes || '').slice(0, 500);
+        await staffRef.update(updates);
         return res.status(200).json({ success: true });
       }
 
