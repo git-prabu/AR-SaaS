@@ -637,6 +637,18 @@ export default function StaffManagement() {
     });
   };
 
+  // Lock the page scroll while any overlay is open — otherwise the
+  // page behind the activity overlay / edit modal scrolls (owner
+  // reported this on the modal + activity panel). Restores on close.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const open = !!(modal || activityFor || pinDisplay || qrOpen);
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [modal, activityFor, pinDisplay, qrOpen]);
+
   return (
     <FeatureShell ready={ready} isAdmin={isAdmin} active="/admin/staff">
       <Head><title>Staff Management — HaloHelm</title></Head>
@@ -912,8 +924,8 @@ export default function StaffManagement() {
           ) : (
             <div className="staff-grid" style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: 14,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(256px, 1fr))',
+              gap: 16,
             }}>
               {filtered.map(s => {
                 // Unified role model: show the staffer's ONE role name — the
@@ -931,11 +943,18 @@ export default function StaffManagement() {
                   // don't also fire it.
                   <div key={s.id} className="staff-card"
                     style={{
-                      borderRadius: 16, overflow: 'hidden',
+                      borderRadius: 20, overflow: 'hidden',
                       display: 'flex', flexDirection: 'column',
-                      background: `linear-gradient(135deg, ${A.forest} 0%, ${A.forestDarker} 100%)`,
-                      border: A.forestBorder,
-                      opacity: isInactive ? 0.7 : 1,
+                      // Frosted glass (image-2 reference): translucent dark fill
+                      // + backdrop blur so the cream page frosts through the
+                      // footer + edges; a light top-edge highlight reads as the
+                      // glass rim.
+                      background: 'linear-gradient(160deg, rgba(38,36,33,0.62) 0%, rgba(15,14,13,0.78) 100%)',
+                      backdropFilter: 'blur(22px) saturate(135%)',
+                      WebkitBackdropFilter: 'blur(22px) saturate(135%)',
+                      border: '1px solid rgba(255,255,255,0.13)',
+                      boxShadow: '0 14px 34px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.07)',
+                      opacity: isInactive ? 0.72 : 1,
                     }}>
                     {/* ── Photo hero (click target) ── */}
                     <div
@@ -944,7 +963,7 @@ export default function StaffManagement() {
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActivityFor(s); } }}
                       title="Click to view activity"
                       style={{
-                        position: 'relative', height: 172, flexShrink: 0, cursor: 'pointer',
+                        position: 'relative', height: 222, flexShrink: 0, cursor: 'pointer',
                         background: s.photoUrl ? '#0c0c0c' : `linear-gradient(150deg, ${A.forestDarker}, #000)`,
                       }}>
                       {s.photoUrl ? (
@@ -958,8 +977,9 @@ export default function StaffManagement() {
                           </span>
                         </div>
                       )}
-                      {/* scrim for name legibility */}
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.35) 46%, rgba(0,0,0,0) 74%)' }} />
+                      {/* gentle vignette — the frosted info bar below does the
+                          heavy lifting for name legibility */}
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.08) 42%, rgba(0,0,0,0) 60%)' }} />
                       {/* role chip (top-left) */}
                       <span style={{
                         position: 'absolute', top: 11, left: 11,
@@ -983,21 +1003,26 @@ export default function StaffManagement() {
                         background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
                         color: A.forestText, fontSize: 10.5, fontWeight: 700,
                       }}>Activity →</span>
-                      {/* name + username over the scrim */}
-                      <div style={{ position: 'absolute', left: 14, right: 14, bottom: 11 }}>
+                      {/* name + username on a frosted glass info bar (image-2) */}
+                      <div style={{
+                        position: 'absolute', left: 0, right: 0, bottom: 0,
+                        padding: '24px 15px 13px',
+                        background: 'linear-gradient(to top, rgba(6,6,9,0.62) 0%, rgba(6,6,9,0.18) 64%, rgba(6,6,9,0) 100%)',
+                        backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+                      }}>
                         <div style={{
                           fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: '-0.3px',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          textShadow: '0 1px 5px rgba(0,0,0,0.6)',
+                          textShadow: '0 1px 6px rgba(0,0,0,0.7)',
                         }}>{s.name}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 1 }}>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(255,255,255,0.74)', marginTop: 1 }}>
                           @{s.username}
                         </div>
                       </div>
                     </div>
 
                     {/* ── Controls footer (dark) — clicks here don't open activity ── */}
-                    <div onClick={e => e.stopPropagation()} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
                       {/* Phase 0 step 5 — area access control (built-in Waiter
                           role only). Owner-only — a staff manager onboards staff
                           but doesn't reassign floor sections. */}
@@ -1038,14 +1063,17 @@ export default function StaffManagement() {
                         <span style={{ fontSize: 11, fontWeight: 700, color: A.forestTextFaint, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Role:</span>
                         <select value={s.roleId || s.role} disabled={roleSavingId === s.id}
                           onChange={e => assignRole(s, e.target.value)}
-                          style={{ flex: 1, minWidth: 120, padding: '6px 10px', borderRadius: 8, border: A.forestBorder, background: 'rgba(255,255,255,0.06)', fontFamily: A.font, fontSize: 12, color: A.forestText, cursor: 'pointer' }}>
-                          <optgroup label="Station">
-                            <option value="kitchen">Kitchen</option>
-                            <option value="waiter">Waiter</option>
+                          style={{ flex: 1, minWidth: 120, padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.07)', fontFamily: A.font, fontSize: 12, color: A.forestText, cursor: 'pointer' }}>
+                          {/* Native dropdown lists render on a white popup, so the
+                              options need dark text — otherwise the cream select
+                              color bleeds through and they read as invisible. */}
+                          <optgroup label="Station" style={{ color: '#1A1A1A' }}>
+                            <option value="kitchen" style={{ color: '#1A1A1A', background: '#fff' }}>Kitchen</option>
+                            <option value="waiter" style={{ color: '#1A1A1A', background: '#fff' }}>Waiter</option>
                           </optgroup>
                           {rolesList.length > 0 && (
-                            <optgroup label="Custom roles">
-                              {rolesList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                            <optgroup label="Custom roles" style={{ color: '#1A1A1A' }}>
+                              {rolesList.map(r => <option key={r.id} value={r.id} style={{ color: '#1A1A1A', background: '#fff' }}>{r.name}</option>)}
                             </optgroup>
                           )}
                         </select>
