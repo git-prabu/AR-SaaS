@@ -926,6 +926,11 @@ export default function StaffManagement() {
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(256px, 1fr))',
               gap: 16,
+              // Each card is only as tall as its own content — otherwise the
+              // grid stretches every card to match the tallest in the row
+              // (the waiter card with the Areas row), leaving dead space at
+              // the bottom of the others.
+              alignItems: 'start',
             }}>
               {filtered.map(s => {
                 // Unified role model: show the staffer's ONE role name — the
@@ -961,7 +966,7 @@ export default function StaffManagement() {
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActivityFor(s); } }}
                       title="Click to view activity"
                       style={{
-                        position: 'relative', height: 222, flexShrink: 0, cursor: 'pointer',
+                        position: 'relative', height: 282, flexShrink: 0, cursor: 'pointer',
                         background: s.photoUrl ? '#1B1A18' : `linear-gradient(150deg, ${A.forestDarker}, #0d0d0c)`,
                       }}>
                       {s.photoUrl ? (
