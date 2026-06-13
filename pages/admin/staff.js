@@ -956,7 +956,11 @@ export default function StaffManagement() {
                       background: '#1B1A18',
                       border: '1px solid rgba(255,255,255,0.09)',
                       boxShadow: '0 14px 34px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.06)',
-                      opacity: isInactive ? 0.72 : 1,
+                      // NB: no card-wide opacity here — the inactive "faded"
+                      // look is applied only to the photo + name below, so the
+                      // controls (Activity, Enable/Edit/Delete) stay full
+                      // strength and usable. A child can't be made brighter
+                      // than a dimmed parent, hence the per-element approach.
                     }}>
                     {/* ── Photo hero (click target) ── */}
                     <div
@@ -970,10 +974,10 @@ export default function StaffManagement() {
                       }}>
                       {s.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={s.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={s.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: isInactive ? 0.42 : 1, filter: isInactive ? 'grayscale(0.6)' : 'none' }} />
                       ) : (
                         // Monogram fallback — gold initial on matte black
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isInactive ? 0.5 : 1 }}>
                           <span style={{ fontFamily: A.font, fontWeight: 800, fontSize: 60, color: 'rgba(196,168,109,0.5)', letterSpacing: '-1px' }}>
                             {(s.name || '?')[0].toUpperCase()}
                           </span>
@@ -1019,8 +1023,9 @@ export default function StaffManagement() {
                           fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: '-0.3px',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           textShadow: '0 1px 6px rgba(0,0,0,0.7)',
+                          opacity: isInactive ? 0.7 : 1,
                         }}>{s.name}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(255,255,255,0.74)', marginTop: 1 }}>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'rgba(255,255,255,0.74)', marginTop: 1, opacity: isInactive ? 0.8 : 1 }}>
                           @{s.username}
                         </div>
                       </div>
