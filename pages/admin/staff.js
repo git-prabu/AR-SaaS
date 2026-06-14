@@ -7,7 +7,19 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { useRouter } from 'next/router';
 import { getStaffMembers, getRestaurantById, getAreas, setStaffAreas, getStaffRoles, setStaffRole } from '../../lib/db';
 import { uploadImage, fileSizeMB, deleteFile, buildImagePath, extractStoragePath } from '../../lib/storage';
-import StaffActivityPanel from '../../components/StaffActivityPanel';
+import dynamic from 'next/dynamic';
+// Lazy-loaded: this panel pulls in chart rendering + its own Firestore
+// queries, but only appears inside the activity overlay (when a card is
+// clicked). Keeping it out of the initial /admin/staff bundle speeds up
+// first load. It's client-only anyway (self-fetches in an effect).
+const StaffActivityPanel = dynamic(() => import('../../components/StaffActivityPanel'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.5)', fontSize: 13 }}>
+      Loading activity…
+    </div>
+  ),
+});
 import { ADMIN_TIER_PERMS } from '../../lib/permissions';
 import toast from 'react-hot-toast';
 import { auth, staffAuth } from '../../lib/firebaseAuth';
