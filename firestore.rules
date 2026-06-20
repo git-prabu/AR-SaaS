@@ -573,15 +573,17 @@ service cloud.firestore {
         allow create: if staffCan(restaurantId, 'tables') && isActiveStaff(restaurantId) &&
           request.resource.data.keys()
             .hasOnly(['currentBillId', 'seatedAt', 'seatedName', 'seatedPartySize', 'lastModifiedBy', 'lastModifiedAt']);
-        // Phase 8 (RBAC): a 'qrcode'-permitted active staff member manages the
-        // QR & Tables setup page (owner explicitly delegated this). activate =
-        // a full setDoc of exactly the token fields (rotates sid); the keys()
-        // lock means a staff write can only ever produce a clean session doc.
-        allow create, update: if staffCan(restaurantId, 'qrcode') && isActiveStaff(restaurantId) &&
+        // Phase 8 (RBAC): a 'qrcode'-permitted staff member manages the QR &
+        // Tables setup page; a 'tables'-permitted staff member flips the same
+        // token on the floor (seat -> activate the table's QR, clear ->
+        // deactivate it). Either perm may write ONLY the token fields — a full
+        // setDoc of exactly those keys, so a staff write can only ever produce
+        // a clean session doc.
+        allow create, update: if (staffCan(restaurantId, 'qrcode') || staffCan(restaurantId, 'tables')) && isActiveStaff(restaurantId) &&
           request.resource.data.keys()
             .hasOnly(['tableNumber', 'sid', 'isActive', 'createdAt', 'expiresAt']);
         // ...and clear a table (flip isActive off) — partial update.
-        allow update: if staffCan(restaurantId, 'qrcode') && isActiveStaff(restaurantId) &&
+        allow update: if (staffCan(restaurantId, 'qrcode') || staffCan(restaurantId, 'tables')) && isActiveStaff(restaurantId) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive']);
       }
 

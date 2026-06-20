@@ -71,6 +71,7 @@ import {
   markBillPrinted, ensureBillNumber,
   logStaffActivity,
   markTableSeated, freeTableSession,
+  activateTableSession, clearTableSession,
 } from '../../lib/db';
 import { printBill } from '../../lib/printKot';
 import {
@@ -694,9 +695,14 @@ export default function Orders() {
   const seatTable = async (table, partySize = 0) => {
     const code = String(table._code || table.id || '');
     try {
+      // Turn the table's ordering QR ON for the new party — FIRST, because it's
+      // a full setDoc of the token fields and the seated-hold merge below rides
+      // on top. Reuse the existing sid so a pre-printed QR keeps working across
+      // parties — only isActive + a fresh expiry flip.
+      await activateTableSession(rid, code, 6, { db: scopedDb, sid: sessions[code]?.sid });
       await markTableSeated(rid, code, { partySize }, { db: scopedDb });
       logStaffActivity(scopedDb, rid, { action: 'table_seated', refType: 'table', refId: code, tableNumber: code });
-      toast.success(`Table ${String(table.id).replace(/^T/i, '')} seated`);
+      toast.success(`Table ${String(table.id).replace(/^T/i, '')} seated · QR live`);
       setTableSheet(null);
     } catch (e) {
       console.error('seat failed:', e);
@@ -725,6 +731,10 @@ export default function Orders() {
         else              await updateOrderStatus(rid, o.id, 'served');
       }
       await freeTableSession(rid, code, billId, { db: scopedDb });
+      // Turn the table's ordering QR OFF — the now-empty table can't be ordered
+      // on until the next party is seated. Best-effort: harmless no-op if the
+      // table never had a session doc.
+      await clearTableSession(rid, code, { db: scopedDb }).catch(() => {});
       logStaffActivity(scopedDb, rid, { action: 'table_cleared', refType: 'table', refId: code, tableNumber: code });
       toast.success(`Table ${String(table.id).replace(/^T/i, '')} cleared`);
       setTableSheet(null);
