@@ -49,6 +49,14 @@ export default function TableManagerModal({ rid, areas = [], tables = [], onClos
     return map;
   }, [tables]);
 
+  // Suggest the next table NUMBER for a new table. The code is the table's QR
+  // number — the QR & Tables page and seat/clear both key the session off it,
+  // so keeping codes numeric (1, 2, 3…) keeps everything lined up.
+  const nextCode = () => {
+    const nums = tables.map(t => parseInt(t.code, 10)).filter(n => Number.isFinite(n));
+    return String((nums.length ? Math.max(...nums) : 0) + 1);
+  };
+
   // ── Area handlers ──────────────────────────────────────────────
   const handleAddArea = async () => {
     const name = newAreaName.trim();
@@ -256,10 +264,10 @@ export default function TableManagerModal({ rid, areas = [], tables = [], onClos
                     {tableForm?.areaId === area.id ? (
                       <div style={{ background: A.shellDarker, border: A.borderStrong, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
                         <input autoFocus style={inputStyle} placeholder="Name (e.g. Table 1)" value={tableForm.label} onChange={e => setTableForm({ ...tableForm, label: e.target.value })} />
-                        <input style={inputStyle} placeholder="Code (e.g. 1, A1)" value={tableForm.code}
+                        <input style={inputStyle} placeholder="Code — the QR number (e.g. 1, 2, 3)" value={tableForm.code}
                           onChange={e => setTableForm({ ...tableForm, code: e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 12) })} />
                         <div style={{ fontSize: 11, color: A.faintText, lineHeight: 1.4, marginTop: -2 }}>
-                          Name shows on the floor. Code is the short QR/table number — no spaces (e.g. 1, A1, R-3).
+                          Name shows on the floor. Code is the table&apos;s QR number — keep it a plain number (1, 2, 3…) so the QR codes and seating line up.
                         </div>
                         <input style={inputStyle} type="number" min="1" placeholder="Seats" value={tableForm.capacity} onChange={e => setTableForm({ ...tableForm, capacity: e.target.value })} />
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -268,7 +276,7 @@ export default function TableManagerModal({ rid, areas = [], tables = [], onClos
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => setTableForm({ areaId: area.id, label: '', code: '', capacity: 4 })}
+                      <button onClick={() => { const n = nextCode(); setTableForm({ areaId: area.id, label: `Table ${n}`, code: n, capacity: 4 }); }}
                         style={{ background: 'transparent', border: '1.5px dashed rgba(0,0,0,0.16)', borderRadius: 12, padding: 14, cursor: 'pointer', color: A.mutedText, fontFamily: A.font, fontSize: 13, fontWeight: 600, minHeight: 86, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                         <span style={{ fontSize: 16 }}>+</span> Add table
                       </button>
