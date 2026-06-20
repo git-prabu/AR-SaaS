@@ -70,6 +70,7 @@ import {
   markOrderItemServedAs,
   markBillPrinted, ensureBillNumber,
   logStaffActivity,
+  markTableSeated, freeTableSession,
 } from '../../lib/db';
 import { printBill } from '../../lib/printKot';
 import {
@@ -85,6 +86,7 @@ import OrdersListScreen from '../../components/order-kitchen/OrdersListScreen';
 import HistoryListScreen from '../../components/order-kitchen/HistoryListScreen';
 import PushToggle from '../../components/order-kitchen/PushToggle';
 import SettleSheet from '../../components/order-kitchen/SettleSheet';
+import TableActionSheet from '../../components/order-kitchen/TableActionSheet';
 import { I, VegMark, SpicePips, Thumb } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
@@ -655,6 +657,12 @@ export default function Orders() {
   // instead of jumping straight into the menu. Free/seated tables and
   // fully-paid tables keep the old direct-to-menu behaviour.
   const [settleSheet, setSettleSheet] = useState(null); // { table, orders, total }
+  // Table actions (seat / clear) — owner request, 20 Jun 2026. Only the
+  // owner OR staff with the 'tables' permission may seat/free tables (the
+  // firestore.rules tableSessions write is scoped to exactly that). For
+  // anyone else the tap keeps the old straight-to-menu fast path.
+  const [tableSheet, setTableSheet] = useState(null); // { table }
+  const canManageTables = isAdmin || (staffSession?.perms || []).includes('tables');
 
   const pickTable = (table) => {
     const unpaid = liveUnpaidForTable(table);
@@ -663,7 +671,56 @@ export default function Orders() {
       setSettleSheet({ table, orders: unpaid, total });
       return;
     }
+    // No unpaid balance — table is free, seated (occupied, no order yet), or
+    // ready (bill paid). Offer the seat/order/clear chooser to whoever can
+    // manage tables; everyone else goes straight to the menu as before.
+    if (canManageTables) { setTableSheet({ table }); return; }
     openMenuFor(table);
+  };
+
+  // Mark a table Seated (occupied, before any order) — pro-POS occupancy.
+  const seatTable = async (table, partySize = 0) => {
+    const code = String(table._code || table.id || '');
+    try {
+      await markTableSeated(rid, code, { partySize }, { db: scopedDb });
+      logStaffActivity(scopedDb, rid, { action: 'table_seated', refType: 'table', refId: code, tableNumber: code });
+      toast.success(`Table ${String(table.id).replace(/^T/i, '')} seated`);
+      setTableSheet(null);
+    } catch (e) {
+      console.error('seat failed:', e);
+      toast.error('Could not mark the table seated. Try again.');
+      throw e; // TableActionSheet resets its busy state on rejection
+    }
+  };
+
+  // Clear a settled table → free it for the next party. A 'ready' table
+  // still carries orders that are PAID but not marked served (served+paid
+  // orders already drop off on their own) — those keep the table occupied
+  // in the floor derivation, so we mark them served here, THEN freeTableSession
+  // closes any lingering open bill + drops the seated hold. This sheet only
+  // opens when the table has no UNPAID balance, so everything left is paid.
+  const clearTable = async (table) => {
+    const code = String(table._code || table.id || '');
+    const billId = sessions[code]?.currentBillId || null;
+    try {
+      const lingering = allOrdersList.filter(o =>
+        String(o.tableNumber || '') === code &&
+        o.orderType !== 'takeaway' && o.orderType !== 'takeout' &&
+        o.status !== 'cancelled' && o.status !== 'served'
+      );
+      for (const o of lingering) {
+        if (staffSession) await updateOrderStatusAs(staffDb, rid, o.id, 'served');
+        else              await updateOrderStatus(rid, o.id, 'served');
+      }
+      await freeTableSession(rid, code, billId, { db: scopedDb });
+      logStaffActivity(scopedDb, rid, { action: 'table_cleared', refType: 'table', refId: code, tableNumber: code });
+      toast.success(`Table ${String(table.id).replace(/^T/i, '')} cleared`);
+      setTableSheet(null);
+    } catch (e) {
+      console.error('clear failed:', e);
+      toast.error('Could not clear the table. Try again.');
+      throw e; // TableActionSheet resets its busy state on rejection
+    }
   };
 
   // Mark every unpaid order on the table paid_<method>. SEQUENTIAL on
@@ -1495,6 +1552,15 @@ export default function Orders() {
                   onClose={() => setSettleSheet(null)}
                 />
               )}
+              {tableSheet && (
+                <TableActionSheet
+                  table={tableSheet.table}
+                  onSeat={(party) => seatTable(tableSheet.table, party)}
+                  onOrder={() => openMenuFor(tableSheet.table)}
+                  onClear={() => clearTable(tableSheet.table)}
+                  onClose={() => setTableSheet(null)}
+                />
+              )}
             </main>
           </div>
         ) : (
@@ -1563,6 +1629,15 @@ export default function Orders() {
                   onSettle={settleTable}
                   onPrintBill={printSettleBill}
                   onClose={() => setSettleSheet(null)}
+                />
+              )}
+              {tableSheet && (
+                <TableActionSheet
+                  table={tableSheet.table}
+                  onSeat={(party) => seatTable(tableSheet.table, party)}
+                  onOrder={() => openMenuFor(tableSheet.table)}
+                  onClear={() => clearTable(tableSheet.table)}
+                  onClose={() => setTableSheet(null)}
                 />
               )}
             </div>
