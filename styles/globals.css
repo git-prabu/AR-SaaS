@@ -54,8 +54,14 @@ html {
    Prevent stray inner elements (wide tables on /admin/items, charts on
    /admin/analytics) from triggering whole-page horizontal scroll on
    phones. Pages that legitimately need horizontal scroll inside a
-   container use their own overflow-x: auto on that container. */
-html, body { overflow-x: hidden; }
+   container use their own overflow-x: auto on that container.
+   NB: this MUST be `clip`, not `hidden`. `overflow-x: hidden` promotes
+   overflow-y to `auto`, turning html/body into a scroll container — which
+   breaks `position: sticky` for descendants (the landing page's scroll-
+   driven story pin scrolled away into an empty section). `clip` blocks the
+   same stray horizontal overflow WITHOUT establishing a scroll container,
+   so sticky keeps working. (.ar-root already uses overflow-x: clip too.) */
+html, body { overflow-x: clip; }
 
 /* ── iOS auto-zoom prevention ────────────────────────────────────────
    Safari on iPhone auto-zooms when the user focuses an input whose
