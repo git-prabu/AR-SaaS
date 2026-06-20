@@ -22,6 +22,7 @@ export default function FloorScreen({
   tables, zones, zone, setZone, onPick, totals, tweakShape = 'auto', waiter,
   isLight, onToggleTheme,
   pushRestaurantId, pushSubscriber,
+  onManageTables, // owner-only: opens the floor-plan editor (add/edit tables)
 }) {
   const segRef = useRef(null);
   const zoneTables = tables.filter(t => t.zone === zone);
@@ -75,6 +76,20 @@ export default function FloorScreen({
             top-right control today. */}
         {pushRestaurantId && pushSubscriber && (
           <PushToggle restaurantId={pushRestaurantId} subscriber={pushSubscriber} />
+        )}
+        {onManageTables && (
+          <button
+            onClick={onManageTables}
+            title="Manage tables — add, edit, or remove tables"
+            aria-label="Manage tables"
+            style={{
+              height: 40, padding: '0 13px', borderRadius: 13, flexShrink: 0,
+              background: 'var(--card)', border: '1px solid var(--line)',
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              color: 'var(--tx)', cursor: 'pointer', fontFamily: 'var(--font-display)',
+              fontSize: 13, fontWeight: 600,
+            }}
+          ><span style={{ fontSize: 15 }}>⊞</span><span>Tables</span></button>
         )}
         <button
           onClick={onToggleTheme}

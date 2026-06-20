@@ -87,6 +87,7 @@ import HistoryListScreen from '../../components/order-kitchen/HistoryListScreen'
 import PushToggle from '../../components/order-kitchen/PushToggle';
 import SettleSheet from '../../components/order-kitchen/SettleSheet';
 import TableActionSheet from '../../components/order-kitchen/TableActionSheet';
+import TableManagerModal from '../../components/order-kitchen/TableManagerModal';
 import { I, VegMark, SpicePips, Thumb } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
@@ -663,6 +664,9 @@ export default function Orders() {
   // anyone else the tap keeps the old straight-to-menu fast path.
   const [tableSheet, setTableSheet] = useState(null); // { table }
   const canManageTables = isAdmin || (staffSession?.perms || []).includes('tables');
+  // Floor-plan editor (add/edit/delete tables + areas) — owner-only, since
+  // the table CRUD writes through the admin db. Opened from the floor header.
+  const [manageTablesOpen, setManageTablesOpen] = useState(false);
 
   const pickTable = (table) => {
     const unpaid = liveUnpaidForTable(table);
@@ -1060,6 +1064,7 @@ export default function Orders() {
         waiter={waiter}
         isLight={isLight} onToggleTheme={toggleTheme}
         pushRestaurantId={rid} pushSubscriber={pushSubscriber}
+        onManageTables={isAdmin ? () => setManageTablesOpen(true) : null}
       />
     );
   }
@@ -1191,6 +1196,18 @@ export default function Orders() {
                         <span className="l"><span className="swatch" style={{ background: 'var(--st-sent)' }} />Cooking</span>
                         <span className="l"><span className="swatch" style={{ background: 'var(--st-ready)' }} />Ready to pay</span>
                       </div>
+                      {isAdmin && (
+                        <button onClick={() => setManageTablesOpen(true)}
+                          title="Manage tables — add, edit, or remove tables"
+                          style={{
+                            marginLeft: 'auto', height: 36, padding: '0 14px', borderRadius: 10, flexShrink: 0,
+                            background: 'var(--card)', border: '1px solid var(--line)', color: 'var(--tx)',
+                            cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13,
+                            display: 'inline-flex', alignItems: 'center', gap: 7,
+                          }}>
+                          <span style={{ fontSize: 15 }}>⊞</span> Manage tables
+                        </button>
+                      )}
                     </div>
                     <div className="statstrip">
                       <div className="statcard">
@@ -1561,6 +1578,14 @@ export default function Orders() {
                   onClose={() => setTableSheet(null)}
                 />
               )}
+              {manageTablesOpen && isAdmin && (
+                <TableManagerModal
+                  rid={rid}
+                  areas={areas}
+                  tables={rawTables}
+                  onClose={() => setManageTablesOpen(false)}
+                />
+              )}
             </main>
           </div>
         ) : (
@@ -1638,6 +1663,14 @@ export default function Orders() {
                   onOrder={() => openMenuFor(tableSheet.table)}
                   onClear={() => clearTable(tableSheet.table)}
                   onClose={() => setTableSheet(null)}
+                />
+              )}
+              {manageTablesOpen && isAdmin && (
+                <TableManagerModal
+                  rid={rid}
+                  areas={areas}
+                  tables={rawTables}
+                  onClose={() => setManageTablesOpen(false)}
                 />
               )}
             </div>
