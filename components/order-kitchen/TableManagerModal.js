@@ -105,7 +105,12 @@ export default function TableManagerModal({ rid, areas = [], tables = [], onClos
     const label = (f.label || '').trim();
     const code = (f.code || '').trim();
     if (!label) { toast.error('Enter a table name'); return; }
-    if (!CODE_RE.test(code)) { toast.error('Code: letters/digits/-/_ only, max 12'); return; }
+    if (!code)  { toast.error('Enter a QR code/number'); return; }
+    // Only enforce the format when the code actually CHANGED — so editing a
+    // table's name/seats never gets blocked by a legacy code that predates
+    // this rule.
+    const orig = tables.find(t => t.id === f.id);
+    if (code !== (orig?.code || '') && !CODE_RE.test(code)) { toast.error('Code: letters/digits/-/_ only, max 12 chars'); return; }
     if (tables.some(t => t.id !== f.id && (t.code || '').toLowerCase() === code.toLowerCase())) {
       toast.error(`Code "${code}" is already used`); return;
     }
@@ -223,7 +228,8 @@ export default function TableManagerModal({ rid, areas = [], tables = [], onClos
                         {editingTable?.id === t.id ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                             <input style={inputStyle} placeholder="Name" value={editingTable.label} onChange={e => setEditingTable({ ...editingTable, label: e.target.value })} />
-                            <input style={inputStyle} placeholder="Code" value={editingTable.code} onChange={e => setEditingTable({ ...editingTable, code: e.target.value })} />
+                            <input style={inputStyle} placeholder="Code" value={editingTable.code}
+                              onChange={e => setEditingTable({ ...editingTable, code: e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 12) })} />
                             <input style={inputStyle} type="number" min="1" placeholder="Seats" value={editingTable.capacity} onChange={e => setEditingTable({ ...editingTable, capacity: e.target.value })} />
                             <div style={{ display: 'flex', gap: 6 }}>
                               <button style={{ ...btnPrimary, flex: 1, justifyContent: 'center' }} onClick={handleUpdateTable}>Save</button>
@@ -250,7 +256,11 @@ export default function TableManagerModal({ rid, areas = [], tables = [], onClos
                     {tableForm?.areaId === area.id ? (
                       <div style={{ background: A.shellDarker, border: A.borderStrong, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
                         <input autoFocus style={inputStyle} placeholder="Name (e.g. Table 1)" value={tableForm.label} onChange={e => setTableForm({ ...tableForm, label: e.target.value })} />
-                        <input style={inputStyle} placeholder="Code (e.g. 1, A1)" value={tableForm.code} onChange={e => setTableForm({ ...tableForm, code: e.target.value })} />
+                        <input style={inputStyle} placeholder="Code (e.g. 1, A1)" value={tableForm.code}
+                          onChange={e => setTableForm({ ...tableForm, code: e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 12) })} />
+                        <div style={{ fontSize: 11, color: A.faintText, lineHeight: 1.4, marginTop: -2 }}>
+                          Name shows on the floor. Code is the short QR/table number — no spaces (e.g. 1, A1, R-3).
+                        </div>
                         <input style={inputStyle} type="number" min="1" placeholder="Seats" value={tableForm.capacity} onChange={e => setTableForm({ ...tableForm, capacity: e.target.value })} />
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button style={{ ...btnPrimary, flex: 1, justifyContent: 'center' }} onClick={handleSaveTable}>Add</button>
