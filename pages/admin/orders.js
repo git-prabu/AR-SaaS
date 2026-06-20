@@ -160,6 +160,11 @@ function orderLabel(o) {
   return '#' + (o.id || '').slice(-5).toUpperCase();
 }
 
+// Table status → floor label. 'served' (all items served, not yet paid) is
+// distinct from 'sent' (kitchen still working) so a served table stops
+// reading as "Cooking". 'ready' = fully paid → "Paid" (clear it next).
+const STATUS_WORD = { free: 'Free', seated: 'Seated', sent: 'Cooking', served: 'Ready to pay', ready: 'Paid' };
+
 // LocalStorage keys for sound preference — shared with /admin/waiter
 // so toggling on one page persists to the other.
 const LS_SOUND_KEY = 'ar_waiter_sound';
@@ -289,7 +294,10 @@ export default function Orders() {
         }
       } else {
         const allPaid = live.every(o => PAID.has(o.paymentStatus));
-        if (allPaid || bill?.billPrintedAt) status = 'ready';
+        // Paid = "Paid" (clear next). Bill printed OR all items served but
+        // unpaid = "Ready to pay" (collect payment). Otherwise still "Cooking".
+        if (allPaid) status = 'ready';
+        else if (bill?.billPrintedAt || live.every(o => o.status === 'served')) status = 'served';
         else status = 'sent';
         occupied = cap;
         const earliest = live.reduce((a, b) => {
@@ -949,7 +957,7 @@ export default function Orders() {
     tables.forEach(t => {
       if (t.status === 'seated') seated++;
       else if (t.status === 'sent') cooking++;
-      else if (t.status === 'ready') ready++;
+      else if (t.status === 'served') ready++; // "ready to pay" = served, awaiting payment
       revenue += (totals[t.id] || 0);
     });
     return { seated, cooking, ready, revenue };
@@ -957,7 +965,7 @@ export default function Orders() {
 
   const serviceQueue = useMemo(() => {
     return tables
-      .filter(t => t.status === 'sent' || t.status === 'ready')
+      .filter(t => t.status === 'sent' || t.status === 'served' || t.status === 'ready')
       .sort((a, b) => (a.openedAt || '').localeCompare(b.openedAt || ''));
   }, [tables]);
 
@@ -1194,7 +1202,8 @@ export default function Orders() {
                         <span className="l"><span className="swatch" style={{ background: 'var(--st-free)' }} />Free</span>
                         <span className="l"><span className="swatch" style={{ background: 'var(--st-seated)' }} />Seated</span>
                         <span className="l"><span className="swatch" style={{ background: 'var(--st-sent)' }} />Cooking</span>
-                        <span className="l"><span className="swatch" style={{ background: 'var(--st-ready)' }} />Ready to pay</span>
+                        <span className="l"><span className="swatch" style={{ background: 'var(--st-served)' }} />Ready to pay</span>
+                        <span className="l"><span className="swatch" style={{ background: 'var(--st-paid)' }} />Paid</span>
                       </div>
                       {isAdmin && (
                         <button onClick={() => setManageTablesOpen(true)}
@@ -1230,33 +1239,16 @@ export default function Orders() {
                     <div className="floor-scroll">
                       <div className="floor-grid">
                         {tables.filter(t => t.zone === (zone || zones[0])).map(t => {
-                          const shape = t.shape || 'square';
-                          const isLong = shape === 'long';
-                          const cls = `tabletok shape-${shape} status-${t.status}`;
+                          // Uniform card for EVERY table (no oversized long
+                          // tiles) and the status word on all of them.
                           const total = totals[t.id] || 0;
                           return (
-                            <button key={t.id} className={cls} onClick={() => pickTable(t)}>
+                            <button key={t.id} className={`tabletok shape-square status-${t.status}`} onClick={() => pickTable(t)}>
                               <span className="tdot" />
-                              {isLong ? (
-                                <>
-                                  <div className="tlong-l">
-                                    <span className="tnum">{t.id}</span>
-                                    <span className="tseat">{t.occupied}/{t.seats}</span>
-                                  </div>
-                                  <div className="tlong-r">
-                                    {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
-                                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '.1em', color: 'var(--tx-3)', textTransform: 'uppercase', marginTop: '3px' }}>
-                                      {t.status === 'free' ? 'Free' : t.status === 'seated' ? 'Seated' : t.status === 'sent' ? 'Cooking' : 'Ready'}
-                                    </div>
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="tnum">{t.id}</span>
-                                  <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
-                                  {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
-                                </>
-                              )}
+                              <span className="tnum">{t.id}</span>
+                              <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
+                              <span className="tlabel">{STATUS_WORD[t.status] || t.status}</span>
+                              {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
                             </button>
                           );
                         })}
@@ -1280,8 +1272,8 @@ export default function Orders() {
                                 <div className="ac-zone">{t.zone}</div>
                                 <div className="ac-sub">{t.occupied}/{t.seats} · ₹{(totals[t.id] || 0).toLocaleString('en-IN')}</div>
                               </div>
-                              <span className={`ac-badge ${t.status === 'sent' ? 'sent' : 'ready'}`}>
-                                {t.status === 'sent' ? 'COOKING' : 'READY'}
+                              <span className={`ac-badge ${t.status}`}>
+                                {t.status === 'sent' ? 'COOKING' : t.status === 'served' ? 'TO PAY' : 'PAID'}
                               </span>
                             </div>
                           </button>

@@ -42,6 +42,8 @@
   --st-seated: #C4A86D;
   --st-sent:   #C2562B;
   --st-ready:  #3FAA63;
+  --st-served: #3FAA63;   /* table: served, awaiting payment ("Ready to pay") */
+  --st-paid:   #6E8EAF;   /* table: fully paid ("Paid") — clear it next */
 
   --success:   #3FAA63;
   --danger:    #D9534F;
@@ -300,18 +302,30 @@
 .ok-root .tabletok.status-free { border-style: dashed; border-color: var(--st-free); background: transparent; }
 .ok-root .tabletok.status-seated { border-color: var(--st-seated); }
 .ok-root .tabletok.status-sent { border-color: var(--st-sent); box-shadow: 0 0 0 1px var(--st-sent), 0 8px 22px rgba(194,86,43,0.18); }
-.ok-root .tabletok.status-ready { border-color: var(--st-ready); box-shadow: 0 0 0 1px var(--st-ready), 0 8px 22px rgba(63,170,99,0.18); }
+.ok-root .tabletok.status-served { border-color: var(--st-served); box-shadow: 0 0 0 1px var(--st-served), 0 8px 22px rgba(63,170,99,0.18); }
+.ok-root .tabletok.status-ready { border-color: var(--st-paid); box-shadow: 0 0 0 1px var(--st-paid), 0 8px 22px rgba(110,142,175,0.20); }
 .ok-root .tabletok .tnum { font-family: var(--font-display); font-weight: 700; font-size: 21px; letter-spacing: -0.02em; color: var(--tx); line-height: 1; }
 .ok-root .tabletok.status-free .tnum { color: var(--tx-3); }
 .ok-root .tabletok .tseat { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; color: var(--tx-3); text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px; }
 .ok-root .tabletok .ttotal { font-family: var(--font-display); font-weight: 600; font-size: 12px; color: var(--accent); margin-top: 1px; }
 .ok-root .tabletok.status-free .ttotal { display: none; }
+/* Status word shown on EVERY table card (small + large), coloured by state. */
+.ok-root .tabletok .tlabel {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em;
+  text-transform: uppercase; font-weight: 600; color: var(--tx-3); margin-top: 1px;
+  text-align: center; line-height: 1.2;
+}
+.ok-root .tabletok.status-seated .tlabel { color: var(--st-seated); }
+.ok-root .tabletok.status-sent   .tlabel { color: var(--st-sent); }
+.ok-root .tabletok.status-served .tlabel { color: var(--st-served); }
+.ok-root .tabletok.status-ready  .tlabel { color: var(--st-paid); }
 .ok-root .tabletok .tdot { position: absolute; top: 9px; right: 11px; width: 9px; height: 9px; border-radius: 50%; }
 .ok-root .tabletok.shape-round .tdot, .ok-root .tabletok.shape-long .tdot { top: 12px; right: 14px; }
 .ok-root .tabletok.status-free .tdot { background: var(--st-free); }
 .ok-root .tabletok.status-seated .tdot { background: var(--st-seated); }
 .ok-root .tabletok.status-sent .tdot { background: var(--st-sent); animation: ok-dotpulse 1.8s infinite; }
-.ok-root .tabletok.status-ready .tdot { background: var(--st-ready); animation: ok-dotpulse 1.8s infinite; }
+.ok-root .tabletok.status-served .tdot { background: var(--st-served); animation: ok-dotpulse 1.8s infinite; }
+.ok-root .tabletok.status-ready .tdot { background: var(--st-paid); }
 @keyframes ok-dotpulse { 0%,100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 50% { opacity: .55; } }
 .ok-root .tabletok.shape-long .tlong-l { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .ok-root .tabletok.shape-long .tlong-l .tseat { margin-top: 2px; }
@@ -825,8 +839,11 @@
 .ok-root .ac-badge.sent {
   background: rgba(194,86,43,0.16); color: var(--st-sent);
 }
+.ok-root .ac-badge.served {
+  background: rgba(63,170,99,0.16); color: var(--st-served);
+}
 .ok-root .ac-badge.ready {
-  background: rgba(63,170,99,0.16); color: var(--st-ready);
+  background: rgba(110,142,175,0.18); color: var(--st-paid);
 }
 .ok-root .act-empty {
   text-align: center; color: var(--tx-3);

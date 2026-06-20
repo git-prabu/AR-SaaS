@@ -10,7 +10,7 @@ import { I, rupee } from './Icons';
 import PushToggle from './PushToggle';
 
 function statusWord(s) {
-  return { free: 'Free', seated: 'Seated', sent: 'Cooking', ready: 'Ready' }[s] || s;
+  return { free: 'Free', seated: 'Seated', sent: 'Cooking', served: 'Ready to pay', ready: 'Paid' }[s] || s;
 }
 
 function greeting() {
@@ -122,38 +122,23 @@ export default function FloorScreen({
       <div className="legend">
         <span className="l"><span className="swatch" style={{ background: 'var(--st-free)' }} />Free</span>
         <span className="l"><span className="swatch" style={{ background: 'var(--st-seated)' }} />Seated</span>
-        <span className="l"><span className="swatch" style={{ background: 'var(--st-sent)' }} />Order sent</span>
-        <span className="l"><span className="swatch" style={{ background: 'var(--st-ready)' }} />Ready to pay</span>
+        <span className="l"><span className="swatch" style={{ background: 'var(--st-sent)' }} />Cooking</span>
+        <span className="l"><span className="swatch" style={{ background: 'var(--st-served)' }} />Ready to pay</span>
+        <span className="l"><span className="swatch" style={{ background: 'var(--st-paid)' }} />Paid</span>
       </div>
 
       <div className="scroll">
         <div className="floor">
           {zoneTables.map(t => {
-            const shape = tweakShape === 'auto' ? t.shape : tweakShape;
+            // Uniform card for every table + the status word on all of them.
             const total = totals[t.id] || 0;
-            const isLong = shape === 'long' || t.shape === 'long';
-            const cls = `tabletok shape-${isLong ? 'long' : shape} status-${t.status}`;
             return (
-              <button key={t.id} className={cls} onClick={() => onPick(t)}>
+              <button key={t.id} className={`tabletok shape-square status-${t.status}`} onClick={() => onPick(t)}>
                 <span className="tdot" />
-                {isLong ? (
-                  <>
-                    <div className="tlong-l">
-                      <span className="tnum">{t.id}</span>
-                      <span className="tseat">{I.user}{t.occupied}/{t.seats}</span>
-                    </div>
-                    <div className="tlong-r">
-                      {total > 0 && <span className="ttotal">{rupee(total)}</span>}
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '.1em', color: 'var(--tx-3)', textTransform: 'uppercase', marginTop: '3px' }}>{statusWord(t.status)}</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span className="tnum">{t.id}</span>
-                    <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
-                    {total > 0 && <span className="ttotal">{rupee(total)}</span>}
-                  </>
-                )}
+                <span className="tnum">{t.id}</span>
+                <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
+                <span className="tlabel">{statusWord(t.status)}</span>
+                {total > 0 && <span className="ttotal">{rupee(total)}</span>}
               </button>
             );
           })}
