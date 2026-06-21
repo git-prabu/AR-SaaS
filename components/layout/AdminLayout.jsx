@@ -7,7 +7,7 @@ import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore'
 import { AdminDataProvider } from '../../contexts/AdminDataContext';
 import { playOrderSound, playCallSound, playPaymentSound } from '../../lib/sounds';
 import { canUseFeature, PLANS } from '../../lib/plans';
-import { PERMISSION_ROUTES } from '../../lib/permissions';
+import { PERMISSION_ROUTES, UNIVERSAL_STAFF_PERMS } from '../../lib/permissions';
 import { getSubscriptionStatus, isBypassRoute } from '../../lib/subscription';
 import EmailVerifyBanner from '../EmailVerifyBanner';
 import PwaInstallPrompt from '../PwaInstallPrompt';
@@ -545,7 +545,11 @@ export default function AdminLayout({ children }) {
                   // (gateway, security, subscription, help, google) are
                   // owner-only base routes — always shown for the owner.
                   const perm = NAV_ROUTE_PERM[item.href];
-                  const needsPerm = !!perm && !canUseFeature(restaurantPlan, perm);
+                  // Universal perms (e.g. 'help') are on EVERY plan — never
+                  // plan-lock them. Without this, Help & FAQ was dimmed and
+                  // routed to /admin/subscription because canUseFeature has no
+                  // 'help' tier (it's a free, always-available page).
+                  const needsPerm = !!perm && !UNIVERSAL_STAFF_PERMS.includes(perm) && !canUseFeature(restaurantPlan, perm);
                   const requiredPlan = needsPerm ? minPlanForPerm(perm) : null;
                   const locked = needsPerm;
                   return (
