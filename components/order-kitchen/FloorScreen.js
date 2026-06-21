@@ -130,15 +130,32 @@ export default function FloorScreen({
       <div className="scroll">
         <div className="floor">
           {zoneTables.map(t => {
-            // Uniform card for every table + the status word on all of them.
+            // Shape varies by seats: round (≤2), square (3–6), long (7+) —
+            // and the status word shows on all of them.
             const total = totals[t.id] || 0;
+            const isLong = t.shape === 'long';
             return (
-              <button key={t.id} className={`tabletok shape-square status-${t.status}`} onClick={() => onPick(t)}>
+              <button key={t.id} className={`tabletok shape-${t.shape || 'square'} status-${t.status}`} onClick={() => onPick(t)}>
                 <span className="tdot" />
-                <span className="tnum">{t.id}</span>
-                <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
-                <span className="tlabel">{statusWord(t.status)}</span>
-                {total > 0 && <span className="ttotal">{rupee(total)}</span>}
+                {isLong ? (
+                  <>
+                    <div className="tlong-l">
+                      <span className="tnum">{t.id}</span>
+                      <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
+                    </div>
+                    <div className="tlong-r">
+                      {total > 0 && <span className="ttotal">{rupee(total)}</span>}
+                      <span className="tlabel">{statusWord(t.status)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="tnum">{t.id}</span>
+                    <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
+                    <span className="tlabel">{statusWord(t.status)}</span>
+                    {total > 0 && <span className="ttotal">{rupee(total)}</span>}
+                  </>
+                )}
               </button>
             );
           })}

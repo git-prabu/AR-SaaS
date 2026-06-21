@@ -298,7 +298,7 @@
 .ok-root .tabletok:active { transform: scale(.96); }
 .ok-root .tabletok.shape-round { border-radius: 50%; aspect-ratio: 1; min-height: 0; }
 .ok-root .tabletok.shape-square { border-radius: 16px; aspect-ratio: 1; min-height: 0; }
-.ok-root .tabletok.shape-long { border-radius: 18px; grid-column: span 3; min-height: 86px; flex-direction: row; gap: 16px; }
+.ok-root .tabletok.shape-long { border-radius: 18px; grid-column: span 2; min-height: 150px; flex-direction: row; gap: 16px; }
 .ok-root .tabletok.status-free { border-style: dashed; border-color: var(--st-free); background: transparent; }
 .ok-root .tabletok.status-seated { border-color: var(--st-seated); }
 .ok-root .tabletok.status-sent { border-color: var(--st-sent); box-shadow: 0 0 0 1px var(--st-sent), 0 8px 22px rgba(194,86,43,0.18); }

@@ -699,7 +699,7 @@ export default function Orders() {
       // a full setDoc of the token fields and the seated-hold merge below rides
       // on top. Reuse the existing sid so a pre-printed QR keeps working across
       // parties — only isActive + a fresh expiry flip.
-      await activateTableSession(rid, code, 6, { db: scopedDb, sid: sessions[code]?.sid });
+      await activateTableSession(rid, code, 2, { db: scopedDb, sid: sessions[code]?.sid });
       await markTableSeated(rid, code, { partySize }, { db: scopedDb });
       logStaffActivity(scopedDb, rid, { action: 'table_seated', refType: 'table', refId: code, tableNumber: code });
       toast.success(`Table ${String(table.id).replace(/^T/i, '')} seated · QR live`);
@@ -1249,16 +1249,32 @@ export default function Orders() {
                     <div className="floor-scroll">
                       <div className="floor-grid">
                         {tables.filter(t => t.zone === (zone || zones[0])).map(t => {
-                          // Uniform card for EVERY table (no oversized long
-                          // tiles) and the status word on all of them.
+                          // Shape varies by seats: round (≤2), square (3–6),
+                          // long (7+) — and the status word shows on all of them.
                           const total = totals[t.id] || 0;
+                          const isLong = t.shape === 'long';
                           return (
-                            <button key={t.id} className={`tabletok shape-square status-${t.status}`} onClick={() => pickTable(t)}>
+                            <button key={t.id} className={`tabletok shape-${t.shape || 'square'} status-${t.status}`} onClick={() => pickTable(t)}>
                               <span className="tdot" />
-                              <span className="tnum">{t.id}</span>
-                              <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
-                              <span className="tlabel">{STATUS_WORD[t.status] || t.status}</span>
-                              {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
+                              {isLong ? (
+                                <>
+                                  <div className="tlong-l">
+                                    <span className="tnum">{t.id}</span>
+                                    <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
+                                  </div>
+                                  <div className="tlong-r">
+                                    {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
+                                    <span className="tlabel">{STATUS_WORD[t.status] || t.status}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="tnum">{t.id}</span>
+                                  <span className="tseat">{t.occupied ? `${t.occupied}/${t.seats}` : `${t.seats} seats`}</span>
+                                  <span className="tlabel">{STATUS_WORD[t.status] || t.status}</span>
+                                  {total > 0 && <span className="ttotal">₹{total.toLocaleString('en-IN')}</span>}
+                                </>
+                              )}
                             </button>
                           );
                         })}

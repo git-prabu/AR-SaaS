@@ -102,7 +102,7 @@ export default function AdminQRCode() {
   const [sessions, setSessions] = useState({}); // { tableNum: sessionDoc }
   const [activating, setActivating] = useState(null);
   const [clearing, setClearing] = useState(null);
-  const [sessionHours, setSessionHours] = useState(3);
+  const [sessionHours, setSessionHours] = useState(2);
   const [activatingAll, setActivatingAll] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
 
