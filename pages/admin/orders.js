@@ -1195,8 +1195,8 @@ export default function Orders() {
                           <div
                             className="seg-pill"
                             style={{
-                              transform: `translateX(${Math.max(0, zones.indexOf(zone || zones[0])) * 100}%)`,
-                              width: `calc(${100 / zones.length}% - ${8 - 8 / zones.length}px)`,
+                              transform: `translateX(calc(${Math.max(0, zones.indexOf(zone || zones[0]))} * (100% + 4px)))`,
+                              width: `calc(${100 / zones.length}% - ${4 + 4 / zones.length}px)`,
                             }}
                           />
                           {zones.map(z => (

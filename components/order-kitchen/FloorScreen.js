@@ -29,8 +29,10 @@ export default function FloorScreen({
 
   const idx = Math.max(0, zones.indexOf(zone));
   const pillStyle = zones.length > 0 ? {
-    transform: `translateX(${idx * 100}%)`,
-    width: `calc(${100 / zones.length}% - ${8 - 8 / zones.length}px)`,
+    // Step by (pill width + 4px gap) per tab so the pill lands exactly on the
+    // active tab — `idx * 100%` alone ignored the gap and drifted left.
+    transform: `translateX(calc(${idx} * (100% + 4px)))`,
+    width: `calc(${100 / zones.length}% - ${4 + 4 / zones.length}px)`,
   } : {};
 
   return (

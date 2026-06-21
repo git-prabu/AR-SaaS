@@ -268,13 +268,17 @@
 .ok-root .seg button {
   flex: 1; padding: 9px 6px; border-radius: var(--r-pill);
   font-family: var(--font-display); font-weight: 600; font-size: 12.5px; color: var(--tx-2);
-  transition: color .2s, background .2s, box-shadow .2s; position: relative; white-space: nowrap;
+  transition: color .2s; position: relative; white-space: nowrap;
 }
-/* The active tab IS the gold pill — perfectly aligned with the button. The
-   old free-floating .seg-pill was JS-positioned with percentage math that
-   drifted off the tab once there were 3+ zones (Rooftop/Ground/Garden). */
-.ok-root .seg button.on { color: var(--accent-ink); background: var(--accent); box-shadow: 0 4px 14px var(--accent-glow); }
-.ok-root .seg .seg-pill { display: none; }
+.ok-root .seg button.on { color: var(--accent-ink); }
+/* Sliding gold pill (smooth elastic transition). Its translateX steps by
+   (pill width + 4px gap) per tab so it lands exactly on each tab — the old
+   `idx * 100%` ignored the gap and drifted left once there were 3 zones. */
+.ok-root .seg .seg-pill {
+  position: absolute; inset: 4px auto 4px 4px; border-radius: var(--r-pill);
+  background: var(--accent); box-shadow: 0 4px 14px var(--accent-glow);
+  transition: transform .42s var(--ease-elastic), width .42s var(--ease-elastic); z-index: 0;
+}
 .ok-root .seg button span { position: relative; z-index: 1; }
 
 /* ── Floor legend ─────────────────────────────────────────── */
