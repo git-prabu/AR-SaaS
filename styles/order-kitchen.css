@@ -288,7 +288,12 @@
 
 /* ── Floor grid ───────────────────────────────────────────── */
 .ok-root .floor {
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Fixed row height (not aspect-ratio) — iOS Safari miscomputes
+     aspect-ratio row heights in a grid and compounds the error across
+     rows, which made all-small-table zones (e.g. Rooftop) overlap.
+     minmax(0,1fr) also stops the columns blowing past the viewport. */
+  grid-auto-rows: 112px;
   gap: 16px 14px; padding: 4px 20px 28px;
 }
 .ok-root .tabletok {
@@ -299,9 +304,9 @@
   overflow: visible;
 }
 .ok-root .tabletok:active { transform: scale(.96); }
-.ok-root .tabletok.shape-round { border-radius: 50%; aspect-ratio: 1; min-height: 0; }
-.ok-root .tabletok.shape-square { border-radius: 16px; aspect-ratio: 1; min-height: 0; }
-.ok-root .tabletok.shape-long { border-radius: 18px; grid-column: span 2; min-height: 150px; flex-direction: row; gap: 16px; }
+.ok-root .tabletok.shape-round { border-radius: 50%; min-height: 0; }
+.ok-root .tabletok.shape-square { border-radius: 16px; min-height: 0; }
+.ok-root .tabletok.shape-long { border-radius: 18px; grid-column: span 2; min-height: 0; flex-direction: row; gap: 16px; }
 .ok-root .tabletok.status-free { border-style: dashed; border-color: var(--st-free); background: transparent; }
 .ok-root .tabletok.status-seated { border-color: var(--st-seated); }
 .ok-root .tabletok.status-sent { border-color: var(--st-sent); box-shadow: 0 0 0 1px var(--st-sent), 0 8px 22px rgba(194,86,43,0.18); }
