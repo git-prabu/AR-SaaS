@@ -1013,6 +1013,10 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   const [offers, setOffers] = useState(initialOffers || []);
   const [combos, setCombos] = useState(initialCombos || []);
   const [restaurantGone, setRestaurantGone] = useState(initialRestaurant?.isActive === false);
+  // Have we confirmed the restaurant's billing state from a LIVE Firestore
+  // read yet? The subscription block must never fire off the (cached, up to
+  // 60s+ stale) ISR snapshot — only once the real-time listener confirms.
+  const [subConfirmed, setSubConfirmed] = useState(false);
   const [activeCat, setActiveCat] = useState('All');
   // Customer-side menu search (May 8). Replaces the category strip /
   // sections / AR banner / combo deals with a flat result list while
@@ -1517,6 +1521,7 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
       if (!snap.exists()) { setRestaurantGone(true); return; }
       const data = { id: snap.id, ...snap.data() };
       setLiveRestaurant(data);
+      setSubConfirmed(true); // live billing state is now known
       if (data.isActive === false) setRestaurantGone(true);
       else setRestaurantGone(false);
     }, () => { /* ignore errors, keep ISR data */ }));
@@ -3340,10 +3345,22 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
   // only on explicit 'expired' / 'inactive' / 'cancelled' style statuses.
   const subEnd = restaurant?.subscriptionEnd;
   const payStatus = restaurant?.paymentStatus;
-  const isExpired = subEnd && new Date(subEnd) < new Date();
+  // `new Date('2026-06-30')` parses as midnight UTC = 5:30am IST, which would
+  // expire a plan in the middle of its final day (IST) and block live
+  // customers. Add a 48h grace so neither the UTC boundary nor a renewal /
+  // payment-webhook flicker can mark a paid-up restaurant as expired. An
+  // unparseable date never expires (fail-open — don't block real diners).
+  const SUB_GRACE_MS = 48 * 60 * 60 * 1000;
+  const endMs = subEnd ? new Date(subEnd).getTime() : NaN;
+  const isExpired = !isNaN(endMs) && (endMs + SUB_GRACE_MS) < Date.now();
   const VALID_PAY_STATUSES = new Set(['active', 'trial']);
-  const isInactive = payStatus && !VALID_PAY_STATUSES.has(payStatus);
-  const menuBlocked = isExpired || isInactive;
+  const isInactive = !!payStatus && !VALID_PAY_STATUSES.has(payStatus);
+  // THE FIX: only block once the LIVE restaurant doc has been read
+  // (`subConfirmed`). The ISR snapshot is cached up to 60s+ and is served
+  // from the CDN, so without this gate a stale or mid-renewal snapshot could
+  // show "Menu Temporarily Unavailable" to customers of a paid-up restaurant
+  // — exactly the reported bug. Until live data confirms, we show the menu.
+  const menuBlocked = subConfirmed && (isExpired || isInactive);
 
   if (menuBlocked) return (
     <div style={{ minHeight: '100vh', background: '#FAF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter,sans-serif', padding: 24 }}>
