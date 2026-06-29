@@ -64,6 +64,9 @@ export const navSections = [
       { href: '/admin/tables-v2',       label: 'Tables v2',       icon: 'grid' },
       { href: '/admin/reports-v2',      label: 'Reports v2',      icon: 'dollar' },
       { href: '/admin/activity-log-v2', label: 'Activity Log v2', icon: 'bell-ring' },
+      { href: '/admin/day-close-v2',    label: 'Day Close v2',    icon: 'crown' },
+      { href: '/admin/customers-v2',    label: 'Customers v2',    icon: 'contact' },
+      { href: '/admin/expenses-v2',     label: 'Expenses v2',     icon: 'receipt' },
     ]
   },
   {
