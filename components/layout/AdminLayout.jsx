@@ -55,6 +55,17 @@ function minPlanForPerm(perm) {
 // Table View → Tables; Activity → Activity Log. Waiter and Roles kept
 // at the owner's request.
 export const navSections = [
+  // ✨ Redesign preview — duplicate pages rebuilt in the Orders/Kitchen dark
+  // theme for side-by-side comparison before picking the production look.
+  // These render their own .pos shell (no AdminLayout), so clicking one leaves
+  // this sidebar; use their in-page rail (or browser back) to return.
+  {
+    label: '✨ NEW DESIGN (V2)', items: [
+      { href: '/admin/tables-v2',       label: 'Tables v2',       icon: 'grid' },
+      { href: '/admin/reports-v2',      label: 'Reports v2',      icon: 'dollar' },
+      { href: '/admin/activity-log-v2', label: 'Activity Log v2', icon: 'bell-ring' },
+    ]
+  },
   {
     label: 'DASHBOARD', items: [
       { href: '/admin/analytics',     label: 'Analytics',    icon: 'chart' },
@@ -420,7 +431,12 @@ export default function AdminLayout({ children }) {
     </div>
   );
 
-  const isActive = (href) => href === '/admin' ? router.pathname === '/admin' : router.pathname.startsWith(href);
+  // Exact match, or a true sub-path (href + '/'). Using a bare startsWith made
+  // prefixes collide — '/admin/tables' would light up on '/admin/tables-v2',
+  // and '/admin/kitchen' on '/admin/kitchen-new'. The boundary check fixes both.
+  const isActive = (href) => href === '/admin'
+    ? router.pathname === '/admin'
+    : (router.pathname === href || router.pathname.startsWith(href + '/'));
 
   // ── Aspire palette (scoped to the admin chrome only — doesn't affect T) ──
   const INTER = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
