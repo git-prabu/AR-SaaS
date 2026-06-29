@@ -67,6 +67,10 @@ export const navSections = [
       { href: '/admin/day-close-v2',    label: 'Day Close v2',    icon: 'crown' },
       { href: '/admin/customers-v2',    label: 'Customers v2',    icon: 'contact' },
       { href: '/admin/expenses-v2',     label: 'Expenses v2',     icon: 'receipt' },
+      { href: '/admin/reservations-v2', label: 'Reservations v2', icon: 'calendar' },
+      { href: '/admin/vendors-v2',      label: 'Vendors v2',      icon: 'truck' },
+      { href: '/admin/campaigns-v2',    label: 'Marketing v2',    icon: 'megaphone' },
+      { href: '/admin/roles-v2',        label: 'Roles v2',        icon: 'key' },
     ]
   },
   {
