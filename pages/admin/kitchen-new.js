@@ -789,6 +789,16 @@ function DesktopTicket({ order, duplicateDishes, allDay, onStart, onMarkItemRead
           );
         })}
       </div>
+      {order.specialInstructions && (
+        <div style={{
+          margin: '10px 0 2px', padding: '8px 12px',
+          background: 'rgba(196,168,109,0.10)', borderRadius: 8,
+          fontFamily: 'var(--font-body)', fontSize: 12,
+          color: 'var(--gold)', fontWeight: 500, lineHeight: 1.5,
+        }}>
+          <b style={{ fontWeight: 700 }}>Order note:</b> {order.specialInstructions}
+        </div>
+      )}
       {order.status === 'pending' && (
         <div className="ticket-foot">
           <button className="bump start" onClick={onStart} disabled={updatingKey === `${order.id}:start`}>
