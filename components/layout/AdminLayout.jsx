@@ -71,6 +71,9 @@ export const navSections = [
       { href: '/admin/vendors-v2',      label: 'Vendors v2',      icon: 'truck' },
       { href: '/admin/campaigns-v2',    label: 'Marketing v2',    icon: 'megaphone' },
       { href: '/admin/roles-v2',        label: 'Roles v2',        icon: 'key' },
+      { href: '/admin/waitlist-v2',     label: 'Waitlist v2',     icon: 'hourglass' },
+      { href: '/admin/help-v2',         label: 'Help v2',         icon: 'help' },
+      { href: '/admin/google-v2',       label: 'Google v2',       icon: 'globe' },
     ]
   },
   {
