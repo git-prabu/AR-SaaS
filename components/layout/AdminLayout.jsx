@@ -87,6 +87,7 @@ export const navSections = [
       { href: '/admin/payments-v2',     label: 'Payments v2',     icon: 'card' },
       { href: '/admin/promotions-v2',   label: 'Promotions v2',   icon: 'tag' },
       { href: '/admin/staff-v2',        label: 'Staff v2',        icon: 'users' },
+      { href: '/admin/items-v2',        label: 'Menu Items v2',   icon: 'utensils' },
     ]
   },
   {
