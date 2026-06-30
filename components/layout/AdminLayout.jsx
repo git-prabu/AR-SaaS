@@ -74,6 +74,10 @@ export const navSections = [
       { href: '/admin/waitlist-v2',     label: 'Waitlist v2',     icon: 'hourglass' },
       { href: '/admin/help-v2',         label: 'Help v2',         icon: 'help' },
       { href: '/admin/google-v2',       label: 'Google v2',       icon: 'globe' },
+      { href: '/admin/index-v2',        label: 'Dashboard v2',    icon: 'chart' },
+      { href: '/admin/security-v2',     label: 'Security v2',     icon: 'shield' },
+      { href: '/admin/petpooja-pos-v2', label: 'Petpooja v2',     icon: 'plug' },
+      { href: '/admin/new-order-v2',    label: 'New Order v2',    icon: 'plus' },
     ]
   },
   {
