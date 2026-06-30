@@ -1268,75 +1268,36 @@ export default function AnalyticsV2() {
           })()}
 
           {/* ── Sticky tabs + range selector bar ── */}
-          <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface)', marginLeft: -30, marginRight: -30, padding: '0 30px', borderBottom: '1px solid rgba(120,120,120,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', gap: 0 }}>
-                {[['overview', 'Overview'], ...(hasAdvancedAnalytics ? [['menu', 'Menu Performance']] : [])].map(([id, label]) => (
-                  <button key={id} onClick={() => setTab(id)} style={{
-                    padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: A.font,
-                    fontSize: 13, fontWeight: tab === id ? 700 : 500,
-                    color: tab === id ? A.ink : 'rgba(120,120,120,0.4)',
-                    background: 'transparent',
-                    borderBottom: tab === id ? `2.5px solid ${A.warning}` : '2.5px solid transparent',
-                    marginBottom: -2, transition: 'all 0.15s',
-                  }}>{label}</button>
-                ))}
-                {/* Phase G — surface the locked tab on Starter so the
-                    feature gap is visible at a glance. Links to the
-                    upgrade page. */}
-                {!hasAdvancedAnalytics && (
-                  <Link href="/admin/subscription" style={{
-                    padding: '10px 18px', display: 'inline-flex', alignItems: 'center', gap: 8,
-                    fontFamily: A.font, fontSize: 12, fontWeight: 500,
-                    color: 'rgba(120,120,120,0.5)', textDecoration: 'none',
-                    borderBottom: '2.5px solid transparent', marginBottom: -2,
-                    opacity: 0.85,
-                  }}>
-                    <span style={{ fontSize: 11 }}>🔒</span>
-                    Menu Performance + Insights
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                      background: 'rgba(196,168,109,0.15)', color: '#A08656', letterSpacing: '0.04em',
-                    }}>GROWTH</span>
-                  </Link>
-                )}
-              </div>
-              {/* Sticky tab-bar period pills. Mirrors the main header selector
-                  (shared `period` + `customRange` state). Rendered with chip-style
-                  borders to fit the compact sticky-bar aesthetic. Parent needs
-                  position:relative so the DateRangePicker popover anchors here. */}
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
-                {[['today', 'Today'], ['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([key, label]) => {
-                  const active = !customRange.active && period === key;
-                  return (
-                    <button key={key} onClick={() => { setCustomRange({ active: false, start: '', end: '' }); setPeriod(key); }} style={{
-                      padding: '4px 12px', borderRadius: 16,
-                      border: active ? `1.5px solid ${A.warning}` : '1.5px solid rgba(120,120,120,0.1)',
-                      fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: A.font,
-                      background: active ? 'rgba(196,168,109,0.12)' : 'transparent',
-                      color: active ? A.warning : 'rgba(120,120,120,0.35)', transition: 'all 0.15s',
-                    }}>{label}</button>
-                  );
-                })}
-                <DateRangePicker
-                  value={customRange}
-                  onChange={setCustomRange}
-                  maxDate={todayKey()}
-                  theme={A}
-                  compactLabel
-                  pillStyle={{
-                    padding: '4px 12px', borderRadius: 16,
-                    border: customRange.active ? `1.5px solid ${A.warning}` : '1.5px solid rgba(120,120,120,0.1)',
-                    fontSize: 11, fontWeight: 700,
-                    background: 'transparent',
-                    color: 'rgba(120,120,120,0.35)',
-                  }}
-                  pillActiveStyle={{
-                    background: 'rgba(196,168,109,0.12)', color: A.warning,
-                    border: `1.5px solid ${A.warning}`,
-                  }}
-                />
-              </div>
+          <div style={{ marginLeft: -30, marginRight: -30, padding: '0 30px', borderBottom: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+              {[['overview', 'Overview'], ...(hasAdvancedAnalytics ? [['menu', 'Menu Performance']] : [])].map(([id, label]) => (
+                <button key={id} onClick={() => setTab(id)} style={{
+                  padding: '10px 24px', border: 'none', cursor: 'pointer', fontFamily: A.font,
+                  fontSize: 13, fontWeight: tab === id ? 700 : 500,
+                  color: tab === id ? A.ink : A.mutedText,
+                  background: 'transparent',
+                  borderBottom: tab === id ? `2.5px solid ${A.warning}` : '2.5px solid transparent',
+                  marginBottom: -1, transition: 'all 0.15s',
+                }}>{label}</button>
+              ))}
+              {/* Phase G — surface the locked tab on Starter so the feature gap
+                  is visible at a glance. Links to the upgrade page. */}
+              {!hasAdvancedAnalytics && (
+                <Link href="/admin/subscription" style={{
+                  padding: '10px 18px', display: 'inline-flex', alignItems: 'center', gap: 8,
+                  fontFamily: A.font, fontSize: 12, fontWeight: 500,
+                  color: A.mutedText, textDecoration: 'none',
+                  borderBottom: '2.5px solid transparent', marginBottom: -1,
+                  opacity: 0.85,
+                }}>
+                  <span style={{ fontSize: 11 }}>🔒</span>
+                  Menu Performance + Insights
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: 'rgba(196,168,109,0.15)', color: '#A08656', letterSpacing: '0.04em',
+                  }}>GROWTH</span>
+                </Link>
+              )}
             </div>
           </div>
           <div style={{ height: 14 }} />
@@ -1977,7 +1938,7 @@ export default function AnalyticsV2() {
                     <div style={{ ...labelSm, fontSize: 9 }}>Dish</div>
                     <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Revenue</div>
                     <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Orders</div>
-                    <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Views</div>
+                    <div style={{ ...labelSm, fontSize: 9, textAlign: 'right', lineHeight: 1.15 }}>Views<br /><span style={{ fontSize: 7.5, fontWeight: 500, opacity: 0.75 }}>all-time</span></div>
                     <div style={{ ...labelSm, fontSize: 9, textAlign: 'right' }}>Signal</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

@@ -25,10 +25,10 @@ import {
 
 // Concrete dark-theme colours (recharts needs real colour strings, not CSS vars).
 const D = {
-  tx: '#EFEBE4', tx2: 'rgba(239,235,228,0.62)', tx3: 'rgba(239,235,228,0.40)',
+  tx: '#EFEBE4', tx2: 'rgba(239,235,228,0.62)', tx3: 'rgba(140,140,140,0.9)',
   gold: '#C4A86D', goldDim: '#A08656', saffron: '#C2562B',
   success: '#3FAA63', successDark: '#6BBF7F', danger: '#E0726D',
-  grid: 'rgba(255,255,255,0.06)',
+  grid: 'rgba(128,128,128,0.16)',
 };
 
 const PERIOD_OPTS = [
@@ -524,7 +524,7 @@ export default function ReportsV2() {
                         <CartesianGrid stroke={D.grid} strokeDasharray="0" vertical={false} />
                         <XAxis dataKey="label" tick={{ fill: D.tx3, fontSize: 12, fontFamily: "'Inter', sans-serif" }} axisLine={false} tickLine={false} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
                         <YAxis tickFormatter={v => `₹${v}`} tick={{ fill: D.tx3, fontSize: 12, fontFamily: "'Inter', sans-serif" }} axisLine={false} tickLine={false} width={46} allowDecimals={false} tickMargin={8} />
-                        <Tooltip content={<ChartTooltip allData={chartData} />} cursor={{ stroke: 'rgba(239,235,228,0.20)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
+                        <Tooltip content={<ChartTooltip allData={chartData} />} cursor={{ stroke: 'rgba(128,128,128,0.28)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
                         <Area type="monotone" dataKey="revenue" stroke="url(#trendStrokeReportsV2)" strokeWidth={2.5} fill="url(#trendFillReportsV2)" dot={false} activeDot={{ r: 5, fill: '#221F1B', stroke: gEnd, strokeWidth: 2.5 }} animationDuration={1500} />
                       </AreaChart>
                     ) : (
@@ -532,7 +532,7 @@ export default function ReportsV2() {
                         <CartesianGrid stroke={D.grid} strokeDasharray="0" vertical={false} />
                         <XAxis dataKey="label" tick={{ fill: D.tx3, fontSize: 12, fontFamily: "'Inter', sans-serif" }} axisLine={false} tickLine={false} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
                         <YAxis tickFormatter={v => `₹${v}`} tick={{ fill: D.tx3, fontSize: 12, fontFamily: "'Inter', sans-serif" }} axisLine={false} tickLine={false} width={46} allowDecimals={false} tickMargin={8} />
-                        <Tooltip content={<ChartTooltip allData={chartData} />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} wrapperStyle={{ outline: 'none' }} />
+                        <Tooltip content={<ChartTooltip allData={chartData} />} cursor={{ fill: 'rgba(128,128,128,0.10)' }} wrapperStyle={{ outline: 'none' }} />
                         <Bar dataKey="revenue" fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} />
                       </BarChart>
                     )}
@@ -560,7 +560,7 @@ export default function ReportsV2() {
                   {ledgerRows.map((r, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 80px 110px 90px', minWidth: 560, gap: 12, alignItems: 'center', padding: '11px 4px', borderBottom: '1px solid var(--line)', fontVariantNumeric: 'tabular-nums' }}>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--tx)' }}>{r.label}</span>
-                      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: 6, background: 'rgba(128,128,128,0.16)', borderRadius: 3, overflow: 'hidden' }}>
                         <div style={{ height: '100%', background: 'var(--gold)', width: `${(r.revenue / maxLedgerRevenue) * 100}%`, opacity: r.revenue > 0 ? 1 : 0, transition: 'width 0.4s' }} />
                       </div>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--tx)', textAlign: 'right' }}>{r.orders}</span>
@@ -601,7 +601,7 @@ export default function ReportsV2() {
                             <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--tx)' }}>{m.label}</span>
                             <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--tx)', fontVariantNumeric: 'tabular-nums' }}>{formatRupee(amt)} <span style={{ color: 'var(--tx-3)', fontWeight: 400, fontSize: 11 }}>· {Math.round(pct)}%</span></span>
                           </div>
-                          <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: 5, background: 'rgba(128,128,128,0.16)', borderRadius: 3, overflow: 'hidden' }}>
                             <div style={{ height: '100%', background: 'var(--gold)', width: `${pct}%`, transition: 'width 0.4s' }} />
                           </div>
                         </div>
@@ -613,7 +613,7 @@ export default function ReportsV2() {
                           <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: D.danger }}>Unpaid</span>
                           <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: D.danger, fontVariantNumeric: 'tabular-nums' }}>{formatRupee(methodBreakdown.unpaid)} <span style={{ color: 'var(--tx-3)', fontWeight: 400, fontSize: 11 }}>· {Math.round((methodBreakdown.unpaid / gross) * 100)}%</span></span>
                         </div>
-                        <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: 5, background: 'rgba(128,128,128,0.16)', borderRadius: 3, overflow: 'hidden' }}>
                           <div style={{ height: '100%', background: D.danger, width: `${(methodBreakdown.unpaid / gross) * 100}%`, transition: 'width 0.4s' }} />
                         </div>
                       </div>
@@ -641,7 +641,7 @@ export default function ReportsV2() {
                             </span>
                             <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--gold)', fontVariantNumeric: 'tabular-nums' }}>{formatRupee(item.revenue)}</span>
                           </div>
-                          <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: 5, background: 'rgba(128,128,128,0.16)', borderRadius: 3, overflow: 'hidden' }}>
                             <div style={{ height: '100%', background: 'var(--gold)', width: `${(item.revenue / maxRev) * 100}%`, transition: 'width 0.4s' }} />
                           </div>
                           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--tx-3)', marginTop: 3 }}>{item.qty} sold</div>
