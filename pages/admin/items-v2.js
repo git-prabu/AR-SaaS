@@ -26,11 +26,11 @@ const A = {
   mutedText: 'var(--tx-2)', faintText: 'var(--tx-3)',
   subtleBg: 'var(--card-3)',
   border: '1px solid var(--line)',
-  borderStrong: '1px solid rgba(255,255,255,0.16)',
+  borderStrong: '1px solid var(--line)',
   shadowCard: '0 1px 2px rgba(0,0,0,0.25)',
-  forest: 'var(--card)', forestDarker: 'var(--card-2)',
-  forestText: 'var(--tx)', forestTextMuted: 'var(--tx-2)', forestTextFaint: 'var(--tx-3)',
-  forestBorder: '1px solid var(--line)',
+  forest: '#1F1C18', forestDarker: '#2A2722',
+  forestText: '#EFEBE4', forestTextMuted: 'rgba(239,235,228,0.64)', forestTextFaint: 'rgba(239,235,228,0.48)',
+  forestBorder: '1px solid rgba(255,255,255,0.08)',
 };
 
 // ═══ Constants — preserved from original ═══
