@@ -45,8 +45,7 @@ const RAIL = [
   { key: 'orders',    label: 'Orders',   href: '/admin/orders',          icon: Icon.orders },
   { key: 'kitchen',   label: 'Kitchen',  href: '/admin/kitchen-new',     icon: Icon.kitchen },
   { key: 'tables',    label: 'Tables',   href: '/admin/tables-v2',       icon: Icon.tables },
-  // 'Stats' points at the original analytics until analytics-v2 lands (avoids a dead link).
-  { key: 'analytics', label: 'Stats',    href: '/admin/analytics',       icon: Icon.analytics },
+  { key: 'analytics', label: 'Stats',    href: '/admin/analytics-v2',    icon: Icon.analytics },
   { key: 'reports',   label: 'Reports',  href: '/admin/reports-v2',      icon: Icon.reports },
   { key: 'activity',  label: 'Activity', href: '/admin/activity-log-v2', icon: Icon.activity },
   { key: 'menu',      label: 'Menu',     href: '/admin/items',           icon: Icon.menu },
