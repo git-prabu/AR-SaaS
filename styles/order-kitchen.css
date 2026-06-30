@@ -27,7 +27,19 @@
   /* text */
   --tx:        #EFEBE4;
   --tx-2:      rgba(239,235,228,0.62);
-  --tx-3:      rgba(239,235,228,0.38);
+  --tx-3:      rgba(239,235,228,0.50);
+
+  /* "matte" signature card (LIVE TODAY / Restaurant Health / stat-strips).
+     Flips with the theme: an elevated card on the dark page, a dark
+     card-on-light in light mode — so a pinned-concrete dark value no
+     longer blends into the dark background. */
+  --matte-bg:   #2A2722;
+  --matte-bg2:  #34302A;
+  --matte-tx:   #EFEBE4;
+  --matte-tx2:  rgba(239,235,228,0.70);
+  --matte-tx3:  rgba(239,235,228,0.54);
+  --matte-line: rgba(196,168,109,0.22);
+  --matte-tile: rgba(255,255,255,0.05);
 
   /* brand + accent */
   --gold:      #C4A86D;
@@ -115,6 +127,14 @@
   --tx:        #1E1B16;
   --tx-2:      rgba(30,27,22,0.62);
   --tx-3:      rgba(30,27,22,0.40);
+  /* matte card stays dark-on-light (signature look) with light text */
+  --matte-bg:   #211E19;
+  --matte-bg2:  #2A2722;
+  --matte-tx:   #EFEBE4;
+  --matte-tx2:  rgba(239,235,228,0.70);
+  --matte-tx3:  rgba(239,235,228,0.56);
+  --matte-line: rgba(255,255,255,0.10);
+  --matte-tile: rgba(255,255,255,0.05);
   --st-free:   rgba(30,27,22,0.18);
   background: #DEDAD1;
 }

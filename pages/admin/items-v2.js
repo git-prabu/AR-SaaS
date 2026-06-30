@@ -28,9 +28,9 @@ const A = {
   border: '1px solid var(--line)',
   borderStrong: '1px solid var(--line)',
   shadowCard: '0 1px 2px rgba(0,0,0,0.25)',
-  forest: '#1F1C18', forestDarker: '#2A2722',
-  forestText: '#EFEBE4', forestTextMuted: 'rgba(239,235,228,0.64)', forestTextFaint: 'rgba(239,235,228,0.48)',
-  forestBorder: '1px solid rgba(255,255,255,0.08)',
+  forest: 'var(--matte-bg)', forestDarker: 'var(--matte-bg2)',
+  forestText: 'var(--matte-tx)', forestTextMuted: 'var(--matte-tx2)', forestTextFaint: 'var(--matte-tx3)',
+  forestBorder: '1px solid var(--matte-line)',
 };
 
 // ═══ Constants — preserved from original ═══

@@ -38,13 +38,13 @@ const A = {
   mutedText: 'var(--tx-2)',
   faintText: 'var(--tx-3)',
   subtleBg: 'var(--card-3)',
-  forest: '#1F1C18',                 // signature dark card — stays dark in light mode too
-  forestDarker: '#2A2722',
-  forestText: '#EFEBE4',
-  forestTextMuted: 'rgba(239,235,228,0.64)',
-  forestTextFaint: 'rgba(239,235,228,0.48)',
-  forestSubtleBg: 'rgba(255,255,255,0.05)',
-  forestBorder: '1px solid rgba(255,255,255,0.08)',
+  forest: 'var(--matte-bg)',                 // signature dark card — stays dark in light mode too
+  forestDarker: 'var(--matte-bg2)',
+  forestText: 'var(--matte-tx)',
+  forestTextMuted: 'var(--matte-tx2)',
+  forestTextFaint: 'var(--matte-tx3)',
+  forestSubtleBg: 'var(--matte-tile)',
+  forestBorder: '1px solid var(--matte-line)',
 };
 
 const tip = { backgroundColor: '#211d17', border: '1px solid rgba(120,120,120,0.08)', borderRadius: 10, color: '#F5EFE6', fontSize: 12, fontFamily: A.font, padding: '8px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' };
