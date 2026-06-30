@@ -80,6 +80,7 @@ export const navSections = [
       { href: '/admin/new-order-v2',    label: 'New Order v2',    icon: 'plus' },
       { href: '/admin/feedback-v2',     label: 'Feedback v2',     icon: 'star' },
       { href: '/admin/gateway-v2',      label: 'Gateway v2',      icon: 'card' },
+      { href: '/admin/subscription-v2', label: 'Subscription v2', icon: 'crown' },
     ]
   },
   {
