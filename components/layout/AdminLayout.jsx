@@ -84,6 +84,7 @@ export const navSections = [
       { href: '/admin/qrcode-v2',       label: 'QR & Tables v2',  icon: 'qr' },
       { href: '/admin/business-info-v2', label: 'Business Info v2', icon: 'gear' },
       { href: '/admin/requests-v2',     label: 'Add Items v2',    icon: 'plus' },
+      { href: '/admin/payments-v2',     label: 'Payments v2',     icon: 'card' },
     ]
   },
   {
