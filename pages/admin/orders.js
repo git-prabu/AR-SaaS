@@ -89,6 +89,7 @@ import PushToggle from '../../components/order-kitchen/PushToggle';
 import SettleSheet from '../../components/order-kitchen/SettleSheet';
 import TableActionSheet from '../../components/order-kitchen/TableActionSheet';
 import TableManagerModal from '../../components/order-kitchen/TableManagerModal';
+import OkSidebar from '../../components/admin/OkSidebar';
 import { I, VegMark, SpicePips, Thumb } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
@@ -458,6 +459,22 @@ export default function Orders() {
   // 4-tab waiter shell: 'floor' | 'queue' | 'orders' | 'history'.
   // Defaults to floor on every load — that's the most-used tab.
   const [tab, setTab] = useState('floor');
+
+  // ─── Station (new full-sidebar nav) ─────────────────────────────
+  // The shared OkSidebar splits this page into two destinations:
+  //   /admin/orders                  → Floor station (the table map)
+  //   /admin/orders?station=waiter   → Waiter station (Action Queue /
+  //                                    Orders / History via an in-page toggle)
+  // Sync the internal `tab` to the URL station whenever it changes.
+  const station = router.query.station === 'waiter' ? 'waiter' : 'floor';
+  useEffect(() => {
+    if (station === 'waiter') {
+      setTab(t => (t === 'floor' ? 'queue' : t));
+    } else {
+      setTab('floor');
+      setScreen('floor');
+    }
+  }, [station]); // eslint-disable-line react-hooks/exhaustive-deps
   const [zone, setZone] = useState(null);
   const [activeTable, setActiveTable] = useState(null);
   const [selectedSeat, setSelectedSeat] = useState(0);
@@ -1100,56 +1117,8 @@ export default function Orders() {
       <Head><title>Orders — HaloHelm</title></Head>
       <div className="ok-root">
         {isDesktop ? (
-          <div className="pos">
-            <aside className="rail">
-              <div className="rail-logo">
-                <b>{(restaurant?.name || waiter || 'HH')[0].toUpperCase()}</b>
-                <small>HALOHELM</small>
-              </div>
-              <div className="rail-nav">
-                <button
-                  className={`rail-btn ${tab === 'floor' ? 'on' : ''}`}
-                  onClick={() => { setTab('floor'); setScreen('floor'); }}
-                  title="Floor"
-                >{I.grid}<span>Floor</span></button>
-                <button
-                  className={`rail-btn ${tab === 'queue' ? 'on' : ''}`}
-                  onClick={() => setTab('queue')}
-                  title="Action queue"
-                >
-                  {(unseenIds.size > 0 || (tab !== 'queue' && queueCount > 0)) && (
-                    <span className="rail-badge">{unseenIds.size > 0 ? unseenIds.size : queueCount}</span>
-                  )}
-                  {I.bell}<span>Queue</span>
-                </button>
-                <button
-                  className={`rail-btn ${tab === 'orders' ? 'on' : ''}`}
-                  onClick={() => setTab('orders')}
-                  title="Orders"
-                >{I.receipt}<span>Orders</span></button>
-                <button
-                  className={`rail-btn ${tab === 'history' ? 'on' : ''}`}
-                  onClick={() => setTab('history')}
-                  title="History"
-                >{I.clock}<span>History</span></button>
-                <button
-                  className="rail-btn"
-                  onClick={() => router.push('/admin/kitchen-new')}
-                  title="Kitchen station"
-                >{I.chef}<span>Kitchen</span></button>
-              </div>
-              <div className="rail-foot">
-                <button
-                  className="rail-btn"
-                  onClick={toggleTheme}
-                  title={isLight ? 'Switch to dark' : 'Switch to light'}
-                  style={{ height: 44 }}
-                >
-                  <span style={{ fontSize: 18 }}>{isLight ? '🌙' : '☀️'}</span>
-                </button>
-                <div className="rail-avatar">{(waiter || 'S')[0].toUpperCase()}</div>
-              </div>
-            </aside>
+          <div className="okv-shell">
+            <OkSidebar brand={restaurant?.name || waiter} />
             <main className="workspace">
               {/* ws-head only shows on first-level views (floor map +
                   queue/orders/history tabs). Sub-flows (menu/review/
@@ -1162,13 +1131,7 @@ export default function Orders() {
                       const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
                       return `${g} · ${waiter}`;
                     })()}</div>
-                    <h1 className="ws-h1">{
-                      tab === 'floor' ? 'Floor plan'
-                      : tab === 'queue' ? 'Action queue'
-                      : tab === 'orders' ? 'Orders'
-                      : tab === 'history' ? 'History'
-                      : 'Orders'
-                    }</h1>
+                    <h1 className="ws-h1">{station === 'waiter' ? 'Waiter' : 'Floor plan'}</h1>
                   </div>
                   {/* Push toggle — lock-screen notifications via FCM
                       so the waiter hears the call/ready/payment chime
@@ -1183,6 +1146,29 @@ export default function Orders() {
                     </div>
                   )}
                   <div className="ws-clock" style={rid && pushSubscriber ? { marginLeft: 0 } : undefined}>{I.clock}{fmtClock(clockNow)}</div>
+                </div>
+              )}
+
+              {/* Waiter station — in-page Action Queue / Orders / History toggle
+                  (replaces the old rail tabs now that the full sidebar owns nav). */}
+              {station === 'waiter' && (
+                <div style={{ display: 'flex', gap: 8, padding: '0 30px 12px', flexWrap: 'wrap' }}>
+                  {[['queue', 'Action Queue'], ['orders', 'Orders'], ['history', 'History']].map(([k, label]) => {
+                    const on = tab === k;
+                    return (
+                      <button key={k} onClick={() => setTab(k)} style={{
+                        padding: '8px 16px', borderRadius: 10, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13,
+                        background: on ? 'var(--accent)' : 'var(--card)', color: on ? 'var(--accent-ink)' : 'var(--tx-2)',
+                        border: on ? '1px solid transparent' : '1px solid var(--line)',
+                        display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                      }}>
+                        {label}
+                        {k === 'queue' && queueCount > 0 && (
+                          <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: on ? 'rgba(0,0,0,0.18)' : 'var(--saffron)', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{queueCount}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 

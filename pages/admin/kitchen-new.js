@@ -41,6 +41,7 @@ import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestor
 import { useAuth } from '../../hooks/useAuth';
 import useOkTheme from '../../hooks/useOkTheme';
 import { readStaffSession } from '../../lib/staffSession';
+import OkSidebar from '../../components/admin/OkSidebar';
 import { db, staffDb } from '../../lib/firebase';
 import {
   markOrderItemReadyAs, markOrderItemServedAs,
@@ -311,35 +312,8 @@ export default function KitchenNew() {
       <Head><title>Kitchen Station — HaloHelm</title></Head>
       <div className="ok-root">
         {isDesktop ? (
-          <div className="pos">
-            <aside className="rail">
-              <div className="rail-logo">
-                <b>K</b>
-                <small>KITCHEN</small>
-              </div>
-              <div className="rail-nav">
-                <button
-                  className="rail-btn"
-                  onClick={() => router.push('/admin/orders')}
-                  title="Floor"
-                >{I.grid}<span>Floor</span></button>
-                <button
-                  className="rail-btn on"
-                  title="Kitchen station"
-                >{I.chef}<span>Kitchen</span></button>
-              </div>
-              <div className="rail-foot">
-                <button
-                  className="rail-btn"
-                  onClick={toggleTheme}
-                  title={isLight ? 'Switch to dark' : 'Switch to light'}
-                  style={{ height: 44 }}
-                >
-                  <span style={{ fontSize: 18 }}>{isLight ? '🌙' : '☀️'}</span>
-                </button>
-                <div className="rail-avatar">K</div>
-              </div>
-            </aside>
+          <div className="okv-shell">
+            <OkSidebar brand={userData?.restaurantName || staffSession?.restaurantName} />
             <main className="workspace">
               <div className="ws-head">
                 <div className="ws-title">

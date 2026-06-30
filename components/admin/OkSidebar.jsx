@@ -43,18 +43,21 @@ const I = {
   shield:  svg(<path d="M12 2 4 5v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V5z" />),
   help:    svg(<><circle cx="12" cy="12" r="9" /><path d="M9.6 9a2.4 2.4 0 1 1 3.3 2.2c-.8.4-1 .9-1 1.6" /><path d="M12 17h.01" /></>),
   crown:   svg(<path d="M3 7l4 5 5-7 5 7 4-5v11H3z" />),
+  layout:  svg(<><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></>),
+  pulse:   svg(<path d="M3 12h4l2-7 4 14 2-7h6" />),
 };
 export const okClockIcon = I.clock;
 
 const NAV = [
   { section: 'Operations', items: [
-    { label: 'Dashboard',  href: '/admin/index-v2',        icon: 'home' },
-    { label: 'Orders',     href: '/admin/orders',          icon: 'orders' },
-    { label: 'Kitchen',    href: '/admin/kitchen-new',     icon: 'kitchen' },
-    { label: 'Tables',     href: '/admin/tables-v2',       icon: 'tables' },
-    { label: 'Payments',   href: '/admin/payments-v2',     icon: 'card' },
-    { label: 'Activity',   href: '/admin/activity-log-v2', icon: 'activity' },
-    { label: 'New Order',  href: '/admin/new-order-v2',    icon: 'plus' },
+    { label: 'Dashboard',  href: '/admin/index-v2',              icon: 'home' },
+    { label: 'Floor',      href: '/admin/orders',                icon: 'layout' },
+    { label: 'Waiter',     href: '/admin/orders?station=waiter', icon: 'activity' },
+    { label: 'Kitchen',    href: '/admin/kitchen-new',           icon: 'kitchen' },
+    { label: 'Tables',     href: '/admin/tables-v2',             icon: 'tables' },
+    { label: 'Payments',   href: '/admin/payments-v2',           icon: 'card' },
+    { label: 'Activity',   href: '/admin/activity-log-v2',       icon: 'pulse' },
+    { label: 'New Order',  href: '/admin/new-order-v2',          icon: 'plus' },
   ]},
   { section: 'Insights', items: [
     { label: 'Analytics',  href: '/admin/analytics-v2',    icon: 'chart' },
@@ -131,7 +134,15 @@ export default function OkSidebar({ brand }) {
   const router = useRouter();
   const { toggle, isLight } = useOkTheme();
   const initial = (brand || 'HH').trim()[0]?.toUpperCase() || 'H';
-  const isOn = (href) => router.pathname === href || router.pathname.startsWith(href + '/');
+  // Floor + Waiter both live on /admin/orders, split by the ?station query.
+  const isOn = (it) => {
+    const base = it.href.split('?')[0];
+    if (base === '/admin/orders') {
+      if (router.pathname !== '/admin/orders') return false;
+      return it.href.includes('station=waiter') === (router.query.station === 'waiter');
+    }
+    return router.pathname === base || router.pathname.startsWith(base + '/');
+  };
 
   return (
     <>
@@ -146,7 +157,7 @@ export default function OkSidebar({ brand }) {
             <div key={group.section}>
               <div className="okv-label">{group.section}</div>
               {group.items.map(it => (
-                <Link key={it.href} href={it.href} className={`okv-link ${isOn(it.href) ? 'on' : ''}`} title={it.label}>
+                <Link key={it.href} href={it.href} className={`okv-link ${isOn(it) ? 'on' : ''}`} title={it.label}>
                   <span className="okv-ic">{I[it.icon]}</span>
                   <span className="okv-tx">{it.label}</span>
                 </Link>
