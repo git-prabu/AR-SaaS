@@ -78,6 +78,7 @@ export const navSections = [
       { href: '/admin/security-v2',     label: 'Security v2',     icon: 'shield' },
       { href: '/admin/petpooja-pos-v2', label: 'Petpooja v2',     icon: 'plug' },
       { href: '/admin/new-order-v2',    label: 'New Order v2',    icon: 'plus' },
+      { href: '/admin/feedback-v2',     label: 'Feedback v2',     icon: 'star' },
     ]
   },
   {
