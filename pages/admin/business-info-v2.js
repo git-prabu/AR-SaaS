@@ -372,7 +372,7 @@ export default function BusinessInfoV2() {
 
         {/* Sticky unsaved bar */}
         {isDirty && !loading && (
-          <div style={{ position: 'fixed', bottom: 0, left: 96, right: 0, zIndex: 120, background: 'var(--surface)', borderTop: '1px solid var(--line)', boxShadow: '0 -8px 24px rgba(0,0,0,0.4)', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ position: 'fixed', bottom: 0, left: 224, right: 0, zIndex: 120, background: 'var(--surface)', borderTop: '1px solid var(--line)', boxShadow: '0 -8px 24px rgba(0,0,0,0.4)', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }} className="biz-savebar">
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gold)', animation: 'ok-pulse 1.5s ease infinite' }} />
             <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>Unsaved changes</span>
             <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--tx-3)' }}>Save your changes to apply them to the next customer bills.</span>
@@ -381,7 +381,7 @@ export default function BusinessInfoV2() {
             <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--accent-ink)', fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>{saving ? 'Saving…' : 'Save changes'}</button>
           </div>
         )}
-        <style>{`@media (max-width: 980px){ .biz-grid{ grid-template-columns: 1fr !important; } .biz-preview{ display:none; } }`}</style>
+        <style>{`@media (max-width: 980px){ .biz-grid{ grid-template-columns: 1fr !important; } .biz-preview{ display:none; } } @media (max-width: 900px){ .biz-savebar{ left: 62px !important; } }`}</style>
       </OkShell>
     </>
   );

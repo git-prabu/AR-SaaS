@@ -16,7 +16,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
-import useOkTheme from '../../hooks/useOkTheme';
+import OkSidebar from '../../components/admin/OkSidebar';
 import ConfirmModal from '../../components/ConfirmModal';
 import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
 import {
@@ -94,7 +94,6 @@ export default function AdminTablesV2() {
   // LIVE floor grid + live ops (seat/bill/pay/clear) via staffDb. Floor-plan
   // editing (Manage mode: tables/areas CRUD) stays owner-only (gated below).
   const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('tables');
-  const { toggle: toggleTheme, isLight } = useOkTheme();
 
   const [areas, setAreas] = useState([]);
   const [tables, setTables] = useState([]);
@@ -495,40 +494,12 @@ export default function AdminTablesV2() {
     );
   }
 
-  // ── Rail nav (links to the real admin destinations) ──
-  const railNav = [
-    { icon: I.orders, label: 'Orders',  href: '/admin/orders' },
-    { icon: I.chef,   label: 'Kitchen', href: '/admin/kitchen-new' },
-    { icon: I.grid,   label: 'Tables',  href: '/admin/tables-v2', active: true },
-    { icon: I.menu,   label: 'Menu',    href: '/admin/items' },
-    { icon: I.staff,  label: 'Staff',   href: '/admin/staff' },
-    { icon: I.chart,  label: 'Reports', href: '/admin/reports' },
-  ];
-
   return (
     <div className="ok-root">
       <Head><title>Tables — HaloHelm</title></Head>
-      <div className="pos">
-        {/* ── Left nav rail ── */}
-        <aside className="rail">
-          <div className="rail-logo">
-            <b>{(restaurantName || 'HH')[0].toUpperCase()}</b>
-            <small>HALOHELM</small>
-          </div>
-          <div className="rail-nav">
-            {railNav.map(n => (
-              <Link key={n.label} href={n.href} className={`rail-btn ${n.active ? 'on' : ''}`} title={n.label} style={{ textDecoration: 'none' }}>
-                {n.icon}<span>{n.label}</span>
-              </Link>
-            ))}
-          </div>
-          <div className="rail-foot">
-            <button className="rail-btn" onClick={toggleTheme} title={isLight ? 'Switch to dark' : 'Switch to light'} style={{ height: 44 }}>
-              <span style={{ fontSize: 18 }}>{isLight ? '🌙' : '☀️'}</span>
-            </button>
-            <div className="rail-avatar">{(restaurantName || staffSession?.name || 'S')[0].toUpperCase()}</div>
-          </div>
-        </aside>
+      <div className="okv-shell">
+        {/* ── Left nav rail (shared full sidebar) ── */}
+        <OkSidebar brand={restaurantName} />
 
         {/* ── Workspace ── */}
         <main className="workspace">
