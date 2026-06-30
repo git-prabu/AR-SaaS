@@ -83,6 +83,7 @@ export const navSections = [
       { href: '/admin/subscription-v2', label: 'Subscription v2', icon: 'crown' },
       { href: '/admin/qrcode-v2',       label: 'QR & Tables v2',  icon: 'qr' },
       { href: '/admin/business-info-v2', label: 'Business Info v2', icon: 'gear' },
+      { href: '/admin/requests-v2',     label: 'Add Items v2',    icon: 'plus' },
     ]
   },
   {
