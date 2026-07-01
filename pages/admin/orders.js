@@ -528,7 +528,15 @@ export default function Orders() {
   // long comment in order-kitchen.js for the full trace.
   useEffect(() => {
     if (zones.length === 0) return;
-    if (zone == null || !zones.includes(zone)) setZone(zones[0]);
+    if (zone == null || !zones.includes(zone)) {
+      // Restore the last-picked zone across reloads instead of always
+      // snapping back to the first area.
+      let saved = null;
+      try { saved = sessionStorage.getItem('ar_floor_zone'); } catch {}
+      setZone(zones.includes(saved) ? saved : zones[0]);
+    } else {
+      try { sessionStorage.setItem('ar_floor_zone', zone); } catch {}
+    }
   }, [zones, zone]);
 
   // ─── Phase B.2 — Sound + voice prefs (LS-persisted) ──────────────

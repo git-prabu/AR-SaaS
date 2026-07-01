@@ -10,7 +10,13 @@
 // Theme tokens (var(--rail/gold/accent/…)) come from styles/order-kitchen.css.
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useRef, useEffect, useLayoutEffect } from 'react';
 import useOkTheme from '../../hooks/useOkTheme';
+
+// useLayoutEffect on the client (restore scroll BEFORE paint = no flicker),
+// plain useEffect on the server to avoid the SSR warning.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+const NAV_SCROLL_KEY = 'ar_okv_nav_scroll';
 
 const svg = (children) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
@@ -144,6 +150,22 @@ export default function OkSidebar({ brand }) {
     return router.pathname === base || router.pathname.startsWith(base + '/');
   };
 
+  // Preserve the nav's scroll position across route changes. Each page renders
+  // its own OkShell → OkSidebar, so the sidebar remounts on every navigation
+  // and would otherwise jump back to the top. Save on scroll, restore on mount.
+  const navRef = useRef(null);
+  useIsoLayoutEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    try {
+      const s = sessionStorage.getItem(NAV_SCROLL_KEY);
+      if (s != null) el.scrollTop = parseInt(s, 10) || 0;
+    } catch { /* sessionStorage blocked — ignore */ }
+    const save = () => { try { sessionStorage.setItem(NAV_SCROLL_KEY, String(el.scrollTop)); } catch {} };
+    el.addEventListener('scroll', save, { passive: true });
+    return () => el.removeEventListener('scroll', save);
+  }, []);
+
   return (
     <>
       <style>{OKV_CSS}</style>
@@ -152,7 +174,7 @@ export default function OkSidebar({ brand }) {
           <b>{initial}</b>
           <span className="okv-wordmark"><strong>HaloHelm</strong><small>NEW DESIGN · V2</small></span>
         </Link>
-        <nav className="okv-nav">
+        <nav className="okv-nav" ref={navRef}>
           {NAV.map(group => (
             <div key={group.section}>
               <div className="okv-label">{group.section}</div>
