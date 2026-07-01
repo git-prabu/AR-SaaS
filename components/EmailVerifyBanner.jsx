@@ -23,10 +23,13 @@ const DISMISS_KEY = 'ar_email_verify_dismissed';
 const A = {
   warning:    '#C4A86D',
   warningDim: '#A08656',
-  warningBg:  'rgba(196,168,109,0.12)',
-  warningBd:  'rgba(196,168,109,0.35)',
+  // Opaque cream (was rgba(196,168,109,0.12)) so the dark banner text stays
+  // readable on the dark v2 pages too — a semi-transparent tint over a dark
+  // surface hid it. On the light admin pages this looks nearly identical.
+  warningBg:  '#F7F0DF',
+  warningBd:  'rgba(196,168,109,0.45)',
   ink:        '#1A1A1A',
-  faintText:  'rgba(0,0,0,0.42)',
+  faintText:  'rgba(0,0,0,0.52)',
 };
 
 export default function EmailVerifyBanner() {

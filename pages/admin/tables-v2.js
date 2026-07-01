@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import OkSidebar from '../../components/admin/OkSidebar';
+import AdminBanners from '../../components/admin/AdminBanners';
 import ConfirmModal from '../../components/ConfirmModal';
 import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
 import {
@@ -503,6 +504,7 @@ export default function AdminTablesV2() {
 
         {/* ── Workspace ── */}
         <main className="workspace">
+          <AdminBanners />
           <div className="ws-head">
             <div className="ws-title">
               <div className="ws-eyebrow">{greeting} · {restaurantName || 'HaloHelm'}</div>

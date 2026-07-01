@@ -19,6 +19,7 @@
 //   children  — the workspace content.
 import { useEffect, useState } from 'react';
 import OkSidebar, { okClockIcon } from './OkSidebar';
+import AdminBanners from './AdminBanners';
 
 function fmtClock(d) {
   const h = d.getHours() % 12 || 12;
@@ -36,6 +37,7 @@ export default function OkShell({ eyebrow, title, brand, headRight, scroll = tru
       <div className="okv-shell">
         <OkSidebar brand={brand} />
         <main className="workspace">
+          <AdminBanners />
           <div className="ws-head">
             <div className="ws-title">
               {eyebrow ? <div className="ws-eyebrow">{eyebrow}</div> : null}
