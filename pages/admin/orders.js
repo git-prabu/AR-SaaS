@@ -1107,7 +1107,7 @@ export default function Orders() {
         waiter={waiter}
         isLight={isLight} onToggleTheme={toggleTheme}
         pushRestaurantId={rid} pushSubscriber={pushSubscriber}
-        onManageTables={isAdmin ? () => setManageTablesOpen(true) : null}
+        onManageTables={null}
       />
     );
   }
@@ -1209,18 +1209,6 @@ export default function Orders() {
                         <span className="l"><span className="swatch" style={{ background: 'var(--st-served)' }} />Ready to pay</span>
                         <span className="l"><span className="swatch" style={{ background: 'var(--st-paid)' }} />Paid</span>
                       </div>
-                      {isAdmin && (
-                        <button onClick={() => setManageTablesOpen(true)}
-                          title="Manage tables — add, edit, or remove tables"
-                          style={{
-                            marginLeft: 'auto', height: 36, padding: '0 14px', borderRadius: 10, flexShrink: 0,
-                            background: 'var(--card)', border: '1px solid var(--line)', color: 'var(--tx)',
-                            cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13,
-                            display: 'inline-flex', alignItems: 'center', gap: 7,
-                          }}>
-                          <span style={{ fontSize: 15 }}>⊞</span> Manage tables
-                        </button>
-                      )}
                     </div>
                     <div className="statstrip">
                       <div className="statcard">

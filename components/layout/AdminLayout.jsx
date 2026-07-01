@@ -62,6 +62,7 @@ export const navSections = [
   {
     label: '✨ NEW DESIGN (V2)', items: [
       { href: '/admin/tables-v2',       label: 'Tables v2',       icon: 'grid' },
+      { href: '/admin/manage-layout-v2', label: 'Manage Layout v2', icon: 'grid' },
       { href: '/admin/reports-v2',      label: 'Reports v2',      icon: 'dollar' },
       { href: '/admin/activity-log-v2', label: 'Activity Log v2', icon: 'bell-ring' },
       { href: '/admin/day-close-v2',    label: 'Day Close v2',    icon: 'crown' },

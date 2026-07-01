@@ -15,6 +15,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/router';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import OkSidebar from '../../components/admin/OkSidebar';
 import AdminBanners from '../../components/admin/AdminBanners';
@@ -95,6 +96,7 @@ export default function AdminTablesV2() {
   // LIVE floor grid + live ops (seat/bill/pay/clear) via staffDb. Floor-plan
   // editing (Manage mode: tables/areas CRUD) stays owner-only (gated below).
   const { ready, isAdmin, rid, scopedDb, canView, userData, staffSession } = useFeatureAccess('tables');
+  const router = useRouter();
 
   const [areas, setAreas] = useState([]);
   const [tables, setTables] = useState([]);
@@ -106,8 +108,10 @@ export default function AdminTablesV2() {
   const [importCount, setImportCount] = useState('');
   const [importing, setImporting] = useState(false);
   // 'live' = colour-coded status grid (default daily-use view).
-  // 'manage' = floor-plan editor (areas + tables CRUD).
-  const [mode, setMode] = useState('live');
+  // 'manage' = floor-plan editor (areas + tables CRUD). Derived from the route
+  // so Manage Layout is its own page (/admin/manage-layout-v2) rather than an
+  // in-page toggle; this same component serves both routes.
+  const mode = (router.pathname === '/admin/manage-layout-v2' && isAdmin) ? 'manage' : 'live';
   const [detailTable, setDetailTable] = useState(null); // table whose bill is open in the side panel
   const [orderModalTable, setOrderModalTable] = useState(null); // { code, label } → captain order modal open
 
@@ -366,10 +370,13 @@ export default function AdminTablesV2() {
     return { occupied, revenue };
   }, [statesByTable]);
 
-  // Busy tables (anything not blank), area-flattened — drives the activity rail.
+  // Running tables — those with an active order (running / KOT / bill printed /
+  // paid). Excludes merely-SEATED (and free) tables so "Running now" matches the
+  // Floor's service queue instead of listing every occupied table.
   const runningTables = useMemo(() => {
+    const idle = new Set(['blank', 'seated']);
     return tables
-      .filter(t => (statesByTable[t.id]?.status.key || 'blank') !== 'blank')
+      .filter(t => !idle.has(statesByTable[t.id]?.status.key || 'blank'))
       .sort((a, b) => (statesByTable[b.id]?.total || 0) - (statesByTable[a.id]?.total || 0));
   }, [tables, statesByTable]);
 
@@ -507,20 +514,10 @@ export default function AdminTablesV2() {
           <AdminBanners />
           <div className="ws-head">
             <div className="ws-title">
-              <div className="ws-eyebrow">{greeting} · {restaurantName || 'HaloHelm'}</div>
-              <h1 className="ws-h1">Tables</h1>
+              <div className="ws-eyebrow">{mode === 'manage' ? 'Setup · Floor layout' : `${greeting} · ${restaurantName || 'HaloHelm'}`}</div>
+              <h1 className="ws-h1">{mode === 'manage' ? 'Manage Layout' : 'Tables'}</h1>
             </div>
-            {/* Live / Manage segmented toggle (Manage is owner-only) */}
-            <div style={{ marginLeft: 'auto', display: 'inline-flex', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 'var(--r-pill)', padding: 3, gap: 2 }}>
-              {[['live', 'Live'], ...(isAdmin ? [['manage', 'Manage Layout']] : [])].map(([m, label]) => (
-                <button key={m} onClick={() => setMode(m)} style={{
-                  padding: '7px 15px', borderRadius: 'var(--r-pill)', fontFamily: 'var(--font-display)', fontSize: 12.5, fontWeight: 700,
-                  background: mode === m ? 'var(--accent)' : 'transparent',
-                  color: mode === m ? 'var(--accent-ink)' : 'var(--tx-2)', transition: 'background .2s, color .2s',
-                }}>{label}</button>
-              ))}
-            </div>
-            <div className="ws-clock" style={{ marginLeft: 14 }}>{I.clock}{fmtClock(clockNow)}</div>
+            <div className="ws-clock" style={{ marginLeft: 'auto' }}>{I.clock}{fmtClock(clockNow)}</div>
           </div>
 
           {/* ═══ LIVE MODE ═══ */}
