@@ -15,7 +15,7 @@ import dynamic from 'next/dynamic';
 const StaffActivityPanel = dynamic(() => import('../../components/StaffActivityPanel'), {
   ssr: false,
   loading: () => (
-    <div style={{ padding: 40, textAlign: 'center', color: 'rgba(0,0,0,0.5)', fontSize: 13 }}>
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--tx-2)', fontSize: 13 }}>
       Loading activity…
     </div>
   ),

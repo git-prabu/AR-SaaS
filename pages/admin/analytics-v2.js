@@ -67,7 +67,7 @@ function Stars({ avg, count }) {
         <span key={s} style={{ fontSize: 11, color: s <= Math.round(avg || 0) ? A.warning : 'rgba(120,120,120,0.15)' }}>★</span>
       ))}
       <span style={{ fontSize: 11, fontWeight: 700, color: A.warning }}>{(avg || 0).toFixed(1)}</span>
-      {count !== undefined && <span style={{ fontSize: 10, color: 'rgba(120,120,120,0.35)' }}>({count})</span>}
+      {count !== undefined && <span style={{ fontSize: 10, color: 'var(--tx-3)' }}>({count})</span>}
     </div>
   );
 }
@@ -607,7 +607,7 @@ export default function AnalyticsV2() {
   const catData = Object.values(catMap).sort((a, b) => b.views - a.views);
 
   const funnelData = [
-    { label: 'Menu Visits', value: totalVisits, pct: 100, color: '#1A1A1A' },
+    { label: 'Menu Visits', value: totalVisits, pct: 100, color: 'var(--tx)' },
     { label: 'Item Views', value: totalViews, pct: totalVisits > 0 ? Math.min(100, Math.round((totalViews / totalVisits) * 100)) : 0, color: '#A08656' },
     { label: 'AR Views', value: totalARViews, pct: totalViews > 0 ? Math.min(100, Math.round((totalARViews / totalViews) * 100)) : 0, color: A.warning },
   ];
@@ -871,7 +871,7 @@ export default function AnalyticsV2() {
   // Card + section shared styles
   const card = { background: A.white, borderRadius: 16, border: '1px solid rgba(120,120,120,0.06)', boxShadow: '0 2px 10px rgba(120,120,120,0.03)' };
   const secTitle = { fontFamily: A.font, fontWeight: 500, fontSize: 18, color: A.ink, letterSpacing: '-0.2px' };
-  const labelSm = { fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(120,120,120,0.35)' };
+  const labelSm = { fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-3)' };
 
   // Date range label + today key for charts. Uses the committed bounds so the
   // label matches the data currently rendered (not mid-request bounds).
@@ -1126,7 +1126,7 @@ export default function AnalyticsV2() {
               const formatted = M.prefix === '₹' ? `${M.prefix}${v.toLocaleString('en-IN')}` : v.toLocaleString();
               return (
                 <div style={{ background: 'var(--card)', border: '1px solid rgba(120,120,120,0.08)', borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(120,120,120,0.10)', fontFamily: aspireFont, minWidth: 110 }}>
-                  <div style={{ fontSize: 12, color: 'rgba(120,120,120,0.55)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
+                  <div style={{ fontSize: 12, color: 'var(--tx-2)', fontWeight: 500, marginBottom: 4 }}>{fmtFullDate(label)}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 18, fontWeight: 700, color: A.ink, letterSpacing: '-0.3px' }}>{formatted}</span>
                     {up !== null && (<span style={{ fontSize: 11, fontWeight: 700, color: up ? '#3F9E5A' : '#D9534F' }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(pct))}%`}</span>)}
@@ -1157,7 +1157,7 @@ export default function AnalyticsV2() {
                         return (
                           <button key={opt.k} onClick={() => setChartMetric(opt.k)} style={{
                             padding: '5px 12px', fontFamily: aspireFont, fontSize: 12, fontWeight: 600,
-                            color: active ? '#FFFFFF' : 'rgba(120,120,120,0.55)',
+                            color: active ? '#FFFFFF' : 'var(--tx-2)',
                             background: active ? '#1A1A1A' : 'transparent',
                             border: 'none', borderRadius: 6, cursor: 'pointer', letterSpacing: '0.02em',
                           }}>{opt.label}</button>
@@ -1170,7 +1170,7 @@ export default function AnalyticsV2() {
                       {[{ k: 'line', label: 'Line', icon: '📈' }, { k: 'bar', label: 'Bar', icon: '📊' }].map(opt => {
                         const active = trendMode === opt.k;
                         return (
-                          <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, trend: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'rgba(120,120,120,0.55)', background: active ? 'rgba(120,120,120,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                          <button key={opt.k} onClick={() => setChartMode(prev => ({ ...prev, trend: opt.k }))} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontFamily: aspireFont, fontSize: 13, fontWeight: 500, color: active ? A.ink : 'var(--tx-2)', background: active ? 'rgba(120,120,120,0.06)' : 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
                             <span style={{ fontSize: 12 }}>{opt.icon}</span>{opt.label}
                           </button>
                         );
@@ -1209,7 +1209,7 @@ export default function AnalyticsV2() {
                           padding: '3px 9px', borderRadius: 999, lineHeight: 1,
                         }}>{isNew ? 'new' : `${up ? '↗' : '↘'} ${Math.abs(Math.round(trendPct))}%`}</span>
                       )}
-                      <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'rgba(120,120,120,0.5)', lineHeight: 1 }}>latest</span>
+                      <span style={{ fontFamily: aspireFont, fontSize: 12, color: 'var(--tx-2)', lineHeight: 1 }}>latest</span>
                     </div>
                   );
                 })()}
@@ -1237,8 +1237,8 @@ export default function AnalyticsV2() {
                           </linearGradient>
                         </defs>
                         <CartesianGrid stroke="rgba(120,120,120,0.06)" strokeDasharray="0" vertical={false} />
-                        <XAxis dataKey="date" tick={{ fill: 'rgba(120,120,120,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                        <YAxis tick={{ fill: 'rgba(120,120,120,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={M.yWidth} allowDecimals={false} tickFormatter={M.yFmt} tickMargin={8} />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(150,150,150,0.9)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
+                        <YAxis tick={{ fill: 'rgba(150,150,150,0.9)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={M.yWidth} allowDecimals={false} tickFormatter={M.yFmt} tickMargin={8} />
                         <Tooltip content={<TrendTip />} cursor={{ stroke: 'rgba(120,120,120,0.20)', strokeDasharray: '3 3' }} wrapperStyle={{ outline: 'none' }} />
                         <Area type="monotone" dataKey={M.key} stroke="url(#trendStroke)" strokeWidth={2.5} fill="url(#trendFill)" dot={false} activeDot={{ r: 5, fill: '#FFFFFF', stroke: gEnd, strokeWidth: 2.5 }} name={M.label} animationDuration={1500} />
                       </AreaChart>
@@ -1248,8 +1248,8 @@ export default function AnalyticsV2() {
                           <filter id="trendBarShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#1A1A1A" floodOpacity="0.22" /></filter>
                         </defs>
                         <CartesianGrid stroke="rgba(120,120,120,0.06)" strokeDasharray="0" vertical={false} />
-                        <XAxis dataKey="date" tick={{ fill: 'rgba(120,120,120,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
-                        <YAxis tick={{ fill: 'rgba(120,120,120,0.55)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={M.yWidth} allowDecimals={false} tickFormatter={M.yFmt} tickMargin={8} />
+                        <XAxis dataKey="date" tick={{ fill: 'rgba(150,150,150,0.9)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} tickFormatter={fmtDayFirst} tickMargin={10} minTickGap={20} padding={{ left: 18, right: 18 }} />
+                        <YAxis tick={{ fill: 'rgba(150,150,150,0.9)', fontSize: 12, fontFamily: aspireFont, fontWeight: 400 }} axisLine={false} tickLine={false} width={M.yWidth} allowDecimals={false} tickFormatter={M.yFmt} tickMargin={8} />
                         <Tooltip content={<TrendTip />} cursor={false} wrapperStyle={{ outline: 'none' }} />
                         <Bar dataKey={M.key} name={M.label} fill={gEnd} radius={[6, 6, 0, 0]} maxBarSize={32} animationDuration={1500} shape={(props) => {
                           const { x, y, width, height, index, fill } = props;
@@ -1262,7 +1262,7 @@ export default function AnalyticsV2() {
                       </BarChart>
                     )}
                   </ResponsiveContainer>
-                ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(120,120,120,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data in this period</div>}
+                ) : <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--tx-3)', fontSize: 13, fontFamily: aspireFont }}>No data in this period</div>}
               </BentoGlow>
             );
           })()}
@@ -1378,7 +1378,7 @@ export default function AnalyticsV2() {
                 <BentoGlow style={{ ...card, padding: '20px 24px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                     <div style={secTitle}>Dish Performance</div>
-                    {topDishes.length > 0 && <span style={{ fontSize: 10, color: 'rgba(120,120,120,0.35)', fontWeight: 500 }}>{bounds.labelShort} data</span>}
+                    {topDishes.length > 0 && <span style={{ fontSize: 10, color: 'var(--tx-3)', fontWeight: 500 }}>{bounds.labelShort} data</span>}
                   </div>
                   {topDishes.length > 0 ? (() => {
                     const rightCount = Math.min(topDishes.length - 1, 5);
@@ -1408,8 +1408,8 @@ export default function AnalyticsV2() {
                               <div style={{ fontFamily: A.fontDisplay, fontWeight: 700, fontSize: 18, color: '#fff', lineHeight: 1.25 }}>{bestSellerItem.name}</div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                                 <span style={{ fontSize: 11, color: A.warning, fontWeight: 700 }}>{bestSeller.qty}x ordered</span>
-                                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(120,120,120,0.3)' }} />
-                                <span style={{ fontSize: 11, color: 'rgba(120,120,120,0.55)', fontWeight: 600 }}>₹{bestSeller.revenue.toFixed(0)}</span>
+                                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--tx-3)' }} />
+                                <span style={{ fontSize: 11, color: 'var(--tx-2)', fontWeight: 600 }}>₹{bestSeller.revenue.toFixed(0)}</span>
                               </div>
                             </div>
                           </div>
@@ -1435,8 +1435,8 @@ export default function AnalyticsV2() {
                                   <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${A.warning}, #A08656)`, width: `${barPct}%`, transition: 'width 0.3s ease' }} />
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                                  <span style={{ fontSize: 10, color: 'rgba(120,120,120,0.4)', fontWeight: 600 }}>{dish.qty}x</span>
-                                  <span style={{ fontSize: 10, color: '#1A1A1A', fontWeight: 700 }}>₹{dish.revenue.toFixed(0)}</span>
+                                  <span style={{ fontSize: 10, color: 'var(--tx-3)', fontWeight: 600 }}>{dish.qty}x</span>
+                                  <span style={{ fontSize: 10, color: 'var(--tx)', fontWeight: 700 }}>₹{dish.revenue.toFixed(0)}</span>
                                 </div>
                               </div>
                             </div>
@@ -1444,7 +1444,7 @@ export default function AnalyticsV2() {
                         })}
                       </div>
                     );
-                  })() : <div style={{ textAlign: 'center', padding: '50px 0', color: 'rgba(120,120,120,0.3)', fontSize: 13 }}>No order data yet</div>}
+                  })() : <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--tx-3)', fontSize: 13 }}>No order data yet</div>}
                 </BentoGlow>
               </div>
 
@@ -1581,7 +1581,7 @@ export default function AnalyticsV2() {
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                       <div style={secTitle}>Top Menu Items</div>
-                      <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'rgba(120,120,120,0.4)' }}>
+                      <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--tx-3)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: A.warning }} />Views</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#A08656' }} />AR</span>
                       </div>
@@ -1745,7 +1745,7 @@ export default function AnalyticsV2() {
                         )}
                       </div>
                       {peakHourData.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(120,120,120,0.3)', fontSize: 13, fontFamily: aspireFont }}>No data</div>
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--tx-3)', fontSize: 13, fontFamily: aspireFont }}>No data</div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 130 }}>
                           {peakHourData.map((h, i) => {
@@ -1761,7 +1761,7 @@ export default function AnalyticsV2() {
                               >
                                 {/* Rail: fills the column minus the label at bottom. Bar is positioned at the rail's bottom. */}
                                 <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
-                                  <span style={{ fontFamily: aspireFont, fontSize: 10, fontWeight: 700, color: isPeak ? '#1A1A1A' : 'rgba(120,120,120,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1, lineHeight: 1 }}>{h.orders}</span>
+                                  <span style={{ fontFamily: aspireFont, fontSize: 10, fontWeight: 700, color: isPeak ? '#1A1A1A' : 'var(--tx-3)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1, lineHeight: 1 }}>{h.orders}</span>
                                   <div style={{
                                     width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 3,
                                     background: isPeak ? '#A08656' : A.warning,
@@ -1772,7 +1772,7 @@ export default function AnalyticsV2() {
                                     flexShrink: 0,
                                   }} />
                                 </div>
-                                <span style={{ fontFamily: aspireFont, fontSize: 9, color: 'rgba(120,120,120,0.45)', transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1, marginTop: 6 }}>{h.label}</span>
+                                <span style={{ fontFamily: aspireFont, fontSize: 9, color: 'var(--tx-3)', transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1, marginTop: 6 }}>{h.label}</span>
                               </div>
                             );
                           })}
@@ -1809,7 +1809,7 @@ export default function AnalyticsV2() {
                             >
                               {/* Rail: fills the column minus the day label. Bar anchored to the rail's bottom. */}
                               <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
-                                <span style={{ fontFamily: aspireFont, fontSize: 11, fontWeight: 700, color: isB ? '#1A1A1A' : 'rgba(120,120,120,0.4)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1, lineHeight: 1 }}>{d.orders}</span>
+                                <span style={{ fontFamily: aspireFont, fontSize: 11, fontWeight: 700, color: isB ? '#1A1A1A' : 'var(--tx-3)', transition: 'opacity 0.15s', opacity: dim ? 0.3 : 1, lineHeight: 1 }}>{d.orders}</span>
                                 <div style={{
                                   width: '100%', minHeight: 4, height: `${pct}%`, borderRadius: 4,
                                   background: '#C4A86D',
@@ -1820,7 +1820,7 @@ export default function AnalyticsV2() {
                                   flexShrink: 0,
                                 }} />
                               </div>
-                              <span style={{ fontFamily: aspireFont, fontSize: 11, color: 'rgba(120,120,120,0.5)', fontWeight: isB ? 600 : 500, transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1, marginTop: 6 }}>{d.day}</span>
+                              <span style={{ fontFamily: aspireFont, fontSize: 11, color: 'var(--tx-2)', fontWeight: isB ? 600 : 500, transition: 'opacity 0.15s', opacity: dim ? 0.4 : 1, marginTop: 6 }}>{d.day}</span>
                             </div>
                           );
                         })}
@@ -1842,7 +1842,7 @@ export default function AnalyticsV2() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
                   <div>
                     <div style={secTitle}>Item Performance</div>
-                    <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.4)', marginTop: 3 }}>
+                    <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-3)', marginTop: 3 }}>
                       {(() => {
                         const q = menuSearch.trim();
                         const total = itemIntelligence.length;
@@ -1864,7 +1864,7 @@ export default function AnalyticsV2() {
                         return (
                           <button key={opt.k} onClick={() => setMenuSort(opt.k)} style={{
                             padding: '5px 12px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
-                            color: active ? '#FFFFFF' : 'rgba(120,120,120,0.55)',
+                            color: active ? '#FFFFFF' : 'var(--tx-2)',
                             background: active ? '#1A1A1A' : 'transparent',
                             border: 'none', borderRadius: 6, cursor: 'pointer',
                             letterSpacing: '0.02em',
@@ -1882,7 +1882,7 @@ export default function AnalyticsV2() {
                         return (
                           <button key={opt.k} onClick={() => setMenuView(opt.k)} style={{
                             padding: '5px 12px', fontFamily: A.font, fontSize: 12, fontWeight: 600,
-                            color: active ? '#FFFFFF' : 'rgba(120,120,120,0.55)',
+                            color: active ? '#FFFFFF' : 'var(--tx-2)',
                             background: active ? '#1A1A1A' : 'transparent',
                             border: 'none', borderRadius: 6, cursor: 'pointer',
                             letterSpacing: '0.02em',
@@ -1895,7 +1895,7 @@ export default function AnalyticsV2() {
 
                 {/* Search bar — always visible, case-insensitive across name + category. Typing bypasses Top 12 cap. */}
                 <div style={{ position: 'relative', marginBottom: 14 }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'rgba(120,120,120,0.35)', pointerEvents: 'none' }}>🔍</span>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--tx-3)', pointerEvents: 'none' }}>🔍</span>
                   <input
                     type="text"
                     value={menuSearch}
@@ -1920,7 +1920,7 @@ export default function AnalyticsV2() {
                         width: 20, height: 20, borderRadius: '50%',
                         background: 'rgba(120,120,120,0.08)',
                         border: 'none', cursor: 'pointer',
-                        fontSize: 11, color: 'rgba(120,120,120,0.6)', fontWeight: 700,
+                        fontSize: 11, color: 'var(--tx-2)', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
                       }}
                       aria-label="Clear search"
@@ -1929,7 +1929,7 @@ export default function AnalyticsV2() {
                 </div>
 
                 {visibleMenuItems.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(120,120,120,0.3)', fontSize: 13 }}>
+                  <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--tx-3)', fontSize: 13 }}>
                     {menuSearch.trim() ? `No items match "${menuSearch.trim()}"` : 'No data'}
                   </div>
                 ) : (<>
@@ -1961,11 +1961,11 @@ export default function AnalyticsV2() {
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: A.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                            <div style={{ fontFamily: A.font, fontSize: 10.5, color: 'rgba(120,120,120,0.4)', marginTop: 2 }}>{item.category || ''}</div>
+                            <div style={{ fontFamily: A.font, fontSize: 10.5, color: 'var(--tx-3)', marginTop: 2 }}>{item.category || ''}</div>
                           </div>
-                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 700, color: item.revenue > 0 ? '#C4A86D' : 'rgba(120,120,120,0.3)', letterSpacing: '-0.2px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.revenue > 0 ? formatRupee(Math.round(item.revenue)) : '—'}</div>
-                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: item.ordered > 0 ? A.ink : 'rgba(120,120,120,0.3)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.ordered}</div>
-                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: 'rgba(120,120,120,0.55)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.views}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 700, color: item.revenue > 0 ? '#C4A86D' : 'var(--tx-3)', letterSpacing: '-0.2px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.revenue > 0 ? formatRupee(Math.round(item.revenue)) : '—'}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: item.ordered > 0 ? A.ink : 'var(--tx-3)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.ordered}</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: 'var(--tx-2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.views}</div>
                           <div style={{ textAlign: 'right' }}>
                             {flagStyle ? (
                               <span style={{
@@ -2014,31 +2014,31 @@ export default function AnalyticsV2() {
                   <BentoGlow style={{ ...card, padding: '22px 24px', marginBottom: 14 }}>
                     <div style={{ marginBottom: 18 }}>
                       <div style={secTitle}>AR Impact</div>
-                      <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.4)', marginTop: 3 }}>Is the AR feature helping customers decide?</div>
+                      <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-3)', marginTop: 3 }}>Is the AR feature helping customers decide?</div>
                     </div>
 
                     {/* Top row: 3 stat tiles */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
                       <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
-                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(120,120,120,0.40)', marginBottom: 6 }}>AR tap-through</div>
+                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 6 }}>AR tap-through</div>
                         <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
-                          <CountUp end={Math.round(parseFloat(arRate))} duration={1.4} preserveValue key={committedBounds} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
+                          <CountUp end={Math.round(parseFloat(arRate))} duration={1.4} preserveValue key={committedBounds} /><span style={{ color: 'var(--tx-3)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
                         </div>
-                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.5)', marginTop: 4 }}>of all item views</div>
+                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-2)', marginTop: 4 }}>of all item views</div>
                       </div>
                       <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
-                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(120,120,120,0.40)', marginBottom: 6 }}>AR → order</div>
+                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 6 }}>AR → order</div>
                         <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: '#C4A86D', letterSpacing: '-0.4px', lineHeight: 1 }}>
-                          <CountUp end={Math.round(parseFloat(arToOrderRate))} duration={1.4} preserveValue key={committedBounds} /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
+                          <CountUp end={Math.round(parseFloat(arToOrderRate))} duration={1.4} preserveValue key={committedBounds} /><span style={{ color: 'var(--tx-3)', fontSize: 14, fontWeight: 500, marginLeft: 1 }}>%</span>
                         </div>
-                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.5)', marginTop: 4 }}>of orders saw AR first</div>
+                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-2)', marginTop: 4 }}>of orders saw AR first</div>
                       </div>
                       <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
-                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(120,120,120,0.40)', marginBottom: 6 }}>AR coverage</div>
+                        <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 6 }}>AR coverage</div>
                         <div style={{ fontFamily: A.font, fontWeight: 700, fontSize: 24, color: A.ink, letterSpacing: '-0.4px', lineHeight: 1 }}>
-                          <CountUp end={itemsWithModel} duration={1.4} preserveValue /><span style={{ color: 'rgba(0,0,0,0.35)', fontSize: 14, fontWeight: 500, marginLeft: 3 }}>/ {totalMenuItems}</span>
+                          <CountUp end={itemsWithModel} duration={1.4} preserveValue /><span style={{ color: 'var(--tx-3)', fontSize: 14, fontWeight: 500, marginLeft: 3 }}>/ {totalMenuItems}</span>
                         </div>
-                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.5)', marginTop: 4 }}>items have a 3D model</div>
+                        <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-2)', marginTop: 4 }}>items have a 3D model</div>
                       </div>
                     </div>
 
@@ -2052,15 +2052,15 @@ export default function AnalyticsV2() {
                             <div style={{ fontFamily: A.font, fontSize: 10, color: 'rgba(63,158,90,0.7)', letterSpacing: '0.04em' }}>AR → ORDER</div>
                           </div>
                           <div style={{ fontFamily: A.font, fontSize: 14, fontWeight: 600, color: A.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{workingBest.name}</div>
-                          <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.55)', lineHeight: 1.45 }}>
+                          <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-2)', lineHeight: 1.45 }}>
                             <span style={{ fontWeight: 600, color: '#3F9E5A' }}>{Math.round(workingBest.convRate * 100)}%</span> of AR viewers ordered it<br />
-                            <span style={{ color: 'rgba(120,120,120,0.4)' }}>{workingBest.arViews} AR views · {workingBest.ordered} order{workingBest.ordered !== 1 ? 's' : ''}</span>
+                            <span style={{ color: 'var(--tx-3)' }}>{workingBest.arViews} AR views · {workingBest.ordered} order{workingBest.ordered !== 1 ? 's' : ''}</span>
                           </div>
                         </div>
                       ) : (
                         <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
-                          <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(120,120,120,0.4)', marginBottom: 8 }}>Working best</div>
-                          <div style={{ fontFamily: A.font, fontSize: 13, color: 'rgba(120,120,120,0.5)', lineHeight: 1.5 }}>Not enough AR activity yet — items need at least 5 AR views to qualify.</div>
+                          <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 8 }}>Working best</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, color: 'var(--tx-2)', lineHeight: 1.5 }}>Not enough AR activity yet — items need at least 5 AR views to qualify.</div>
                         </div>
                       )}
 
@@ -2072,15 +2072,15 @@ export default function AnalyticsV2() {
                             <div style={{ fontFamily: A.font, fontSize: 10, color: 'rgba(160,134,86,0.7)', letterSpacing: '0.04em' }}>HIGH VIEWS · NO AR</div>
                           </div>
                           <div style={{ fontFamily: A.font, fontSize: 14, fontWeight: 600, color: A.ink, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opportunity.name}</div>
-                          <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.55)', lineHeight: 1.45 }}>
+                          <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-2)', lineHeight: 1.45 }}>
                             <span style={{ fontWeight: 600, color: '#A08656' }}>{opportunity.views} views</span>, no 3D model yet<br />
-                            <span style={{ color: 'rgba(120,120,120,0.4)' }}>Could boost orders if added</span>
+                            <span style={{ color: 'var(--tx-3)' }}>Could boost orders if added</span>
                           </div>
                         </div>
                       ) : (
                         <div style={{ padding: '14px 16px', background: 'rgba(0,0,0,0.025)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10 }}>
-                          <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(120,120,120,0.4)', marginBottom: 8 }}>Opportunity</div>
-                          <div style={{ fontFamily: A.font, fontSize: 13, color: 'rgba(120,120,120,0.5)', lineHeight: 1.5 }}>Every viewed item already has a 3D model — well done.</div>
+                          <div style={{ fontFamily: A.font, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 8 }}>Opportunity</div>
+                          <div style={{ fontFamily: A.font, fontSize: 13, color: 'var(--tx-2)', lineHeight: 1.5 }}>Every viewed item already has a 3D model — well done.</div>
                         </div>
                       )}
                     </div>
@@ -2117,13 +2117,13 @@ export default function AnalyticsV2() {
                   <BentoGlow style={{ ...card, padding: '22px 24px' }}>
                     <div style={{ marginBottom: 18 }}>
                       <div style={secTitle}>Category Performance</div>
-                      <div style={{ fontFamily: A.font, fontSize: 11, color: 'rgba(120,120,120,0.4)', marginTop: 3 }}>Which menu categories are pulling their weight</div>
+                      <div style={{ fontFamily: A.font, fontSize: 11, color: 'var(--tx-3)', marginTop: 3 }}>Which menu categories are pulling their weight</div>
                     </div>
 
                     {catRows.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(120,120,120,0.3)', fontSize: 13 }}>No categories</div>
+                      <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--tx-3)', fontSize: 13 }}>No categories</div>
                     ) : !anyRev ? (
-                      <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(120,120,120,0.3)', fontSize: 13 }}>No orders in this range yet</div>
+                      <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--tx-3)', fontSize: 13 }}>No orders in this range yet</div>
                     ) : (<>
                       <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 60px 60px 70px', gap: 12, padding: '0 4px 8px', borderBottom: '1px solid rgba(120,120,120,0.06)', marginBottom: 4 }}>
                         <div style={{ ...labelSm, fontSize: 9 }}>Category</div>
@@ -2152,20 +2152,20 @@ export default function AnalyticsV2() {
                                   <div style={{
                                     height: '100%', borderRadius: 4,
                                     width: `${pct}%`,
-                                    background: active ? A.ink : 'rgba(120,120,120,0.35)',
+                                    background: active ? A.ink : 'var(--tx-3)',
                                     transition: 'width 0.4s ease',
                                   }} />
                                 </div>
                                 <span style={{
                                   fontFamily: A.font, fontSize: 12.5, fontWeight: 700,
-                                  color: active ? '#C4A86D' : 'rgba(120,120,120,0.5)',
+                                  color: active ? '#C4A86D' : 'var(--tx-2)',
                                   letterSpacing: '-0.2px',
                                   width: 56, textAlign: 'right', fontVariantNumeric: 'tabular-nums',
                                 }}>{c.revenue > 0 ? formatRupee(Math.round(c.revenue)) : '—'}</span>
                               </div>
-                              <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: 'rgba(120,120,120,0.55)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.items}</div>
-                              <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: active ? A.ink : 'rgba(120,120,120,0.5)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.orders}</div>
-                              <div style={{ textAlign: 'right', fontFamily: A.font, fontSize: 12, color: c.rating > 0 ? '#C4A86D' : 'rgba(120,120,120,0.3)', fontWeight: 600 }}>
+                              <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 500, color: 'var(--tx-2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.items}</div>
+                              <div style={{ fontFamily: A.font, fontSize: 13, fontWeight: 600, color: active ? A.ink : 'var(--tx-2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.orders}</div>
+                              <div style={{ textAlign: 'right', fontFamily: A.font, fontSize: 12, color: c.rating > 0 ? '#C4A86D' : 'var(--tx-3)', fontWeight: 600 }}>
                                 {c.rating > 0 ? `★ ${c.rating.toFixed(1)}` : '—'}
                               </div>
                             </div>
