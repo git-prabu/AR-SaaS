@@ -13,6 +13,21 @@ const ARViewerEmbed = dynamic(() => import('../../../components/ARViewer').then(
 // moment the customer first triggers a confirm dialog, not on page load.
 const ConfirmModal = dynamic(() => import('../../../components/ConfirmModal'), { ssr: false });
 
+// One-view-per-session dedup. Returns true the first time (itemId) is seen for
+// (key) in this browser session, false thereafter. Item/AR view counters used
+// to increment on EVERY open, so re-opening a dish (or a single testing
+// session) inflated the lifetime totals. Gated through sessionStorage so a
+// dish counts once per visit; falls back to counting if storage is blocked.
+function markViewedOnce(key, itemId) {
+  try {
+    const seen = JSON.parse(sessionStorage.getItem(key) || '[]');
+    if (seen.includes(itemId)) return false;
+    seen.push(itemId);
+    sessionStorage.setItem(key, JSON.stringify(seen));
+    return true;
+  } catch { return true; }
+}
+
 function getSessionId() {
   if (typeof window === 'undefined') return 'ssr';
   let sid = localStorage.getItem('ar_sid');
@@ -3214,11 +3229,15 @@ export default function RestaurantMenu({ restaurant: initialRestaurant, menuItem
 
   const openItem = useCallback(async (item) => {
     setSelectedItem(item); setShowAR(false);
-    if (restaurant?.id) incrementItemView(restaurant.id, item.id).catch(() => { });
+    if (restaurant?.id && item?.id && markViewedOnce(`ar_iv_${restaurant.id}`, item.id)) {
+      incrementItemView(restaurant.id, item.id).catch(() => { });
+    }
   }, [restaurant?.id]);
   const closeItem = useCallback(() => { setSelectedItem(null); setShowAR(false); }, []);
   const handleARLaunch = useCallback(async () => {
-    if (restaurant?.id && selectedItem?.id) incrementARView(restaurant.id, selectedItem.id).catch(() => { });
+    if (restaurant?.id && selectedItem?.id && markViewedOnce(`ar_arv_${restaurant.id}`, selectedItem.id)) {
+      incrementARView(restaurant.id, selectedItem.id).catch(() => { });
+    }
   }, [restaurant?.id, selectedItem?.id]);
   const imgSrc = (item) => (!imgErr[item.id] && item.imageURL) ? item.imageURL : getPlaceholder(item.id);
 
