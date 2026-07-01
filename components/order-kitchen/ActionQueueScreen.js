@@ -31,6 +31,25 @@ import { I } from './Icons';
 const WAITING_LONG_SEC = 180;  // 3 min → red urgency band
 const WAITING_WARN_SEC = 60;   // 1 min → gold urgency band
 
+// Toggle icons with DISTINCT on/off states (the old 🔊/🎙️ emojis were
+// unclear, and voice showed the same glyph both ways so it looked broken).
+const IconSound = ({ on }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 5 6 9H2v6h4l5 4V5z" />
+    {on
+      ? (<><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5a10 10 0 0 1 0 14" /></>)
+      : (<><line x1="22" y1="9" x2="16" y2="15" /><line x1="16" y1="9" x2="22" y2="15" /></>)}
+  </svg>
+);
+const IconMic = ({ on }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="2" width="6" height="12" rx="3" />
+    <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
+    <line x1="12" y1="18" x2="12" y2="22" />
+    {!on && <line x1="3" y1="3" x2="21" y2="21" />}
+  </svg>
+);
+
 function formatElapsed(seconds) {
   if (seconds == null || seconds < 0) return '0s';
   if (seconds < 60) return `${Math.floor(seconds)}s`;
@@ -112,10 +131,10 @@ export default function ActionQueueScreen({
             background: COLORS.card,
             border: `1px solid ${COLORS.border}`,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: soundEnabled ? COLORS.text : COLORS.textFaint,
+            color: soundEnabled ? '#D6BC85' : COLORS.textFaint,
             cursor: 'pointer', padding: 0, fontSize: 15,
           }}
-        >{soundEnabled ? '🔊' : '🔇'}</button>
+        ><IconSound on={soundEnabled} /></button>
         <button
           onClick={onToggleVoice}
           title={voiceEnabled ? 'Voice on (tap to silence)' : 'Voice off (tap to enable)'}
@@ -124,10 +143,10 @@ export default function ActionQueueScreen({
             background: COLORS.card,
             border: `1px solid ${COLORS.border}`,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: voiceEnabled ? COLORS.text : COLORS.textFaint,
+            color: voiceEnabled ? '#D6BC85' : COLORS.textFaint,
             cursor: 'pointer', padding: 0, fontSize: 15,
           }}
-        >{voiceEnabled ? '🎙️' : '🎙️'}</button>
+        ><IconMic on={voiceEnabled} /></button>
       </div>
       )}
       {/* Desktop-only: sound + voice toggles in a compact toolbar
@@ -144,10 +163,10 @@ export default function ActionQueueScreen({
               width: 36, height: 36, borderRadius: 11,
               background: COLORS.card, border: `1px solid ${COLORS.border}`,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              color: soundEnabled ? COLORS.text : COLORS.textFaint,
+              color: soundEnabled ? '#D6BC85' : COLORS.textFaint,
               cursor: 'pointer', padding: 0, fontSize: 15,
             }}
-          >{soundEnabled ? '🔊' : '🔇'}</button>
+          ><IconSound on={soundEnabled} /></button>
           <button
             onClick={onToggleVoice}
             title={voiceEnabled ? 'Voice on (tap to silence)' : 'Voice off (tap to enable)'}
@@ -155,10 +174,10 @@ export default function ActionQueueScreen({
               width: 36, height: 36, borderRadius: 11,
               background: COLORS.card, border: `1px solid ${COLORS.border}`,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              color: voiceEnabled ? COLORS.text : COLORS.textFaint,
+              color: voiceEnabled ? '#D6BC85' : COLORS.textFaint,
               cursor: 'pointer', padding: 0, fontSize: 15,
             }}
-          >{voiceEnabled ? '🎙️' : '🎙️'}</button>
+          ><IconMic on={voiceEnabled} /></button>
         </div>
       )}
 

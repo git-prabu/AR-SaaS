@@ -408,8 +408,8 @@ export default function ActivityLogV2() {
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', animation: 'ok-dotpulse 1.6s infinite' }} />
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--success)' }}>LIVE</span>
       </span>
-      <button onClick={() => { setSoundEnabled(v => !v); unlockSound(); }} title={soundEnabled ? 'Mute' : 'Unmute'}
-        style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--card)', border: '1px solid var(--line)', color: soundEnabled ? 'var(--tx)' : 'var(--tx-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+      <button onClick={() => { setSoundEnabled(v => !v); unlockSound(); }} title={soundEnabled ? 'Sound on — tap to mute' : 'Muted — tap to enable'}
+        style={{ width: 38, height: 38, borderRadius: 11, background: soundEnabled ? 'rgba(196,168,109,0.16)' : 'var(--card)', border: `1px solid ${soundEnabled ? '#C4A86D' : 'var(--line)'}`, color: soundEnabled ? '#D6BC85' : 'var(--tx-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
         {soundEnabled
           ? (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>)
           : (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>)}
