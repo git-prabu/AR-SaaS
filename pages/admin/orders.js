@@ -1000,7 +1000,7 @@ export default function Orders() {
 
   const serviceQueue = useMemo(() => {
     return tables
-      .filter(t => t.status === 'sent' || t.status === 'served' || t.status === 'ready')
+      .filter(t => t.status === 'seated' || t.status === 'sent' || t.status === 'served' || t.status === 'ready')
       .sort((a, b) => (a.openedAt || '').localeCompare(b.openedAt || ''));
   }, [tables]);
 
@@ -1278,10 +1278,10 @@ export default function Orders() {
                               <div className="ac-table">{String(t.id).replace(/^T/, '').slice(0, 3)}</div>
                               <div className="ac-meta">
                                 <div className="ac-zone">{t.zone}</div>
-                                <div className="ac-sub">{t.occupied}/{t.seats} · ₹{(totals[t.id] || 0).toLocaleString('en-IN')}</div>
+                                <div className="ac-sub">{t.status === 'seated' ? `${t.occupied}/${t.seats} · seated` : `${t.occupied}/${t.seats} · ₹${(totals[t.id] || 0).toLocaleString('en-IN')}`}</div>
                               </div>
                               <span className={`ac-badge ${t.status}`}>
-                                {t.status === 'sent' ? 'COOKING' : t.status === 'served' ? 'TO PAY' : 'PAID'}
+                                {t.status === 'sent' ? 'COOKING' : t.status === 'served' ? 'TO PAY' : t.status === 'seated' ? 'SEATED' : 'PAID'}
                               </span>
                             </div>
                           </button>

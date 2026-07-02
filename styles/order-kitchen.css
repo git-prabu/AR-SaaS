@@ -62,6 +62,14 @@
   --veg:       #4FA567;
   --nonveg:    #C0432E;
 
+  /* badge foregrounds — legible on the card surface in BOTH themes.
+     Brand hexes like #D6BC85 wash out on the white light-mode card, so
+     these flip; the tinted badge backgrounds stay brand-colored. */
+  --badge-gold:  #D6BC85;
+  --badge-green: #7BA890;
+  --badge-amber: #D8783C;
+  --badge-blue:  #8FA8C2;
+
   --r-card:  18px;
   --r-sheet: 26px;
   --r-pill:  50px;
@@ -136,6 +144,11 @@
   --matte-line: rgba(255,255,255,0.10);
   --matte-tile: rgba(255,255,255,0.05);
   --st-free:   rgba(30,27,22,0.18);
+  /* darker badge foregrounds so they read on the white light-mode card */
+  --badge-gold:  #806018;
+  --badge-green: #2E6B47;
+  --badge-amber: #A6461C;
+  --badge-blue:  #3C5F84;
   background: #DEDAD1;
 }
 [data-theme="light"] .ok-root .page-bg,
@@ -877,6 +890,9 @@
 }
 .ok-root .ac-badge.ready {
   background: rgba(110,142,175,0.18); color: var(--st-paid);
+}
+.ok-root .ac-badge.seated {
+  background: rgba(196,168,109,0.16); color: var(--badge-gold);
 }
 .ok-root .act-empty {
   text-align: center; color: var(--tx-3);

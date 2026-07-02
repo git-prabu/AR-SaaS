@@ -7,13 +7,11 @@
 // "what did table 5 just order?" question without leaving the
 // Queue tab.
 //
-// Mirrors what /admin/waiter shows under its Orders tab — same
-// filter semantics, same status badges. The Aspire-light palette
-// becomes the dark Order & Kitchen palette here.
-//
-// All inline styles for the apphead (no .apphead-row className —
-// it has a layout bug in production; FloorScreen / KitchenScreen
-// / ReviewScreen all dodge it the same way).
+// Card layout mirrors /admin/waiter's Orders tab: a table/customer +
+// status + order # + time header, the itemised line-item list, and a
+// payment-status + total footer — so the v2 waiter station reads the
+// same as the legacy one. The Aspire-light palette becomes the dark
+// Order & Kitchen palette here (and flips in light mode via CSS vars).
 
 import React from 'react';
 
@@ -27,16 +25,16 @@ const COLORS = {
   border:     'var(--line)',
   gold:       '#C4A86D',
   goldBg:     'rgba(196,168,109,0.14)',
-  goldText:   '#D6BC85',
+  goldText:   'var(--badge-gold)',
   green:      '#4A8866',
   greenBg:    'rgba(74,136,102,0.14)',
-  greenText:  '#7BA890',
+  greenText:  'var(--badge-green)',
   amber:      '#C2562B',
   amberBg:    'rgba(194,86,43,0.14)',
-  amberText:  '#D8783C',
+  amberText:  'var(--badge-amber)',
   blue:       '#6E8EAF',
   blueBg:     'rgba(110,142,175,0.14)',
-  blueText:   '#8FA8C2',
+  blueText:   'var(--badge-blue)',
   muted:      'var(--tx-3)',
   mutedBg:    'var(--line-soft)',
 };
@@ -53,13 +51,15 @@ function statusBadge(status) {
   return { label: status, bg: COLORS.mutedBg, fg: COLORS.textMuted };
 }
 
-function paymentBadge(paymentStatus) {
-  if (PAID.has(paymentStatus)) {
-    const method = paymentStatus.replace('paid_', '').toUpperCase();
-    return { label: method === 'PAID' ? 'PAID' : `PAID · ${method}`, bg: COLORS.greenBg, fg: COLORS.greenText };
-  }
-  if (/_requested$/.test(paymentStatus || '')) return { label: 'PAYMENT REQUESTED', bg: COLORS.amberBg, fg: COLORS.amberText };
-  return null;
+// Footer payment line — mirrors /admin/waiter's Orders card (checkmark
+// once paid, hourglass while a settle is pending, plain "Unpaid" else).
+const PAID_LABELS = { paid_cash: '✓ Cash paid', paid_card: '✓ Card paid', paid_online: '✓ UPI paid', paid: '✓ Paid' };
+function paymentLine(paymentStatus) {
+  if (PAID_LABELS[paymentStatus]) return PAID_LABELS[paymentStatus];
+  if (paymentStatus === 'cash_requested')   return '⏳ Cash pending';
+  if (paymentStatus === 'card_requested')   return '⏳ Card pending';
+  if (paymentStatus === 'online_requested') return '⏳ UPI pending';
+  return 'Unpaid';
 }
 
 function fmtTime(seconds) {
@@ -127,8 +127,10 @@ export default function OrdersListScreen({ orders, filter, onFilterChange, deskt
       </div>
       )}
 
+      {/* Filter chips — aligned to the app's 30px content gutter on desktop
+          so they line up with the ws-head title and the station toggle. */}
       <div style={{
-        padding: '6px 16px 12px', flexShrink: 0,
+        padding: desktop ? '2px 30px 14px' : '6px 16px 12px', flexShrink: 0,
         display: 'flex', gap: 8, flexWrap: 'wrap',
       }}>
         {chips.map(c => {
@@ -150,10 +152,11 @@ export default function OrdersListScreen({ orders, filter, onFilterChange, deskt
             >
               {c.label}
               <span style={{
-                padding: '1px 6px', borderRadius: 999,
-                // off-state badge uses var(--line-soft), not a white wash —
-                // rgba(255,255,255,0.06) was invisible on light cards.
-                background: on ? 'rgba(0,0,0,0.18)' : 'var(--line-soft)',
+                // explicit min-width + centered text so a single digit reads as
+                // a rounded count pill, not a blank dot (owner: "not visible").
+                minWidth: 18, padding: '1px 6px', borderRadius: 999, textAlign: 'center',
+                background: on ? 'rgba(0,0,0,0.16)' : 'var(--line-soft)',
+                color: on ? COLORS.goldText : COLORS.textFaint,
                 fontFamily: "'JetBrains Mono', ui-monospace, monospace",
                 fontSize: 10, fontWeight: 700,
               }}>{c.count}</span>
@@ -162,7 +165,9 @@ export default function OrdersListScreen({ orders, filter, onFilterChange, deskt
         })}
       </div>
 
-      <div className="scroll">
+      {/* scroll owns overflow only — inner grid owns the 30px gutter so cards
+          align with the chips above (avoids .scroll's own padding stacking). */}
+      <div className="scroll" style={{ padding: 0 }}>
         {visible.length === 0 ? (
           <div className="empty">
             <span className="e-emoji">📒</span>
@@ -174,8 +179,10 @@ export default function OrdersListScreen({ orders, filter, onFilterChange, deskt
           </div>
         ) : (
           <div className="ok-stack-list" style={{
-            display: 'flex', flexDirection: 'column', gap: 8,
-            padding: '4px 16px 24px',
+            display: 'grid',
+            gridTemplateColumns: desktop ? 'repeat(auto-fill, minmax(300px, 1fr))' : '1fr',
+            gap: 12,
+            padding: desktop ? '4px 30px 28px' : '4px 16px 24px',
           }}>
             {visible.map(o => <OrderCard key={o.id} order={o} />)}
           </div>
@@ -187,70 +194,82 @@ export default function OrdersListScreen({ orders, filter, onFilterChange, deskt
 
 function OrderCard({ order }) {
   const status = statusBadge(order.status);
-  const payment = paymentBadge(order.paymentStatus);
-  const itemCount = Array.isArray(order.items) ? order.items.reduce((s, i) => s + (Number(i.qty) || 1), 0) : 0;
+  const items = Array.isArray(order.items) ? order.items : [];
   const isTakeaway = order.orderType === 'takeaway' || order.orderType === 'takeout';
-  const tableLabel = isTakeaway ? (order.customerName || 'Pickup') : (order.tableNumber ? `Table ${order.tableNumber}` : '—');
+  const tableLabel = isTakeaway
+    ? `📦 Takeaway · ${order.customerName || 'Customer'}`
+    : `🍽️ Table ${order.tableNumber || '—'}`;
+  const isPaid = PAID.has(order.paymentStatus);
   const total = '₹' + Math.round(Number(order.total) || 0).toLocaleString('en-IN');
+
+  const mono = "'JetBrains Mono', ui-monospace, monospace";
+  const sans = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+  const disp = "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif";
 
   return (
     <div style={{
       background: COLORS.card,
       borderRadius: 12,
       border: `1px solid ${COLORS.border}`,
-      padding: '12px 14px',
-      display: 'flex', flexDirection: 'column', gap: 8,
+      overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{
-          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          fontWeight: 700, fontSize: 13, color: COLORS.gold,
-          letterSpacing: '-0.2px',
-        }}>{orderLabel(order)}</span>
-        <span style={{
-          fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
-          fontWeight: 700, fontSize: 14, color: COLORS.text,
-        }}>{isTakeaway ? `Takeaway · ${tableLabel}` : tableLabel}</span>
-        <span style={{
-          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
-          padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
-          background: status.bg, color: status.fg,
-        }}>{status.label}</span>
-        {payment && (
-          <span style={{
-            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
-            padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
-            background: payment.bg, color: payment.fg,
-          }}>{payment.label}</span>
-        )}
-        <span style={{
-          marginLeft: 'auto',
-          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          fontSize: 11, color: COLORS.textFaint,
-        }}>{fmtTime(order.createdAt?.seconds)}</span>
+      {/* Header — table/customer, status, order #, time */}
+      <div style={{
+        padding: '12px 14px', borderBottom: `1px solid ${COLORS.border}`,
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10,
+      }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontFamily: disp, fontSize: 14, fontWeight: 700, color: COLORS.text, letterSpacing: '-0.1px', marginBottom: 5 }}>
+            {tableLabel}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{
+              fontFamily: mono, fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+              padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase',
+              background: status.bg, color: status.fg,
+            }}>{status.label}</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: COLORS.textFaint }}>{orderLabel(order)}</span>
+            <span style={{ fontFamily: sans, fontSize: 11, color: COLORS.textFaint }}>· {fmtTime(order.createdAt?.seconds)}</span>
+          </div>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          flex: 1,
-          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-          fontSize: 12, color: COLORS.textMuted,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
-          {Array.isArray(order.items) && order.items.length > 0 && (
-            <span> · {order.items.slice(0, 3).map(i => i.name).filter(Boolean).join(' · ')}
-              {order.items.length > 3 && ` · +${order.items.length - 3} more`}
-            </span>
-          )}
-        </div>
+      {/* Items — the "what was ordered" proof */}
+      <div style={{ padding: '10px 14px', flex: 1 }}>
+        {items.length === 0 ? (
+          <div style={{ fontFamily: sans, fontSize: 12, color: COLORS.textFaint, fontStyle: 'italic' }}>No items recorded.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {items.map((it, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'baseline', fontSize: 12 }}>
+                <span style={{ fontFamily: mono, color: COLORS.goldText, fontWeight: 700, minWidth: 26 }}>{it.qty || 1}×</span>
+                <span style={{ fontFamily: sans, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {it.name}
+                  {it.note ? <span style={{ color: COLORS.textFaint, fontStyle: 'italic' }}> — {it.note}</span> : null}
+                </span>
+                <span style={{ fontFamily: mono, color: COLORS.textMuted }}>₹{Math.round((Number(it.price) || 0) * (Number(it.qty) || 1)).toLocaleString('en-IN')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {order.specialInstructions && (
+          <div style={{ marginTop: 8, padding: '6px 10px', background: 'var(--card-2)', borderRadius: 6, fontFamily: sans, fontSize: 11, color: COLORS.textMuted, fontStyle: 'italic' }}>
+            📝 {order.specialInstructions}
+          </div>
+        )}
+      </div>
+
+      {/* Footer — payment status + total */}
+      <div style={{
+        padding: '10px 14px', borderTop: `1px solid ${COLORS.border}`, background: 'var(--card-2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
         <span style={{
-          fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
-          fontWeight: 700, fontSize: 15, color: COLORS.text,
-          fontVariantNumeric: 'tabular-nums',
-        }}>{total}</span>
+          fontFamily: sans, fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+          color: isPaid ? COLORS.greenText : COLORS.textMuted,
+        }}>{paymentLine(order.paymentStatus)}</span>
+        <span style={{ fontFamily: disp, fontSize: 16, fontWeight: 700, color: COLORS.text, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.3px' }}>{total}</span>
       </div>
     </div>
   );

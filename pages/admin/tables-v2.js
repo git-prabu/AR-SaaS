@@ -370,11 +370,12 @@ export default function AdminTablesV2() {
     return { occupied, revenue };
   }, [statesByTable]);
 
-  // Running tables — those with an active order (running / KOT / bill printed /
-  // paid). Excludes merely-SEATED (and free) tables so "Running now" matches the
-  // Floor's service queue instead of listing every occupied table.
+  // Running tables — every occupied table: seated PLUS the ones with an active
+  // order (running / KOT / bill printed / paid). Only truly-free ("blank")
+  // tables are hidden, so "Running now" shows seated tables too and matches the
+  // Floor's service queue (which also lists seated).
   const runningTables = useMemo(() => {
-    const idle = new Set(['blank', 'seated']);
+    const idle = new Set(['blank']);
     return tables
       .filter(t => !idle.has(statesByTable[t.id]?.status.key || 'blank'))
       .sort((a, b) => (statesByTable[b.id]?.total || 0) - (statesByTable[a.id]?.total || 0));
