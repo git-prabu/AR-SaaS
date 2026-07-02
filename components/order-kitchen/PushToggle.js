@@ -127,15 +127,8 @@ export default function PushToggle({
         title={title}
         aria-label={title}
         disabled={working}
-        style={{
-          width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-          background: perm === 'granted' ? 'rgba(196,168,109,0.14)' : 'var(--card)',
-          border: `1px solid ${perm === 'granted' ? '#C4A86D' : 'var(--line)'}`,
-          color: perm === 'granted' ? '#D6BC85' : 'var(--tx-2)',
-          cursor: working ? 'wait' : 'pointer', padding: 0, fontSize: 15,
-          opacity: working ? 0.65 : 1,
-          ...style,
-        }}
+        className={`ok-iconbtn${perm === 'granted' ? ' on' : ''}`}
+        style={{ fontSize: 15, opacity: working ? 0.65 : 1, cursor: working ? 'wait' : 'pointer', ...style }}
       >{icon}</button>
       {hint && (
         <div

@@ -72,6 +72,7 @@ import {
   logStaffActivity,
   markTableSeated, freeTableSession,
   activateTableSession, clearTableSession,
+  setWaitlistStatus,
 } from '../../lib/db';
 import { printBill } from '../../lib/printKot';
 import {
@@ -82,7 +83,7 @@ import {
 import FloorScreen from '../../components/order-kitchen/FloorScreen';
 import MenuScreen, { ItemSheet } from '../../components/order-kitchen/MenuScreen';
 import ReviewScreen, { ConfirmScreen } from '../../components/order-kitchen/ReviewScreen';
-import ActionQueueScreen, { CashModal } from '../../components/order-kitchen/ActionQueueScreen';
+import ActionQueueScreen, { CashModal, IconSound, IconMic } from '../../components/order-kitchen/ActionQueueScreen';
 import OrdersListScreen from '../../components/order-kitchen/OrdersListScreen';
 import HistoryListScreen from '../../components/order-kitchen/HistoryListScreen';
 import PushToggle from '../../components/order-kitchen/PushToggle';
@@ -215,6 +216,7 @@ export default function Orders() {
   const [ordersById, setOrdersById] = useState({});
   const [rawMenu, setRawMenu] = useState([]);
   const [allCalls, setAllCalls] = useState([]);  // Phase B.2 — waiterCalls feed
+  const [waitlist, setWaitlist] = useState([]);  // host-stand walk-in queue, shown on the floor
   const [areasReady, setAreasReady] = useState(false);
   const [tablesReady, setTablesReady] = useState(false);
 
@@ -241,7 +243,12 @@ export default function Orders() {
     const uc = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'waiterCalls'), orderBy('createdAt', 'desc')),
       snap => setAllCalls(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => console.error('orders waiterCalls listener error:', err));
-    return () => { ua(); ut(); us(); ub(); uo(); um(); uc(); };
+    // Walk-in waitlist — so the floor manager sees who's waiting and can
+    // notify a party when a table frees up (host stand adds them).
+    const uw = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'waitlist'), orderBy('createdAt', 'asc')),
+      snap => setWaitlist(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => console.error('orders waitlist listener error:', err));
+    return () => { ua(); ut(); us(); ub(); uo(); um(); uc(); uw(); };
   }, [rid, scopedDb]);
 
   // Live age tick — drives the elapsed timer + "Xm ago" displays. Queue
@@ -1004,6 +1011,19 @@ export default function Orders() {
       .sort((a, b) => (a.openedAt || '').localeCompare(b.openedAt || ''));
   }, [tables]);
 
+  // Active walk-in parties (waiting + notified), oldest first — shown in the
+  // floor's right rail so the table manager can notify a party when a table
+  // frees up. Host stand (Waitlist page) adds them; here it's read + notify.
+  const waitlistActive = useMemo(
+    () => waitlist.filter(e => e.status === 'waiting' || e.status === 'notified'),
+    [waitlist]
+  );
+  const notifyWaitParty = async (entry) => {
+    try {
+      await setWaitlistStatus(rid, entry.id, 'notified', { db: scopedDb });
+    } catch (e) { console.error('waitlist notify failed:', e); }
+  };
+
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
     if (!isDesktop) return;
@@ -1141,19 +1161,30 @@ export default function Orders() {
                     })()}</div>
                     <h1 className="ws-h1">{station === 'waiter' ? 'Waiter' : 'Floor plan'}</h1>
                   </div>
-                  {/* Push toggle — lock-screen notifications via FCM
-                      so the waiter hears the call/ready/payment chime
-                      even when the phone is locked. marginLeft:auto here
-                      + .ws-clock's own auto margin used to SPLIT the free
-                      space and strand the toggle mid-header (owner
-                      screenshot, 12 Jun) — so the clock gets marginLeft:0
-                      and this wrapper carries the only auto margin. */}
-                  {rid && pushSubscriber && (
-                    <div style={{ marginLeft: 'auto', marginRight: 14 }}>
+                  {/* Header controls — sound + voice (waiter station only)
+                      and push notifications, in ONE aligned group so they
+                      line up as a row (was: bell in the header + sound/voice
+                      floating in the queue body → looked misaligned). The
+                      group carries the only marginLeft:auto; the clock gets 0
+                      so the free space isn't split (owner screenshot, 12 Jun). */}
+                  <div style={{ marginLeft: 'auto', marginRight: 14, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {station === 'waiter' && (
+                      <>
+                        <button onClick={toggleSound} className={`ok-iconbtn${soundEnabled ? ' on' : ''}`}
+                          title={soundEnabled ? 'Sound on — tap to mute' : 'Muted — tap to enable'} aria-label="Toggle sound">
+                          <IconSound on={soundEnabled} />
+                        </button>
+                        <button onClick={toggleVoice} className={`ok-iconbtn${voiceEnabled ? ' on' : ''}`}
+                          title={voiceEnabled ? 'Voice on — tap to silence' : 'Voice off — tap to enable'} aria-label="Toggle voice">
+                          <IconMic on={voiceEnabled} />
+                        </button>
+                      </>
+                    )}
+                    {rid && pushSubscriber && (
                       <PushToggle restaurantId={rid} subscriber={pushSubscriber} />
-                    </div>
-                  )}
-                  <div className="ws-clock" style={rid && pushSubscriber ? { marginLeft: 0 } : undefined}>{I.clock}{fmtClock(clockNow)}</div>
+                    )}
+                  </div>
+                  <div className="ws-clock" style={{ marginLeft: 0 }}>{I.clock}{fmtClock(clockNow)}</div>
                 </div>
               )}
 
@@ -1264,6 +1295,39 @@ export default function Orders() {
                     </div>
                   </div>
                   <aside className="activity">
+                    {/* Waitlist — walk-in parties from the host stand. Shown
+                        only when someone's waiting, so a quiet floor stays
+                        clean. Lets the table manager notify a party when a
+                        table frees up. */}
+                    {waitlistActive.length > 0 && (
+                      <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--line)' }}>
+                        <div className="activity-head" style={{ marginBottom: 10 }}>
+                          <h3>Waitlist</h3>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--badge-gold)' }}>{waitlistActive.length} waiting</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
+                          {waitlistActive.map(e => {
+                            const waited = e.createdAt?.seconds ? Math.max(0, Math.floor((Date.now() / 1000 - e.createdAt.seconds) / 60)) : null;
+                            const notified = e.status === 'notified';
+                            return (
+                              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--card)', border: '1px solid var(--line)' }}>
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--tx)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name || 'Guest'}</div>
+                                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)', marginTop: 2 }}>
+                                    {(e.partySize || 1)} pax · {waited != null ? `${waited}m wait` : 'just now'}
+                                  </div>
+                                </div>
+                                {notified ? (
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '5px 10px', borderRadius: 50, background: 'rgba(63,170,99,0.16)', color: 'var(--st-ready)', whiteSpace: 'nowrap' }}>Notified</span>
+                                ) : (
+                                  <button onClick={() => notifyWaitParty(e)} style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700, padding: '7px 13px', borderRadius: 9, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Notify</button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <div className="activity-head">
                       <h3>Service queue</h3>
                       <span className="a-live"><i />LIVE</span>

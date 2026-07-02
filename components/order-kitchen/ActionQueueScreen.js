@@ -33,7 +33,7 @@ const WAITING_WARN_SEC = 60;   // 1 min → gold urgency band
 
 // Toggle icons with DISTINCT on/off states (the old 🔊/🎙️ emojis were
 // unclear, and voice showed the same glyph both ways so it looked broken).
-const IconSound = ({ on }) => (
+export const IconSound = ({ on }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 5 6 9H2v6h4l5 4V5z" />
     {on
@@ -41,7 +41,7 @@ const IconSound = ({ on }) => (
       : (<><line x1="22" y1="9" x2="16" y2="15" /><line x1="16" y1="9" x2="22" y2="15" /></>)}
   </svg>
 );
-const IconMic = ({ on }) => (
+export const IconMic = ({ on }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="2" width="6" height="12" rx="3" />
     <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
@@ -126,60 +126,18 @@ export default function ActionQueueScreen({
         <button
           onClick={onToggleSound}
           title={soundEnabled ? 'Sound on (tap to mute)' : 'Sound muted (tap to enable)'}
-          style={{
-            width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-            background: COLORS.card,
-            border: `1px solid ${COLORS.border}`,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: soundEnabled ? '#D6BC85' : COLORS.textFaint,
-            cursor: 'pointer', padding: 0, fontSize: 15,
-          }}
+          className={`ok-iconbtn${soundEnabled ? ' on' : ''}`}
         ><IconSound on={soundEnabled} /></button>
         <button
           onClick={onToggleVoice}
           title={voiceEnabled ? 'Voice on (tap to silence)' : 'Voice off (tap to enable)'}
-          style={{
-            width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-            background: COLORS.card,
-            border: `1px solid ${COLORS.border}`,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: voiceEnabled ? '#D6BC85' : COLORS.textFaint,
-            cursor: 'pointer', padding: 0, fontSize: 15,
-          }}
+          className={`ok-iconbtn${voiceEnabled ? ' on' : ''}`}
         ><IconMic on={voiceEnabled} /></button>
       </div>
       )}
-      {/* Desktop-only: sound + voice toggles in a compact toolbar
-          since the apphead is hidden. Floats top-right of the queue
-          content; stays inside .screen so it scrolls with the list. */}
-      {desktop && (
-        <div style={{
-          padding: '10px 24px 0', display: 'flex', justifyContent: 'flex-end', gap: 8,
-        }}>
-          <button
-            onClick={onToggleSound}
-            title={soundEnabled ? 'Sound on (tap to mute)' : 'Sound muted (tap to enable)'}
-            style={{
-              width: 36, height: 36, borderRadius: 11,
-              background: COLORS.card, border: `1px solid ${COLORS.border}`,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              color: soundEnabled ? '#D6BC85' : COLORS.textFaint,
-              cursor: 'pointer', padding: 0, fontSize: 15,
-            }}
-          ><IconSound on={soundEnabled} /></button>
-          <button
-            onClick={onToggleVoice}
-            title={voiceEnabled ? 'Voice on (tap to silence)' : 'Voice off (tap to enable)'}
-            style={{
-              width: 36, height: 36, borderRadius: 11,
-              background: COLORS.card, border: `1px solid ${COLORS.border}`,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              color: voiceEnabled ? '#D6BC85' : COLORS.textFaint,
-              cursor: 'pointer', padding: 0, fontSize: 15,
-            }}
-          ><IconMic on={voiceEnabled} /></button>
-        </div>
-      )}
+      {/* Desktop sound/voice toggles now live in the waiter station header
+          (orders.js ws-head) — one aligned control group alongside push —
+          so they're no longer duplicated as a floating toolbar here. */}
 
       {/* stat strip — shows counts of each type + oldest age. Hidden when empty. */}
       {items.length > 0 && (

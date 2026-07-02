@@ -341,13 +341,7 @@ export default function KitchenNew() {
                     onClick={toggleSound}
                     title={soundEnabled ? 'Mute in-app chime' : 'Unmute in-app chime'}
                     aria-label="Toggle in-app sound"
-                    style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      background: soundEnabled ? 'rgba(196,168,109,0.14)' : 'var(--card)',
-                      border: `1px solid ${soundEnabled ? '#C4A86D' : 'var(--line)'}`,
-                      color: soundEnabled ? '#D6BC85' : 'var(--tx-2)',
-                      fontSize: 16, cursor: 'pointer', padding: 0,
-                    }}
+                    className={`ok-iconbtn${soundEnabled ? ' on' : ''}`}
                   >{soundEnabled
                     ? (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M19 5a10 10 0 0 1 0 14" /></svg>)
                     : (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z" /><line x1="22" y1="9" x2="16" y2="15" /><line x1="16" y1="9" x2="22" y2="15" /></svg>)}</button>
@@ -355,13 +349,7 @@ export default function KitchenNew() {
                     onClick={toggleVoice}
                     title={voiceEnabled ? 'Disable voice readout' : 'Enable voice readout'}
                     aria-label="Toggle voice"
-                    style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      background: voiceEnabled ? 'rgba(196,168,109,0.14)' : 'var(--card)',
-                      border: `1px solid ${voiceEnabled ? '#C4A86D' : 'var(--line)'}`,
-                      color: voiceEnabled ? '#D6BC85' : 'var(--tx-2)',
-                      fontSize: 16, cursor: 'pointer', padding: 0,
-                    }}
+                    className={`ok-iconbtn${voiceEnabled ? ' on' : ''}`}
                   >{voiceEnabled
                     ? (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10v1a7 7 0 0 0 14 0v-1" /><line x1="12" y1="18" x2="12" y2="22" /></svg>)
                     : (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10v1a7 7 0 0 0 14 0v-1" /><line x1="12" y1="18" x2="12" y2="22" /><line x1="3" y1="3" x2="21" y2="21" /></svg>)}</button>

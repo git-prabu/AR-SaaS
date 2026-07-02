@@ -894,6 +894,24 @@
 .ok-root .ac-badge.seated {
   background: rgba(196,168,109,0.16); color: var(--badge-gold);
 }
+
+/* Header control buttons — sound / voice / push notifications. One shared
+   size (38px, r11) so they line up as a group, and an on-state that stays
+   legible in light mode (the old #D6BC85 washed out on the white card —
+   --badge-gold flips dark in light). */
+.ok-root .ok-iconbtn {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--card); border: 1px solid var(--line);
+  color: var(--tx-2); cursor: pointer; padding: 0;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.ok-root .ok-iconbtn:hover { border-color: var(--gold); color: var(--tx); }
+.ok-root .ok-iconbtn.on {
+  background: rgba(196,168,109,0.16);
+  border-color: var(--gold);
+  color: var(--badge-gold);
+}
 .ok-root .act-empty {
   text-align: center; color: var(--tx-3);
   font-family: var(--font-body); font-size: 12px; padding: 40px 16px;
