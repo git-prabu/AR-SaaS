@@ -479,15 +479,13 @@ export default function KitchenNew() {
             </main>
           </div>
         ) : (
-        <div className="page-bg">
+        <div className="okv-station">
+          {/* Same chrome as every other v2 page on phone: top bar + ☰ drawer
+              via OkSidebar; the phone-mockup frame is stripped ≤699 by CSS. */}
+          <OkSidebar brand={userData?.restaurantName || staffSession?.restaurantName} />
+          <div className="page-bg">
           <div className="frame">
-            <div className="notch" />
-            {/* Floating theme toggle removed — KitchenRailScreen now
-                renders the toggle inline in its apphead via the
-                isLight / onToggleTheme props below. */}
             <div className="screenwrap">
-              {/* Notch clearance — see comment in order-kitchen.js */}
-              <div style={{ height: 30, flexShrink: 0 }} />
               {ordersReady ? (
                 <KitchenRailScreen
                   orders={activeOrders}
@@ -521,6 +519,7 @@ export default function KitchenNew() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
         )}

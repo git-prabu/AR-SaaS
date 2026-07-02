@@ -198,29 +198,9 @@ export default function KitchenRailScreen({
             className={`ok-iconbtn${voiceEnabled ? ' on' : ''}`}
           ><IconMic on={voiceEnabled} /></button>
         )}
-        {/* Theme toggle (replaces the decorative chef tile — it
-            didn't do anything; the toggle is the only useful
-            top-right control on mobile). */}
-        {onToggleTheme ? (
-          <button
-            onClick={onToggleTheme}
-            title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
-            aria-label="Toggle theme"
-            style={{
-              width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-              background: COLORS.card, border: `1px solid ${COLORS.border}`,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              color: COLORS.text, cursor: 'pointer', padding: 0, fontSize: 18,
-            }}
-          >{isLight ? '🌙' : '☀️'}</button>
-        ) : (
-          <div style={{
-            width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-            background: 'linear-gradient(135deg, #C4A86D, #C2562B)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: '#1A1815', fontSize: 20,
-          }}>👨‍🍳</div>
-        )}
+        {/* Theme toggle removed (2026-07-03) — the okv-station top bar above
+            carries theme + avatar now; the apphead keeps the working
+            controls only (push / sound / voice). */}
       </div>
 
       {/* Slim stats line — the desktop LIVE KITCHEN strip, phone-sized.

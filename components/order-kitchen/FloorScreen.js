@@ -55,14 +55,9 @@ export default function FloorScreen({
         gap: 12,
         width: '100%',
       }}>
-        <div style={{
-          width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #C4A86D, #C2562B)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
-          fontWeight: 700, fontSize: 16, color: '#1A1815',
-          boxShadow: '0 0 0 1px rgba(196,168,109,0.13), 0 6px 16px rgba(0,0,0,0.3)',
-        }}>{(waiter || 'S')[0].toUpperCase()}</div>
+        {/* Avatar + theme toggle removed (2026-07-03) — the okv-station top
+            bar above now carries brand, theme and avatar, so the apphead
+            keeps only the title + push bell. */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontFamily: "'JetBrains Mono', ui-monospace, monospace",
@@ -75,12 +70,6 @@ export default function FloorScreen({
             margin: '2px 0 0', color: 'var(--tx)', lineHeight: 1.1,
           }}>Tables</h1>
         </div>
-        {/* Theme toggle replaces the decorative bell. Owner reported
-            the absolute-positioned floating toggle was awkwardly
-            stacked above the bell — moving it inline next to the
-            apphead avatar/title gives it a real home. The bell did
-            nothing (no onClick); the theme toggle is the only useful
-            top-right control today. */}
         {pushRestaurantId && pushSubscriber && (
           <PushToggle restaurantId={pushRestaurantId} subscriber={pushSubscriber} />
         )}
@@ -98,17 +87,6 @@ export default function FloorScreen({
             }}
           ><span style={{ fontSize: 15 }}>⊞</span><span>Tables</span></button>
         )}
-        <button
-          onClick={onToggleTheme}
-          title={isLight ? 'Switch to dark theme' : 'Switch to light theme'}
-          aria-label="Toggle theme"
-          style={{
-            width: 40, height: 40, borderRadius: 13, flexShrink: 0,
-            background: 'var(--card)', border: '1px solid var(--line)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--tx)', cursor: 'pointer', padding: 0, fontSize: 18,
-          }}
-        >{isLight ? '🌙' : '☀️'}</button>
       </div>
 
       {/* zone segmented control */}

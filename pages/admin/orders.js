@@ -1693,20 +1693,15 @@ export default function Orders() {
             </main>
           </div>
         ) : (
-        <div className="page-bg">
+        <div className="okv-station">
+          {/* Same chrome as every other v2 page on phone: OkSidebar renders
+              the dark top bar (☰ menu + brand + theme + avatar) and the
+              slide-in drawer. The old phone-mockup frame (notch pill,
+              rounded bezel) is stripped by the ≤699 CSS. */}
+          <OkSidebar brand={restaurant?.name || waiter} />
+          <div className="page-bg">
           <div className="frame">
-            <div className="notch" />
-            {/* The floating theme toggle (top-right of frame) was
-                awkwardly stacked above the FloorScreen apphead bell.
-                Removed — the toggle now lives inline in FloorScreen's
-                apphead via the isLight/onToggleTheme props passed
-                above. Other screens (queue/orders/history) inherit
-                the same theme via the body attribute set by useOkTheme;
-                their own appheads can grow a toggle later if needed,
-                but Floor is the only screen owner regularly uses. */}
             <div className="screenwrap">
-              {/* Notch clearance — see comment in order-kitchen.js */}
-              <div style={{ height: 30, flexShrink: 0 }} />
               {body}
               {showNav && (
                 <div className="botnav">
@@ -1778,6 +1773,7 @@ export default function Orders() {
                 />
               )}
             </div>
+          </div>
           </div>
         </div>
         )}

@@ -227,11 +227,20 @@
   background: var(--surface);
   display: flex; flex-direction: column;
 }
-@media (max-width: 480px) {
+/* <700 the phone-mockup chrome (gradient backdrop, rounded frame, notch)
+   goes away — the app fills the screen edge-to-edge like every other v2
+   page. Was ≤480; widened to match the 700 station breakpoint (2026-07-03). */
+@media (max-width: 699px) {
   .ok-root .page-bg { padding: 0; background: var(--surface); }
   .ok-root .frame { border-radius: 0; border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
   .ok-root .notch { display: none; }
   .ok-root .screenwrap { height: 100vh; max-height: none; border-radius: 0; }
+  /* Station wrapper — OkSidebar's top bar above, the app below. Gives the
+     Floor/Waiter/Kitchen phone UI the same chrome as the workspace pages. */
+  .ok-root .okv-station { display: flex; flex-direction: column; height: 100dvh; }
+  .ok-root .okv-station .page-bg { flex: 1; min-height: 0; display: flex; }
+  .ok-root .okv-station .frame { height: 100%; }
+  .ok-root .okv-station .screenwrap { height: 100%; }
 }
 
 /* ──────────────────────────────────────────────────────────
