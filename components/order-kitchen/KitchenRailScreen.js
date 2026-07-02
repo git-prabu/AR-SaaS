@@ -21,6 +21,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import PushToggle from './PushToggle';
+import { IconSound, IconMic } from './ActionQueueScreen';
 
 // Theme-responsive tokens go through CSS vars (defined in
 // styles/order-kitchen.css) so that the light mode override
@@ -84,6 +85,7 @@ export default function KitchenRailScreen({
   onToggleVoice,     // optional callback
   pushRestaurantId,  // optional — wires the inline push toggle
   pushSubscriber,    // optional — { kind, id, perms }
+  servedToday,       // optional — count for the slim stats line (desktop parity)
 }) {
   const counts = {
     all:     orders.length,
@@ -185,28 +187,16 @@ export default function KitchenRailScreen({
             onClick={onToggleSound}
             title={soundEnabled ? 'Mute in-app chime' : 'Unmute in-app chime'}
             aria-label="Toggle in-app sound"
-            style={{
-              width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-              background: soundEnabled ? 'rgba(196,168,109,0.14)' : COLORS.card,
-              border: `1px solid ${soundEnabled ? COLORS.gold : COLORS.border}`,
-              color: soundEnabled ? COLORS.goldText : COLORS.textMuted,
-              cursor: 'pointer', padding: 0, fontSize: 15,
-            }}
-          >{soundEnabled ? '🔊' : '🔇'}</button>
+            className={`ok-iconbtn${soundEnabled ? ' on' : ''}`}
+          ><IconSound on={soundEnabled} /></button>
         )}
         {onToggleVoice && (
           <button
             onClick={onToggleVoice}
             title={voiceEnabled ? 'Disable voice' : 'Enable voice'}
             aria-label="Toggle voice"
-            style={{
-              width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-              background: voiceEnabled ? 'rgba(196,168,109,0.14)' : COLORS.card,
-              border: `1px solid ${voiceEnabled ? COLORS.gold : COLORS.border}`,
-              color: voiceEnabled ? COLORS.goldText : COLORS.textMuted,
-              cursor: 'pointer', padding: 0, fontSize: 15,
-            }}
-          >{voiceEnabled ? '🎙️' : '🔇'}</button>
+            className={`ok-iconbtn${voiceEnabled ? ' on' : ''}`}
+          ><IconMic on={voiceEnabled} /></button>
         )}
         {/* Theme toggle (replaces the decorative chef tile — it
             didn't do anything; the toggle is the only useful
@@ -232,6 +222,28 @@ export default function KitchenRailScreen({
           }}>👨‍🍳</div>
         )}
       </div>
+
+      {/* Slim stats line — the desktop LIVE KITCHEN strip, phone-sized.
+          active · oldest ticket age · served today. */}
+      {(() => {
+        const nowSec = Math.floor(Date.now() / 1000);
+        let oldest = 0;
+        orders.forEach(o => {
+          const age = o.createdAt?.seconds ? nowSec - o.createdAt.seconds : 0;
+          if (age > oldest) oldest = age;
+        });
+        const oldestM = Math.floor(oldest / 60);
+        return (
+          <div style={{
+            padding: '0 20px 8px', flexShrink: 0,
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            fontSize: 11, color: COLORS.textMuted, letterSpacing: '.02em',
+          }}>
+            {orders.length} active · oldest {orders.length === 0 ? '—' : `${oldestM}m`}
+            {typeof servedToday === 'number' && <> · <span style={{ color: 'var(--st-ready)', fontWeight: 700 }}>{servedToday} served today</span></>}
+          </div>
+        );
+      })()}
 
       {/* all-day counter — top duplicate dishes across the rail */}
       {allDay.length > 0 && (

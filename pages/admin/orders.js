@@ -91,6 +91,7 @@ import SettleSheet from '../../components/order-kitchen/SettleSheet';
 import TableActionSheet from '../../components/order-kitchen/TableActionSheet';
 import TableManagerModal from '../../components/order-kitchen/TableManagerModal';
 import OkSidebar from '../../components/admin/OkSidebar';
+import { RailChip, RailSheet } from '../../components/order-kitchen/RailSheet';
 import { I, VegMark, SpicePips, Thumb } from '../../components/order-kitchen/Icons';
 
 // ─── helpers (parallel to order-kitchen.js) ───────────────────────
@@ -176,7 +177,10 @@ export default function Orders() {
   const router = useRouter();
   const { user, userData, loading: adminLoading } = useAuth();
   const { isLight, toggle: toggleTheme } = useOkTheme();
-  const isDesktop = useIsDesktop(920);
+  // 700 (was 920, 2026-07-02): portrait tablets now get the workspace UI,
+  // only true phones fall back to the app frame. MUST match the
+  // @media (min-width:700px) desktop-CSS wrapper in order-kitchen.css.
+  const isDesktop = useIsDesktop(700);
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -493,6 +497,7 @@ export default function Orders() {
   // Phase B.3 / B.4 — Orders tab filter + History tab period/search.
   // Defaults match /admin/waiter (active orders, today's history).
   const [ordersFilter, setOrdersFilter] = useState('active');
+  const [floorSheet, setFloorSheet] = useState(null); // 'waitlist' | 'queue' — <1000px chip sheets
   const [historyPeriod, setHistoryPeriod] = useState('today');
   const [historySearch, setHistorySearch] = useState('');
   // Desktop menu search query — owner reported "search is not
@@ -1024,6 +1029,50 @@ export default function Orders() {
     } catch (e) { console.error('waitlist notify failed:', e); }
   };
 
+  // ── Shared right-rail renderings ────────────────────────────────
+  // The SAME rows feed (a) the desktop/tablet-landscape rail, (b) the
+  // <1000px chip bottom-sheets, and (c) the phone FloorScreen — one
+  // source so the three can't drift. Tapping a queue row picks the
+  // table, which switches screens and unmounts any open sheet.
+  const waitlistRowsEl = waitlistActive.map(e => {
+    const waited = e.createdAt?.seconds ? Math.max(0, Math.floor((Date.now() / 1000 - e.createdAt.seconds) / 60)) : null;
+    const notified = e.status === 'notified';
+    return (
+      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--card)', border: '1px solid var(--line)' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--tx)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name || 'Guest'}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)', marginTop: 2 }}>
+            {(e.partySize || 1)} pax · {waited != null ? `${waited}m wait` : 'just now'}
+          </div>
+        </div>
+        {notified ? (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '5px 10px', borderRadius: 50, background: 'rgba(63,170,99,0.16)', color: 'var(--st-ready)', whiteSpace: 'nowrap' }}>Notified</span>
+        ) : (
+          <button onClick={() => notifyWaitParty(e)} style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700, padding: '7px 13px', borderRadius: 9, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Notify</button>
+        )}
+      </div>
+    );
+  });
+
+  const serviceQueueRowsEl = serviceQueue.length === 0 ? (
+    <div className="act-empty">Quiet for now.<br />Active tables will land here.</div>
+  ) : (
+    serviceQueue.map(t => (
+      <button key={t.id} className="act-card" onClick={() => pickTable(t)}>
+        <div className="ac-top">
+          <div className="ac-table">{String(t.id).replace(/^T/, '').slice(0, 3)}</div>
+          <div className="ac-meta">
+            <div className="ac-zone">{t.zone}</div>
+            <div className="ac-sub">{t.status === 'seated' ? `${t.occupied}/${t.seats} · seated` : `${t.occupied}/${t.seats} · ₹${(totals[t.id] || 0).toLocaleString('en-IN')}`}</div>
+          </div>
+          <span className={`ac-badge ${t.status}`}>
+            {t.status === 'sent' ? 'COOKING' : t.status === 'served' ? 'TO PAY' : t.status === 'seated' ? 'SEATED' : 'PAID'}
+          </span>
+        </div>
+      </button>
+    ))
+  );
+
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
     if (!isDesktop) return;
@@ -1054,6 +1103,8 @@ export default function Orders() {
         onToggleVoice={toggleVoice}
         flashingIds={flashingIds}
         desktop={isDesktop}
+        pushRestaurantId={rid}
+        pushSubscriber={pushSubscriber}
       />
     );
   } else if (tab === 'orders') {
@@ -1128,6 +1179,9 @@ export default function Orders() {
         isLight={isLight} onToggleTheme={toggleTheme}
         pushRestaurantId={rid} pushSubscriber={pushSubscriber}
         onManageTables={null}
+        stats={stats}
+        waitlistCount={waitlistActive.length} waitlistRows={waitlistRowsEl}
+        queueCount={serviceQueue.length} queueRows={serviceQueueRowsEl}
       />
     );
   }
@@ -1259,6 +1313,17 @@ export default function Orders() {
                         <div className="sc-v">₹{Math.round(stats.revenue).toLocaleString('en-IN')}</div>
                       </div>
                     </div>
+                    {/* Chips replacing the hidden rail on <1000px (CSS-gated). */}
+                    {(waitlistActive.length > 0 || serviceQueue.length > 0) && (
+                      <div className="okv-railchips">
+                        {waitlistActive.length > 0 && (
+                          <RailChip label="Waitlist" count={waitlistActive.length} onClick={() => setFloorSheet('waitlist')} />
+                        )}
+                        {serviceQueue.length > 0 && (
+                          <RailChip label="Service queue" count={serviceQueue.length} onClick={() => setFloorSheet('queue')} />
+                        )}
+                      </div>
+                    )}
                     <div className="floor-scroll">
                       <div className="floor-grid">
                         {tables.filter(t => t.zone === (zone || zones[0])).map(t => {
@@ -1306,25 +1371,7 @@ export default function Orders() {
                           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--badge-gold)' }}>{waitlistActive.length} waiting</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
-                          {waitlistActive.map(e => {
-                            const waited = e.createdAt?.seconds ? Math.max(0, Math.floor((Date.now() / 1000 - e.createdAt.seconds) / 60)) : null;
-                            const notified = e.status === 'notified';
-                            return (
-                              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--card)', border: '1px solid var(--line)' }}>
-                                <div style={{ minWidth: 0, flex: 1 }}>
-                                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--tx)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name || 'Guest'}</div>
-                                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)', marginTop: 2 }}>
-                                    {(e.partySize || 1)} pax · {waited != null ? `${waited}m wait` : 'just now'}
-                                  </div>
-                                </div>
-                                {notified ? (
-                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '5px 10px', borderRadius: 50, background: 'rgba(63,170,99,0.16)', color: 'var(--st-ready)', whiteSpace: 'nowrap' }}>Notified</span>
-                                ) : (
-                                  <button onClick={() => notifyWaitParty(e)} style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700, padding: '7px 13px', borderRadius: 9, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Notify</button>
-                                )}
-                              </div>
-                            );
-                          })}
+                          {waitlistRowsEl}
                         </div>
                       </div>
                     )}
@@ -1333,26 +1380,19 @@ export default function Orders() {
                       <span className="a-live"><i />LIVE</span>
                     </div>
                     <div className="activity-list">
-                      {serviceQueue.length === 0 ? (
-                        <div className="act-empty">Quiet for now.<br />Active tables will land here.</div>
-                      ) : (
-                        serviceQueue.map(t => (
-                          <button key={t.id} className="act-card" onClick={() => pickTable(t)}>
-                            <div className="ac-top">
-                              <div className="ac-table">{String(t.id).replace(/^T/, '').slice(0, 3)}</div>
-                              <div className="ac-meta">
-                                <div className="ac-zone">{t.zone}</div>
-                                <div className="ac-sub">{t.status === 'seated' ? `${t.occupied}/${t.seats} · seated` : `${t.occupied}/${t.seats} · ₹${(totals[t.id] || 0).toLocaleString('en-IN')}`}</div>
-                              </div>
-                              <span className={`ac-badge ${t.status}`}>
-                                {t.status === 'sent' ? 'COOKING' : t.status === 'served' ? 'TO PAY' : t.status === 'seated' ? 'SEATED' : 'PAID'}
-                              </span>
-                            </div>
-                          </button>
-                        ))
-                      )}
+                      {serviceQueueRowsEl}
                     </div>
                   </aside>
+                  {/* <1000px: the rail above is hidden — chips open the same
+                      panels as bottom sheets (see .okv-railchips CSS gate). */}
+                  <RailSheet open={floorSheet === 'waitlist'} title="Waitlist" onClose={() => setFloorSheet(null)}
+                    meta={<span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--badge-gold)' }}>{waitlistActive.length} waiting</span>}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{waitlistRowsEl}</div>
+                  </RailSheet>
+                  <RailSheet open={floorSheet === 'queue'} title="Service queue" onClose={() => setFloorSheet(null)}
+                    meta={<span className="a-live"><i />LIVE</span>}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{serviceQueueRowsEl}</div>
+                  </RailSheet>
                 </div>
               )}
 
@@ -1366,11 +1406,11 @@ export default function Orders() {
                 const tax = Math.round(subtotal * 0.05);
                 const total = subtotal + tax;
                 const seatsPresent = [...new Set(lines.map(l => l.seat))].sort((a, b) => a - b);
+                // Columns come from .order-layout CSS (392px cart ≥1180,
+                // 340px ≤1180, 320px ≤999) — no inline grid on the div or
+                // the tablet media rules can't shrink the cart.
                 return (
-                  <div className="order-layout" style={{
-                    flex: 1, minHeight: 0,
-                    display: 'grid', gridTemplateColumns: '1fr 392px',
-                  }}>
+                  <div className="order-layout" style={{ flex: 1, minHeight: 0 }}>
                     <div className="menu-pane" style={{
                       minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
                     }}>

@@ -128,7 +128,9 @@ const OKV_CSS = `
 .ok-root .okv-toggle { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); color: var(--tx-2); font-family: var(--font-display); font-weight: 600; font-size: 12px; cursor: pointer; }
 .ok-root .okv-toggle:hover { background: var(--card-2); }
 .ok-root .okv-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg,var(--gold),var(--saffron)); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #1A1815; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-@media (max-width: 900px) {
+/* Icon-only sidebar on tablets (landscape AND portrait) — frees ~160px so
+   the right rail can stay alive on tablet landscape. Labels return ≥1280. */
+@media (max-width: 1279px) {
   .ok-root .okv-shell { grid-template-columns: 62px 1fr; }
   .ok-root .okv-tx, .ok-root .okv-label, .ok-root .okv-logo .okv-wordmark, .ok-root .okv-toggle .okv-tlbl { display: none; }
   .ok-root .okv-link { justify-content: center; padding: 11px 0; }

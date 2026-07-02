@@ -5,9 +5,10 @@
 // Only changes: window.I / window.rupee → ES imports;
 // window.ZONES → props.zones (passed from the page).
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { I, rupee } from './Icons';
 import PushToggle from './PushToggle';
+import { RailChip, RailSheet } from './RailSheet';
 
 function statusWord(s) {
   return { free: 'Free', seated: 'Seated', sent: 'Cooking', served: 'Ready to pay', ready: 'Paid' }[s] || s;
@@ -23,8 +24,12 @@ export default function FloorScreen({
   isLight, onToggleTheme,
   pushRestaurantId, pushSubscriber,
   onManageTables, // owner-only: opens the floor-plan editor (add/edit tables)
+  // Phone stand-ins for the desktop right rail + stat strip (2026-07-02).
+  // Rows come prebuilt from orders.js so mobile/desktop can't drift.
+  stats, waitlistCount = 0, waitlistRows = null, queueCount = 0, queueRows = null,
 }) {
   const segRef = useRef(null);
+  const [sheet, setSheet] = useState(null); // 'waitlist' | 'queue'
   const zoneTables = tables.filter(t => t.zone === zone);
 
   const idx = Math.max(0, zones.indexOf(zone));
@@ -128,6 +133,31 @@ export default function FloorScreen({
         <span className="l"><span className="swatch" style={{ background: 'var(--st-served)' }} />Ready to pay</span>
         <span className="l"><span className="swatch" style={{ background: 'var(--st-paid)' }} />Paid</span>
       </div>
+
+      {/* Slim stats line — the desktop stat strip, phone-sized. */}
+      {stats && (
+        <div style={{
+          padding: '0 20px 10px', fontFamily: 'var(--font-mono)', fontSize: 11,
+          color: 'var(--tx-2)', letterSpacing: '.02em',
+        }}>
+          {stats.seated} seated · {stats.cooking} cooking · {stats.ready} to pay · <span style={{ color: 'var(--badge-gold)', fontWeight: 700 }}>₹{Math.round(stats.revenue).toLocaleString('en-IN')} open</span>
+        </div>
+      )}
+
+      {/* Waitlist + Service queue — the desktop rail as tap-chips. */}
+      {(waitlistCount > 0 || queueCount > 0) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: '0 20px 12px' }}>
+          {waitlistCount > 0 && <RailChip label="Waitlist" count={waitlistCount} onClick={() => setSheet('waitlist')} />}
+          {queueCount > 0 && <RailChip label="Service queue" count={queueCount} onClick={() => setSheet('queue')} />}
+        </div>
+      )}
+      <RailSheet open={sheet === 'waitlist'} title="Waitlist" onClose={() => setSheet(null)}
+        meta={<span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--badge-gold)' }}>{waitlistCount} waiting</span>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{waitlistRows}</div>
+      </RailSheet>
+      <RailSheet open={sheet === 'queue'} title="Service queue" onClose={() => setSheet(null)}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{queueRows}</div>
+      </RailSheet>
 
       <div className="scroll">
         <div className="floor">

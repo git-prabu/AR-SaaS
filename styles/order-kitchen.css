@@ -788,9 +788,10 @@
   width: 10px; height: 10px; border-radius: 50%;
 }
 
-/* Stat strip */
+/* Stat strip — 4-up on wide, 2x2 on tablet portrait so the cards
+   never crush below a readable width. */
 .ok-root .statstrip {
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px; padding: 0 30px 18px;
 }
 .ok-root .statcard {
@@ -926,6 +927,11 @@
   flex: 1; min-height: 0;
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
 }
+/* Tablet portrait: keep tickets readable — columns hold a 300px minimum
+   and the board scrolls sideways to Ready instead of crushing 3-up. */
+@media (max-width: 999px) {
+  .ok-root .kds { grid-template-columns: repeat(3, minmax(300px, 1fr)); overflow-x: auto; }
+}
 .ok-root .kcol {
   display: flex; flex-direction: column; min-height: 0;
   background: var(--card); border: 1px solid var(--line);
@@ -959,26 +965,84 @@
   font-family: var(--font-body); font-size: 12.5px; padding: 50px 16px;
 }
 
-/* Tablet portrait / narrow */
-@media (max-width: 1180px) {
+/* ── Responsive tiers (2026-07-02 tablet pass) ─────────────────
+   ≥1280   desktop        — labeled sidebar + 320px right rail
+   1000-79 tablet land.   — icon sidebar + 290px right rail (rail STAYS)
+   700-999 tablet port.   — icon sidebar, rail hidden → .okv-railchips
+   <700    phone          — station pages switch to the app frame
+   ─────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+  .ok-root .floor-layout { grid-template-columns: 1fr 290px; }
+}
+@media (max-width: 999px) {
   .ok-root .floor-layout { grid-template-columns: 1fr; }
   .ok-root .activity { display: none; }
 }
 @media (max-width: 920px) {
   .ok-root .pos { grid-template-columns: 80px 1fr; }
 }
+
+/* Rail chips — compact stand-ins for the hidden right rail (<1000px).
+   Each chip opens a bottom sheet with the full panel. Hidden on wide
+   screens where the rail itself is visible. */
+.ok-root .okv-railchips { display: none; }
+@media (max-width: 999px) {
+  .ok-root .okv-railchips {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    padding: 0 30px 12px;
+  }
+}
+.ok-root .okv-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 50px;
+  background: var(--card); border: 1px solid var(--line);
+  color: var(--tx); font-family: var(--font-display);
+  font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.ok-root .okv-chip .n {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--accent); color: var(--accent-ink);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+/* Bottom sheet for the chip panels — fixed overlay + card that slides up. */
+.ok-root .okv-sheetback {
+  position: fixed; inset: 0; z-index: 220; background: rgba(0,0,0,0.5);
+}
+.ok-root .okv-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 221;
+  background: var(--surface); border-top: 1px solid var(--line);
+  border-radius: 22px 22px 0 0; padding: 18px 20px 26px;
+  max-height: 70vh; overflow-y: auto;
+  box-shadow: 0 -18px 50px rgba(0,0,0,0.45);
+}
+.ok-root .okv-sheet .sh-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+}
+.ok-root .okv-sheet .sh-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 16px;
+  color: var(--tx); margin: 0;
+}
+.ok-root .okv-sheet .sh-close {
+  margin-left: auto; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--line); color: var(--tx-2);
+  font-size: 15px; cursor: pointer; display: inline-flex;
+  align-items: center; justify-content: center; padding: 0;
+}
 /* ══════════════════════════════════════════════════════════════
    DESKTOP-ONLY: Order view, Cart, Modal, Success card.
    ──────────────────────────────────────────────────────────────
-   Wrapped in @media (min-width:920px) so the desktop versions of
+   Wrapped in @media (min-width:700px) so the desktop versions of
    shared class names (.totals, .modal-backdrop, .vegmark, .spice,
    .lineitem, .cattabs, .seatbar) DON'T override the mobile rules
    above when the viewport is mobile-sized. On mobile the page
    renders .page-bg > .frame > .screenwrap and uses the mobile
-   rules. On desktop the page renders .pos > .rail + .workspace
-   and these rules kick in.
+   rules. On desktop/tablet (≥700 — portrait tablets get the
+   workspace UI too, 2026-07-02) the page renders the workspace
+   shell and these rules kick in. MUST match useIsDesktop(700) in
+   orders.js / kitchen-new.js.
    ══════════════════════════════════════════════════════════════ */
-@media (min-width: 920px) {
+@media (min-width: 700px) {
 
 /* ── Order view ───────────────────────────────────────────── */
 .ok-root .order-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 392px; }
@@ -1215,5 +1279,10 @@
 @media (max-width: 1180px) {
   .ok-root .order-layout { grid-template-columns: 1fr 340px; }
 }
+/* Tablet portrait: shave the cart a little more so the menu grid keeps
+   two comfortable columns. */
+@media (max-width: 999px) {
+  .ok-root .order-layout { grid-template-columns: 1fr 320px; }
+}
 
-} /* end @media (min-width: 920px) */
+} /* end @media (min-width: 700px) */

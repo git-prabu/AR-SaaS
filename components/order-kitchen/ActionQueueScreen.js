@@ -27,6 +27,7 @@
 
 import React from 'react';
 import { I } from './Icons';
+import PushToggle from './PushToggle';
 
 const WAITING_LONG_SEC = 180;  // 3 min → red urgency band
 const WAITING_WARN_SEC = 60;   // 1 min → gold urgency band
@@ -91,6 +92,7 @@ export default function ActionQueueScreen({
   voiceEnabled, onToggleVoice,
   flashingIds,
   desktop = false,  // skip apphead — ws-head supplies the title on desktop
+  pushRestaurantId, pushSubscriber, // optional — lock-screen push bell in the mobile apphead
 }) {
   const counts = {
     calls:    items.filter(i => i.type === 'call').length,
@@ -123,6 +125,9 @@ export default function ActionQueueScreen({
             margin: '2px 0 0', color: COLORS.text, lineHeight: 1.1,
           }}>Queue</h1>
         </div>
+        {pushRestaurantId && pushSubscriber && (
+          <PushToggle restaurantId={pushRestaurantId} subscriber={pushSubscriber} />
+        )}
         <button
           onClick={onToggleSound}
           title={soundEnabled ? 'Sound on (tap to mute)' : 'Sound muted (tap to enable)'}

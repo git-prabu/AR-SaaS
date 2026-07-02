@@ -379,7 +379,7 @@ export default function BusinessInfoV2() {
             <button onClick={handleSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--accent-ink)', fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}>{saving ? 'Saving…' : 'Save changes'}</button>
           </div>
         )}
-        <style>{`@media (max-width: 980px){ .biz-grid{ grid-template-columns: 1fr !important; } .biz-preview{ display:none; } } @media (max-width: 900px){ .biz-savebar{ left: 62px !important; } }`}</style>
+        <style>{`@media (max-width: 980px){ .biz-grid{ grid-template-columns: 1fr !important; } .biz-preview{ display:none; } } @media (max-width: 1279px){ .biz-savebar{ left: 62px !important; } }`}</style>
       </OkShell>
     </>
   );

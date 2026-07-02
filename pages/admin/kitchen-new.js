@@ -82,7 +82,10 @@ export default function KitchenNew() {
   const router = useRouter();
   const { user, userData, loading: adminLoading } = useAuth();
   const { isLight, toggle: toggleTheme } = useOkTheme();
-  const isDesktop = useIsDesktop(920);
+  // 700 (was 920, 2026-07-02): portrait tablets get the workspace board,
+  // only phones use the app frame. Matches order-kitchen.css's
+  // @media (min-width:700px) desktop wrapper.
+  const isDesktop = useIsDesktop(700);
   const [staffSession, setStaffSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -504,6 +507,10 @@ export default function KitchenNew() {
                   pushRestaurantId={rid}
                   pushSubscriber={pushSubscriber}
                   updatingKey={updatingKey}
+                  servedToday={(() => {
+                    const todayStart = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() / 1000; })();
+                    return Object.values(ordersById).filter(o => o.status === 'served' && (o.updatedAt?.seconds || 0) >= todayStart).length;
+                  })()}
                 />
               ) : (
                 <div className="screen screen-enter">

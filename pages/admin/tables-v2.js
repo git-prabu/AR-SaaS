@@ -19,6 +19,7 @@ import { useRouter } from 'next/router';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import OkSidebar from '../../components/admin/OkSidebar';
 import AdminBanners from '../../components/admin/AdminBanners';
+import { RailChip, RailSheet } from '../../components/order-kitchen/RailSheet';
 import ConfirmModal from '../../components/ConfirmModal';
 import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
 import {
@@ -381,6 +382,35 @@ export default function AdminTablesV2() {
       .sort((a, b) => (statesByTable[b.id]?.total || 0) - (statesByTable[a.id]?.total || 0));
   }, [tables, statesByTable]);
 
+  // <1000px: the "Running now" rail is hidden — a chip opens the same
+  // rows as a bottom sheet (rows shared below so they can't drift).
+  const [railSheet, setRailSheet] = useState(false);
+  const runningRowsEl = runningTables.length === 0 ? (
+    <div className="act-empty">All tables free.<br />Busy tables will land here.</div>
+  ) : (
+    runningTables.map(t => {
+      const st = statesByTable[t.id];
+      const s = st.status;
+      const c = SVIS[s.key];
+      return (
+        <button key={t.id} className="act-card" onClick={() => { setRailSheet(false); setDetailTable(t); }}>
+          <div className="ac-top">
+            <div className="ac-table" style={{ color: c }}>{String(t.label).replace(/[^0-9A-Za-z]/g, '').slice(-3) || 'T'}</div>
+            <div className="ac-meta">
+              <div className="ac-zone">{t.label}</div>
+              <div className="ac-sub">
+                {s.key === 'seated'
+                  ? `${st.seatedName || 'Seated'}${st.seatedPartySize ? ` · ${st.seatedPartySize} pax` : ''}`
+                  : `${st.itemCount} item${st.itemCount === 1 ? '' : 's'} · ₹${Math.round(st.total).toLocaleString('en-IN')}`}
+              </div>
+            </div>
+            <span className="ac-badge" style={{ background: `${c}22`, color: c }}>{s.label}</span>
+          </div>
+        </button>
+      );
+    })
+  );
+
   // ── Area handlers ───────────────────────────────────────────
   const handleAddArea = async () => {
     const name = newAreaName.trim();
@@ -558,6 +588,13 @@ export default function AdminTablesV2() {
                   </div>
                 </div>
 
+                {/* Chip replacing the hidden rail on <1000px (CSS-gated). */}
+                {runningTables.length > 0 && (
+                  <div className="okv-railchips">
+                    <RailChip label="Running now" count={runningTables.length} onClick={() => setRailSheet(true)} />
+                  </div>
+                )}
+
                 <div className="floor-scroll">
                   {dataLoaded && totalTables === 0 && (
                     <div style={{ textAlign: 'center', color: 'var(--tx-3)', fontFamily: 'var(--font-body)', fontSize: 14, padding: '60px 16px', lineHeight: 1.7 }}>
@@ -642,33 +679,14 @@ export default function AdminTablesV2() {
                   <span className="a-live"><i />LIVE</span>
                 </div>
                 <div className="activity-list">
-                  {runningTables.length === 0 ? (
-                    <div className="act-empty">All tables free.<br />Busy tables will land here.</div>
-                  ) : (
-                    runningTables.map(t => {
-                      const st = statesByTable[t.id];
-                      const s = st.status;
-                      const c = SVIS[s.key];
-                      return (
-                        <button key={t.id} className="act-card" onClick={() => setDetailTable(t)}>
-                          <div className="ac-top">
-                            <div className="ac-table" style={{ color: c }}>{String(t.label).replace(/[^0-9A-Za-z]/g, '').slice(-3) || 'T'}</div>
-                            <div className="ac-meta">
-                              <div className="ac-zone">{t.label}</div>
-                              <div className="ac-sub">
-                                {s.key === 'seated'
-                                  ? `${st.seatedName || 'Seated'}${st.seatedPartySize ? ` · ${st.seatedPartySize} pax` : ''}`
-                                  : `${st.itemCount} item${st.itemCount === 1 ? '' : 's'} · ₹${Math.round(st.total).toLocaleString('en-IN')}`}
-                              </div>
-                            </div>
-                            <span className="ac-badge" style={{ background: `${c}22`, color: c }}>{s.label}</span>
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
+                  {runningRowsEl}
                 </div>
               </aside>
+              {/* <1000px stand-in for the hidden rail */}
+              <RailSheet open={railSheet} title="Running now" onClose={() => setRailSheet(false)}
+                meta={<span className="a-live"><i />LIVE</span>}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{runningRowsEl}</div>
+              </RailSheet>
             </div>
           )}
 
