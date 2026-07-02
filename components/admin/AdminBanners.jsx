@@ -32,7 +32,7 @@ function SubscriptionGraceBanner() {
   if (!status || status.state !== 'grace') return null;
 
   return (
-    <div className="no-print" style={{
+    <div className="no-print adm-banner" style={{
       width: '100%',
       background: 'linear-gradient(135deg, #C4A86D 0%, #A08656 100%)',
       color: '#FFFFFF', padding: '11px 28px',
@@ -41,7 +41,9 @@ function SubscriptionGraceBanner() {
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
       <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.45 }}>
-        ⚠ Subscription expired. You’re in a {status.daysLeft}-day grace period — renew now to avoid losing access.
+        {/* long copy on desktop/tablet, one-liner on phone (CSS-gated) */}
+        <span className="adm-b-long">⚠ Subscription expired. You’re in a {status.daysLeft}-day grace period — renew now to avoid losing access.</span>
+        <span className="adm-b-short">⚠ Grace period — {status.daysLeft} day{status.daysLeft === 1 ? '' : 's'} left.</span>
       </div>
       <Link href="/admin/subscription-v2" style={{
         padding: '7px 16px', borderRadius: 8, background: '#FFFFFF', color: '#1A1A1A',

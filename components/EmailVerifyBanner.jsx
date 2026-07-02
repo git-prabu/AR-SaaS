@@ -115,7 +115,8 @@ export default function EmailVerifyBanner() {
 
       <span style={{ flex: 1, minWidth: 0, lineHeight: 1.45 }}>
         <strong>Verify your email</strong>{' '}
-        <span style={{ color: A.faintText }}>
+        {/* explanation hidden on phone (.adm-b-long is CSS-gated on v2 pages) */}
+        <span className="adm-b-long" style={{ color: A.faintText }}>
           — we sent a link to <strong style={{ color: A.warningDim }}>{user.email}</strong>.
           Verify so you can reset your password if you ever forget it.
         </span>

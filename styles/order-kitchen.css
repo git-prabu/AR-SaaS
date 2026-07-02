@@ -789,6 +789,18 @@
   .ok-root .okv-railchips { padding: 0 16px 10px; }
   .ok-root .floor-scroll { padding: 4px 16px 20px; }
   .ok-root .kds-wrap { padding: 0 16px 20px; }
+  /* comfortable thumb targets for the rail chips */
+  .ok-root .okv-chip { min-height: 40px; }
+  /* top banners: one-line copy + tighter padding (inline styles need the
+     !important; scoped to .ok-root so the old admin pages are untouched) */
+  .ok-root .adm-banner { padding: 8px 14px !important; }
+}
+
+/* Banner copy variants — long everywhere, short on phone (v2 pages only). */
+.ok-root .adm-b-short { display: none; }
+@media (max-width: 699px) {
+  .ok-root .adm-b-long { display: none; }
+  .ok-root .adm-b-short { display: inline; }
 }
 
 /* Floor view */
