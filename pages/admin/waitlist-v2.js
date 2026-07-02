@@ -10,7 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import OkShell from '../../components/admin/OkShell';
 import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import ConfirmModal from '../../components/ConfirmModal';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, limit } from 'firebase/firestore';
 import {
   createWaitlistEntry, setWaitlistStatus, deleteWaitlistEntry, getTables, markTableSeated,
 } from '../../lib/db';
@@ -58,6 +58,9 @@ function fmtClock(ts) {
 
 const emptyForm = () => ({ name: '', partySize: '2', phone: '', quotedMinutes: '', note: '' });
 
+// Paid statuses — a table whose orders are all fully paid is available again.
+const PAID_SET = new Set(['paid_cash', 'paid_card', 'paid_online', 'paid']);
+
 export default function WaitlistV2() {
   const { userData } = useAuth();
   const { ready, isAdmin, rid, scopedDb, canView, staffSession, planAllowsFeature } = useFeatureAccess('waitlist');
@@ -65,6 +68,9 @@ export default function WaitlistV2() {
 
   const [entries, setEntries] = useState([]);
   const [tables, setTables] = useState([]);
+  const [sessions, setSessions] = useState({});   // live table status → free vs occupied
+  const [bills, setBills] = useState({});
+  const [ordersById, setOrdersById] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [form, setForm] = useState(emptyForm);
@@ -90,12 +96,47 @@ export default function WaitlistV2() {
     getTables(rid, { db: scopedDb }).then(setTables).catch(() => {});
   }, [rid]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live table status (sessions + open bills + orders) so the host sees which
+  // tables are free right now — the moment the floor clears one it lands here.
+  // Mirrors the "blank" derivation in tables-v2 / orders.js; keep in sync.
+  useEffect(() => {
+    if (!rid || !canView) return;
+    const us = onSnapshot(collection(scopedDb, 'restaurants', rid, 'tableSessions'),
+      snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; }); setSessions(m); }, () => {});
+    const ub = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'tableBills'), where('status', '==', 'open')),
+      snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; }); setBills(m); }, () => {});
+    const uo = onSnapshot(query(collection(scopedDb, 'restaurants', rid, 'orders'), orderBy('createdAt', 'desc'), limit(300)),
+      snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = { id: d.id, ...d.data() }; }); setOrdersById(m); }, () => {});
+    return () => { us(); ub(); uo(); };
+  }, [rid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(t);
   }, []);
 
   const active = useMemo(() => entries.filter(e => e.status === 'waiting' || e.status === 'notified'), [entries]);
+
+  // Free tables = no live (unpaid/active) orders AND nobody seated. Same rule
+  // the floor uses for its "blank" tiles, so the two views agree.
+  const freeTables = useMemo(() => {
+    return tables.filter(t => {
+      const code = String(t.code || '');
+      if (!code) return false;
+      const session = sessions[code];
+      const bill = session?.currentBillId ? bills[session.currentBillId] : null;
+      const fromBill = bill ? (bill.orderIds || []).map(id => ordersById[id]).filter(Boolean) : [];
+      const fromTable = Object.values(ordersById).filter(o =>
+        String(o.tableNumber || '') === code
+        && o.orderType !== 'takeaway' && o.orderType !== 'takeout'
+        && o.status !== 'cancelled'
+        && !(o.status === 'served' && PAID_SET.has(o.paymentStatus))
+      );
+      if (new Set([...fromBill.map(o => o.id), ...fromTable.map(o => o.id)]).size > 0) return false;
+      if (session?.seatedAt) return false;
+      return true;
+    }).sort((a, b) => String(a.label || a.code).localeCompare(String(b.label || b.code), undefined, { numeric: true }));
+  }, [tables, sessions, bills, ordersById]);
   const doneToday = useMemo(
     () => entries.filter(e => ['seated', 'cancelled', 'noshow'].includes(e.status) && isTodayTs(e.seatedAt || e.notifiedAt || e.createdAt))
       .sort((a, b) => tsMs(b.seatedAt || b.createdAt) - tsMs(a.seatedAt || a.createdAt)),
@@ -247,6 +288,30 @@ export default function WaitlistV2() {
           <SCard label="Guests waiting" value={stats.coversWaiting} />
           <SCard label="Seated today" value={stats.seatedToday} />
           <SCard label="Avg wait today" value={stats.avgWait ? fmtMins(stats.avgWait) : '—'} />
+        </div>
+
+        {/* Free tables — live. Shows the host where to seat a waiting party the
+            moment the floor clears a table (no orders + nobody seated). */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: '14px 18px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: freeTables.length ? 12 : 0, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>Tables free now</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: 50, background: freeTables.length ? 'rgba(63,170,99,0.16)' : 'var(--card-3)', color: freeTables.length ? 'var(--badge-green)' : 'var(--tx-3)' }}>{freeTables.length} free</span>
+          </div>
+          {freeTables.length === 0 ? (
+            <div style={{ fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--tx-3)' }}>All tables are occupied — a table appears here the moment the floor clears one.</div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {freeTables.map(t => {
+                const seats = Number(t.capacity) || Number(t.seats) || 0;
+                return (
+                  <div key={t.id} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, padding: '8px 12px', borderRadius: 10, background: 'var(--card-2)', border: '1px solid var(--line)' }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--tx)' }}>{t.label || `T${t.code}`}</span>
+                    {seats > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--tx-3)' }}>{seats} seats</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Active queue */}
