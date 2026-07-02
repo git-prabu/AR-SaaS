@@ -10,7 +10,7 @@
 // Theme tokens (var(--rail/gold/accent/…)) come from styles/order-kitchen.css.
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useRef, useEffect, useLayoutEffect } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import useOkTheme from '../../hooks/useOkTheme';
 
 // useLayoutEffect on the client (restore scroll BEFORE paint = no flicker),
@@ -138,12 +138,58 @@ const OKV_CSS = `
   .ok-root .okv-foot { flex-direction: column; }
   .ok-root .okv-toggle { width: 38px; flex: none; }
 }
+
+/* ── Phone (<700px): sidebar becomes a top bar + slide-in drawer ── */
+.ok-root .okv-topbar { display: none; }
+.ok-root .okv-drawerback { position: fixed; inset: 0; z-index: 235; background: rgba(0,0,0,0.5); }
+.ok-root .okv-menubtn {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06);
+  color: #EFEBE4; display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+}
+.ok-root .okv-menubtn svg { width: 19px; height: 19px; }
+@media (max-width: 699px) {
+  .ok-root .okv-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: 100dvh; }
+  .ok-root .okv-topbar {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 14px; background: var(--rail);
+    border-bottom: 1px solid rgba(0,0,0,0.35); flex-shrink: 0;
+  }
+  .ok-root .okv-topbar .okv-tb-brand { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
+  .ok-root .okv-topbar .okv-tb-brand strong { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #EFEBE4; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ok-root .okv-topbar .okv-tb-brand small { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.2em; color: rgba(239,235,228,0.4); margin-top: 3px; }
+  /* the rail leaves the grid and becomes a drawer */
+  .ok-root .okv-rail {
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 240;
+    width: 262px; height: 100dvh;
+    transform: translateX(-105%); transition: transform .25s var(--ease-ios);
+    box-shadow: 24px 0 60px rgba(0,0,0,0.45);
+  }
+  .ok-root .okv-rail.drawer-open { transform: translateX(0); }
+  /* inside the drawer the FULL labelled nav returns (undo the tablet collapse) */
+  .ok-root .okv-rail .okv-tx, .ok-root .okv-rail .okv-label,
+  .ok-root .okv-rail .okv-logo .okv-wordmark, .ok-root .okv-rail .okv-toggle .okv-tlbl { display: block; }
+  .ok-root .okv-rail .okv-link { justify-content: flex-start; padding: 9px 11px; }
+  .ok-root .okv-rail .okv-logo { justify-content: flex-start; padding: 16px 18px 10px; }
+  .ok-root .okv-rail .okv-foot { flex-direction: row; }
+  .ok-root .okv-rail .okv-toggle { width: auto; flex: 1; }
+}
 `;
 
 export default function OkSidebar({ brand }) {
   const router = useRouter();
   const { toggle, isLight } = useOkTheme();
   const initial = (brand || 'HH').trim()[0]?.toUpperCase() || 'H';
+
+  // Phone drawer (<700px). The rail is CSS-transformed offscreen and slides
+  // in when open; close on any navigation so tapping a link dismisses it.
+  const [drawer, setDrawer] = useState(false);
+  useEffect(() => {
+    const close = () => setDrawer(false);
+    router.events.on('routeChangeComplete', close);
+    return () => router.events.off('routeChangeComplete', close);
+  }, [router.events]);
   // Floor + Waiter both live on /admin/orders, split by the ?station query.
   const isOn = (it) => {
     const base = it.href.split('?')[0];
@@ -173,7 +219,19 @@ export default function OkSidebar({ brand }) {
   return (
     <>
       <style>{OKV_CSS}</style>
-      <aside className="okv-rail">
+      {/* Phone top bar — hidden ≥700px. ☰ opens the nav drawer. */}
+      <div className="okv-topbar">
+        <button className="okv-menubtn" onClick={() => setDrawer(true)} aria-label="Open menu" title="Menu">
+          {svg(<><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></>)}
+        </button>
+        <span className="okv-tb-brand"><strong>{brand || 'HaloHelm'}</strong><small>NEW DESIGN · V2</small></span>
+        <button className="okv-menubtn" style={{ marginLeft: 'auto' }} onClick={toggle} title={isLight ? 'Switch to dark' : 'Switch to light'} aria-label="Toggle theme">
+          <span style={{ fontSize: 15, lineHeight: 1 }}>{isLight ? '🌙' : '☀️'}</span>
+        </button>
+        <div className="okv-avatar" style={{ width: 34, height: 34, fontSize: 13 }}>{initial}</div>
+      </div>
+      {drawer && <div className="okv-drawerback" onClick={() => setDrawer(false)} />}
+      <aside className={`okv-rail${drawer ? ' drawer-open' : ''}`}>
         <Link href="/admin/index-v2" className="okv-logo" title="HaloHelm">
           <b>{initial}</b>
           <span className="okv-wordmark"><strong>HaloHelm</strong><small>NEW DESIGN · V2</small></span>

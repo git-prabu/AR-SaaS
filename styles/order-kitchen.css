@@ -763,6 +763,24 @@
   padding: 9px 15px; border-radius: 50px;
 }
 .ok-root .ws-clock svg { width: 15px; height: 15px; color: var(--accent); }
+/* OkShell's scrolling content region — gutter lives here (not inline) so the
+   phone media query below can shrink it. */
+.ok-root .ws-scroll { padding: 2px 30px 34px; }
+
+/* ── Phone (<700px): compact the workspace chrome ──────────────
+   Pairs with OkSidebar's top-bar + drawer. Applies to OkShell pages
+   AND the station pages' workspace DOM if ever shown this narrow. */
+@media (max-width: 699px) {
+  .ok-root .ws-head { padding: 14px 16px 10px; gap: 10px; flex-wrap: wrap; }
+  .ok-root .ws-h1 { font-size: 22px; }
+  .ok-root .ws-clock { display: none; } /* the phone has its own clock */
+  .ok-root .ws-scroll { padding: 2px 16px 26px; }
+  .ok-root .floor-toolbar { padding: 0 16px 12px; }
+  .ok-root .statstrip { padding: 0 16px 14px; grid-template-columns: repeat(2, 1fr); }
+  .ok-root .okv-railchips { padding: 0 16px 10px; }
+  .ok-root .floor-scroll { padding: 4px 16px 20px; }
+  .ok-root .kds-wrap { padding: 0 16px 20px; }
+}
 
 /* Floor view */
 .ok-root .floor-layout {

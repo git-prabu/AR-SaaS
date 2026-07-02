@@ -48,7 +48,9 @@ export default function OkShell({ eyebrow, title, brand, headRight, scroll = tru
           </div>
 
           {scroll === false ? children : (
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '2px 30px 34px' }}>
+            /* gutter comes from .ws-scroll CSS so the phone media query can
+               shrink it (30px desktop → 16px <700) */
+            <div className="ws-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               {children}
             </div>
           )}
