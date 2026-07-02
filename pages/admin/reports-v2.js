@@ -372,7 +372,7 @@ export default function ReportsV2() {
   // ── Shared dark style bits ──
   const cardStyle = { background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, marginBottom: 14 };
   const secTitle = { fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--tx)', letterSpacing: '-0.01em' };
-  const labelSm = { fontFamily: 'var(--font-mono)', fontSize: 9.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--tx-3)' };
+  const labelSm = { fontFamily: 'var(--font-body)', fontSize: 9.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--tx-3)' };
   const ghostBtn = { padding: '7px 14px', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600, color: 'var(--tx)', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 9, cursor: 'pointer' };
 
   return (
@@ -433,10 +433,9 @@ export default function ReportsV2() {
             {/* Money summary */}
             <div style={{ ...cardStyle, padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>Money summary</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>Money summary</span>
                 <div style={{ flex: 1, height: 1, background: 'var(--line-soft)' }} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)' }}>{orderCount} order{orderCount === 1 ? '' : 's'}</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--tx-3)' }}>{orderCount} order{orderCount === 1 ? '' : 's'}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                 <KpiCard label="Gross revenue" valueEl={<CountUp end={gross} duration={1.2} separator="," prefix="₹" preserveValue />} color="var(--gold)" delta={gDelta} sub={period === 'all' ? 'all-time total' : 'vs previous period'} />
@@ -463,7 +462,7 @@ export default function ReportsV2() {
                   { label: 'Total GST', value: gstSummary.totalTax, accent: true },
                 ].map(t => (
                   <div key={t.label} style={{ padding: '14px 16px', borderRadius: 12, background: t.accent ? 'rgba(196,168,109,0.10)' : 'var(--card-2)', border: t.accent ? '1px solid rgba(196,168,109,0.30)' : '1px solid var(--line)' }}>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 8 }}>{t.label}</div>
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 8 }}>{t.label}</div>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: t.accent ? 'var(--gold)' : 'var(--tx)', letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{formatRupee(t.value)}</div>
                   </div>
                 ))}
@@ -644,7 +643,7 @@ export default function ReportsV2() {
                           <div style={{ height: 5, background: 'rgba(128,128,128,0.16)', borderRadius: 3, overflow: 'hidden' }}>
                             <div style={{ height: '100%', background: 'var(--gold)', width: `${(item.revenue / maxRev) * 100}%`, transition: 'width 0.4s' }} />
                           </div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--tx-3)', marginTop: 3 }}>{item.qty} sold</div>
+                          <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--tx-3)', marginTop: 3 }}>{item.qty} sold</div>
                         </div>
                       );
                     })}
@@ -703,11 +702,11 @@ export default function ReportsV2() {
                       const methodLabel = { cash: 'Cash', upi: 'UPI', card: 'Card', other: 'Paid', unpaid: 'Unpaid' }[m] || m;
                       return (
                         <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '70px 90px 1fr 90px 130px 100px', minWidth: 600, gap: 12, alignItems: 'center', padding: '10px 4px', borderBottom: '1px solid var(--line)', fontVariantNumeric: 'tabular-nums' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)' }}>{orderLabel(o)}</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--tx-3)' }}>{orderLabel(o)}</span>
                           <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--tx-2)' }}>{cleanTable(o.tableNumber) ? `Table ${cleanTable(o.tableNumber)}` : '—'}</span>
                           <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{itemSummary || '—'}{extra} <span style={{ color: 'var(--tx-3)' }}>· {itemCount} item{itemCount === 1 ? '' : 's'}</span></span>
                           <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: isUnpaid ? D.danger : 'var(--tx-2)' }}>{methodLabel}</span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)' }}>{d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, {d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--tx-3)' }}>{d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, {d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
                           <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: isUnpaid ? D.danger : 'var(--tx)', textAlign: 'right' }}>{formatRupee(o.total)}</span>
                         </div>
                       );
@@ -727,7 +726,7 @@ export default function ReportsV2() {
 function KpiCard({ label, valueEl, color, delta, sub, subColor }) {
   return (
     <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-2)', border: '1px solid var(--line)' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 8 }}>{label}</div>
+      <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--tx-3)', marginBottom: 8 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 28 }}>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 24, color, letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{valueEl}</span>
         {delta !== undefined && delta !== 0 && (

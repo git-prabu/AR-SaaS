@@ -295,7 +295,6 @@ export default function PaymentsV2() {
         <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 18px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', animation: 'ok-pulse 2s ease infinite' }} />
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>Live payments</span>
             </div>
             <div style={{ width: 1, height: 28, background: 'var(--line-soft)', flexShrink: 0 }} />
@@ -336,7 +335,6 @@ export default function PaymentsV2() {
         {unmatched.length > 0 && (
           <div style={{ background: 'rgba(196,168,109,0.08)', border: '1.5px solid rgba(196,168,109,0.40)', borderRadius: 14, padding: 18, marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gold)', animation: 'ok-pulse 2s ease infinite' }} />
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--gold)' }}>{unmatched.length} payment{unmatched.length === 1 ? '' : 's'} need{unmatched.length === 1 ? 's' : ''} matching</div>
             </div>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--tx-2)', lineHeight: 1.5, marginBottom: 14 }}>These UPI payments arrived but couldn't be auto-matched to a single order. Pick the right order for each one to confirm it.</div>

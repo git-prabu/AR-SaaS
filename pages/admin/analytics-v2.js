@@ -959,7 +959,6 @@ export default function AnalyticsV2() {
               boxShadow: '0 4px 16px rgba(120,120,120,0.15)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#C4A86D', animation: 'pulse 2s ease infinite', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
                 <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>LIVE TODAY</span>
                 <div style={{ flex: 1, height: 1, background: 'rgba(234,231,227,0.08)' }} />
                 <span style={{ fontFamily: A.font, fontSize: 11, color: A.forestTextMuted, fontWeight: 500 }}>{todayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -1000,7 +999,6 @@ export default function AnalyticsV2() {
           }}>
             {/* Header row — gold dot + label + thin rule + 'vs previous period' meta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: A.warning, boxShadow: '0 0 6px rgba(196,168,109,0.35)' }} />
               <span style={{ fontFamily: A.font, fontSize: 12, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: A.warning }}>{bounds.labelLong.toUpperCase()}</span>
               <div style={{ flex: 1, height: 1, background: 'rgba(196,168,109,0.20)' }} />
               <span style={{ fontFamily: A.font, fontSize: 11, color: A.mutedText, fontWeight: 500 }}>vs previous period</span>

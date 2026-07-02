@@ -192,7 +192,6 @@ export default function FeedbackV2() {
         {/* Stat card */}
         <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: '20px 24px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 8px rgba(196,168,109,0.6)' }} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--gold)' }}>Feedback</span>
             <div style={{ flex: 1, height: 1, background: 'var(--line-soft)' }} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)' }}>All-time · {stats.total} review{stats.total === 1 ? '' : 's'}</span>
@@ -218,7 +217,6 @@ export default function FeedbackV2() {
         <div style={{ display: 'grid', gridTemplateColumns: lowRatedDishes.length > 0 ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr', gap: 14, marginBottom: 14 }}>
           <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: '18px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--gold)' }} />
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--gold)' }}>Rating breakdown</span>
             </div>
             {stats.total === 0 ? (
@@ -248,7 +246,6 @@ export default function FeedbackV2() {
           {lowRatedDishes.length > 0 && (
             <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: '18px 22px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--danger)' }} />
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--danger)' }}>Needs attention</span>
                 <div style={{ flex: 1, height: 1, background: 'var(--line-soft)' }} />
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)' }}>{lowRatedDishes.length} dish{lowRatedDishes.length === 1 ? '' : 'es'}</span>

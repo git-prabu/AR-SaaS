@@ -290,7 +290,6 @@ export default function RequestsV2() {
         {/* Stat card */}
         <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: '20px 24px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--gold)', animation: 'ok-pulse 2s ease infinite' }} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--gold)' }}>Menu items</span>
             <div style={{ flex: 1, height: 1, background: 'var(--line-soft)' }} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)' }}>{itemsUsed} of {formatCap(maxItems)} used</span>

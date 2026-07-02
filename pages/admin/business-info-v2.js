@@ -186,7 +186,6 @@ export default function BusinessInfoV2() {
           {/* Billing setup stat card */}
           <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: '20px 24px', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--gold)', animation: 'ok-pulse 2s ease infinite' }} />
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--gold)' }}>Billing setup</span>
               <div style={{ flex: 1, height: 1, background: 'var(--line-soft)' }} />
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--tx-3)' }}>{loading ? 'Loading…' : 'Live · applies to all new bills'}</span>
@@ -373,7 +372,6 @@ export default function BusinessInfoV2() {
         {/* Sticky unsaved bar */}
         {isDirty && !loading && (
           <div style={{ position: 'fixed', bottom: 0, left: 224, right: 0, zIndex: 120, background: 'var(--surface)', borderTop: '1px solid var(--line)', boxShadow: '0 -8px 24px rgba(0,0,0,0.4)', padding: '12px 28px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }} className="biz-savebar">
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gold)', animation: 'ok-pulse 1.5s ease infinite' }} />
             <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--tx)' }}>Unsaved changes</span>
             <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--tx-3)' }}>Save your changes to apply them to the next customer bills.</span>
             <span style={{ flex: 1 }} />

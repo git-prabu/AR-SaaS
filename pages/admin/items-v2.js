@@ -1181,7 +1181,6 @@ export default function ItemsV2() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: A.warning, animation: 'pulse 2s ease infinite', boxShadow: '0 0 6px rgba(196,168,109,0.6)' }} />
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: A.warning }}>DISHES</span>
               </div>
               <div style={{ width: 1, height: 28, background: 'rgba(234,231,227,0.10)', flexShrink: 0 }} />
@@ -2350,7 +2349,7 @@ function EmptyCard({ titleText, subtitleText }) {
   return (
     <div style={{ background: 'var(--card)', borderRadius: 14, border: '1px solid var(--line)', padding: '64px 32px', textAlign: 'center' }}>
       <div style={{ display: 'inline-flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#C4A86D', opacity: 0.8, animation: 'pulse 1.8s infinite' }} />
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#C4A86D', opacity: 0.8 }} />
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--line)' }} />
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--card-3)' }} />
       </div>

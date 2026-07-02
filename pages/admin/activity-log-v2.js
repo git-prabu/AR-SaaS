@@ -405,7 +405,7 @@ export default function ActivityLogV2() {
   const headRight = (
     <>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 'var(--r-pill)', background: 'rgba(63,170,99,0.12)', border: '1px solid rgba(63,170,99,0.28)' }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', animation: 'ok-dotpulse 1.6s infinite' }} />
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }} />
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--success)' }}>LIVE</span>
       </span>
       <button onClick={() => { setSoundEnabled(v => !v); unlockSound(); }} title={soundEnabled ? 'Sound on — tap to mute' : 'Muted — tap to enable'}
